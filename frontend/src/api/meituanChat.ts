@@ -10,6 +10,8 @@
  * - error: 错误消息
  */
 
+import { buildApiUrl } from '@/config/api.config';
+
 /**
  * 游客画像数据（传给后端）
  */
@@ -277,7 +279,7 @@ export function sendMeituanMessageStream(
 
   // 使用 fetch 直接调用以支持 SSE
   // Vite 配置中 /api 会被代理到 http://localhost:8002
-  fetch('/api/meituan/chat/stream', {
+  fetch(buildApiUrl('/meituan/chat/stream'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

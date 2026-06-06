@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const client = axios.create({ baseURL: '/api' });
+import client from './client';
 
 export interface DistrictNode {
   name: string;

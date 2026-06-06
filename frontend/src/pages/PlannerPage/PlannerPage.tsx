@@ -32,6 +32,7 @@ import FeatureGuide from '@/components/FeatureGuide';
 import routeHistoryService, { type RouteHistory } from '@/services/routeHistory';
 import { FALLBACK_HOME_LOCATION, FALLBACK_HOME_ADDRESS } from '@/utils/locationDefaults';
 import axios from 'axios';
+import { buildApiUrl } from '@/config/api.config';
 import styles from './PlannerPage.module.css';
 
 const PlannerPage: React.FC = () => {
@@ -231,7 +232,7 @@ const PlannerPage: React.FC = () => {
               // 逆地理编码获取真实地址名（只改 label，不改坐标）
               let addressName = '设备当前位置';
               try {
-                const res = await axios.get(`/api/address/reverse-geocode?lng=${longitude}&lat=${latitude}`);
+                const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${longitude}&lat=${latitude}`));
                 if (res.data?.data?.address) {
                   addressName = res.data.data.address;
                 }

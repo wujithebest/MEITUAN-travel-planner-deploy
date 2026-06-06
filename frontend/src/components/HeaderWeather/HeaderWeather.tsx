@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Cloud, Sun, CloudRain, Loader, Droplets, Wind } from 'lucide-react';
+import { buildApiUrl } from '@/config/api.config';
 import styles from './HeaderWeather.module.css';
+
+const DEFAULT_WEATHER_LOCATION = {
+  lat: 31.2304,
+  lng: 121.4737,
+};
 
 interface WeatherData {
   city: string;
@@ -33,7 +39,7 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
 
     const fetchWeatherByCoords = async (lat: number, lng: number) => {
       try {
-        const response = await fetch(`/api/weather/location?lat=${lat}&lng=${lng}`);
+        const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
         const result = await response.json();
         if (result.success && result.data && !cancelled) {
           setWeather({
@@ -59,21 +65,29 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
 
     const fetchShanghaiFallback = async () => {
       try {
-        const response = await fetch('/api/weather/current');
+        const { lat, lng } = DEFAULT_WEATHER_LOCATION;
+        const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
         const result = await response.json();
+
         if (result.success && result.data && !cancelled) {
           setWeather({
-            city: '上海',
-            temperature: result.data.temp ?? 25,
-            condition: result.data.text ?? '晴',
+            city: result.data.city || '上海',
+            temperature: result.data.temperature ?? 25,
+            condition: result.data.weather ?? '晴',
             humidity: result.data.humidity,
             winddirection: result.data.winddirection,
             windpower: result.data.windpower,
+            reporttime: result.data.reporttime,
           });
+          setIsLocated(false);
           setError(false);
+          setLoading(false);
           return;
         }
-      } catch {}
+      } catch (err) {
+        console.error('默认天气获取失败:', err);
+      }
+
       if (!cancelled) {
         setWeather({ city: '上海', temperature: '', condition: '' });
         setError(true);

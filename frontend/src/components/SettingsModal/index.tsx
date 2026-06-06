@@ -5,6 +5,7 @@ import { useUserStore } from '../../store/userStore';
 import { userApi } from '../../api/user';
 import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION, makeDeviceHomeAddress, makeLocationPayload } from '@/utils/locationDefaults';
 import axios from 'axios';
+import { buildApiUrl } from '@/config/api.config';
 import styles from './SettingsModal.module.css';
 
 interface AddressOption {
@@ -181,7 +182,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       // 使用相对路径，通过 Vite 代理转发到后端
       // 注意：不使用 baseURL: ''，直接用相对路径让 axios 使用默认 baseURL（空字符串）
       // Vite 代理会将 /api/* 请求转发到 http://localhost:8002
-      const response = await axios.get(`/api/address/search?${params.toString()}`);
+      const response = await axios.get(buildApiUrl(`/address/search?${params.toString()}`));
       
       console.log('[AddressSearch] API响应:', response.data);
       

@@ -1,9 +1,5 @@
-import axios from 'axios';
 import { message } from 'antd';
-
-const client = axios.create({
-  baseURL: '/api',
-});
+import client from './client';
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');

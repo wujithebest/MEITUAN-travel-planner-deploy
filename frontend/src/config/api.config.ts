@@ -51,3 +51,29 @@ export const API_CONFIG = {
 };
 
 console.log('[API Config] 当前配置:', API_CONFIG);
+
+/**
+ * 构建完整的 API URL，避免在 Vercel 生产环境出现相对路径请求。
+ *
+ * 规则：
+ * - 如果 VITE_API_BASE_URL 已以 /api 结尾（如 Render 回调），则：
+ *   buildApiUrl('/route/generate') → https://<host>/api/route/generate
+ *   buildApiUrl('/api/meituan/chat/stream') → https://<host>/api/meituan/chat/stream
+ * - 如果 VITE_API_BASE_URL 不以 /api 结尾（如 http://localhost:8002），则自动追加 /api。
+ * - 避免 /api/api 重复。
+ */
+export function buildApiUrl(path: string): string {
+  const base = API_CONFIG.BASE_URL.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  if (normalizedPath.startsWith('/api/')) {
+    const pathWithoutApi = normalizedPath.slice(4); // 去掉 '/api' 前缀
+    return base.endsWith('/api')
+      ? `${base}${pathWithoutApi}`
+      : `${base}${normalizedPath}`;
+  }
+
+  return base.endsWith('/api')
+    ? `${base}${normalizedPath}`
+    : `${base}/api${normalizedPath}`;
+}
