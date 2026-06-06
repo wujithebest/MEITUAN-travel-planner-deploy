@@ -1,0 +1,303 @@
+/**
+ * 响应状态组件样式
+ */
+
+/* ==================== 主状态组件 ==================== */
+
+.response-status {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-left: 4px solid #FFD100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.response-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.response-status-icon {
+  font-size: 18px;
+}
+
+.response-status-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.response-status-time {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8c8c8c;
+  background: #f5f5f5;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.response-status-message {
+  font-size: 14px;
+  color: #595959;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.response-status-trace {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.trace-label {
+  font-weight: 500;
+}
+
+.trace-id {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: #595959;
+}
+
+.response-status-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.status-action-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.status-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.retry-btn {
+  background: #FFD100;
+  color: #333;
+}
+
+.retry-btn:hover {
+  background: #FFE033;
+}
+
+.clarify-btn {
+  background: #722ed1;
+  color: #fff;
+}
+
+.clarify-btn:hover {
+  background: #9254de;
+}
+
+/* ==================== 加载动画 ==================== */
+
+.response-status-loading {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FFD100;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* ==================== 处理中指示器 ==================== */
+
+.processing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f0f5ff;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.processing-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #FFD100;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.processing-message {
+  font-size: 14px;
+  color: #CC9900;
+  font-weight: 500;
+}
+
+/* ==================== 错误提示 ==================== */
+
+.error-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.error-alert-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.error-alert-content {
+  flex: 1;
+}
+
+.error-alert-message {
+  font-size: 14px;
+  color: #cf1322;
+  line-height: 1.5;
+}
+
+.error-alert-trace {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-top: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.error-alert-retry {
+  padding: 6px 16px;
+  background: #ff4d4f;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.error-alert-retry:hover {
+  background: #ff7875;
+}
+
+/* ==================== 响应式适配 ==================== */
+
+@media (max-width: 768px) {
+  .response-status {
+    padding: 10px 12px;
+  }
+  
+  .response-status-header {
+    flex-wrap: wrap;
+  }
+  
+  .response-status-time {
+    margin-left: 0;
+    margin-top: 4px;
+  }
+  
+  .response-status-actions {
+    flex-wrap: wrap;
+  }
+  
+  .status-action-btn {
+    flex: 1;
+    text-align: center;
+  }
+  
+  .error-alert {
+    flex-direction: column;
+  }
+  
+  .error-alert-retry {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* ==================== 深色模式支持 ==================== */
+
+@media (prefers-color-scheme: dark) {
+  .response-status {
+    background: #1f1f1f;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .response-status-message {
+    color: #d9d9d9;
+  }
+  
+  .response-status-trace {
+    background: #262626;
+    color: #8c8c8c;
+  }
+  
+  .trace-id {
+    color: #bfbfbf;
+  }
+  
+  .processing-indicator {
+    background: #141414;
+  }
+  
+  .error-alert {
+    background: #2a1215;
+    border-color: #58181c;
+  }
+}

@@ -1,0 +1,79 @@
+.authBtn {
+  font-weight: 500;
+}
+
+.userMenuTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.userMenuTrigger:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.avatarSmall {
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.usernameSmall {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown {
+  min-width: 280px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.avatar {
+  border: 2px solid #f0f0f0;
+}
+
+.userDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.username {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.email {
+  font-size: 12px;
+  color: #999;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .usernameSmall {
+    display: none;
+  }
+  
+  .userMenuTrigger {
+    padding: 4px;
+  }
+  
+  .dropdown {
+    min-width: 240px;
+  }
+}

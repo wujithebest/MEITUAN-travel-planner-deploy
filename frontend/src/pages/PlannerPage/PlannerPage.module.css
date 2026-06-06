@@ -1,0 +1,492 @@
+/* PlannerPage Styles - 本地生活路线规划 */
+
+.container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header 顶部导航栏 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 64px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  position: relative;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.headerLeft h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.headerCenter {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 日记按钮 */
+.diaryBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #FFD100;
+  border-radius: 4px;
+  background: transparent;
+  color: #CC9900;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.diaryBtn:hover {
+  color: #333;
+  background: #FFD100;
+  border-color: #FFD100;
+}
+
+.diaryBtnDisabled,
+.diaryBtnDisabled:hover {
+  color: #b38a00;
+  background: transparent;
+  border-color: #e6c34a;
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.diaryBtnDisabled * {
+  pointer-events: none;
+}
+
+/* 功能指引按钮 */
+.guideBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #FFD100;
+  border-radius: 4px;
+  background: #FFD100;
+  color: #333;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.guideBtn:hover {
+  background: #FFC300;
+  border-color: #FFC300;
+}
+
+/* 用户菜单触发区 */
+.userMenu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  user-select: none;
+}
+
+.userMenu:hover {
+  background: #f5f5f5;
+}
+
+.username {
+  font-size: 14px;
+  color: #333;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: #999;
+  transition: transform 0.2s;
+}
+
+.userMenu:hover .chevron {
+  transform: rotate(180deg);
+}
+
+/* 下拉菜单浮层 */
+.dropdown {
+  position: absolute;
+  top: 64px;
+  right: 24px;
+  width: 240px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+  animation: dropdownIn 0.2s ease;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fafafa;
+}
+
+.dropdownUserInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.dropdownUsername {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.dropdownEmail {
+  font-size: 12px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdownDivider {
+  height: 1px;
+  background: #f0f0f0;
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdownItem:hover {
+  background: #fafafa;
+}
+
+.dropdownItem svg {
+  color: #666;
+}
+
+.dropdownItemDanger {
+  color: #ff4d4f;
+}
+
+.dropdownItemDanger:hover {
+  background: #fff2f0;
+}
+
+.dropdownItemDanger svg {
+  color: #ff4d4f;
+}
+
+/* 下拉菜单外部遮罩 */
+.dropdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}
+
+/* Main Content */
+.mainContent {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Left Panel - AI Travel Assistant (美团黄背景) */
+.leftPanel {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #FFD100 0%, #FFC300 100%);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* 折叠状态 - 禁用折叠 */
+.leftPanel.collapsed {
+  width: 320px;
+  min-width: 320px;
+}
+
+/* 天数高亮指示器 */
+.dayIndicator {
+  position: absolute;
+  right: 20px;
+  top: 80px;
+  background: rgba(255, 209, 0, 0.9);
+  padding: 8px 16px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  animation: fadeIn 0.3s ease;
+}
+
+.dayIndicatorText {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 折叠按钮 - 隐藏 */
+.collapseBtn {
+  display: none;
+}
+
+/* 折叠时显示的图标 - 隐藏 */
+.collapsedIcon {
+  display: none;
+}
+
+/* Map Wrapper */
+.mapWrapper {
+  flex: 1;
+  position: relative;
+  height: calc(100vh - 64px);
+  min-height: 500px;
+  overflow: hidden;
+}
+
+/* 右侧行程锚点 — 始终存在，用于功能指引定位 */
+.rightGuideAnchor {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  width: 340px;
+  height: calc(100vh - 64px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Route Replan Loading Bar — 路线重算加载提示 */
+.routeLoadingBar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.routeLoadingSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #FFD100;
+  border-radius: 50%;
+  animation: routeSpin 0.8s linear infinite;
+}
+
+@keyframes routeSpin {
+  to { transform: rotate(360deg); }
+}
+
+.routeLoadingText {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Input Overlay - 地图上方输入框 - 隐藏 */
+.inputOverlay {
+  display: none;
+}
+
+.inputContainer {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.travelInput {
+  flex: 1;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  font-size: 14px;
+  resize: none;
+}
+
+.travelInput:focus {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.submitBtn {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Map Container - 高德地图容器 */
+.mapContainer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Timeline Container - 隐藏 */
+.timelineContainer {
+  display: none;
+}
+
+/* Enroute Panel - 隐藏 */
+.enroutePanel {
+  display: none;
+}
+
+/* Floating Actions - 隐藏 */
+.floatingActions {
+  display: none;
+}
+
+/* Map Section (Legacy) */
+.mapSection {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+}
+
+.mapSection > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* 下拉菜单退出登录红色警示样式覆盖 */
+:global(.ant-dropdown-menu-item-danger) {
+  color: #ff4d4f !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .leftPanel {
+    width: 300px;
+    min-width: 300px;
+  }
+  
+  .leftPanel.collapsed {
+    width: 300px;
+    min-width: 300px;
+  }
+  
+  .timelineContainer {
+    min-width: 280px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+  }
+  
+  .mapSection {
+    min-height: 400px;
+  }
+  
+  .headerCenter {
+    padding: 0 12px;
+  }
+}

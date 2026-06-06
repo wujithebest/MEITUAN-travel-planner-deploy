@@ -1,0 +1,412 @@
+/* POI 弹窗样式 */
+
+/* 弹窗容器 - 高德 InfoWindow 自定义样式 */
+.poiPopup {
+  width: 320px;
+  padding: 0;
+  background: transparent;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 300ms ease, opacity 300ms ease;
+}
+
+.removing {
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+/* 白色卡片主体 */
+.card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+/* 顶部行：编号 + 名称 + 收藏 */
+.header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 10px;
+}
+
+.indexCircle {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  background: #FFD600;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+}
+
+.nameContainer {
+  flex: 1;
+  min-width: 0;
+}
+
+.nameEn {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameCn {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 收藏按钮 */
+.favoriteBtn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.favoriteBtn:hover {
+  transform: scale(1.1);
+}
+
+.favoriteBtn:active {
+  transform: scale(0.95);
+}
+
+.heartIcon {
+  font-size: 20px;
+  color: #ddd;
+  transition: color 0.2s ease;
+}
+
+.heartIcon.favorited {
+  color: #ff4d4f;
+}
+
+.iconBtn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 6px;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.iconBtn:hover,
+.favoriteBtn:hover {
+  transform: scale(1.1);
+}
+
+.iconBtn:active {
+  transform: scale(0.95);
+}
+
+.iconBtnActiveBlue {
+  color: #3B82F6;
+  border-color: #93C5FD;
+  background: #EFF6FF;
+}
+
+/* 图片区域 */
+.imageContainer {
+  padding: 0 12px;
+}
+
+.image {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.noImage {
+  width: 100%;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 12px;
+  color: #bbb;
+  font-size: 14px;
+}
+
+/* 评分行 */
+.ratingRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px 4px;
+  gap: 6px;
+}
+
+.starIcon {
+  color: #FFD600;
+  font-size: 16px;
+}
+
+.ratingScore {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+}
+
+.ratingCount {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 排名 */
+.ranking {
+  padding: 0 16px 10px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* 信息行 */
+.infoSection {
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.infoRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.infoIcon {
+  font-size: 14px;
+  color: #999;
+  min-width: 18px;
+  text-align: center;
+  padding-top: 1px;
+}
+
+.infoText {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.4;
+  flex: 1;
+}
+
+/* 标签行 */
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+/* 标签基础样式 */
+.tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* UNESCO 标签 - 绿色 */
+.tagUnesco {
+  background: #E6F7E6;
+  color: #52C41A;
+}
+
+/* Must Visit 标签 - 黄色 */
+.tagMustVisit {
+  background: #FFF3CD;
+  color: #D4A800;
+}
+
+/* 通用标签 */
+.tagDefault {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.alternativePool {
+  height: 160px;
+  border-top: 1px solid #BFDBFE;
+  background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%);
+  padding: 10px 12px;
+}
+
+.alternativeScroller {
+  display: flex;
+  gap: 10px;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #93C5FD transparent;
+}
+
+.alternativeCard {
+  width: 132px;
+  min-width: 132px;
+  height: 138px;
+  border: 1px solid #3B82F6;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.14);
+}
+
+.alternativeImage {
+  width: 100%;
+  height: 58px;
+  object-fit: cover;
+  display: block;
+}
+
+.alternativeBody {
+  padding: 7px 8px 8px;
+}
+
+.alternativeName {
+  color: #1D4ED8;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alternativeMeta {
+  color: #3B82F6;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.alternativeActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.alternativeActionBtn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #93C5FD;
+  border-radius: 6px;
+  background: #EFF6FF;
+  color: #3B82F6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.alternativeActionBtn:hover {
+  transform: scale(1.1);
+  background: #DBEAFE;
+}
+
+.alternativeEmpty {
+  height: 100%;
+  color: #2563EB;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 关闭按钮覆盖 - 高德 InfoWindow 默认关闭按钮 */
+:global(.amap-info-close) {
+  top: 12px !important;
+  right: 12px !important;
+  font-size: 16px !important;
+  color: #999 !important;
+}
+
+/* InfoWindow 内容区域覆盖 */
+:global(.amap-info-content) {
+  padding: 0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden !important;
+}
+
+/* InfoWindow 底部尖角覆盖 */
+:global(.amap-info-sharp) {
+  background: white !important;
+}
+
+/* v6: 蓝色候选主题 */
+.blueTheme .indexCircle {
+  background: #3B82F6;
+  color: #fff;
+}
+
+.blueIndexCircle {
+  background: #3B82F6 !important;
+  color: #fff !important;
+}
+
+.blueTheme .starIcon {
+  color: #3B82F6;
+}
+
+.blueTheme .tagDefault {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+
+.blueTheme .alternativePool {
+  border-top: 1px solid #BFDBFE;
+  background: linear-gradient(180deg, #EFF6FF 0%, #DBEAFE 100%);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .poiPopup {
+    width: 280px;
+  }
+
+  .nameEn {
+    font-size: 14px;
+  }
+
+  .nameCn {
+    font-size: 11px;
+  }
+
+  .image {
+    height: 140px;
+  }
+
+  .ratingScore {
+    font-size: 14px;
+  }
+
+  .infoText {
+    font-size: 13px;
+  }
+}

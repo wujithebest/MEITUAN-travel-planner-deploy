@@ -1,0 +1,593 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 左侧品牌区域 */
+.brandSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+}
+
+.brandContent {
+  text-align: center;
+  max-width: 400px;
+}
+
+.logo {
+  font-size: 80px;
+  margin-bottom: 24px;
+}
+
+.brandTitle {
+  color: #1a1a2e !important;
+  margin-bottom: 12px !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+}
+
+.slogan {
+  display: block;
+  font-size: 18px;
+  color: #4a5568;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.benefit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  color: #2d3748;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.benefit:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateX(8px);
+}
+
+.benefitIcon {
+  font-size: 24px;
+}
+
+/* 右侧表单区域 */
+.formSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: #f7fafc;
+}
+
+.formCard {
+  width: 100%;
+  max-width: 640px;
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.steps {
+  margin-bottom: 32px;
+}
+
+.stepContent {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stepHeader {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.stepTitle {
+  color: #1a1a2e !important;
+  margin-bottom: 8px !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+}
+
+.stepSubtitle {
+  color: #718096;
+  font-size: 14px;
+}
+
+.stepBody {
+  margin-bottom: 24px;
+}
+
+.form {
+  width: 100%;
+}
+
+.inputIcon {
+  color: #a0aec0;
+}
+
+.input {
+  border-radius: 8px !important;
+  border: 2px solid #e2e8f0 !important;
+  transition: all 0.3s ease !important;
+}
+
+.input:hover {
+  border-color: #FFD100 !important;
+}
+
+.input:focus,
+.input:focus-within {
+  border-color: #FFD100 !important;
+  box-shadow: 0 0 0 3px rgba(255, 209, 0, 0.1) !important;
+}
+
+.selectField {
+  width: 100%;
+}
+
+.selectField :global(.ant-select-selector) {
+  border-radius: 8px !important;
+  border: 2px solid #e2e8f0 !important;
+}
+
+.selectField :global(.ant-select-selector):hover {
+  border-color: #FFD100 !important;
+}
+
+.errorMessage {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #ff4d4f;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.submitBtn {
+  height: 48px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  background: #FFD100 !important;
+  border: none !important;
+  transition: all 0.3s ease !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+  color: #333 !important;
+}
+
+.submitBtn:hover {
+  background: #FFE033 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 209, 0, 0.3) !important;
+}
+
+.submitBtn:active {
+  transform: translateY(0);
+}
+
+.loginLink {
+  text-align: center;
+  color: #718096;
+  font-size: 14px;
+}
+
+.link {
+  color: #CC9900;
+  font-weight: 600;
+  margin-left: 4px;
+  transition: color 0.3s ease;
+}
+
+.link:hover {
+  color: #FFE033;
+}
+
+/* 字段组 */
+.fieldGroup {
+  margin-bottom: 20px;
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.ageHint {
+  display: block;
+  margin-top: 8px;
+  color: #1677ff;
+  font-size: 13px;
+}
+
+/* 旅行偏好 */
+.preferences {
+  margin-bottom: 16px;
+}
+
+.prefCard {
+  text-align: center;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer;
+}
+
+.prefCard:hover {
+  border-color: #FFD100 !important;
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(255, 209, 0, 0.15) !important;
+}
+
+.prefCardSelected {
+  border-color: #FFD100 !important;
+  background: linear-gradient(135deg, #FFFDF0 0%, #FFF3CD 100%) !important;
+}
+
+.prefContent {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.prefIcon {
+  font-size: 36px;
+}
+
+.prefLabel {
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.prefCheck {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  color: #52c41a;
+  background: white;
+  border-radius: 50%;
+}
+
+.selectedCount {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #718096;
+  font-size: 14px;
+}
+
+/* 口味偏好 */
+.tasteGrid {
+  margin-bottom: 16px;
+}
+
+.tasteGroup {
+  width: 100%;
+}
+
+.tasteGroup :global(.ant-radio-group) {
+  width: 100%;
+}
+
+.tasteBtn {
+  width: 100%;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px !important;
+  border: 2px solid #e2e8f0 !important;
+  transition: all 0.3s ease !important;
+  padding: 0 12px !important;
+}
+
+.tasteBtn:hover {
+  border-color: #FFD100 !important;
+}
+
+.tasteBtnActive {
+  border-color: #FFD100 !important;
+  background: linear-gradient(135deg, #FFFDF0 0%, #FFF3CD 100%) !important;
+}
+
+.tasteBtn :global(.ant-radio-button) {
+  border: none !important;
+  background: none !important;
+}
+
+.tasteBtn::before {
+  display: none !important;
+}
+
+.tasteIcon {
+  font-size: 20px;
+}
+
+.tasteLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.tasteHint {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 8px 16px;
+  background: #f6ffed;
+  border-radius: 8px;
+}
+
+/* 地址级联 */
+.cascadeRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cascadeItem {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 地址搜索 */
+.searchRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.searchRow .input {
+  flex: 1;
+}
+
+.searchBtn {
+  height: 40px !important;
+  border-radius: 8px !important;
+  background: #1677ff !important;
+  border: none !important;
+}
+
+.locateBtn {
+  height: 40px !important;
+  border-radius: 8px !important;
+  white-space: nowrap;
+}
+
+.addressResults {
+  margin-top: 8px;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.addressResultItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.addressResultItem:last-child {
+  border-bottom: none;
+}
+
+.addressResultItem:hover {
+  background: #fafafa;
+}
+
+.resultIcon {
+  color: #1677ff;
+  flex-shrink: 0;
+}
+
+.resultText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.resultAddr {
+  font-size: 12px;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedAddress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #f6ffed;
+  border-radius: 8px;
+  border: 1px solid #b7eb8f;
+}
+
+/* 步骤操作按钮 */
+.stepActions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.backBtn {
+  height: 48px !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 成功页面 */
+.successContent {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.successIcon {
+  margin-bottom: 24px;
+  animation: bounceIn 0.6s ease;
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.successTitle {
+  color: #52c41a !important;
+  margin-bottom: 16px !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+}
+
+.successText {
+  display: block;
+  color: #4a5568;
+  font-size: 16px;
+  line-height: 1.8;
+  margin-bottom: 32px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .brandSection {
+    padding: 32px 20px;
+  }
+
+  .formSection {
+    padding: 32px 20px;
+  }
+
+  .brandTitle {
+    font-size: 28px !important;
+  }
+
+  .slogan {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .brandSection {
+    display: none;
+  }
+
+  .formSection {
+    padding: 20px;
+  }
+
+  .formCard {
+    padding: 24px;
+    box-shadow: none;
+    border-radius: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .stepTitle {
+    font-size: 20px !important;
+  }
+
+  .benefits {
+    display: none;
+  }
+
+  .cascadeRow {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .searchRow {
+    flex-wrap: wrap;
+  }
+
+  .searchRow .input {
+    width: 100%;
+    flex: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .formCard {
+    padding: 20px 16px;
+  }
+
+  .stepActions {
+    flex-direction: column;
+  }
+
+  .submitBtn,
+  .backBtn {
+    height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  .prefIcon {
+    font-size: 28px;
+  }
+
+  .prefLabel {
+    font-size: 12px;
+  }
+}

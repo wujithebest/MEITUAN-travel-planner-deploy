@@ -1,0 +1,34 @@
+.container {
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+.container.severe {
+  border-color: #f5222d;
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { background: #fff; }
+  50% { background: #fff1f0; }
+}
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.icon { font-size: 20px; }
+.date { font-weight: 500; flex: 1; }
+.temp { color: #CC9900; font-weight: 500; }
+.tip { color: #666; font-size: 12px; }
+.warning {
+  padding: 6px 12px;
+  background: #fff1f0;
+  color: #f5222d;
+  font-size: 12px;
+  border-top: 1px solid #ffccc7;
+}

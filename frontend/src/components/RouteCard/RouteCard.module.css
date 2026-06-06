@@ -1,0 +1,134 @@
+.routeCard {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  width: 320px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #FFD100 0%, #E6BC00 100%);
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 18px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.preview {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+}
+
+.preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.summary {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.divider {
+  margin: 8px 0 !important;
+}
+
+.poiList {
+  padding: 0 16px 12px;
+}
+
+.poiHeader {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.poiItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #f0f0f0;
+}
+
+.poiItem:last-child {
+  border-bottom: none;
+}
+
+.poiIndex {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #FFD100;
+  color: #333;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.poiName {
+  flex: 1;
+  font-size: 13px;
+  color: #333;
+}
+
+.arrow {
+  color: #999;
+  font-size: 12px;
+}
+
+.morePois {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  padding-top: 8px;
+}
+
+.stats {
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.actions {
+  padding: 12px 16px;
+  display: flex;
+  gap: 12px;
+  background: #fafafa;
+}
+
+.actions button {
+  flex: 1;
+}

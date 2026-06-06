@@ -1,0 +1,61 @@
+/**
+ * 路线图例组件样式
+ * 显示在地图右下角
+ */
+
+.legend {
+  position: fixed;
+  bottom: 40px;
+  right: 12px;
+  z-index: 9999;
+  background: rgba(255, 255, 255, 0.93);
+  padding: 10px 14px;
+  border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  line-height: 1.9;
+  max-width: 175px;
+  pointer-events: auto;
+}
+
+.title {
+  font-size: 13px;
+  display: block;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.dot {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.start {
+  color: #27AE60;
+  font-size: 14px;
+}
+
+.divider {
+  border-top: 1px solid #eee;
+  margin: 4px 0;
+}
+
+.dashed {
+  color: #666;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+
+.solid {
+  color: #666;
+  font-size: 12px;
+  font-weight: bold;
+}

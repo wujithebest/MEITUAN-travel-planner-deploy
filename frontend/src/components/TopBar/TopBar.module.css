@@ -1,0 +1,241 @@
+/* TopBar Styles */
+
+.topBar {
+  height: 64px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E8E8E8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* 左侧 Logo */
+.leftSection {
+  display: flex;
+  align-items: center;
+  min-width: 220px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFD700;
+}
+
+.logoIcon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.logoTextContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.logoTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1A1A1A;
+  line-height: 1.2;
+}
+
+.logoSubtitle {
+  font-size: 12px;
+  color: #999999;
+  line-height: 1.2;
+}
+
+/* 中间搜索框 */
+.centerSection {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 0 40px;
+}
+
+.searchBar {
+  width: 100%;
+  max-width: 480px;
+  height: 40px;
+  background: #F5F5F5;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+}
+
+.searchIcon {
+  color: #999999;
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #1A1A1A;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: #999999;
+}
+
+.micIcon {
+  color: #999999;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.micIcon:hover {
+  color: #FFD700;
+}
+
+/* 右侧工具区 */
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 200px;
+  justify-content: flex-end;
+}
+
+/* 天气组件 */
+.weatherWidget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weatherIcon {
+  color: #FFD700;
+}
+
+.weatherInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.temperature {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1A1A1A;
+  line-height: 1.2;
+}
+
+.city {
+  font-size: 12px;
+  color: #999999;
+  line-height: 1.2;
+}
+
+/* 交通组件 */
+.trafficWidget {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trafficIcon {
+  color: #666666;
+}
+
+.trafficLabel {
+  font-size: 14px;
+  color: #1A1A1A;
+}
+
+.trafficBadge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #FFF3CD;
+  color: #FFD700;
+  font-weight: 500;
+}
+
+/* 用户组件 */
+.userWidget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1A1A1A;
+}
+
+.dropdownIcon {
+  color: #999999;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .centerSection {
+    padding: 0 20px;
+  }
+  
+  .rightSection {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topBar {
+    padding: 0 16px;
+  }
+  
+  .leftSection {
+    min-width: auto;
+  }
+  
+  .logoSubtitle {
+    display: none;
+  }
+  
+  .centerSection {
+    padding: 0 12px;
+  }
+  
+  .weatherWidget,
+  .trafficWidget {
+    display: none;
+  }
+  
+  .userName {
+    display: none;
+  }
+}

@@ -1,0 +1,516 @@
+/* AI 旅游助手样式 - 路线规划系统 */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* ========== 头部 ========== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerLogo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.headerTitle {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modeBadge {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 8px;
+}
+
+.resetBtn,
+.regenerateBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.resetBtn:hover,
+.regenerateBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.resetBtn:disabled,
+.regenerateBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 内容区 ========== */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* ========== 欢迎界面 ========== */
+.welcomeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.welcomeHeader {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.welcomeIcon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.welcomeTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0 0 8px 0;
+}
+
+.welcomeSubtitle {
+  font-size: 16px;
+  color: #666;
+  margin: 0;
+}
+
+/* 模式选择 */
+.modeSelection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  margin-bottom: 40px;
+}
+
+.modeButton {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  background: white;
+  border: 2px solid #e8e8e8;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+}
+
+.modeButton:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+.modeIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 14px;
+  color: white;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.modeNumber {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.modeContent {
+  flex: 1;
+}
+
+.modeTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 4px 0;
+}
+
+.modeDescription {
+  font-size: 14px;
+  color: #667eea;
+  font-weight: 500;
+  margin: 0 0 8px 0;
+}
+
+.modeDetail {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 使用提示 */
+.welcomeTips {
+  width: 100%;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.tipsTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 12px 0;
+}
+
+.tipsList {
+  margin: 0;
+  padding: 0 0 0 20px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.8;
+}
+
+/* ========== 消息列表 ========== */
+.messagesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 用户消息 */
+.userMessage {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #667eea;
+  border-radius: 50%;
+  color: white;
+  font-size: 16px;
+  flex-shrink: 0;
+  order: 2;
+}
+
+.userBubble {
+  max-width: 70%;
+  padding: 12px 16px;
+  background: #667eea;
+  color: white;
+  border-radius: 16px 16px 4px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  order: 1;
+}
+
+/* 系统消息 */
+.systemMessage {
+  display: flex;
+  justify-content: center;
+}
+
+.systemBubble {
+  padding: 8px 16px;
+  background: #f0f0f0;
+  color: #666;
+  border-radius: 16px;
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Agent 消息 */
+.agentMessage {
+  display: flex;
+  gap: 12px;
+}
+
+.agentAvatar {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  color: white;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.agentLogo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.agentBubble {
+  max-width: 85%;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-radius: 16px 16px 16px 4px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #333;
+}
+
+/* 流式消息 */
+.streamingMessage {
+  display: flex;
+  gap: 12px;
+}
+
+/* ========== 消息内容样式 ========== */
+.dayTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 20px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+}
+
+.timeSlot {
+  font-size: 15px;
+  font-weight: 600;
+  color: #667eea;
+  margin: 16px 0 8px 0;
+}
+
+.listItem {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.bullet {
+  color: #667eea;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.indentedText {
+  padding-left: 20px;
+  color: #666;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.mapLinkContainer {
+  margin: 16px 0;
+}
+
+.mapLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mapLink:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.spacer {
+  height: 12px;
+}
+
+.paragraph {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
+.strong {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.code {
+  padding: 2px 6px;
+  background: #e8e8e8;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+}
+
+/* ========== 输入中指示器 ========== */
+.typingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: #999;
+  font-size: 13px;
+}
+
+/* ========== 输入区 ========== */
+.inputContainer {
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e8e8e8;
+}
+
+.errorBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  color: #856404;
+  font-size: 13px;
+}
+
+.errorBanner button {
+  background: none;
+  border: none;
+  color: #856404;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.inputWrapper {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.textInput {
+  flex: 1;
+  border-radius: 12px !important;
+  border: 2px solid #e8e8e8 !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  resize: none;
+  transition: all 0.2s;
+}
+
+.textInput:focus {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+}
+
+.sendButton {
+  height: 44px !important;
+  padding: 0 24px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.sendButton:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ========== 滚动条样式 ========== */
+.content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 768px) {
+  .welcomeContainer {
+    padding: 20px 16px;
+  }
+
+  .welcomeTitle {
+    font-size: 24px;
+  }
+
+  .modeButton {
+    padding: 16px;
+  }
+
+  .modeIcon {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  .modeTitle {
+    font-size: 18px;
+  }
+
+  .userBubble,
+  .agentBubble {
+    max-width: 85%;
+  }
+}

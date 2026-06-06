@@ -1,0 +1,23 @@
+.container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.section { display: flex; flex-direction: column; gap: 8px; }
+.label { font-weight: 600; font-size: 14px; color: #333; }
+.textarea { resize: none; }
+.examples { display: flex; gap: 4px; flex-wrap: wrap; }
+.transportGroup { display: flex; gap: 0; }
+.transportBtn { display: flex; align-items: center; gap: 4px; }
+.datePicker { width: 100%; }
+.actions { display: flex; align-items: center; gap: 12px; }
+.generateBtn { flex: 1; }
+.speechHint {
+  padding: 8px 12px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #52c41a;
+}

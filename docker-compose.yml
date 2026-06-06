@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=travel_planner
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+  
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GAODE_API_KEY=${GAODE_API_KEY}
+      - GAODE_KEY=${GAODE_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - LLM_API_KEY=${DEEPSEEK_API_KEY}
+      - LLM_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - LLM_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      - BOCHA_API_KEY=${BOCHA_API_KEY}
+      - GAODE_TIMEOUT=${GAODE_TIMEOUT:-15}
+      - GAODE_QPS_MAX_RETRIES=${GAODE_QPS_MAX_RETRIES:-5}
+      - ROUTE_PLANNER_API_TIMEOUT=${ROUTE_PLANNER_API_TIMEOUT:-15}
+      - ROUTE_PLANNER_IDLE_TIMEOUT=${ROUTE_PLANNER_IDLE_TIMEOUT:-120}
+      - WEATHER_KEY=${WEATHER_KEY}
+      - DIANPING_COOKIE=${DIANPING_COOKIE}
+      - REDIS_URL=redis://redis:6379/0
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DATABASE=travel_planner
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - APP_PORT=8000
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - mongodb
+    restart: unless-stopped
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+  
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  mongodb_data:

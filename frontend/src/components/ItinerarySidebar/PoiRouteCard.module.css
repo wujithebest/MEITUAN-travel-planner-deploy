@@ -1,0 +1,171 @@
+.container {
+  padding: 0;
+}
+
+.dayCard {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  margin-bottom: 12px;
+}
+
+.dayTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.88);
+  margin-bottom: 10px;
+}
+
+.slotSection {
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid #ffb300;
+}
+
+.mealSlotSection {
+  padding: 10px 10px 10px 12px;
+  border-left: 3px solid #ff4d4f;
+  background: #fff1f0;
+  border-radius: 6px;
+}
+
+.slotHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.slotTime {
+  font-size: 12px;
+  line-height: 18px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.slotLabel {
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
+  background: #e8f3ff;
+  color: #1677ff;
+}
+
+.mealSlotLabel {
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.poiList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poiItem {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 8px;
+  align-items: start;
+  padding: 6px 0;
+}
+
+.poiNumber {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffd100;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.poiContent {
+  min-width: 0;
+}
+
+.poiNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.poiName {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.88);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.poiName:hover {
+  color: #1677ff;
+}
+
+.startTag {
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 500;
+  background: #fff1b8;
+  color: #ad6800;
+  border: 1px solid #ffd666;
+  flex: 0 0 auto;
+}
+
+.poiMeta {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 18px;
+  color: rgba(0, 0, 0, 0.52);
+}
+
+.reasonCard {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #fffaf0;
+  border: 1px solid #ffd591;
+  border-radius: 6px;
+}
+
+.reasonTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #d48806;
+  margin-bottom: 6px;
+}
+
+.reasonText {
+  font-size: 12px;
+  line-height: 20px;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.reasonList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reasonItem {
+  font-size: 12px;
+  line-height: 20px;
+  color: rgba(0, 0, 0, 0.72);
+}
+
+.reasonName {
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.78);
+}

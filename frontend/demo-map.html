@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地图功能演示</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #1677ff; padding-bottom: 10px; }
+        .demo-section { margin: 20px 0; padding: 20px; border: 1px solid #e8e8e8; border-radius: 4px; }
+        .map-container { width: 100%; height: 500px; border: 1px solid #d9d9d9; border-radius: 4px; margin: 20px 0; position: relative; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+        .error { background: #fff2f0; border: 1px solid #ffccc7; color: #f5222d; }
+        .info { background: #e6f7ff; border: 1px solid #91d5ff; color: #1677ff; }
+        .controls { margin: 10px 0; }
+        button { margin-right: 10px; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
+        .primary { background: #1677ff; color: white; }
+        .secondary { background: #f0f0f0; color: #333; }
+        .form-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; }
+        .poi-list { margin: 10px 0; padding: 10px; background: #fafafa; border-radius: 4px; }
+        .poi-item { padding: 5px; margin: 5px 0; background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 高德地图功能演示</h1>
+        
+        <div class="demo-section">
+            <h2>应用状态说明</h2>
+            <p>这是一个旅游路线规划应用的演示。当前应用需要用户输入旅行信息并点击"生成路线"按钮才能显示地图内容。</p>
+            
+            <div class="form-group">
+                <label for="travel-desc">旅行描述（示例）</label>
+                <textarea id="travel-desc" rows="3" placeholder="例如：杨浦区工业风两日游、崇明岛生态两日游"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="start-date">开始日期</label>
+                <input type="date" id="start-date" value="2024-06-01">
+            </div>
+            
+            <div class="form-group">
+                <label>交通方式</label>
+                <select id="transport-mode">
+                    <option value="driving">驾车</option>
+                    <option value="walking">步行</option>
+                    <option value="transit">公交</option>
+                    <option value="bicycling">骑行</option>
+                </select>
+            </div>
+            
+            <button class="primary" onclick="generateMockRoute()">生成模拟路线</button>
+            <button class="secondary" onclick="clearMap()">清除地图</button>
+        </div>
+        
+        <div class="demo-section">
+            <h2>地图展示区域</h2>
+            <div class="map-container" id="map-container">
+                <div id="map" style="width: 100%; height: 100%;"></div>
+            </div>
+            <div id="status-container"></div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>生成的路线信息</h2>
+            <div id="route-info" style="display: none;">
+                <div class="poi-list" id="poi-list"></div>
+                <div id="route-stats"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GAODE_KEY = '<your_frontend_jsapi_key>';
+        const GAODE_SECURITY = '<your_security_code>';
+        
+        function addStatus(message, type) {
+            const status = document.createElement('div');
+            status.className = `${type} status`;
+            status.textContent = message;
+            document.getElementById('status-container').appendChild(status);
+        }
+        
+        let map, markers = [], polylines = [];
+        
+        // 加载高德地图 API
+        function loadGaodeAPI() {
+            return new Promise((resolve, reject) => {
+                if (window.AMap) {
+                    resolve();
+                    return;
+                }
+                
+                window._AMapSecurityConfig = { securityJsCode: GAODE_SECURITY };
+                
+                const script = document.createElement('script');
+                script.src = `https://webapi.amap.com/maps?v=1.4.15&key=${GAODE_KEY}&plugin=AMap.Driving,AMap.InfoWindow,AMap.Marker,AMap.Polyline,AMap.MoveAnimation`;
+                script.async = true;
+                
+                script.onload = () => {
+                    if (window.AMap) {
+                        resolve();
+                    } else {
+                        reject(new Error('高德地图 API 加载完成但未找到 AMap 对象'));
+                    }
+                };
+                
+                script.onerror = () => {
+                    reject(new Error('高德地图 API 加载失败，请检查网络连接和 API Key 是否正确'));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // 初始化地图
+        async function initMap() {
+            try {
+                await loadGaodeAPI();
+                
+                map = new AMap.Map('map', {
+                    zoom: 12,
+                    center: [121.4737, 31.2304], // 上海人民广场
+                    mapStyle: 'amap://styles/normal',
+                    showLabel: true,
+                    viewMode: '2D'
+                });
+                
+                addStatus('✅ 地图初始化成功！', 'success');
+                
+            } catch (error) {
+                addStatus(`❌ 地图初始化失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 生成模拟路线数据
+        function generateMockRoute() {
+            const travelDesc = document.getElementById('travel-desc').value || '上海一日游';
+            const startDate = document.getElementById('start-date').value;
+            const transportMode = document.getElementById('transport-mode').value;
+            
+            // 根据描述选择 POI
+            let pois = [
+                { name: '人民广场', location: '121.4737,31.2304' },
+                { name: '外滩', location: '121.4896,31.2347' },
+                { name: '豫园', location: '121.4916,31.2261' }
+            ];
+            
+            if (travelDesc.includes('东方明珠')) {
+                pois.push({ name: '东方明珠', location: '121.5055,31.2397' });
+            }
+            if (travelDesc.includes('南京路') || travelDesc.includes('购物')) {
+                pois.unshift({ name: '南京路步行街', location: '121.4737,31.2304' });
+            }
+            
+            displayRouteOnMap(pois);
+            showRouteInfo(pois, travelDesc, startDate, transportMode);
+        }
+        
+        // 在地图上显示路线
+        function displayRouteOnMap(pois) {
+            if (!map) return;
+            
+            // 清除现有内容
+            markers.forEach(marker => map.remove(marker));
+            polylines.forEach(polyline => map.remove(polyline));
+            markers = [];
+            polylines = [];
+            
+            if (pois.length === 0) return;
+            
+            // 添加标记点
+            pois.forEach((poi, index) => {
+                const coords = parseLocation(poi.location);
+                if (!coords) return;
+                
+                const marker = new AMap.Marker({
+                    position: coords,
+                    title: poi.name,
+                    content: `<div style="background:#1677ff;color:white;padding:5px 10px;border-radius:4px;font-size:12px;">${poi.name}</div>`
+                });
+                
+                map.add(marker);
+                markers.push(marker);
+            });
+            
+            // 创建真实的高德 polyline
+            const routeCoords = pois.map(poi => parseLocation(poi.location)).filter(Boolean);
+            if (routeCoords.length > 1) {
+                const polyline = new AMap.Polyline({
+                    path: routeCoords,
+                    strokeColor: '#1677ff',
+                    strokeWeight: 6,
+                    strokeOpacity: 0.9,
+                    strokeStyle: 'solid',
+                    zIndex: 50,
+                    showDir: true
+                });
+                
+                map.add(polyline);
+                polylines.push(polyline);
+            }
+            
+            addStatus(`✅ 已显示 ${pois.length} 个地点的路线`, 'success');
+            map.setFitView([60, 60, 60, 60]);
+        }
+        
+        // 显示路线信息
+        function showRouteInfo(pois, desc, date, mode) {
+            const routeInfo = document.getElementById('route-info');
+            const poiList = document.getElementById('poi-list');
+            const routeStats = document.getElementById('route-stats');
+            
+            poiList.innerHTML = '';
+            pois.forEach((poi, index) => {
+                const item = document.createElement('div');
+                item.className = 'poi-item';
+                item.innerHTML = `
+                    <strong>${index + 1}. ${poi.name}</strong><br>
+                    <small>${poi.location}</small>
+                `;
+                poiList.appendChild(item);
+            });
+            
+            routeStats.innerHTML = `
+                <p><strong>旅行描述:</strong> ${desc}</p>
+                <p><strong>开始日期:</strong> ${date || '未设置'}</p>
+                <p><strong>交通方式:</strong> ${getTransportName(mode)}</p>
+                <p><strong>总地点数:</strong> ${pois.length} 个</p>
+            `;
+            
+            routeInfo.style.display = 'block';
+        }
+        
+        // 解析位置字符串为坐标数组
+        function parseLocation(location) {
+            if (!location) return null;
+            const parts = location.split(',');
+            if (parts.length === 2) {
+                const lng = parseFloat(parts[0]);
+                const lat = parseFloat(parts[1]);
+                if (!isNaN(lng) && !isNaN(lat)) {
+                    return [lng, lat];
+                }
+            }
+            return null;
+        }
+        
+        function getTransportName(mode) {
+            const names = {
+                'driving': '驾车',
+                'walking': '步行',
+                'transit': '公交',
+                'bicycling': '骑行'
+            };
+            return names[mode] || '未知';
+        }
+        
+        // 清除地图
+        function clearMap() {
+            markers.forEach(marker => map && map.remove(marker));
+            polylines.forEach(polyline => map && map.remove(polyline));
+            markers = [];
+            polylines = [];
+            document.getElementById('route-info').style.display = 'none';
+            addStatus('✅ 已清除地图内容', 'success');
+        }
+        
+        // 页面加载完成后初始化地图
+        window.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>

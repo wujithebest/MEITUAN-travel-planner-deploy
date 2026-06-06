@@ -1,0 +1,8 @@
+.badge {
+  cursor: pointer;
+}
+
+.badge :global(.ant-badge-count) {
+  font-size: 12px;
+  font-weight: 500;
+}

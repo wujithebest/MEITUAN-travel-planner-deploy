@@ -1,0 +1,64 @@
+.intent_banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.content {
+  flex: 1;
+  margin-right: 16px;
+}
+
+.reason_text {
+  color: #1565c0;
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 0;
+  font-weight: 500;
+}
+
+.refresh_button {
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.refresh_button:hover {
+  background-color: #1565c0;
+}
+
+.icon {
+  margin-right: 8px;
+  color: #ffc107;
+}
+
+@media (max-width: 768px) {
+  .intent_banner {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .content {
+    margin-right: 0;
+    margin-bottom: 12px;
+  }
+  
+  .reason_text {
+    font-size: 14px;
+  }
+  
+  .refresh_button {
+    width: 100%;
+  }
+}

@@ -1,0 +1,40 @@
+/* MainLayout Styles */
+
+.layout {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.mainContainer {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  margin-top: var(--topbar-height);
+  margin-bottom: var(--bottom-stats-height);
+  height: calc(100vh - var(--topbar-height) - var(--bottom-stats-height));
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-secondary);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .mainContainer {
+    margin-bottom: 0;
+    height: calc(100vh - var(--topbar-height));
+  }
+}
+
+@media (max-width: 768px) {
+  .mainContainer {
+    flex-direction: column;
+  }
+}

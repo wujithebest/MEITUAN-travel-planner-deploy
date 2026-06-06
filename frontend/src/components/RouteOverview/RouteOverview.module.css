@@ -1,0 +1,217 @@
+/* RouteOverview Styles */
+
+.container {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-sticky);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.card {
+  width: 800px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-card);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  padding: 20px;
+  display: flex;
+  gap: 24px;
+  pointer-events: auto;
+}
+
+/* Left: AI Assistant Section */
+.aiSection {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border-color);
+}
+
+.aiHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aiIcon {
+  color: var(--primary-yellow);
+  fill: var(--primary-yellow);
+}
+
+.aiTitle {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.aiDescription {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.weatherInfo,
+.crowdInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weatherIcon {
+  color: #FF9800;
+}
+
+.crowdIcon {
+  color: var(--info-blue);
+}
+
+.weatherText,
+.crowdText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.planB {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.planBBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--primary-yellow-light);
+  color: #B8860B;
+  border-radius: var(--radius-badge);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  width: fit-content;
+}
+
+.planBButton {
+  padding: 6px 16px;
+  background: transparent;
+  border: 1px solid var(--primary-yellow);
+  color: var(--primary-yellow-dark);
+  border-radius: var(--radius-input);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.planBButton:hover {
+  background: var(--primary-yellow);
+  color: var(--text-primary);
+}
+
+/* Middle: Route Overview Section */
+.routeSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.statsRow {
+  display: flex;
+  gap: 12px;
+}
+
+.statCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-input);
+}
+
+.statIcon {
+  color: var(--text-tertiary);
+}
+
+.statValue {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.statLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.tipsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tipItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tipIcon {
+  color: var(--warning-orange);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tipText {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+/* Right: Empty Section */
+.rightSection {
+  width: 120px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .card {
+    width: 95%;
+    flex-wrap: wrap;
+  }
+  
+  .aiSection {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding-right: 0;
+    padding-bottom: 16px;
+  }
+  
+  .routeSection {
+    width: 100%;
+  }
+  
+  .rightSection {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .statsRow {
+    flex-wrap: wrap;
+  }
+  
+  .statCard {
+    min-width: calc(50% - 6px);
+  }
+}

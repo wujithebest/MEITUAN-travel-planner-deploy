@@ -1,0 +1,231 @@
+/* MapContainer Styles - 地图容器样式 */
+
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background: #E8E8E8;
+  overflow: hidden;
+}
+
+.map {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* 确保地图容器有明确尺寸 */
+.container:empty {
+  min-height: 500px;
+}
+
+/* 父容器高度约束 */
+:global(.mapSection) .container,
+:global(.planner-page) .container {
+  height: 100%;
+  min-height: calc(100vh - 64px);
+}
+
+.loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 10;
+  gap: 16px;
+  color: #666;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top-color: #FFD100;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px 32px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  color: #f5222d;
+  font-size: 14px;
+  z-index: 10;
+  max-width: 80%;
+  text-align: center;
+}
+
+.error span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 自定义控件 - 右侧竖排 - 禁用状态 */
+.customControls {
+  position: absolute;
+  right: 12px;
+  top: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.controlButton {
+  width: 44px;
+  height: 44px;
+  background: #fff;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: not-allowed;
+  font-size: 16px;
+  font-weight: 600;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.controlButton:hover {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: none;
+}
+
+.controlButton:active {
+  transform: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.controlButton.active {
+  background: #f0f0f0;
+  color: #999;
+}
+
+.controlButton.active:hover {
+  background: #f0f0f0;
+}
+
+/* 缩放控件 - 右下角 - 禁用状态 */
+.zoomControls {
+  position: absolute;
+  right: 12px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+}
+
+.zoomButton {
+  width: 36px;
+  height: 36px;
+  background: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  cursor: not-allowed;
+  font-size: 20px;
+  font-weight: 300;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.zoomButton:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.zoomButton:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.zoomButton:hover {
+  background: #fff;
+}
+
+.zoomButton:active {
+  background: #fff;
+}
+
+/* 覆盖物样式覆盖 */
+:global(.amap-marker-label) {
+  border: none !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+}
+
+/* 确保地图控件可见 */
+:global(.amap-controls) {
+  z-index: 99 !important;
+}
+
+/* 信息窗口样式 */
+:global(.amap-info-content) {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .container {
+    min-height: 400px;
+  }
+
+  .customControls {
+    right: 8px;
+    top: 80px;
+  }
+
+  .controlButton {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  .zoomControls {
+    right: 8px;
+    bottom: 16px;
+  }
+
+  .zoomButton {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+}

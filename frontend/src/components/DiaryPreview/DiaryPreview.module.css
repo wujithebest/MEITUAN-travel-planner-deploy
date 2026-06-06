@@ -1,0 +1,295 @@
+.container { 
+  padding: 24px; 
+  max-width: 800px; 
+  margin: 0 auto; 
+}
+
+.cover { 
+  position: relative; 
+  border-radius: 12px; 
+  overflow: hidden; 
+  margin-bottom: 24px; 
+}
+
+.cover img { 
+  width: 100%; 
+  height: 240px; 
+  object-fit: cover; 
+}
+
+.coverOverlay { 
+  position: absolute; 
+  bottom: 0; 
+  left: 0; 
+  right: 0; 
+  padding: 24px; 
+  background: linear-gradient(transparent, rgba(0,0,0,0.7)); 
+}
+
+.coverOverlay h2 { 
+  color: #fff; 
+  margin: 0; 
+  font-size: 28px; 
+}
+
+/* 地图截图槽位 */
+.mapSlot {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.mapSlot img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.stats { 
+  background: #fff; 
+  border-radius: 12px; 
+  padding: 20px; 
+  margin-bottom: 24px; 
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
+}
+
+.entries { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 24px; 
+}
+
+/* 天区块样式 */
+.daySection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dayHeader {
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.dayTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+/* 条目样式 */
+.entry { 
+  background: #fff; 
+  border-radius: 12px; 
+  padding: 20px; 
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
+}
+
+.entryHeader { 
+  margin-bottom: 12px; 
+}
+
+.entryDay { 
+  font-size: 12px; 
+  color: #CC9900; 
+  font-weight: 600; 
+}
+
+.entryTitle { 
+  margin: 4px 0 0; 
+  font-size: 18px; 
+}
+
+.entryContent { 
+  color: #555; 
+  line-height: 1.8; 
+}
+
+.entryPhotos { 
+  display: flex; 
+  gap: 8px; 
+  margin-top: 12px; 
+  flex-wrap: wrap; 
+}
+
+.entryPhoto { 
+  width: 120px; 
+  height: 120px; 
+  object-fit: cover; 
+  border-radius: 8px; 
+}
+
+.highlights { 
+  margin-top: 12px; 
+  display: flex; 
+  gap: 8px; 
+  flex-wrap: wrap; 
+}
+
+/* 地图容器样式 */
+.mapContainer {
+  margin-top: 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.mapHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.mapTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.styleButton {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #CC9900;
+}
+
+.styleButton:hover {
+  color: #FFE033;
+  background: #FFFDF0;
+}
+
+/* 风格选择器 */
+.styleSelector {
+  padding: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.styleGrid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.styleOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.styleIcon {
+  font-size: 16px;
+}
+
+/* 地图图片区域 */
+.mapImageWrapper {
+  position: relative;
+  background: #fff;
+}
+
+.mapImage {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* 风格标签 */
+.styleTag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
+/* 成就徽章样式 */
+.achievements { 
+  background: #fff; 
+  border-radius: 12px; 
+  padding: 20px; 
+  margin-top: 24px; 
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08); 
+}
+
+.achievements h3 { 
+  margin: 0 0 16px; 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+}
+
+.badgeList { 
+  display: flex; 
+  gap: 16px; 
+  flex-wrap: wrap; 
+}
+
+.badge { 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 4px; 
+}
+
+.badgeIcon { 
+  font-size: 32px; 
+}
+
+.badgeName { 
+  font-size: 12px; 
+  color: #666; 
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+  
+  .coverOverlay h2 {
+    font-size: 22px;
+  }
+  
+  .styleGrid {
+    justify-content: center;
+  }
+  
+  .styleOption {
+    flex: 1;
+    min-width: 80px;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,131 @@
+.modal :global(.ant-modal-body) {
+  padding: 20px;
+}
+
+/* 错误提示区域 */
+.errorSection {
+  margin-bottom: 16px;
+}
+
+.container {
+  display: flex;
+  gap: 20px;
+  min-height: 500px;
+  max-height: 600px;
+}
+
+/* 左栏：日记预览区 60% */
+.leftColumn {
+  flex: 0 0 60%;
+  overflow: hidden;
+}
+
+.previewWrapper {
+  height: 100%;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.previewContent {
+  padding: 16px;
+  background: #fff;
+}
+
+/* 右栏：地图截图区 40% */
+.rightColumn {
+  flex: 0 0 calc(40% - 20px);
+  display: flex;
+  flex-direction: column;
+}
+
+.mapSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mapSection h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* 截图预览 */
+.screenshotPreview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.screenshotPreview img {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+}
+
+.screenshotActions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* 地图占位 */
+.mapPlaceholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  background: #fafafa;
+  min-height: 400px;
+}
+
+.placeholderContent {
+  text-align: center;
+  color: #999;
+}
+
+.placeholderContent svg {
+  margin-bottom: 16px;
+  color: #d9d9d9;
+}
+
+.placeholderContent p {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+/* 底部按钮栏 */
+.footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: center;
+}
+
+/* 滚动条样式 */
+.previewWrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.previewWrapper::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+.previewWrapper::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+.previewWrapper::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}

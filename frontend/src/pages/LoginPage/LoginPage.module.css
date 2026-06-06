@@ -1,0 +1,316 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 左侧品牌区域 */
+.brandSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: linear-gradient(135deg, #87CEEB 0%, #E0F6FF 100%);
+}
+
+.brandContent {
+  text-align: center;
+  max-width: 400px;
+}
+
+.illustration {
+  margin-bottom: 32px;
+}
+
+.citySvg {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.1));
+}
+
+.brandTitle {
+  color: #1a1a2e !important;
+  margin-bottom: 12px !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+}
+
+.slogan {
+  display: block;
+  font-size: 18px;
+  color: #4a5568;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  color: #2d3748;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.feature:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateX(8px);
+}
+
+.featureIcon {
+  font-size: 24px;
+}
+
+/* 右侧表单区域 */
+.formSection {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: #f7fafc;
+}
+
+.formCard {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.formHeader {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.formTitle {
+  color: #1a1a2e !important;
+  margin-bottom: 8px !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+}
+
+.formSubtitle {
+  color: #718096;
+  font-size: 14px;
+}
+
+.form {
+  width: 100%;
+}
+
+.input {
+  border-radius: 8px !important;
+  border: 2px solid #e2e8f0 !important;
+  height: 48px !important;
+  font-size: 15px !important;
+  transition: all 0.3s ease !important;
+}
+
+.input::placeholder {
+  color: #bfbfbf !important;
+}
+
+.input:hover {
+  border-color: #FFD100 !important;
+}
+
+.input:focus,
+.input:focus-within {
+  border-color: #FFD100 !important;
+  box-shadow: 0 0 0 3px rgba(255, 209, 0, 0.1) !important;
+}
+
+.formOptions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.rememberCheckbox {
+  color: #4a5568;
+  font-size: 14px;
+}
+
+.forgotLink {
+  color: #CC9900;
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.forgotLink:hover {
+  color: #FFE033;
+}
+
+.errorMessage {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #ff4d4f;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.submitBtn {
+  height: 48px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  background: #FFD100 !important;
+  border: none !important;
+  margin-top: 24px !important;
+  transition: all 0.3s ease !important;
+  color: #333 !important;
+}
+
+.submitBtn:hover {
+  background: #FFE033 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 209, 0, 0.3) !important;
+}
+
+.submitBtn:active {
+  transform: translateY(0);
+}
+
+.divider {
+  margin: 24px 0 !important;
+  color: #a0aec0 !important;
+  font-size: 12px !important;
+}
+
+.dividerText {
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.socialLogin {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.socialBtn {
+  flex: 1;
+  height: 48px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px !important;
+  border: 2px solid #e2e8f0 !important;
+  background: white !important;
+  color: #a0aec0 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.wechatBtn:hover,
+.qqBtn:hover {
+  border-color: #e2e8f0 !important;
+  background: white !important;
+}
+
+.qqIcon {
+  font-size: 20px;
+}
+
+.registerLink {
+  text-align: center;
+  color: #718096;
+  font-size: 14px;
+}
+
+.link {
+  color: #CC9900;
+  font-weight: 600;
+  margin-left: 4px;
+  transition: color 0.3s ease;
+}
+
+.link:hover {
+  color: #FFE033;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .brandSection {
+    padding: 32px 20px;
+  }
+
+  .formSection {
+    padding: 32px 20px;
+  }
+
+  .citySvg {
+    max-width: 300px;
+  }
+
+  .brandTitle {
+    font-size: 28px !important;
+  }
+
+  .slogan {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .brandSection {
+    display: none;
+  }
+
+  .formSection {
+    padding: 20px;
+  }
+
+  .formCard {
+    padding: 24px;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .formTitle {
+    font-size: 24px !important;
+  }
+
+  .features {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .formCard {
+    padding: 20px 16px;
+  }
+
+  .socialLogin {
+    flex-direction: column;
+  }
+
+  .submitBtn {
+    height: 44px !important;
+    font-size: 14px !important;
+  }
+}

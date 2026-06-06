@@ -1,0 +1,124 @@
+.modal :global(.ant-modal-header) {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.modal :global(.ant-tooltip-inner) {
+  color: #fff;
+}
+
+.modal :global(.ant-modal-title) {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.form {
+  padding-top: 8px;
+}
+
+.section {
+  margin-bottom: 8px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.sectionHeader svg {
+  color: #FFD100;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.submitBtn {
+  background: #FFD100;
+  border-color: #FFD100;
+  color: #333;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.submitBtn:hover {
+  background: #FFE033;
+  border-color: #FFE033;
+  color: #333;
+}
+
+/* 表单标签样式 */
+.form :global(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 禁用输入框样式 */
+.form :global(.ant-input-disabled) {
+  background: #fafafa;
+  color: #999;
+}
+
+/* 地址选项样式 */
+.addressOption {
+  padding: 4px 0;
+}
+
+.addressName {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.addressDetail {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 已选地址显示 */
+.selectedAddress {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: -8px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #f0f7ff;
+  border-radius: 4px;
+  border: 1px solid #d6e4ff;
+}
+
+.selectedAddress svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.selectedAddressText {
+  font-size: 13px;
+  color: #1890ff;
+  line-height: 1.5;
+}
+
+/* AutoComplete 下拉框样式 */
+:global(.ant-select-dropdown .ant-select-item) {
+  padding: 8px 12px;
+}
+
+:global(.ant-select-dropdown .ant-select-item-option-active) {
+  background-color: #f5f5f5;
+}

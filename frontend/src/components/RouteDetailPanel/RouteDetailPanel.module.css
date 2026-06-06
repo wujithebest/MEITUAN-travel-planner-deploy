@@ -1,0 +1,117 @@
+/* 路线详情面板样式 */
+
+.route-detail-panel {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+}
+
+.route-detail-empty {
+  padding: 32px;
+  text-align: center;
+  color: #888;
+}
+
+/* 总览卡片 */
+.summary-card {
+  margin-bottom: 16px;
+}
+
+/* 每日头部 */
+.day-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.day-date {
+  color: #888;
+  font-size: 14px;
+}
+
+.day-pois-count {
+  color: #1677ff;
+  font-size: 12px;
+}
+
+/* 每日路线详情 */
+.daily-route-detail {
+  padding: 8px 0;
+}
+
+/* 时间线 */
+.timeline-time {
+  text-align: right;
+  font-size: 12px;
+  color: #666;
+}
+
+.timeline-time .departure {
+  color: #888;
+  font-size: 11px;
+}
+
+/* POI项 */
+.poi-item {
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.poi-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.poi-name {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.poi-rating {
+  color: #faad14;
+  font-size: 12px;
+}
+
+.poi-address {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.poi-description {
+  font-size: 13px;
+  color: #333;
+  margin: 4px 0;
+}
+
+.poi-best-time,
+.poi-duration {
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.transport-info {
+  font-size: 12px;
+  color: #1677ff;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #ddd;
+}
+
+/* 路线坐标 */
+.polyline-info {
+  padding: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  word-break: break-all;
+}

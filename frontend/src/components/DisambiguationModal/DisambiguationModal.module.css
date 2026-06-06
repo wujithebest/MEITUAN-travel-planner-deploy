@@ -1,0 +1,21 @@
+.context {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+.group { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.option {
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.option:hover { border-color: #FFD100; }
+.poiName { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.poiAddr { font-size: 12px; color: #888; margin-bottom: 4px; }
+.poiMeta { display: flex; gap: 12px; font-size: 12px; }
+.cat { color: #CC9900; }

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高德地图 API 诊断</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #1677ff; padding-bottom: 10px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a; }
+        .error { background: #fff2f0; border: 1px solid #ffccc7; color: #f5222d; }
+        .warning { background: #fffbe6; border: 1px solid #ffe58f; color: #faad14; }
+        .info { background: #e6f7ff; border: 1px solid #91d5ff; color: #1677ff; }
+        #map { width: 100%; height: 400px; border: 1px solid #d9d9d9; border-radius: 4px; margin: 20px 0; }
+        .log { background: #fafafa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+        .log-entry { margin: 2px 0; padding: 2px 5px; border-radius: 2px; }
+        .log-info { color: #1677ff; }
+        .log-success { color: #52c41a; }
+        .log-error { color: #f5222d; }
+        .log-warning { color: #faad14; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 高德地图 API 诊断工具</h1>
+        
+        <div id="status-container"></div>
+        
+        <div id="map">地图加载中...</div>
+        
+        <h2>诊断日志</h2>
+        <div id="log" class="log"></div>
+        
+        <h2>环境信息</h2>
+        <div id="env-info" class="info status"></div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const statusContainer = document.getElementById('status-container');
+        const envInfo = document.getElementById('env-info');
+        const mapContainer = document.getElementById('map');
+        
+        // 本地诊断时手动填入临时值，提交代码前保持占位符。
+        const GAODE_KEY = '<your_frontend_jsapi_key>';
+        const GAODE_SECURITY = '<your_security_code>';
+        
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function addStatus(message, type) {
+            const status = document.createElement('div');
+            status.className = `${type} status`;
+            status.textContent = message;
+            statusContainer.appendChild(status);
+        }
+        
+        // 显示环境信息
+        envInfo.innerHTML = `
+            <strong>浏览器:</strong> ${navigator.userAgent}<br>
+            <strong>平台:</strong> ${navigator.platform}<br>
+            <strong>语言:</strong> ${navigator.language}<br>
+            <strong>在线状态:</strong> ${navigator.onLine ? '✅ 在线' : '❌ 离线'}<br>
+            <strong>API Key (前10字符):</strong> ${GAODE_KEY.substring(0, 10)}...<br>
+            <strong>安全密钥 (前10字符):</strong> ${GAODE_SECURITY.substring(0, 10)}...
+        `;
+        
+        addLog('开始诊断...', 'info');
+        
+        // 检查网络连接
+        if (!navigator.onLine) {
+            addLog('设备处于离线状态', 'error');
+            addStatus('❌ 设备处于离线状态，请检查网络连接', 'error');
+            mapContainer.innerHTML = '<div style="padding:20px;color:red;">设备离线，无法加载地图</div>';
+        } else {
+            addLog('网络连接正常', 'success');
+        }
+        
+        // 检查 API Key
+        if (!GAODE_KEY || GAODE_KEY === 'your_gaode_key') {
+            addLog('API Key 未配置', 'error');
+            addStatus('❌ API Key 未配置，请在 .env 文件中设置 VITE_GAODE_JSAPI_KEY', 'error');
+            mapContainer.innerHTML = '<div style="padding:20px;color:red;">API Key 未配置</div>';
+        } else {
+            addLog(`API Key 已配置: ${GAODE_KEY.substring(0, 10)}...`, 'success');
+        }
+        
+        // 加载高德地图 API
+        function loadGaodeAPI() {
+            return new Promise((resolve, reject) => {
+                // 检查是否已加载
+                if (window.AMap) {
+                    addLog('AMap 对象已存在', 'success');
+                    resolve();
+                    return;
+                }
+                
+                addLog('开始加载高德地图 JS API...', 'info');
+                
+                // 配置安全密钥
+                if (GAODE_SECURITY) {
+                    window._AMapSecurityConfig = { securityJsCode: GAODE_SECURITY };
+                    addLog('已配置安全密钥', 'info');
+                }
+                
+                const script = document.createElement('script');
+                script.src = `https://webapi.amap.com/maps?v=2.0&key=${GAODE_KEY}&plugin=AMap.Driving,AMap.Walking,AMap.Transfer,AMap.Riding,AMap.InfoWindow,AMap.Marker,AMap.Polyline,AMap.MoveAnimation`;
+                script.async = true;
+                
+                script.onload = function() {
+                    if (window.AMap) {
+                        addLog('高德地图 API 加载成功', 'success');
+                        resolve();
+                    } else {
+                        addLog('高德地图 API 加载完成但未找到 AMap 对象', 'error');
+                        reject(new Error('高德地图 API 加载完成但未找到 AMap 对象'));
+                    }
+                };
+                
+                script.onerror = function() {
+                    addLog('高德地图 API 加载失败', 'error');
+                    reject(new Error('高德地图 API 加载失败，请检查网络连接和 API Key 是否正确'));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
+        // 初始化地图
+        function initMap() {
+            try {
+                addLog('开始初始化地图...', 'info');
+                
+                // 清除加载提示
+                mapContainer.innerHTML = '';
+                
+                const map = new AMap.Map('map', {
+                    zoom: 11,
+                    center: [121.4737, 31.2304], // 上海人民广场
+                    mapStyle: 'amap://styles/normal',
+                    showLabel: true,
+                    viewMode: '2D',
+                });
+                
+                addLog('地图对象创建成功', 'success');
+                
+                // 添加标记点
+                const marker = new AMap.Marker({
+                    position: [121.4737, 31.2304],
+                    title: '人民广场',
+                    content: '<div style="background:#1677ff;color:white;padding:5px 10px;border-radius:4px;font-size:12px;">人民广场</div>'
+                });
+                
+                map.add(marker);
+                addLog('标记点添加成功', 'success');
+                
+                // 添加信息窗口
+                const infoWindow = new AMap.InfoWindow({
+                    content: '<div style="padding:10px;"><strong>人民广场</strong><br>上海市中心地标</div>',
+                    offset: new AMap.Pixel(0, -30)
+                });
+                
+                marker.on('click', () => {
+                    infoWindow.open(map, marker.getPosition());
+                });
+                
+                addLog('地图初始化完成', 'success');
+                addStatus('✅ 高德地图加载成功！API Key 配置正确', 'success');
+                
+            } catch (error) {
+                addLog(`地图初始化失败: ${error.message}`, 'error');
+                addStatus(`❌ 地图初始化失败: ${error.message}`, 'error');
+                mapContainer.innerHTML = `<div style="padding:20px;color:red;">地图初始化失败: ${error.message}</div>`;
+            }
+        }
+        
+        // 执行诊断
+        if (navigator.onLine && GAODE_KEY && GAODE_KEY !== 'your_gaode_key') {
+            loadGaodeAPI()
+                .then(() => {
+                    initMap();
+                })
+                .catch((error) => {
+                    addLog(`错误: ${error.message}`, 'error');
+                    addStatus(`❌ ${error.message}`, 'error');
+                    mapContainer.innerHTML = `<div style="padding:20px;color:red;">${error.message}</div>`;
+                    
+                    // 提供故障排除建议
+                    addStatus('🔧 故障排除建议:', 'warning');
+                    addStatus('1. 检查 API Key 是否有效（登录高德开放平台验证）', 'warning');
+                    addStatus('2. 确认 Key 类型为「Web 端(JS API)」', 'warning');
+                    addStatus('3. 检查安全密钥配置是否正确', 'warning');
+                    addStatus('4. 确认网络可以访问 webapi.amap.com', 'warning');
+                    addStatus('5. 检查浏览器控制台是否有 CORS 错误', 'warning');
+                });
+        }
+    </script>
+</body>
+</html>

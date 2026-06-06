@@ -1,0 +1,259 @@
+.agentDrawer {
+  :global(.ant-drawer-content) {
+    background: #fff;
+  }
+}
+
+.agentPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.panelHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerLogo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.section {
+  padding: 16px;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.intentCard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}
+
+.emptyIcon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.poiList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.poiItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.poiName {
+  font-size: 13px;
+  color: #333;
+}
+
+.confidenceTag {
+  font-size: 11px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tips {
+  padding: 12px 16px;
+  background: #FFFDF0;
+  border-top: 1px solid #FFE566;
+  margin-top: auto;
+}
+
+.tips p {
+  margin: 0;
+  font-size: 12px;
+  color: #CC9900;
+  line-height: 1.5;
+}
+
+/* 行程预览卡片样式 */
+.itineraryCard {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.itineraryHeader {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  padding: 12px;
+  color: #fff;
+}
+
+.itineraryTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.itineraryIcon {
+  font-size: 16px;
+}
+
+.distanceTag {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+  border: none !important;
+  font-size: 11px;
+}
+
+.itineraryDays {
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dayCard {
+  background: #f5f7fa;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.dayCard:last-child {
+  margin-bottom: 0;
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dayHeader:hover {
+  background: #e8e8e8;
+}
+
+.dayTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.dayContent {
+  padding: 0 10px 10px;
+}
+
+.dayDetail {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #555;
+  white-space: pre-wrap;
+  margin: 0;
+  font-family: inherit;
+}
+
+.dayAnchors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.reasonsSection {
+  padding: 10px;
+  background: #fffbf0;
+  border-top: 1px dashed #ffe566;
+}
+
+.reasonsTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d48806;
+  margin-bottom: 6px;
+}
+
+.reasonItem {
+  display: flex;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+
+.reasonName {
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+}
+
+.reasonText {
+  color: #666;
+}
+
+.itineraryActions {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.applyButton {
+  flex: 1;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%) !important;
+  border: none !important;
+  font-size: 12px;
+}
+
+.regenerateButton {
+  flex: 1;
+  font-size: 12px;
+}

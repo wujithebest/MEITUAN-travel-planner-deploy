@@ -1,0 +1,161 @@
+/* FeatureGuide — 响应式功能指引覆盖层 (v3) */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(42, 45, 50, 0.72);
+  overflow: auto;
+}
+
+.stepsContainer {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 40px 24px 120px;
+}
+
+/* ── Spotlight — dashed yellow outline ── */
+.spotlight {
+  position: fixed;
+  border-radius: 8px;
+  border: 2px dashed rgba(255, 209, 0, 0.96);
+  box-shadow: 0 0 24px rgba(255, 209, 0, 0.28);
+  pointer-events: none;
+  z-index: 10000;
+  transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+
+/* ── SVG polyline connector layer ── */
+.connectorLayer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.connector {
+  fill: none;
+  stroke: rgba(255, 209, 0, 0.96);
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(255, 209, 0, 0.35));
+}
+
+/* ── Step callout card ── */
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 380px;
+  z-index: 10002;
+  animation: fadeIn 0.35s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.badge {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: #FFD100;
+  color: #1f2933;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+  box-shadow: 0 0 0 2px rgba(255, 209, 0, 0.95), 0 0 14px rgba(255, 209, 0, 0.35);
+}
+
+.callout {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  line-height: 1.4;
+}
+
+.text {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  background: rgba(20, 24, 31, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.text strong {
+  color: #fff;
+  font-weight: 800;
+}
+
+/* ── Close button ── */
+.closeButton {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 10001;
+  padding: 14px 32px;
+  background: #FFD100;
+  border: none;
+  border-radius: 8px;
+  color: #1f2933;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.closeButton:hover {
+  background: #FFC300;
+  transform: translateY(-1px);
+}
+
+/* ── Mobile: stacked list ── */
+@media (max-width: 768px) {
+  .connectorLayer,
+  .spotlight {
+    display: none;
+  }
+
+  .stepsContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding: 24px 16px 100px;
+  }
+
+  .step {
+    position: static !important;
+    max-width: 100%;
+    width: auto !important;
+    min-height: auto !important;
+  }
+
+  .closeButton {
+    right: 16px;
+    bottom: 20px;
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+}

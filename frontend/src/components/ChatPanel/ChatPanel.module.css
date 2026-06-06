@@ -1,0 +1,919 @@
+/**
+ * ChatPanel 样式
+ * 美团黄背景渐变 (#FFD100 → #FFC300)
+ * 宽度 320px，固定在左侧
+ */
+
+/* 主容器 */
+.chatPanel {
+  width: 320px;
+  height: calc(100vh - 64px);
+  min-height: 0;
+  background: linear-gradient(180deg, #FFD100 0%, #FFC300 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 头部 */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.2);
+  color: #333;
+}
+
+.headerIcon {
+  font-size: 20px;
+}
+
+.headerTitle {
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.headerLogo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+/* 模式标签 */
+.modeBadge {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* 侧边栏切换按钮 */
+.sidebarToggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  cursor: pointer;
+  color: #333;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebarToggleBtn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.05);
+}
+
+.sidebarToggleBtn:active {
+  transform: scale(0.95);
+}
+
+/* ========== 规划模式切换按钮 ========== */
+
+.modeToggleWrapper {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modeToggleTrack {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  padding: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.modeToggleSlider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  height: calc(100% - 6px);
+  background: linear-gradient(135deg, #FFD100 0%, #FFC300 100%);
+  border-radius: 22px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  z-index: 0;
+}
+
+.modeToggleSliderRight {
+  transform: translateX(100%);
+}
+
+.modeToggleOption {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 22px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  transition: color 0.3s ease;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.modeToggleOptionActive {
+  color: #333;
+  font-weight: 600;
+}
+
+.modeToggleOption:not(.modeToggleOptionActive):hover {
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.modeToggleOption:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 快捷提示区域 */
+.quickPrompts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  margin-top: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.quickPromptsTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+  padding: 0 2px;
+}
+
+.quickPromptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quickPromptBtn {
+  width: 100%;
+  min-height: 36px;
+  max-height: 44px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 9px;
+  font-size: 12px;
+  color: #444;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.quickPromptBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(0, 0, 0, 0.16);
+  color: #222;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.quickPromptBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.quickPromptBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* 消息列表 */
+.messageList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 自定义滚动条 */
+.messageList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messageList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messageList::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.messageList::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 欢迎消息 */
+.welcomeMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px;
+  text-align: center;
+}
+
+.welcomeIcon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.welcomeText {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px 0;
+}
+
+.welcomeSubtext {
+  font-size: 13px;
+  color: #555;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.examplePrompts {
+  text-align: left;
+  width: 100%;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+}
+
+.exampleTitle {
+  font-size: 12px;
+  color: #666;
+  margin: 0 0 8px 0;
+}
+
+.exampleList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.exampleList li {
+  font-size: 12px;
+  color: #555;
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+.exampleList li:last-child {
+  border-bottom: none;
+}
+
+/* 消息气泡容器 */
+.messageBubble {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.userBubble {
+  flex-direction: row-reverse;
+}
+
+.aiBubble {
+  flex-direction: row;
+}
+
+/* 头像 */
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  color: #333;
+}
+
+/* 消息内容 */
+.messageContent {
+  max-width: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.userBubble .messageContent {
+  align-items: flex-end;
+}
+
+.aiBubble .messageContent {
+  align-items: flex-start;
+}
+
+/* 消息文本 */
+.messageText {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.userBubble .messageText {
+  background: #fff;
+  color: #333;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.aiBubble .messageText {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 消息时间 */
+.messageTime {
+  font-size: 10px;
+  color: #888;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+/* 高亮样式 */
+.summaryLine {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  padding: 8px 12px;
+  background: rgba(255, 209, 0, 0.3);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border-left: 3px solid #FFD100;
+}
+
+.dayHeader {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  margin: 8px 0 4px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 3px solid #ccc;
+}
+
+.dayHeader:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.dayHeaderActive {
+  background: rgba(255, 209, 0, 0.5);
+  border-left-color: #FFD100;
+}
+
+.highlightLine {
+  font-weight: 500;
+  color: #333;
+  padding: 2px 0;
+}
+
+.normalLine {
+  color: #555;
+  padding: 2px 0;
+}
+
+/* ==================== 规划状态行（非气泡式轻量内联状态） ==================== */
+
+.planningStatusInline {
+  margin: 6px 0 8px 40px;
+  min-height: 22px;
+  max-width: calc(100% - 56px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: rgba(0, 0, 0, 0.48);
+}
+
+.statusSpinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(0, 0, 0, 0.16);
+  border-top-color: rgba(0, 0, 0, 0.52);
+  border-radius: 50%;
+  animation: planningSpin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes planningSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statusText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== 推荐理由区域 ==================== */
+
+.reasonsSection {
+  margin-top: 10px;
+  padding: 10px;
+  background: #FFFDF2;
+  border-radius: 8px;
+  border: 1px solid #FFE8A3;
+}
+
+.reasonsTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #F57F17;
+  margin-bottom: 6px;
+}
+
+/* Slot block with divider between slots */
+.slotBlock {
+  padding-top: 8px;
+  margin-top: 0;
+}
+
+.slotBlockDivider {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: 8px;
+}
+
+.slotLabel {
+  display: inline-flex;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #FFF3CD;
+  color: #B77900;
+  align-items: center;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.slotLabelMeal {
+  background: #FFE0DD;
+  color: #C0392B;
+}
+
+.reasonPoiBlock {
+  margin-bottom: 8px;
+}
+
+.reasonPoiBlock:last-child {
+  margin-bottom: 0;
+}
+
+.reasonPoiName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f1f1f;
+  margin-bottom: 4px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.reasonMealTransport {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.4;
+}
+
+.reasonSectionRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 3px;
+  min-width: 0;
+}
+
+.reasonSectionTag {
+  display: inline-flex;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #FFF3CD;
+  color: #B77900;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reasonSectionContent {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #555;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.reasonFallbackText {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #666;
+  padding: 2px 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* 错误消息 */
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 82, 82, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #d32f2f;
+  margin: 0 12px;
+}
+
+.errorIcon {
+  font-size: 16px;
+}
+
+/* 输入区域 */
+.inputArea {
+  margin-top: auto;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.inputRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.textInput {
+  flex: 1;
+  border-radius: 20px !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  background: #fff !important;
+  padding: 8px 14px !important;
+  font-size: 14px !important;
+  resize: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.textInput:focus {
+  border-color: #FFD100 !important;
+  box-shadow: 0 0 0 2px rgba(255, 209, 0, 0.2) !important;
+}
+
+.textInput:disabled {
+  background: rgba(255, 255, 255, 0.5) !important;
+  cursor: not-allowed;
+}
+
+/* 发送按钮 */
+.sendBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50% !important;
+  background: #333 !important;
+  border: none !important;
+  color: #FFD100 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: #444 !important;
+  transform: scale(1.05);
+}
+
+.sendBtn:disabled {
+  background: #ccc !important;
+  color: #999 !important;
+  cursor: not-allowed;
+}
+
+/* 清空按钮 */
+.clearBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clearBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+}
+
+.clearBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* 系统消息（模式选择确认） */
+.systemMessageContainer {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.systemMessage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(76, 175, 80, 0.15);
+  border-radius: 16px;
+  font-size: 13px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.systemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #4caf50;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* 头像 Logo */
+.avatarLogo {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ==================== 历史按钮 ==================== */
+
+.historyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.historyBtn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #333;
+}
+
+/* ==================== 浮动历史面板 ==================== */
+
+.historyFloatPanel {
+  position: absolute;
+  top: 52px;
+  right: 52px;
+  width: 280px;
+  max-height: 360px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  z-index: 30;
+  padding: 4px;
+}
+
+.historyFloatEmpty {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+}
+
+.historyFloatItem {
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid #f5f5f5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.historyFloatItem:last-child {
+  border-bottom: none;
+}
+
+.historyFloatItem:hover {
+  background: #FFFDF2;
+}
+
+.historyFloatBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.historyFloatTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f1f1f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyFloatMeta {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.historyFloatDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.historyFloatDelete:hover {
+  background: #FFF3F1;
+  color: #E74C3C;
+}
+
+/* ==================== 近期历史框（欢迎语下方） ==================== */
+
+.recentHistoryBox {
+  width: 100%;
+  height: 150px;
+  max-height: 150px;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 10px;
+}
+
+.recentHistoryEmpty {
+  height: calc(100% - 22px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(80, 80, 80, 0.42);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.recentHistoryTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.recentHistoryItem {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recentHistoryItem:hover {
+  background: rgba(255, 209, 0, 0.08);
+}
+
+.recentHistoryItemBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.recentHistoryItemTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentHistoryItemMeta {
+  font-size: 11px;
+  color: #999;
+}
+
+.recentHistoryDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.recentHistoryDelete:hover {
+  background: #FFF3F1;
+  color: #E74C3C;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .chatPanel {
+    width: 100%;
+    height: calc(100vh - 64px);
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  }
+}

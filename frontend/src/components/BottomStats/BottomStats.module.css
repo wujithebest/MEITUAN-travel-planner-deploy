@@ -1,0 +1,150 @@
+/* BottomStats Styles */
+
+.bottomStats {
+  height: 56px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xl);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky);
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.statsContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.statsLeft {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statIcon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.statValue {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  background: var(--primary-yellow);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 12px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.navButton:hover:not(:disabled) {
+  background: var(--primary-yellow-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.navButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.navButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .statsLeft {
+    gap: 20px;
+  }
+  
+  .statLabel {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .bottomStats {
+    padding: 0 var(--spacing-lg);
+  }
+  
+  .statsLeft {
+    gap: 16px;
+  }
+  
+  .statValue {
+    font-size: var(--font-size-base);
+  }
+  
+  .navButton {
+    padding: 0 16px;
+  }
+  
+  .navButton span {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .bottomStats {
+    height: auto;
+    padding: var(--spacing-md);
+  }
+  
+  .statsContainer {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .statsLeft {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .statLabel {
+    display: inline;
+  }
+  
+  .navButton {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .navButton span {
+    display: inline;
+  }
+}
