@@ -277,8 +277,10 @@ export function sendMeituanMessageStream(
 
   console.log('[MeituanChatAPI] 发送流式消息', { message, planMode });
 
-  // 使用 fetch 直接调用以支持 SSE
-  // Vite 配置中 /api 会被代理到 http://localhost:8002
+  let receivedAnyEvent = false;
+  let receivedTerminalEvent = false;
+
+  // 使用 fetch 直接调用以支持 SSE（buildApiUrl 会在生产环境指向 Render 后端）
   fetch(buildApiUrl('/meituan/chat/stream'), {
     method: 'POST',
     headers: {
@@ -324,6 +326,7 @@ export function sendMeituanMessageStream(
           if (!parsed) continue;
 
           const { event, data } = parsed;
+          receivedAnyEvent = true;
 
           console.log(`[MeituanChatAPI] 收到 ${event} 事件:`, data);
 
@@ -353,6 +356,7 @@ export function sendMeituanMessageStream(
               break;
 
             case 'complete':
+              receivedTerminalEvent = true;
               // 完成标记 - 后端发送的完整计划数据
               console.log('[MeituanChatAPI] 收到 complete 事件');
               console.log('[MeituanChatAPI] complete data:', data);
@@ -391,14 +395,17 @@ export function sendMeituanMessageStream(
               break;
 
             case 'done':
+              receivedTerminalEvent = true;
               // 完成标记
               if (onDone) {
                 onDone(data as { html_paths?: string[] });
               }
               break;
 
-            case 'error': {
+            case 'error':
+              receivedTerminalEvent = true;
               // 兼容多种后端错误字段：后端 emit_error 使用 content，也支持 error/msg/message/detail
+              {
               console.error('[MeituanChatAPI] 收到 SSE error 事件:', data);
               const errorMsg =
                 data?.error ||
@@ -425,9 +432,28 @@ export function sendMeituanMessageStream(
         console.log('[MeituanChatAPI] 请求已取消');
         return;
       }
+
+      // 如果已收到终止事件（complete/done/error），后续网络关闭是正常的
+      if (receivedTerminalEvent) {
+        console.warn('[MeituanChatAPI] 终止事件后连接关闭，忽略后续网络错误:', error);
+        return;
+      }
+
       console.error('[MeituanChatAPI] 流式请求失败:', error);
+
       if (onError) {
-        onError(error.message || '请求失败');
+        const rawMessage = String(error?.message || '');
+        const isNetworkError =
+          error instanceof TypeError ||
+          /network|failed to fetch|load failed|connection|transport|terminated/i.test(rawMessage);
+
+        const friendlyMessage = isNetworkError
+          ? (receivedAnyEvent
+              ? '规划连接在处理中被中断，可能是云服务空闲连接被关闭，请重试一次。'
+              : '暂时无法连接后端服务，请检查网络后重试。')
+          : (rawMessage || '请求失败');
+
+        onError(friendlyMessage);
       }
     });
 

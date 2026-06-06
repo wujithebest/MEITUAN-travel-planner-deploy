@@ -13,8 +13,12 @@ import logging
 import json
 import sys
 import os
+import time
 
 logger = logging.getLogger(__name__)
+
+SSE_HEARTBEAT_SECONDS = float(os.getenv("SSE_HEARTBEAT_SECONDS", "15"))
+SSE_STREAM_MAX_SECONDS = float(os.getenv("SSE_STREAM_MAX_SECONDS", "240"))
 
 router = APIRouter(prefix="/api/meituan", tags=["美团AI对话"])
 
@@ -287,43 +291,58 @@ async def _run_pipeline_stream(
     # 启动收集器
     collector_task = asyncio.create_task(_collector())
 
-    # 从队列中读取并 yield SSE 格式消息
-    while True:
-        try:
-            msg = await asyncio.wait_for(queue.get(), timeout=120)
-            
-            # 检查是否是结束标记
+    # 从队列中读取并 yield SSE 格式消息（带 heartbeat 和超时保护）
+    stream_started_at = time.monotonic()
+
+    try:
+        while True:
+            # 全局超时保护
+            if time.monotonic() - stream_started_at > SSE_STREAM_MAX_SECONDS:
+                timeout_data = json.dumps(
+                    {"error": "路线规划响应超时，请稍后重试"},
+                    ensure_ascii=False,
+                )
+                yield f"event: {SSE_EVENT_ERROR}\ndata: {timeout_data}\n\n"
+                break
+
+            try:
+                msg = await asyncio.wait_for(queue.get(), timeout=SSE_HEARTBEAT_SECONDS)
+            except asyncio.TimeoutError:
+                # 超时后检查收集器是否已完成
+                if collector_task.done():
+                    break
+                # 发送 heartbeat 注释（SSE 前端/代理自动忽略）
+                yield ": heartbeat\n\n"
+                continue
+
             if msg is None:
                 break
-            
-            # 检查是否已经是 SSE 格式（以 "event:" 开头）
+
             if msg.startswith("event:"):
-                # 已经是 SSE 格式，直接 yield
                 yield msg
-                
-                # 如果是 done 事件，结束循环
-                if msg.startswith("event: done"):
+
+                # complete / done / error 都是终止事件
+                # emit_done() 实际发送 event: complete，必须在此结束 SSE
+                if (
+                    msg.startswith("event: complete")
+                    or msg.startswith("event: done")
+                    or msg.startswith("event: error")
+                ):
                     break
             else:
-                # 旧格式，转换为 SSE result 事件
                 output_lines.append(msg)
                 data = json.dumps({"msg": msg}, ensure_ascii=False)
                 yield f"event: {SSE_EVENT_RESULT}\ndata: {data}\n\n"
-            
-        except asyncio.TimeoutError:
-            timeout_msg = "[ROUTE_PLANNER]: 响应超时，API 可能无响应，已输出部分结果"
-            output_lines.append(timeout_msg)
-            data = json.dumps({"msg": timeout_msg}, ensure_ascii=False)
-            yield f"event: {SSE_EVENT_RESULT}\ndata: {data}\n\n"
-            break
-        except Exception as e:
-            logger.error(f"[MeituanChat] 流式输出错误: {e}", exc_info=True)
-            error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
-            yield f"event: {SSE_EVENT_ERROR}\ndata: {error_data}\n\n"
-            break
 
-    # 等待收集器完成
-    await asyncio.gather(collector_task, return_exceptions=True)
+    except Exception as e:
+        logger.error(f"[MeituanChat] 流式输出错误: {e}", exc_info=True)
+        error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+        yield f"event: {SSE_EVENT_ERROR}\ndata: {error_data}\n\n"
+
+    finally:
+        if not collector_task.done():
+            collector_task.cancel()
+        await asyncio.gather(collector_task, return_exceptions=True)
 
 
 async def _run_planned_pipeline_fast(
@@ -498,7 +517,7 @@ async def meituan_chat_stream(req: ChatRequest):
             welcome_stream(),
             media_type="text/event-stream",
             headers={
-                "Cache-Control": "no-cache",
+                "Cache-Control": "no-cache, no-transform",
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
             }
