@@ -88,6 +88,26 @@
   overflow-y: auto;
 }
 
+.formCardTopActions {
+  display: flex;
+  justify-content: flex-end;
+  margin: -12px -8px 16px 0;
+}
+
+.guestEntryBtn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  color: #CC9900 !important;
+  font-weight: 600;
+  padding: 4px 8px !important;
+}
+
+.guestEntryBtn:hover {
+  color: #8a6d00 !important;
+  background: rgba(255, 209, 0, 0.12) !important;
+}
+
 .steps {
   margin-bottom: 32px;
 }
@@ -571,6 +591,11 @@
 @media (max-width: 480px) {
   .formCard {
     padding: 20px 16px;
+  }
+
+  .formCardTopActions {
+    justify-content: center;
+    margin: 0 0 16px;
   }
 
   .stepActions {

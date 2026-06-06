@@ -558,6 +558,13 @@ export default function MapContainer({
     let drawnCount = 0;
 
     dailyPolylines.forEach((day, idx) => {
+      // v7: 防御 — 跳过不可绘制的假路线
+      const polylineSrc = (day as any).polyline_source || '';
+      if (polylineSrc === 'fallback_straight' || polylineSrc === 'route_api_failed') {
+        console.log(`[Map] skip non-drawable polyline: ${polylineSrc} day=${day.day_index}`);
+        return;
+      }
+
       if (!day.polyline || typeof day.polyline !== 'string') {
         console.warn(`[Map] Day ${day.day_index} polyline 无效`);
         return;
@@ -570,15 +577,20 @@ export default function MapContainer({
         return;
       }
 
+      // v7: 再防 degraded 且点数不足
+      const isDegraded = (day as any).degraded === true
+        || (day as any).polyline_source === 'fallback_straight';
+      if (isDegraded && path.length <= 2) {
+        console.log(`[Map] skip degraded stub polyline day=${day.day_index}`);
+        return;
+      }
+
       // 优先使用路况颜色，其次使用自定义颜色，最后使用默认颜色
       const color = day.trafficStatus
         ? TRAFFIC_COLORS[day.trafficStatus]
         : day.color || DAY_COLORS[idx % DAY_COLORS.length];
 
       try {
-        // v6: degraded/fallback_straight segments use dashed stroke
-        const isDegraded = (day as any).degraded === true
-          || (day as any).polyline_source === 'fallback_straight';
         const polyline = new window.AMap.Polyline({
           path,
           strokeColor: color,

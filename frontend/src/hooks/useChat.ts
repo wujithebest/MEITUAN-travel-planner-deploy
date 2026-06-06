@@ -978,7 +978,25 @@ export function useChat(): UseChatReturn {
                     dinner: '#C0392B', evening: '#8E44AD', half_day: '#E67E22',
                   };
                   const LINE_COLORS = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#E74C3C', '#F39C12'];
-                  const polylines = (routeData.segments || []).map((seg: any, sIdx: number) => {
+                  const polylines = (routeData.segments || [])
+                    .filter((seg: any) => {
+                      // v7: 过滤不可绘制路线 — 不在地图上画假直线
+                      const src = seg.polyline_source || '';
+                      if (src === 'fallback_straight' || src === 'route_api_failed') {
+                        console.log('[Map] skip non-drawable polyline:', src, seg.from_poi, '->', seg.to_poi);
+                        return false;
+                      }
+                      if (seg.degraded === true && Array.isArray(seg.polyline) && seg.polyline.length <= 2) {
+                        console.log('[Map] skip degraded stub polyline:', seg.from_poi, '->', seg.to_poi);
+                        return false;
+                      }
+                      const polyStr = typeof seg.polyline === 'string' ? seg.polyline : '';
+                      if (!polyStr && (!Array.isArray(seg.polyline) || seg.polyline.length < 2)) {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((seg: any, sIdx: number) => {
                     let polylineStr = '';
                     if (Array.isArray(seg.polyline)) {
                       polylineStr = seg.polyline.map((coord: number[]) => {
@@ -1005,6 +1023,7 @@ export function useChat(): UseChatReturn {
                       period: seg.period || seg.slot || '',
                       degraded: seg.degraded || seg.polyline_source === 'fallback_straight' || false,
                       polyline_source: seg.polyline_source || '',
+                      route_error: seg.route_error || '',
                     };
                   });
                   

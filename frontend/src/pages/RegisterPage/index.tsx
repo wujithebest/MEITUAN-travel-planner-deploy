@@ -77,7 +77,7 @@ interface RegisterForm {
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register, isLoading, error, clearError } = useUserStore();
+  const { register, guestLogin, isLoading, error, clearError } = useUserStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedPrefs, setSelectedPrefs] = useState<string[]>([]);
   const [form] = Form.useForm();
@@ -302,6 +302,13 @@ const RegisterPage: React.FC = () => {
     navigate('/', { replace: true });
   };
 
+  const handleGuestMode = () => {
+    clearError();
+    guestLogin();
+    message.success('已进入游客模式');
+    navigate('/app', { replace: true });
+  };
+
   const renderIcon = (visible: boolean) => {
     return visible ? <Eye size={18} /> : <EyeOff size={18} />;
   };
@@ -345,6 +352,16 @@ const RegisterPage: React.FC = () => {
 
       <div className={styles.formSection}>
         <div className={styles.formCard}>
+          <div className={styles.formCardTopActions}>
+            <Button
+              type="link"
+              className={styles.guestEntryBtn}
+              onClick={handleGuestMode}
+              disabled={isLoading}
+            >
+              以游客模式访问 <ArrowRight size={16} />
+            </Button>
+          </div>
           <Steps current={currentStep} className={styles.steps} size="small">
             {steps.map((step, index) => (
               <Step key={index} title={index <= 4 ? step.title : undefined} icon={step.icon} />

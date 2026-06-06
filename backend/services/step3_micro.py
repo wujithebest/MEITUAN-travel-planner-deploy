@@ -2350,6 +2350,31 @@ def _polyline_distance_km(polyline: list[list[float]]) -> float:
     return total
 
 
+def _is_drawable_route_polyline(polyline: list[list[float]], straight_km: float, polyline_source: str = "") -> bool:
+    """v7: 校验 polyline 是否适合在地图上绘制为真实路线。
+
+    禁止绘制的场景：
+    - polyline 为空或少于 2 个点
+    - polyline_source == "fallback_straight"（明确的降级两点线）
+    - 长距离两点/三点线（明显是假路线）
+    - path_km 与 straight_km 过于接近且点数很少
+    """
+    if not polyline or len(polyline) < 2:
+        return False
+    if polyline_source == "fallback_straight":
+        return False
+    if straight_km >= 0.2 and len(polyline) <= 2:
+        return False
+    if straight_km >= 0.8 and len(polyline) <= 3:
+        return False
+    # 防御：polyline 实际距离远小于直线距离说明有异常
+    if len(polyline) <= 3 and straight_km > 0.1:
+        path_km = _polyline_distance_km(polyline)
+        if path_km > 0 and straight_km > 0 and (path_km / straight_km) < 0.3:
+            return False
+    return True
+
+
 async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: dict[str, Any], b: dict[str, Any]) -> dict:
     origin = coord_to_param(a.get("location"))
     destination = coord_to_param(b.get("location"))
@@ -2375,8 +2400,8 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
             ],
         }
         if is_planned:
-            result["degraded"] = True
-            result["polyline_source"] = "fallback_straight"
+            result["degraded"] = False
+            result["polyline_source"] = "ultra_short_stub"
             print(f"[RouteDebug] planned ultra-short stub: {a.get('name')} -> {b.get('name')} ({straight_km*1000:.0f}m)")
         return result
 
@@ -2487,30 +2512,45 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
         eps = 0.0003 if is_long_route else 0.00005  # transit/驾车≈30m，步行≈5m
         result["polyline"] = _simplify_polyline(result["polyline"], epsilon=eps)
 
-    # v6: planned mode — if all real routes failed, return degraded stub
-    if not result or not result.get("polyline") or len(result.get("polyline", [])) < 2:
-        a_loc = a.get("location", {})
-        b_loc = b.get("location", {})
-        stub = _make_stub_polyline(a, b)
-        if is_planned:
-            result = {
-                "transport": "步行",
-                "duration_min": max(1.0, straight_km / 4.5 * 60),
-                "distance_km": max(0.01, straight_km),
-                "polyline": stub,
-                "degraded": True,
-                "polyline_source": "fallback_straight",
-                "route_error": "real_route_unavailable",
-            }
-            print(f"[RouteDebug] planned real route failed for {a.get('name')} -> {b.get('name')}; "
-                  f"returning degraded straight fallback")
+    # v7: 真实路线可用性校验 — 不可绘制的路线不返回 stub，标记 route_api_failed
+    polyline_src = result.get("polyline_source", "") if result else ""
+    result_poly = result.get("polyline", []) if result else []
+    if result and not _is_drawable_route_polyline(result_poly, straight_km, polyline_src):
+        # 真实 API 返回了但 polyline 不可绘制 → 尝试备用真实路线
+        fallback_result = None
+        transport_mode = result.get("transport", "")
+        if transport_mode in ("地铁/公交", "公交"):
+            try:
+                fallback_result = await gaode_driving_route(origin, destination)
+            except Exception:
+                pass
+        elif transport_mode == "步行":
+            try:
+                fallback_result = await gaode_bicycling_route(origin, destination)
+            except Exception:
+                try:
+                    fallback_result = await gaode_driving_route(origin, destination)
+                except Exception:
+                    pass
+        if fallback_result and fallback_result.get("polyline") and len(fallback_result.get("polyline", [])) >= 2:
+            result = fallback_result
+            result_poly = result.get("polyline", [])
+            polyline_src = result.get("polyline_source", "")
         else:
-            result = {
-                "transport": "步行",
-                "duration_min": max(1.0, straight_km / 4.5 * 60),
-                "distance_km": max(0.01, straight_km),
-                "polyline": stub,
-            }
+            result_poly = []
+            polyline_src = "route_api_failed"
+
+    if not result or len(result_poly) < 2:
+        print(f"[RouteDebug] route api failed, skip drawable polyline: {a.get('name')} -> {b.get('name')}")
+        return {
+            "transport": result.get("transport", "步行") if result else "步行",
+            "duration_min": max(1.0, result.get("duration_min", straight_km / 4.5 * 60) if result else straight_km / 4.5 * 60),
+            "distance_km": max(0.01, result.get("distance_km", straight_km) if result else straight_km),
+            "polyline": [],
+            "degraded": True,
+            "polyline_source": "route_api_failed",
+            "route_error": "real_route_unavailable",
+        }
     return result
 
 
@@ -2739,42 +2779,39 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
     segments = []
     for (a, b), route in zip(pairs, routes):
         if route is None:
-            # v6: route 为 None 时尝试 stub polyline
-            stub = _make_stub_polyline(a, b)
-            if stub:
-                dist_km = haversine_km(a.get("location", {}), b.get("location", {}))
-                print(f"[WARN step3] route API returned None, fallback to stub segment: {a['name']} -> {b['name']}")
-                segments.append(RouteSegment(
-                    from_poi=a["name"], to_poi=b["name"],
-                    day_index=a["day"], transport="步行",
-                    duration_min=max(1, round(dist_km / 4.5 * 60)),
-                    distance_km=max(0.01, round(dist_km, 2)),
-                    polyline=stub,
-                    degraded=True,
-                    polyline_source="fallback_straight",
-                ))
-                continue
-            raise ZeroOutputError(f"路线规划未返回结果且无法构造stub：{a['name']} -> {b['name']}")
+            # v7: route 为 None 时不构造虚假直线，保留路程信息但地图不画
+            dist_km = haversine_km(a.get("location", {}), b.get("location", {}))
+            print(f"[RouteDebug] route api failed, skip drawable polyline: {a['name']} -> {b['name']}")
+            segments.append(RouteSegment(
+                from_poi=a["name"], to_poi=b["name"],
+                day_index=a["day"], transport="步行",
+                duration_min=max(1, round(dist_km / 4.5 * 60)),
+                distance_km=max(0.01, round(dist_km, 2)),
+                polyline=[],
+                degraded=True,
+                polyline_source="route_api_failed",
+                route_error="real_route_unavailable",
+            ))
+            continue
         polyline = route.get("polyline") or []
         is_degraded = bool(route.get("degraded", False))
         polyline_src = str(route.get("polyline_source", ""))
+        route_err = str(route.get("route_error", ""))
         if len(polyline) < 2:
-            # v6: polyline 不足时尝试 stub
-            stub = _make_stub_polyline(a, b)
-            if stub:
-                dist_km = haversine_km(a.get("location", {}), b.get("location", {}))
-                print(f"[WARN step3] route polyline missing, fallback to stub segment: {a['name']} -> {b['name']}")
-                segments.append(RouteSegment(
-                    from_poi=a["name"], to_poi=b["name"],
-                    day_index=a["day"], transport=route.get("transport", "步行"),
-                    duration_min=max(1, round(route.get("duration_min", dist_km / 4.5 * 60))),
-                    distance_km=max(0.01, round(route.get("distance_km", dist_km), 2)),
-                    polyline=stub,
-                    degraded=True,
-                    polyline_source=polyline_src or "fallback_straight",
-                ))
-                continue
-            raise ZeroOutputError(f"路线缺少真实轨迹坐标且无法构造stub：{a['name']} -> {b['name']}")
+            # v7: 真实路线不足时不构造虚假 stub，保留行程信息但地图不画
+            dist_km = haversine_km(a.get("location", {}), b.get("location", {}))
+            print(f"[RouteDebug] route api failed, skip drawable polyline: {a['name']} -> {b['name']}")
+            segments.append(RouteSegment(
+                from_poi=a["name"], to_poi=b["name"],
+                day_index=a["day"], transport=route.get("transport", "步行"),
+                duration_min=max(1, round(route.get("duration_min", dist_km / 4.5 * 60))),
+                distance_km=max(0.01, round(route.get("distance_km", dist_km), 2)),
+                polyline=[],
+                degraded=True,
+                polyline_source=route_err and "route_api_failed" or polyline_src or "route_api_failed",
+                route_error=route_err or "real_route_unavailable",
+            ))
+            continue
         segments.append(
             RouteSegment(
                 from_poi=a["name"],
@@ -2786,6 +2823,7 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
                 polyline=polyline,
                 degraded=is_degraded,
                 polyline_source=polyline_src,
+                route_error=route.get("route_error", ""),
             )
         )
     return segments, waypoint_annotations

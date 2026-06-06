@@ -431,6 +431,9 @@ export interface RouteSegmentDTO {
   duration_min: number;
   distance_km: number;
   polyline: string;         // "lng,lat;lng,lat" 高德格式
+  degraded?: boolean;
+  polyline_source?: string;
+  route_error?: string;
 }
 
 /** 时间段 DTO - 与后端 TimePeriodDTO 对应 */
@@ -536,6 +539,9 @@ export interface MapRouteData {
     polyline: string;
     color: string;
     transport?: string;
+    degraded?: boolean;
+    polyline_source?: string;
+    route_error?: string;
   }>;
   markers: Array<{
     poi_id?: string;

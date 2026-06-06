@@ -357,9 +357,18 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
   };
   const LINE_COLORS = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#E74C3C', '#F39C12'];
 
-  // 转换 segments 为 polylines
+  // 转换 segments 为 polylines（v7: 过滤不可绘制路线）
   for (let sIdx = 0; sIdx < (data.segments || []).length; sIdx++) {
     const seg = (data.segments || [])[sIdx];
+    const src = (seg as any).polyline_source || '';
+    if (src === 'fallback_straight' || src === 'route_api_failed') {
+      console.log('[RouteStore] skip non-drawable polyline:', src, seg.from_poi, '->', seg.to_poi);
+      continue;
+    }
+    if ((seg as any).degraded === true && Array.isArray(seg.polyline) && seg.polyline.length <= 2) {
+      console.log('[RouteStore] skip degraded stub polyline:', seg.from_poi, '->', seg.to_poi);
+      continue;
+    }
     let polylineStr = '';
     if (Array.isArray(seg.polyline)) {
       polylineStr = seg.polyline
@@ -388,6 +397,7 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
       period: (seg as any).period || (seg as any).slot || '',
       degraded: (seg as any).degraded || (seg as any).polyline_source === 'fallback_straight' || false,
       polyline_source: (seg as any).polyline_source || '',
+      route_error: (seg as any).route_error || '',
     });
   }
 
