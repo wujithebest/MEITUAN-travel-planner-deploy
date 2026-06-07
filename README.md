@@ -64,11 +64,11 @@
 
 截图预留：
 
-![image-20260607214121799](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214121799.png)
+![image-20260607214121799](./images/image-20260607214121799.png)
 
 图示说明：此处建议插入精准规划模式下“日料店→回家”路线结果，展示左侧对话、中央地图路线和右侧行程概览。
 
-![image-20260607214224714](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214224714.png)
+![image-20260607214224714](./images/image-20260607214224714.png)
 
 图示说明：此处建议插入自由探索模式下外滩游览、餐饮推荐的完整路线结果。
 
@@ -100,10 +100,10 @@
 
 用户首次进入页面后，可选择注册登录或游客模式。进入主界面后，页面左侧为 AI 旅游助手对话区，中间为高德地图，右侧为行程概览。用户先选择“自由探索”或“精准规划”模式，再通过自然语言输入出行需求。前端通过 SSE 调用后端 `/api/meituan/chat/stream` 接口，实时展示“正在解析意图”“正在搜索目标地点”“正在规划路线”等状态。
 
-![image-20260607214324275](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214324275.png)
+![image-20260607214324275](./images/image-20260607214324275.png)
 
 当后端返回结果后，前端将结构化 route_data 转换为地图 marker、polyline 和右侧行程面板。用户可以在地图 POI 卡片中进行替换、删除、增加等操作，也可以收藏路线或从历史记录中恢复路线。
-![image-20260607214555581](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214555581.png)
+![image-20260607214555581](./images/image-20260607214555581.png)
 
 ### 2.2 前端特色
 
@@ -134,21 +134,21 @@
 
 ### 2.4 前端界面展示
 
-![image-20260607214743683](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214743683.png)
+![image-20260607214743683](./images/image-20260607214743683.png)
 
-![image-20260607215240558](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607215240558.png)
+![image-20260607215240558](./images/image-20260607215240558.png)
 
 图示说明：前端首页展示项目名称、登录/注册/游客模式入口，用户可直接进入规划系统。
 
-![image-20260607215346860](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607215346860.png)
+![image-20260607215346860](./images/image-20260607215346860.png)
 
-![image-20260607215511679](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607215511679.png)
+![image-20260607215511679](./images/image-20260607215511679.png)
 
-![image-20260607215541062](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607215541062.png)
+![image-20260607215541062](./images/image-20260607215541062.png)
 
 图示说明：路线结果页由左侧对话、中间地图和右侧行程概览组成，支持查看路线顺序、交通方式、推荐理由与 POI 详情。
 
-![image-20260607214324275](C:/Users/13200/AppData/Roaming/Typora/typora-user-images/image-20260607214324275.png)
+![image-20260607214324275](./images/image-20260607214324275.png)
 
 图示说明：功能指引用于解释自由探索、精准规划、近期规划、用户设置、行程概览和地图交互区域。
 
