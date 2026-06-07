@@ -167,6 +167,7 @@ from services.utils import (
     emit_error,
     init_sse_queue,
     get_sse_queue,
+    reset_pipeline_stats,
     SSE_EVENT_STATUS,
     SSE_EVENT_RESULT,
     SSE_EVENT_DONE,
@@ -198,9 +199,10 @@ async def _run_pipeline_stream(
     parsed_intent = None
     map_file_path = ""
 
-    # 先初始化 SSE 队列
+    # 先初始化 SSE 队列，重置资源统计
     queue = asyncio.Queue()
     init_sse_queue(queue)
+    reset_pipeline_stats()
 
     async def _collector():
         """收集 pipeline 输出"""

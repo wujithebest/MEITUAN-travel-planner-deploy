@@ -41,6 +41,50 @@ SSE_EVENT_DONE = "done"
 SSE_EVENT_ERROR = "error"
 
 
+# Pipeline 资源统计
+class PipelineStats:
+    """单次 pipeline 调用的资源消耗统计"""
+    started_at: float = 0.0
+    finished_at: float = 0.0
+    deepseek_calls: int = 0
+    deepseek_prompt_tokens: int = 0
+    deepseek_completion_tokens: int = 0
+    gaode_calls: int = 0
+    bocha_calls: int = 0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.deepseek_prompt_tokens + self.deepseek_completion_tokens
+
+    @property
+    def elapsed_seconds(self) -> float:
+        return round(self.finished_at - self.started_at, 1)
+
+    def to_dict(self) -> dict:
+        return {
+            "elapsed_seconds": self.elapsed_seconds,
+            "deepseek_calls": self.deepseek_calls,
+            "deepseek_prompt_tokens": self.deepseek_prompt_tokens,
+            "deepseek_completion_tokens": self.deepseek_completion_tokens,
+            "total_tokens": self.total_tokens,
+            "gaode_calls": self.gaode_calls,
+            "bocha_calls": self.bocha_calls,
+        }
+
+
+_pipeline_stats: PipelineStats | None = None
+
+
+def reset_pipeline_stats() -> PipelineStats:
+    global _pipeline_stats
+    _pipeline_stats = PipelineStats(started_at=time.monotonic())
+    return _pipeline_stats
+
+
+def get_pipeline_stats() -> PipelineStats | None:
+    return _pipeline_stats
+
+
 sse_queue: asyncio.Queue | None = None
 _recorded_outputs: list[str] = []
 
@@ -95,16 +139,23 @@ async def emit_done(
     map_paths: list[str] | None = None,
     full_plan: dict | None = None,
     route_data: dict | None = None,
+    stats: PipelineStats | None = None,
 ) -> None:
-    """发送完成标记，包含地图路径、完整计划和路线数据
-    
+    """发送完成标记，包含地图路径、完整计划、路线数据和资源统计
+
     Args:
         map_paths: 地图 HTML 文件路径列表
         full_plan: 完整计划数据（summary, city, duration, days）
         route_data: 路线数据（points, segments, hints, waypoint_annotations）
+        stats: Pipeline 资源消耗统计
     """
     if sse_queue is not None:
-        data = json.dumps({
+        # 如果未显式传入 stats，自动从全局单例获取
+        if stats is None:
+            stats = get_pipeline_stats()
+        if stats is not None:
+            stats.finished_at = time.monotonic()
+        payload: dict[str, Any] = {
             "type": "complete",
             "content": {
                 "map_paths": map_paths or [],
@@ -112,7 +163,10 @@ async def emit_done(
                 "route_data": route_data or {},
             },
             "progress": 100,
-        }, ensure_ascii=False)
+        }
+        if stats is not None:
+            payload["stats"] = stats.to_dict()
+        data = json.dumps(payload, ensure_ascii=False)
         await sse_queue.put(f"event: complete\ndata: {data}\n\n")
 
 

@@ -328,7 +328,20 @@ async def call_llm(
 
     try:
         # 使用 asyncio.wait_for 设置超时，比客户端内置超时更可控
-        return await asyncio.wait_for(_async_call(), timeout=config.DEEPSEEK_TIMEOUT)
+        result = await asyncio.wait_for(_async_call(), timeout=config.DEEPSEEK_TIMEOUT)
+        # v9: 收集 token 消耗统计
+        try:
+            from .utils import get_pipeline_stats
+            stats = get_pipeline_stats()
+            if stats is not None:
+                stats.deepseek_calls += 1
+                usage = getattr(getattr(result, '_raw_response', None), 'usage', None)
+                if usage:
+                    stats.deepseek_prompt_tokens += getattr(usage, 'prompt_tokens', 0) or 0
+                    stats.deepseek_completion_tokens += getattr(usage, 'completion_tokens', 0) or 0
+        except Exception:
+            pass
+        return result
     except asyncio.TimeoutError:
         raise LLMCallError(
             f"DeepSeek 调用失败：请求超过 {config.DEEPSEEK_TIMEOUT}s。"
@@ -576,6 +589,14 @@ async def _gaode_get_json(api_name: str, url: str, params: dict[str, Any]) -> di
                         await asyncio.sleep(config.GAODE_QPS_RETRY_SLEEP * (attempt + 1))
                         continue
                 _check_gaode_response(data, api_name)
+                # v9: 高德 API 调用计数
+                try:
+                    from .utils import get_pipeline_stats
+                    stats = get_pipeline_stats()
+                    if stats is not None:
+                        stats.gaode_calls += 1
+                except Exception:
+                    pass
                 return data
             except Exception as exc:
                 last_network_error = exc
@@ -882,6 +903,14 @@ async def bocha_search(query: str, count: int | None = None, summary: bool = Tru
                         error = data.get("msg") or data.get("message") or data.get("code")
                         raise ExternalAPIError(f"博查搜索接口返回失败：{error}；已按当前 BOCHA_MAX_CONCURRENCY / BOCHA_RATE_SLEEP 配置限流并重试")
                     raise ExternalAPIError(_format_bocha_error(data))
+                # v9: 博查 API 调用计数
+                try:
+                    from .utils import get_pipeline_stats
+                    stats = get_pipeline_stats()
+                    if stats is not None:
+                        stats.bocha_calls += 1
+                except Exception:
+                    pass
                 results = data.get("data", {}).get("webPages", {}).get("value") or []
                 return [
                     {

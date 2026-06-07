@@ -964,7 +964,30 @@ export function useChat(): UseChatReturn {
               console.log('[useChat] route_data.candidate_points.length:', (backendRouteData?.candidate_points || []).length);
 
               completeDataRef.current = data;
-              
+
+              // v9: 追加 pipeline 资源统计到输出内容末尾
+              const pipelineStats = (data as any).stats;
+              if (pipelineStats && typeof pipelineStats === 'object') {
+                const s = pipelineStats;
+                const parts: string[] = [];
+                if (s.elapsed_seconds != null) parts.push(`耗时 ${s.elapsed_seconds}s`);
+                if (s.total_tokens != null && s.total_tokens > 0) {
+                  parts.push(`Token ${s.total_tokens.toLocaleString()}`);
+                }
+                if (s.deepseek_calls != null && s.deepseek_calls > 0) {
+                  parts.push(`DeepSeek ${s.deepseek_calls}次`);
+                }
+                if (s.gaode_calls != null && s.gaode_calls > 0) {
+                  parts.push(`高德 ${s.gaode_calls}次`);
+                }
+                if (s.bocha_calls != null && s.bocha_calls > 0) {
+                  parts.push(`博查 ${s.bocha_calls}次`);
+                }
+                if (parts.length > 0) {
+                  accumulatedContentRef.current += `\n\n<small style="color:#999;font-size:12px;">${parts.join(' · ')}</small>`;
+                }
+              }
+
               // 使用 route_data 转换路线数据格式
               let safeRouteData = null;
               try {

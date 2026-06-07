@@ -82,6 +82,19 @@ export interface MeituanRouteData {
   intent?: MeituanIntentData;
   /** 回复文本 */
   reply?: string;
+  /** v9: Pipeline 资源消耗统计 */
+  stats?: PipelineStatsData;
+}
+
+/** v9: Pipeline 资源消耗统计 */
+export interface PipelineStatsData {
+  elapsed_seconds: number;
+  deepseek_calls: number;
+  deepseek_prompt_tokens: number;
+  deepseek_completion_tokens: number;
+  total_tokens: number;
+  gaode_calls: number;
+  bocha_calls: number;
 }
 
 /**
@@ -379,20 +392,25 @@ export function sendMeituanMessageStream(
               }
               
               // 触发 onResult 回调，传递完整数据
+              // v9: 提取 pipeline 资源统计
+              const pipelineStats = (data as any).stats as import('./meituanChat').PipelineStatsData | undefined;
+
               if (onResult && completeData?.full_plan) {
                 console.log('[MeituanChatAPI] 触发 onResult 回调');
                 onResult({
                   ...completeData.full_plan,
                   _route_data: completeData.route_data,
                   _map_paths: completeData.map_paths,
+                  stats: pipelineStats,
                 } as any);
               }
               // 同时触发 onDone 回调
               if (onDone) {
                 console.log('[MeituanChatAPI] 触发 onDone 回调');
-                onDone({ 
+                onDone({
                   html_paths: completeData?.map_paths || [],
                   route_data: completeData?.route_data,
+                  stats: pipelineStats,
                 });
               }
               break;
