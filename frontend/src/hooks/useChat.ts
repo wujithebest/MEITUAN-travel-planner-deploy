@@ -984,7 +984,17 @@ export function useChat(): UseChatReturn {
                   parts.push(`博查 ${s.bocha_calls}次`);
                 }
                 if (parts.length > 0) {
-                  accumulatedContentRef.current += `\n\n<small style="color:#999;font-size:12px;">${parts.join(' · ')}</small>`;
+                  accumulatedContentRef.current += `\n\n---\n${parts.join(' | ')}`;
+                  // 立即更新流式消息内容以反映 stats
+                  updateCurrentMessages(prev => {
+                    const targetId = streamingMessageIdRef.current;
+                    if (!targetId) return prev;
+                    const idx = prev.findIndex(m => m.id === targetId);
+                    if (idx < 0) return prev;
+                    const updated = [...prev];
+                    updated[idx] = { ...updated[idx], content: accumulatedContentRef.current.trim() };
+                    return updated;
+                  });
                 }
               }
 
