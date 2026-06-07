@@ -268,11 +268,30 @@ const RegisterPage: React.FC = () => {
     if (selectedProvince) locationData.province = selectedProvince;
     if (selectedCity) locationData.city = selectedCity;
     if (selectedDistrict) locationData.district = selectedDistrict;
+
+    let homeLocation: { lat: number; lng: number; label: string } | null = null;
+
     if (selectedAddress) {
-      locationData.address = selectedAddress.address;
-      if (selectedAddress.location) {
-        locationData.latitude = selectedAddress.location.lat;
-        locationData.longitude = selectedAddress.location.lng;
+      const lng = selectedAddress.location?.lng ?? null;
+      const lat = selectedAddress.location?.lat ?? null;
+      const addressName = selectedAddress.name || selectedAddress.address || '';
+
+      locationData.address = selectedAddress.address || addressName;
+      locationData.home_address = {
+        name: addressName,
+        full_address: selectedAddress.address || addressName,
+        lng,
+        lat,
+      };
+
+      if (lat !== null && lng !== null) {
+        locationData.latitude = lat;
+        locationData.longitude = lng;
+        homeLocation = {
+          lat,
+          lng,
+          label: addressName || '常住地址',
+        };
       }
     }
 
@@ -290,6 +309,7 @@ const RegisterPage: React.FC = () => {
         birthday,
         preferences: preferences as unknown as string[],
         location: locationData,
+        home_location: homeLocation,
       });
       message.success('注册成功！');
       setCurrentStep(5);

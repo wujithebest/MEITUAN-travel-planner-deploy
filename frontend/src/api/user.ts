@@ -10,6 +10,12 @@ export interface UpdateProfileData {
   username?: string;
   city?: string;
   preferences?: string[];
+  location?: UserProfile['location'];
+  home_location?: UserProfile['home_location'];
+  food_preferences?: string[];
+  gender?: string;
+  birthday?: string;
+  budget_per_capita?: number;
 }
 
 export interface UserProfile {
@@ -22,6 +28,25 @@ export interface UserProfile {
   birthday?: string;
   preferences?: string[];
   createdAt?: string;
+  location?: {
+    province?: string;
+    city?: string;
+    district?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    home_address?: {
+      name?: string;
+      full_address?: string;
+      lng?: number | null;
+      lat?: number | null;
+    };
+  };
+  home_location?: {
+    lat: number;
+    lng: number;
+    label: string;
+  } | null;
 }
 
 export const userApi = {

@@ -98,7 +98,8 @@ class UserMongoDB:
                           password_hash: str, preferences: dict = None,
                           avatar: str = None, location: dict = None,
                           bio: str = None, phone: str = None,
-                          gender: str = None, birthday: str = None) -> dict:
+                          gender: str = None, birthday: str = None,
+                          home_location: dict = None) -> dict:
         """创建新用户"""
         # 检查邮箱是否已存在
         existing_user = await users_collection.find_one({"email": email})
@@ -131,6 +132,7 @@ class UserMongoDB:
             "gender": gender,
             "birthday": birthday,
             "location": location or {},
+            "home_location": home_location,
             "preferences": preferences,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()

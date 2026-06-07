@@ -50,6 +50,7 @@ class UserCreate(BaseModel):
     location: Optional[dict] = None
     bio: Optional[str] = None
     phone: Optional[str] = None
+    home_location: Optional[dict] = None
 
     @validator('username')
     def username_valid(cls, v):
@@ -228,7 +229,8 @@ async def register(user_data: UserCreate):
             location=user_data.location,
             bio=user_data.bio,
             phone=user_data.phone,
-            avatar=None
+            avatar=None,
+            home_location=user_data.home_location,
         )
 
         # 创建访问令牌
@@ -246,7 +248,8 @@ async def register(user_data: UserCreate):
                 "gender": new_user.get("gender"),
                 "birthday": new_user.get("birthday"),
                 "location": new_user.get("location"),
-                "preferences": new_user.get("preferences", {})
+                "preferences": new_user.get("preferences", {}),
+                "home_location": new_user.get("home_location"),
             }
         }
     except ServerSelectionTimeoutError:
@@ -286,7 +289,8 @@ async def login(login_data: LoginRequest):
             "gender": user.get("gender"),
             "birthday": user.get("birthday"),
             "location": user.get("location"),
-            "preferences": user.get("preferences", {})
+            "preferences": user.get("preferences", {}),
+            "home_location": user.get("home_location"),
         }
     }
 
@@ -306,7 +310,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "gender": current_user.get("gender"),
         "birthday": current_user.get("birthday"),
         "location": current_user.get("location"),
-        "preferences": current_user.get("preferences", {})
+        "preferences": current_user.get("preferences", {}),
+        "home_location": current_user.get("home_location"),
     }
 
 

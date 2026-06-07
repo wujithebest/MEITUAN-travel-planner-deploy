@@ -47,6 +47,7 @@ export interface RegisterData {
   birthday?: string;
   preferences?: string[];
   location?: Record<string, unknown>;
+  home_location?: { lat: number; lng: number; label: string } | null;
 }
 
 interface UserState {
@@ -134,6 +135,9 @@ export const useUserStore = create<UserState>()(
             throw new Error('认证信息已过期，请重新登录');
           }
           
+          // 先写 token，getProfile 的 Authorization header 需要从 localStorage 读取
+          localStorage.setItem('token', token);
+
           // 登录成功后，调用API获取完整用户资料
           let fullUser = user;
           try {
@@ -142,7 +146,7 @@ export const useUserStore = create<UserState>()(
           } catch (profileError) {
             console.warn('[UserStore] 获取用户资料失败，使用登录返回数据:', profileError);
           }
-          
+
           set({
             user: fullUser,
             token,
@@ -150,8 +154,6 @@ export const useUserStore = create<UserState>()(
             isGuest: false,
             isLoading: false,
           });
-
-          localStorage.setItem('token', token);
           console.log('[UserStore] 登录成功, token=', token.substring(0, 30) + '...');
         } catch (error: any) {
           const message = error.response?.data?.detail || error.message || '登录失败';
@@ -179,6 +181,7 @@ export const useUserStore = create<UserState>()(
             throw new Error('认证信息已过期，请重新登录');
           }
           
+          localStorage.setItem('token', token);
           // 注册成功后，调用API获取完整用户资料
           let fullUser = user;
           try {
@@ -196,7 +199,6 @@ export const useUserStore = create<UserState>()(
             isLoading: false,
           });
 
-          localStorage.setItem('token', token);
           console.log('[UserStore] 注册成功, token=', token.substring(0, 30) + '...');
         } catch (error: any) {
           const message = error.response?.data?.detail || error.message || '注册失败';

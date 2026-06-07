@@ -57,6 +57,38 @@ const cityOptions = [
   { value: 'suzhou', label: '苏州' },
 ];
 
+const normalizeHomeAddress = (user: any): HomeAddress | null => {
+  const homeAddress = user?.location?.home_address;
+  if (homeAddress?.name || homeAddress?.full_address) {
+    return {
+      name: homeAddress.name || homeAddress.full_address || '',
+      full_address: homeAddress.full_address || homeAddress.name || '',
+      lng: homeAddress.lng ?? null,
+      lat: homeAddress.lat ?? null,
+    };
+  }
+
+  if (user?.home_location?.lat && user?.home_location?.lng) {
+    return {
+      name: user.home_location.label || '常住地址',
+      full_address: user.home_location.label || '常住地址',
+      lng: user.home_location.lng,
+      lat: user.home_location.lat,
+    };
+  }
+
+  if (user?.location?.address) {
+    return {
+      name: user.location.address,
+      full_address: user.location.address,
+      lng: user.location.longitude ?? null,
+      lat: user.location.latitude ?? null,
+    };
+  }
+
+  return null;
+};
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
   const { user, isGuest, updateUser, updateGuestProfile } = useUserStore();
   const [form] = Form.useForm();
@@ -74,12 +106,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
   useEffect(() => {
     if (open && user) {
+      const normalizedHomeAddress = normalizeHomeAddress(user);
       form.setFieldsValue({
         username: user.username || '',
         email: user.email || '',
         city: user.city || undefined,
         preferences: user.preferences || [],
-        homeAddress: user.location?.home_address?.name || '',
+        homeAddress: normalizedHomeAddress?.name || normalizedHomeAddress?.full_address || '',
       });
       if (isGuest) {
         form.setFieldsValue({
@@ -90,10 +123,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           food_preferences: user.food_preferences || [],
         });
       }
-      // 恢复已保存的地址
-      if (user.location?.home_address) {
-        setSelectedAddress(user.location.home_address);
-      }
+      setSelectedAddress(normalizedHomeAddress);
     } else if (open && !user) {
       form.resetFields();
       setSelectedAddress(null);

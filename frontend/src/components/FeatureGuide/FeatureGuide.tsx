@@ -223,9 +223,13 @@ function edgePointToward(rect: Rect, point: LinePoint): LinePoint {
 /** 折线：目标框边缘 → badge 圆点中心 */
 function buildConnector(targetRect: Rect, cardLeft: number, cardTop: number): { points: LinePoint[] } {
   const badgeCenter = { x: cardLeft + 14, y: cardTop + 14 };
+  return buildConnectorToPoint(targetRect, badgeCenter);
+}
+
+/** 折线：目标框边缘 → 任意点 */
+function buildConnectorToPoint(targetRect: Rect, badgeCenter: LinePoint): { points: LinePoint[] } {
   const start = edgePointToward(targetRect, badgeCenter);
   const midX = start.x + (badgeCenter.x - start.x) * 0.55;
-
   return {
     points: [
       start,
@@ -286,17 +290,25 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     return raw;
   }, [getTargetRectRaw]);
 
+  function makeStackedLayouts(): StepLayout[] {
+    return STEPS.map((step, idx) => {
+      const targetRect = getGuideTargetRect(step);
+      return {
+        idx,
+        targetRect,
+        cardTop: 0,
+        cardLeft: 0,
+        cardWidth: CARD_WIDTH,
+        cardHeight: measuredHeights.current[idx] || DEFAULT_CARD_HEIGHT,
+        connectorPoints: [],
+      };
+    });
+  }
+
   const stackedSet = useCallback(() => {
-    setLayouts(STEPS.map((_, idx) => ({
-      idx,
-      targetRect: null,
-      cardTop: 0,
-      cardLeft: 0,
-      cardWidth: CARD_WIDTH,
-      cardHeight: DEFAULT_CARD_HEIGHT,
-      connectorPoints: [],
-    })));
-  }, []);
+    setLayouts(makeStackedLayouts());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getGuideTargetRect]);
 
   const computeLayouts = useCallback(() => {
     const vw = window.innerWidth;
@@ -403,7 +415,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     };
   }, [open, computeLayouts]);
 
-  // Measure card heights after render
+  // Measure card heights after render + generate stacked connectors
   useEffect(() => {
     if (!open || layouts.length === 0) return;
     const raf = requestAnimationFrame(() => {
@@ -416,9 +428,32 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
         measuredHeights.current = heights;
         computeLayouts();
       }
+
+      // 桌面 stacked 模式补充 connector 折线
+      const stackedNow = window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 760 || forceStacked;
+      if (stackedNow && window.innerWidth > 768) {
+        setLayouts(prev => prev.map((layout, idx) => {
+          const targetRect = layout.targetRect || getGuideTargetRect(STEPS[idx]);
+          const stepEl = stepRefs.current[idx];
+          const badgeEl = stepEl?.querySelector('[data-guide-badge="true"]') as HTMLElement | null;
+          if (!targetRect || !badgeEl) {
+            return { ...layout, targetRect, connectorPoints: [] };
+          }
+          const badgeRect = badgeEl.getBoundingClientRect();
+          const badgeCenter = {
+            x: badgeRect.left + badgeRect.width / 2,
+            y: badgeRect.top + badgeRect.height / 2,
+          };
+          return {
+            ...layout,
+            targetRect,
+            connectorPoints: buildConnectorToPoint(targetRect, badgeCenter).points,
+          };
+        }));
+      }
     });
     return () => cancelAnimationFrame(raf);
-  }, [open, layouts.length, computeLayouts]);
+  }, [open, layouts.length, computeLayouts, forceStacked, getGuideTargetRect]);
 
   // Lock body scroll
   useEffect(() => {
@@ -438,9 +473,14 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [windowSmall, setWindowSmall] = useState(false);
   useEffect(() => {
-    const check = () => setWindowSmall(window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 760);
+    const check = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobileViewport(mobile);
+      setWindowSmall(mobile || window.innerWidth < 1180 || window.innerHeight < 760);
+    };
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -449,7 +489,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
   if (!open) return null;
 
   const effectiveStacked = windowSmall || forceStacked;
-  const showDecorations = !effectiveStacked;
+  const showDecorations = !isMobileViewport;
 
   return (
     <div className={styles.overlay}>
@@ -514,7 +554,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
 
           return (
             <div key={step.target} className={styles.step} style={style} ref={setStepRef}>
-              <div className={styles.badge}>{idx + 1}</div>
+              <div className={styles.badge} data-guide-badge="true">{idx + 1}</div>
               <div className={styles.callout}>
                 <p className={styles.title}>{step.title}</p>
                 <p className={styles.text}>

@@ -12,6 +12,11 @@ interface LoginResponse {
     birthday?: string;
     preferences?: string[];
     location?: Record<string, unknown>;
+    home_location?: {
+      lat: number;
+      lng: number;
+      label: string;
+    } | null;
   };
 }
 
@@ -23,6 +28,11 @@ interface RegisterData {
   birthday?: string;
   preferences?: string[];
   location?: Record<string, unknown>;
+  home_location?: {
+    lat: number;
+    lng: number;
+    label: string;
+  } | null;
 }
 
 const getAuthHeaders = () => {
