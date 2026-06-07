@@ -240,6 +240,33 @@ function buildConnectorToPoint(targetRect: Rect, badgeCenter: LinePoint): { poin
   };
 }
 
+/** 折线：右侧绕行 — 从目标框底部出发，沿右侧空白区向下，再左转连 badge（用于右上角用户菜单等） */
+function buildRightBiasedConnector(
+  targetRect: Rect,
+  badgeCenter: LinePoint,
+  viewportWidth: number,
+): { points: LinePoint[] } {
+  const start = {
+    x: targetRect.left + targetRect.width / 2,
+    y: targetRect.bottom,
+  };
+  const laneX = clamp(
+    targetRect.left + targetRect.width / 2,
+    targetRect.right + 24,
+    viewportWidth - 72,
+  );
+  const laneY = Math.max(start.y + 28, badgeCenter.y);
+  return {
+    points: [
+      start,
+      { x: laneX, y: start.y },
+      { x: laneX, y: laneY },
+      { x: badgeCenter.x, y: laneY },
+      badgeCenter,
+    ],
+  };
+}
+
 /** keyword 加粗渲染（纯字符串 split，不用 dangerouslySetInnerHTML） */
 function renderHighlightedText(text: string, highlights: string[]): React.ReactNode {
   if (!highlights || highlights.length === 0) return text;
@@ -387,7 +414,14 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     // 碰撞解决后重新生成 connector points
     for (const l of raw) {
       if (!l.targetRect) continue;
-      const conn = buildConnector(l.targetRect, l.cardLeft, l.cardTop);
+      // 第 6 项地图中心说明不画引线；第 4 项用户菜单用右侧绕行
+      if (l.idx === 5) {
+        l.connectorPoints = [];
+        continue;
+      }
+      const conn = l.idx === 3
+        ? buildRightBiasedConnector(l.targetRect, { x: l.cardLeft + 14, y: l.cardTop + 14 }, window.innerWidth)
+        : buildConnector(l.targetRect, l.cardLeft, l.cardTop);
       l.connectorPoints = conn.points;
     }
 
@@ -433,6 +467,10 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       const stackedNow = window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 760 || forceStacked;
       if (stackedNow && window.innerWidth > 768) {
         setLayouts(prev => prev.map((layout, idx) => {
+          // 第 6 项地图中心说明不画引线
+          if (idx === 5) {
+            return { ...layout, connectorPoints: [] };
+          }
           const targetRect = layout.targetRect || getGuideTargetRect(STEPS[idx]);
           const stepEl = stepRefs.current[idx];
           const badgeEl = stepEl?.querySelector('[data-guide-badge="true"]') as HTMLElement | null;
@@ -447,7 +485,10 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
           return {
             ...layout,
             targetRect,
-            connectorPoints: buildConnectorToPoint(targetRect, badgeCenter).points,
+            // 第 4 项用户菜单用右侧绕行引线
+            connectorPoints: idx === 3
+              ? buildRightBiasedConnector(targetRect, badgeCenter, window.innerWidth).points
+              : buildConnectorToPoint(targetRect, badgeCenter).points,
           };
         }));
       }
