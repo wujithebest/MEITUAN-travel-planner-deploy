@@ -80,12 +80,10 @@ _pipeline_stats: PipelineStats | None = None
 def reset_pipeline_stats() -> PipelineStats:
     global _pipeline_stats
     _pipeline_stats = PipelineStats(started_at=time.monotonic())
-    print(f"[DEBUG stats] reset_pipeline_stats: _pipeline_stats set, id={id(_pipeline_stats)}")
     return _pipeline_stats
 
 
 def get_pipeline_stats() -> PipelineStats | None:
-    print(f"[DEBUG stats] get_pipeline_stats: returning {_pipeline_stats} (id={id(_pipeline_stats) if _pipeline_stats else 'None'})")
     return _pipeline_stats
 
 
@@ -157,10 +155,8 @@ async def emit_done(
         # 如果未显式传入 stats，自动从全局单例获取
         if stats is None:
             stats = get_pipeline_stats()
-            print(f"[DEBUG stats] emit_done auto-fetched stats: {stats} (id={id(stats) if stats else 'None'})")
         if stats is not None:
             stats.finished_at = time.monotonic()
-            print(f"[DEBUG stats] emit_done stats.to_dict: {stats.to_dict()}")
         payload: dict[str, Any] = {
             "type": "complete",
             "content": {
@@ -172,9 +168,6 @@ async def emit_done(
         }
         if stats is not None:
             payload["stats"] = stats.to_dict()
-            print(f"[DEBUG stats] emit_done payload has stats: {bool('stats' in payload)}")
-        else:
-            print(f"[DEBUG stats] emit_done stats is None, skipping stats in payload")
         data = json.dumps(payload, ensure_ascii=False)
         await sse_queue.put(f"event: complete\ndata: {data}\n\n")
 
