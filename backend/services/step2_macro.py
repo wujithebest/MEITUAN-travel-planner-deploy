@@ -1622,7 +1622,7 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                 district="",
                 enrichment_text="",
                 enrichment_heat=0.0,
-                gaode_poi_id=None,
+                gaode_poi_id="",
             )
             fixed_places.append(p)
         await emit_status("正在补充目的地详情...")
