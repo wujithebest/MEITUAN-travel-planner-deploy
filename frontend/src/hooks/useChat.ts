@@ -980,9 +980,13 @@ export function useChat(): UseChatReturn {
                   const LINE_COLORS = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#E74C3C', '#F39C12'];
                   const polylines = (routeData.segments || [])
                     .filter((seg: any) => {
-                      // v7: 过滤不可绘制路线 — 不在地图上画假直线
+                      // v8: 过滤不可绘制路线 — 不在地图上画假直线
                       const src = seg.polyline_source || '';
-                      if (src === 'fallback_straight' || src === 'route_api_failed') {
+                      const blockedSources = new Set([
+                        'fallback_straight', 'route_api_failed', 'invalid_geometry',
+                        'discontinuous_polyline', 'sparse_polyline',
+                      ]);
+                      if (blockedSources.has(src)) {
                         console.log('[Map] skip non-drawable polyline:', src, seg.from_poi, '->', seg.to_poi);
                         return false;
                       }

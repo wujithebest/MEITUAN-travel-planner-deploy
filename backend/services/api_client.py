@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -365,29 +366,58 @@ def _parse_gaode_polyline(polyline: Any) -> list[list[float]]:
     return coords
 
 
-def _merge_polyline_chunks(chunks: list[list[list[float]]], snap_threshold_m: float = 5.0) -> list[list[float]]:
+def _coord_distance_m(a: list[float], b: list[float]) -> float:
+    """两点间距离（米），坐标格式 [lat, lng]"""
+    if not a or not b or len(a) < 2 or len(b) < 2:
+        return float("inf")
+    lat1, lng1 = math.radians(a[0]), math.radians(a[1])
+    lat2, lng2 = math.radians(b[0]), math.radians(b[1])
+    dlat = lat2 - lat1
+    dlng = lng2 - lng1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    return 6371000 * 2 * math.asin(math.sqrt(h))
+
+
+def _merge_polyline_chunks(
+    chunks: list[list[list[float]]],
+    snap_threshold_m: float = 5.0,
+    max_join_gap_m: float | None = None,
+) -> list[list[float]]:
     """拼接多段polyline，用距离阈值去除接缝处重合/抖动点。
+
     snap_threshold_m: 距离小于此值(米)的相邻点视为重合，跳过。
+    max_join_gap_m: 若前段末端与后段首端距离超过此值，判定 chunk 不连续，返回 []。
     """
     coords: list[list[float]] = []
-    snap_deg = snap_threshold_m / 111000  # 纬度方向≈111km/度
+    snap_deg = snap_threshold_m / 111000
     snap_deg_sq = snap_deg * snap_deg
     for chunk in chunks:
-        for coord in chunk:
+        valid = [c for c in chunk if len(c) >= 2]
+        if not valid:
+            continue
+        if coords and max_join_gap_m is not None:
+            gap_m = _coord_distance_m(coords[-1], valid[0])
+            if gap_m > max_join_gap_m:
+                print(f"[RouteDebug] discontinuous polyline chunks: gap={gap_m:.0f}m limit={max_join_gap_m:.0f}m")
+                return []
+        for coord in valid:
             if len(coord) < 2:
                 continue
             if coords:
                 dlat = coord[0] - coords[-1][0]
                 dlng = coord[1] - coords[-1][1]
                 if dlat * dlat + dlng * dlng < snap_deg_sq:
-                    continue  # 距离<阈值，视为重合/抖动，跳过
+                    continue
             coords.append(coord)
     return coords
 
 
 def _extract_steps_polyline(value: dict[str, Any]) -> list[list[float]]:
     steps = value.get("steps") or []
-    return _merge_polyline_chunks([_parse_gaode_polyline(step.get("polyline")) for step in steps])
+    return _merge_polyline_chunks(
+        [_parse_gaode_polyline(step.get("polyline")) for step in steps],
+        max_join_gap_m=120,
+    )
 
 
 def _collect_nested_polylines(value: Any) -> list[list[list[float]]]:
@@ -412,7 +442,7 @@ def _extract_path_polyline(path: dict[str, Any]) -> list[list[float]]:
     steps_polyline = _extract_steps_polyline(path)
     if steps_polyline:
         return steps_polyline
-    return _merge_polyline_chunks(_collect_nested_polylines(path))
+    return _merge_polyline_chunks(_collect_nested_polylines(path), max_join_gap_m=200)
 
 
 def _extract_transit_polyline(transit: dict[str, Any]) -> list[list[float]]:
@@ -435,8 +465,13 @@ def _extract_transit_polyline(transit: dict[str, Any]) -> list[list[float]]:
             chunks.append(railway_polyline)
 
     if chunks:
-        return _merge_polyline_chunks(chunks)
-    return _merge_polyline_chunks(_collect_nested_polylines(transit))
+        result = _merge_polyline_chunks(chunks, max_join_gap_m=350)
+        if result:
+            return result
+        # 显式拼接失败，尝试 nested fallback 但同样做连续性校验
+        nested = _merge_polyline_chunks(_collect_nested_polylines(transit), max_join_gap_m=350)
+        return nested if nested else []
+    return _merge_polyline_chunks(_collect_nested_polylines(transit), max_join_gap_m=350)
 
 
 def _normalize_poi(raw: dict[str, Any]) -> dict[str, Any] | None:

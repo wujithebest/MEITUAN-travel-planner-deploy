@@ -2350,28 +2350,60 @@ def _polyline_distance_km(polyline: list[list[float]]) -> float:
     return total
 
 
-def _is_drawable_route_polyline(polyline: list[list[float]], straight_km: float, polyline_source: str = "") -> bool:
-    """v7: 校验 polyline 是否适合在地图上绘制为真实路线。
+def _max_adjacent_gap_km(polyline: list[list[float]]) -> float:
+    """v8: 计算 polyline 中相邻点之间的最大间距（km）"""
+    if not polyline or len(polyline) < 2:
+        return 0.0
+    max_gap = 0.0
+    for i in range(1, len(polyline)):
+        max_gap = max(max_gap, haversine_km(
+            {"lat": polyline[i - 1][0], "lng": polyline[i - 1][1]},
+            {"lat": polyline[i][0], "lng": polyline[i][1]},
+        ))
+    return max_gap
 
-    禁止绘制的场景：
-    - polyline 为空或少于 2 个点
-    - polyline_source == "fallback_straight"（明确的降级两点线）
-    - 长距离两点/三点线（明显是假路线）
-    - path_km 与 straight_km 过于接近且点数很少
+
+INVALID_GEOMETRY_SOURCES = {
+    "fallback_straight", "route_api_failed", "invalid_geometry",
+    "discontinuous_polyline", "sparse_polyline",
+}
+
+
+def _is_drawable_route_polyline(
+    polyline: list[list[float]],
+    straight_km: float,
+    polyline_source: str = "",
+    transport: str = "",
+    api_distance_km: float = 0.0,
+) -> bool:
+    """v8: 校验 polyline 是否适合在地图上绘制为真实路线。
+
+    新增规则：
+    - 已知不可绘制来源一律拒绝
+    - 公交/自驾允许稍大间隔，但间断不能超过合理上限
+    - api_distance_km 与 path_km 差距过大也拒绝
     """
     if not polyline or len(polyline) < 2:
         return False
-    if polyline_source == "fallback_straight":
+    if polyline_source in INVALID_GEOMETRY_SOURCES:
         return False
-    if straight_km >= 0.2 and len(polyline) <= 2:
+    if straight_km >= 0.3 and len(polyline) <= 3:
         return False
-    if straight_km >= 0.8 and len(polyline) <= 3:
+
+    path_km = _polyline_distance_km(polyline)
+    if api_distance_km >= 0.3 and path_km < api_distance_km * 0.55:
         return False
-    # 防御：polyline 实际距离远小于直线距离说明有异常
-    if len(polyline) <= 3 and straight_km > 0.1:
-        path_km = _polyline_distance_km(polyline)
-        if path_km > 0 and straight_km > 0 and (path_km / straight_km) < 0.3:
-            return False
+    if len(polyline) <= 3 and straight_km > 0.1 and path_km > 0 and straight_km > 0 and (path_km / straight_km) < 0.3:
+        return False
+
+    max_gap = _max_adjacent_gap_km(polyline)
+    transit_or_drive = transport in ("地铁/公交", "公交", "自驾")
+    gap_limit = max(0.8, straight_km * 0.55) if transit_or_drive else max(0.35, straight_km * 0.45)
+    if straight_km < 5 and max_gap > gap_limit:
+        print(f"[RouteDebug] invalid geometry: transport={transport} straight={straight_km:.3f}km "
+              f"api_distance={api_distance_km:.3f}km path={path_km:.3f}km max_gap={max_gap:.3f}km "
+              f"gap_limit={gap_limit:.3f}km points={len(polyline)} src={polyline_source}")
+        return False
     return True
 
 
@@ -2515,7 +2547,11 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
     # v7: 真实路线可用性校验 — 不可绘制的路线不返回 stub，标记 route_api_failed
     polyline_src = result.get("polyline_source", "") if result else ""
     result_poly = result.get("polyline", []) if result else []
-    if result and not _is_drawable_route_polyline(result_poly, straight_km, polyline_src):
+    if result and not _is_drawable_route_polyline(
+        result_poly, straight_km, polyline_src,
+        result.get("transport", ""),
+        float(result.get("distance_km", 0) or 0),
+    ):
         # 真实 API 返回了但 polyline 不可绘制 → 尝试备用真实路线
         fallback_result = None
         transport_mode = result.get("transport", "")
@@ -2533,9 +2569,17 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
                 except Exception:
                     pass
         if fallback_result and fallback_result.get("polyline") and len(fallback_result.get("polyline", [])) >= 2:
-            result = fallback_result
-            result_poly = result.get("polyline", [])
-            polyline_src = result.get("polyline_source", "")
+            fb_poly = fallback_result.get("polyline", [])
+            fb_src = fallback_result.get("polyline_source", "")
+            fb_transport = fallback_result.get("transport", result.get("transport", "步行") if result else "步行")
+            fb_dist = float(fallback_result.get("distance_km", 0) or 0)
+            if _is_drawable_route_polyline(fb_poly, straight_km, fb_src, fb_transport, fb_dist):
+                result = fallback_result
+                result_poly = fb_poly
+                polyline_src = fb_src
+            else:
+                result_poly = []
+                polyline_src = "invalid_geometry"
         else:
             result_poly = []
             polyline_src = "route_api_failed"

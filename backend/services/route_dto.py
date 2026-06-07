@@ -38,6 +38,9 @@ class RouteSegmentDTO(BaseModel):
     duration_min: float
     distance_km: float
     polyline: str          # "lng,lat;lng,lat" 高德格式（前端直接使用）
+    degraded: bool = False
+    polyline_source: str = ""
+    route_error: str = ""
 
 
 class TimePeriodDTO(BaseModel):
@@ -96,6 +99,9 @@ class GaodeRouteSegmentJSON(BaseModel):
     period: str            # 所属时间段
     color: str             # 路线颜色 hex（如 "#E67E22"）
     is_dashed: bool        # 是否虚线（公交/自驾为虚线）
+    degraded: bool = False
+    polyline_source: str = ""
+    route_error: str = ""
 
 
 class GaodeDayRouteJSON(BaseModel):
@@ -219,6 +225,9 @@ def convert_to_frontend_route(
                 duration_min=seg.duration_min,
                 distance_km=seg.distance_km,
                 polyline=polyline_str,
+                degraded=getattr(seg, "degraded", False),
+                polyline_source=getattr(seg, "polyline_source", ""),
+                route_error=getattr(seg, "route_error", ""),
             ))
         
         # 识别时间段
@@ -647,6 +656,15 @@ def build_gaode_route_json(
             # 是否虚线（公交/自驾）
             is_dashed = seg.transport not in ("步行", "骑行")
             
+            # v8: 不可绘制路线不输出 polyline
+            seg_degraded = getattr(seg, "degraded", False)
+            seg_src = getattr(seg, "polyline_source", "")
+            seg_err = getattr(seg, "route_error", "")
+            if seg_degraded and seg_src in {
+                "fallback_straight", "route_api_failed", "invalid_geometry",
+                "discontinuous_polyline", "sparse_polyline",
+            }:
+                polyline = []
             gaode_segments.append(GaodeRouteSegmentJSON(
                 from_poi=seg.from_poi,
                 to_poi=seg.to_poi,
@@ -657,6 +675,9 @@ def build_gaode_route_json(
                 period=period,
                 color=color,
                 is_dashed=is_dashed,
+                degraded=seg_degraded,
+                polyline_source=seg_src,
+                route_error=seg_err,
             ))
         
         # 收集时间段标签

@@ -361,7 +361,11 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
   for (let sIdx = 0; sIdx < (data.segments || []).length; sIdx++) {
     const seg = (data.segments || [])[sIdx];
     const src = (seg as any).polyline_source || '';
-    if (src === 'fallback_straight' || src === 'route_api_failed') {
+    const blockedSources = new Set([
+      'fallback_straight', 'route_api_failed', 'invalid_geometry',
+      'discontinuous_polyline', 'sparse_polyline',
+    ]);
+    if (blockedSources.has(src)) {
       console.log('[RouteStore] skip non-drawable polyline:', src, seg.from_poi, '->', seg.to_poi);
       continue;
     }

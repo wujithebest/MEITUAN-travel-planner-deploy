@@ -507,6 +507,44 @@ export default function MapContainer({
     mapInstanceRef.current.setZoom(zoom);
   }, [isMapReady, center, zoom]);
 
+  // v8: 前端几何防御函数
+  function getLngLatDistanceKm(a: any, b: any): number {
+    const lng1 = a.lng ?? a[0];
+    const lat1 = a.lat ?? a[1];
+    const lng2 = b.lng ?? b[0];
+    const lat2 = b.lat ?? b[1];
+    const rad = Math.PI / 180;
+    const dlat = (lat2 - lat1) * rad;
+    const dlng = (lng2 - lng1) * rad;
+    const s =
+      Math.sin(dlat / 2) ** 2 +
+      Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dlng / 2) ** 2;
+    return 6371 * 2 * Math.asin(Math.sqrt(s));
+  }
+
+  function isSuspiciousPolyline(
+    path: any[], distanceKm?: number, source?: string, degraded?: boolean,
+  ): boolean {
+    if (!path || path.length < 2) return true;
+    if (['fallback_straight', 'route_api_failed', 'invalid_geometry',
+      'discontinuous_polyline', 'sparse_polyline'].includes(source || '')) return true;
+    if (degraded && path.length <= 3) return true;
+
+    const routeDistance = Number(distanceKm || 0);
+    if (routeDistance >= 0.3 && path.length <= 3) return true;
+
+    let maxGap = 0;
+    let pathKm = 0;
+    for (let i = 1; i < path.length; i++) {
+      const gap = getLngLatDistanceKm(path[i - 1], path[i]);
+      maxGap = Math.max(maxGap, gap);
+      pathKm += gap;
+    }
+    if (routeDistance >= 0.3 && pathKm < routeDistance * 0.5) return true;
+    if (routeDistance > 0 && routeDistance < 5 && maxGap > Math.max(0.8, routeDistance * 0.6)) return true;
+    return false;
+  }
+
   // Step 3: 解析 polyline 字符串
   const parsePolyline = useCallback((polyline: string): [number, number][] => {
     if (!polyline || typeof polyline !== 'string') {
@@ -574,6 +612,13 @@ export default function MapContainer({
 
       if (path.length < 2) {
         console.warn(`[Map] Day ${day.day_index} 坐标点不足: ${path.length}`);
+        return;
+      }
+
+      if (isSuspiciousPolyline(path, (day as any).distance_km, polylineSrc, (day as any).degraded)) {
+        console.log('[Map] skip suspicious polyline geometry', {
+          source: polylineSrc, distance_km: (day as any).distance_km, points: path.length,
+        });
         return;
       }
 

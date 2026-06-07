@@ -108,6 +108,9 @@ export interface BackendRouteSegment {
   duration_min: number;
   distance_km: number;
   polyline: [number, number][]; // [[lat, lng], ...]
+  degraded?: boolean;
+  polyline_source?: string;
+  route_error?: string;
 }
 
 /**
@@ -478,7 +481,10 @@ export function extractMeituanMapData(routeData: any): {
   const polylines = (routeData?.polylines || []).map((p: any, idx: number) => ({
     day_index: p.day_index || 1,
     polyline: Array.isArray(p.polyline) ? p.polyline : [],
-    color: colors[idx % colors.length],
+    color: p.color || colors[idx % colors.length],
+    degraded: p.degraded || false,
+    polyline_source: p.polyline_source || '',
+    route_error: p.route_error || '',
   }));
 
   // 提取 markers - 兼容 anchors 和 days[].anchors 两种结构
