@@ -1058,9 +1058,18 @@ def _score_places_prefetched(
     print(f"[DEBUG step2] rainy_context={rainy_flag} before_filter={before_rainy} after_filter={after_rainy}")
     for i, c in enumerate(scored[:5]):
         print(f"[DEBUG step2] top{i+1}: name={c.name} typecode={c.typecode} weather_penalty={c.weather_penalty} final_score={c.final_score}")
-    if parsed_intent.delete_list:
-        delete_lowered = {name.lower() for name in parsed_intent.delete_list}
-        delete_filtered = [item for item in scored if item.name.lower() not in delete_lowered]
+    if parsed_intent.delete_list or getattr(parsed_intent, 'excluded_areas', []):
+        delete_lowered = [name.lower() for name in parsed_intent.delete_list]
+        excluded = delete_lowered + [a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])]
+        delete_filtered = [
+            item for item in scored
+            if not any(
+                d in (item.name.lower() or '')
+                or d in (getattr(item, 'address', '') or '').lower()
+                or d in (getattr(item, 'district', '') or '').lower()
+                for d in excluded
+            )
+        ]
         if delete_filtered:
             scored = delete_filtered
     return scored
@@ -1136,9 +1145,18 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
     rainy_flag2 = _rainy_context(parsed_intent)
     if before_rainy2 != after_rainy2:
         print(f"[DEBUG step2-legacy] rainy_context={rainy_flag2} before_filter={before_rainy2} after_filter={after_rainy2}")
-    if parsed_intent.delete_list:
-        delete_lowered = {name.lower() for name in parsed_intent.delete_list}
-        delete_filtered = [item for item in scored if item.name.lower() not in delete_lowered]
+    if parsed_intent.delete_list or getattr(parsed_intent, 'excluded_areas', []):
+        delete_lowered = [name.lower() for name in parsed_intent.delete_list]
+        excluded = delete_lowered + [a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])]
+        delete_filtered = [
+            item for item in scored
+            if not any(
+                d in (item.name.lower() or '')
+                or d in (getattr(item, 'address', '') or '').lower()
+                or d in (getattr(item, 'district', '') or '').lower()
+                for d in excluded
+            )
+        ]
         if delete_filtered:
             scored = delete_filtered
     if _is_nearest_request(parsed_intent):
@@ -1165,8 +1183,18 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
         for anchor in fixed
         if anchor.location
     ]
+    excluded_all = [n.lower() for n in parsed_intent.delete_list]
+    excluded_all += [a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])]
     for candidate in _diversify_anime_candidates(candidates, parsed_intent):
         if candidate.name in seen:
+            continue
+        # 排除列表过滤
+        if excluded_all and any(
+            d in (candidate.name.lower() or '')
+            or d in (getattr(candidate, 'address', '') or '').lower()
+            or d in (getattr(candidate, 'district', '') or '').lower()
+            for d in excluded_all
+        ):
             continue
         if _mismatches_anime_anchor(candidate, parsed_intent):
             continue

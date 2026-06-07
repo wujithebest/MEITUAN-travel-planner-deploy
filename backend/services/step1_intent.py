@@ -610,18 +610,34 @@ def _append_fixed_poi_from_request(parsed: ParsedIntent, user_request: str) -> P
 
 
 NEGATIVE_POI_PATTERNS = [
-    r"(?:已经|之前|上次)?去过了.{0,6}(?:就不要|就别|就不|别|不用|不要再)(?:去)?[了啦]?",
-    r"(?:就不|就别|不要|别|不用|不想|不打算).{0,4}(?:去)?[了啦]?",
-    r"(?:就算了|不去了|别去了|免了|跳过|排除|不要了)",
+    # 已去过 + 否定（放宽间距到 15 字）
+    r"(?:已经|之前|上次|都|也都|早就|以前)?去过了.{0,15}(?:就不要|就别|就不|别|不用|不要|不要再|不要有|不要包含|不想|不需要|不用再)(?:去|安排|包含|有)?[了啦]?",
+    # 否定 + 动作/包含
+    r"(?:就不|就别|不要|别|不用|不想|不打算|不需要|不要有|不要包含|别安排|不想去|不用去).{0,10}(?:去|安排|包含)?[了啦]?",
+    # 直接否定/排除短语
+    r"(?:就算了|不去了|别去了|免了|跳过|排除|不要了|不用了|不需要了|去掉|删掉|略过)",
+    # POI 后置否定："外滩不要""南京路别安排了"
+    r"(?:不要|别|不用|不想|不去了|免了|跳过|排除|去掉)",
 ]
 
 
 def _exclude_pois_from_request(parsed: ParsedIntent, user_request: str) -> ParsedIntent:
+    # 合并 LLM 已提取的 delete_list
+    llm_deletes = set(name.lower() for name in parsed.delete_list)
+
+    # 正则兜底：检测 LLM 可能漏掉的已知 POI
     for poi in sorted(KNOWN_POIS, key=len, reverse=True):
+        if poi.lower() in llm_deletes:
+            continue
         if poi not in user_request:
             continue
+        # 在 POI 附近 30 字窗口内搜索否定模式
+        idx = user_request.index(poi)
+        window_start = max(0, idx - 30)
+        window_end = min(len(user_request), idx + len(poi) + 30)
+        window = user_request[window_start:window_end]
         for pattern in NEGATIVE_POI_PATTERNS:
-            if re.search(pattern, user_request):
+            if re.search(pattern, window):
                 parsed.fixed_pois = [fp for fp in parsed.fixed_pois if fp.name != poi]
                 if poi not in parsed.delete_list:
                     parsed.delete_list.append(poi)
@@ -1059,6 +1075,7 @@ async def _llm_parse(
                 "1. 严禁推断、联想或补全用户未明确表达的内容。用户没说吃的，raw_keywords/food_pref_keywords/meal_search_keywords 必须为空。\n"
                 "2. duration 严格遵守枚举值映射：用户说\"一天/1天/一日/玩一天\"→\"a full day\"，说\"两天/周末\"→\"two days\"。不允许根据\"晚上\"推断多天。\n"
                 "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别。\n"
+                "4. 排除项提取：当用户明确说\"不去XX\"\"不要有XX\"\"排除XX\"\"XX去过了/别再安排\"\"XX不用了\"\"跳过XX\"\"把XX去掉\"\"XX别安排了\"等否定表达时，必须把被排除的地点/景区/餐厅名提取到 delete_list 中。这是强约束——如果漏提 exclude 项，后续路线规划会错误地包含用户明确拒绝的地点。\n"
                 "</critical_rules>"
             ),
         },
@@ -1133,6 +1150,22 @@ async def _llm_parse(
                 "\n"
                 "13. micro_keywords (string[]) — 2-4个具体体验词\n"
                 '    "古镇"→["古镇 手工艺品","老街 小吃","古镇 拍照打卡"]\n'
+                "\n"
+                "14. delete_list (string[]) — 用户明确排除的地点/景区/区域名 ⚠️ 必检项\n"
+                "    用户用任何方式表达了\"不去/不要/排除/跳过/已去过\"的地点，必须放入本数组。\n"
+                "    提取规则：\n"
+                "    - 提取被否定的具体地名（外滩、陆家嘴、迪士尼…），不要放品类词（博物馆、公园…）\n"
+                "    - 同一地点可能有多段表述，只放一次（自动去重）\n"
+                '    - "XX已经去过了，这次不要安排" → ["XX"]\n'
+                '    - "不要有外滩和豫园" → ["外滩","豫园"]\n'
+                '    - "除了迪士尼，其他都可以" → delete_list 留空，用 other_constraints 承载偏好\n'
+                "    示例：\n"
+                '      "外滩去过了，这次不要" → delete_list: ["外滩"]\n'
+                '      "把南京路去掉" → delete_list: ["南京路"]\n'
+                '      "陆家嘴和豫园都去过了" → delete_list: ["陆家嘴","豫园"]\n'
+                '      "博物馆就别安排了" → delete_list: ["博物馆"]\n'
+                '      "不想去人太多的地方" → delete_list: [] （这是偏好不是具体地点排除，放 other_constraints）\n'
+                "\n"
                 + planned_waypoints_field +
                 "</field_definitions>\n"
                 "\n"
@@ -1168,6 +1201,25 @@ async def _llm_parse(
                 '说明：\"玩一天+晚上\"是单日行程含晚间，duration仍是"a full day"；用户没说吃的，餐饮字段全空。\n'
                 + planned_waypoints_section +
                 "\n"
+                "【示例5 — 含排除项】\n"
+                '输入："这周末我朋友要来上海玩，帮我规划两天的路线，其中外滩他已经去过了，规划中不要包含外滩。"\n'
+                'duration: "two days"\n'
+                'is_route_planning_request: true\n'
+                'delete_list: ["外滩"]\n'
+                'raw_keywords: ["上海", "游玩", "两天"]\n'
+                'search_keywords: ["上海 旅游 攻略", "上海 景点 推荐", "上海 打卡", "上海 美食"]\n'
+                "说明：用户明确排除外滩——已去过+不要包含→delete_list=[\"外滩\"]。duration=两天周末。\n"
+                "\n"
+                "【示例6 — 多排除项+餐饮偏好】\n"
+                '输入："三天上海深度游，迪士尼、东方明珠、城隍庙都去过了，别安排了，想去没去过的地方，尤其想吃地道本帮菜。"\n'
+                'duration: "three days"\n'
+                'is_route_planning_request: true\n'
+                'delete_list: ["迪士尼","东方明珠","城隍庙"]\n'
+                'food_pref_keywords: ["本帮菜"]\n'
+                'raw_keywords: ["上海","深度游","本帮菜","没去过的地方"]\n'
+                'search_keywords: ["上海 深度游 攻略","上海 小众景点","上海 本帮菜 餐厅","上海 老街 弄堂","上海 博物馆"]\n'
+                "说明：三个地点明确排除；餐饮偏好提取本帮菜；\"没去过的地方\"→search_keywords偏小众/深度。\n"
+                "\n"
                 "规则总结：\n"
                 '- 使用"城市+具体地点类型/场景/活动"，不用"开心/放松/随便逛"等抽象词\n'
                 "- 不编造用户未提到的具体POI名称\n"
@@ -1179,10 +1231,11 @@ async def _llm_parse(
                 "1. 判断 is_route_planning_request：是否涉及出行/路线/游玩/餐饮\n"
                 "2. 识别 duration：根据时长描述词选择枚举值\n"
                 "3. 提取 raw_keywords（用户原词）和 fixed_pois（具体地名）\n"
-                "4. 按&lt;examples&gt;规则生成 search_keywords 和 micro_keywords\n"
+                "4. 检测排除项 delete_list：扫描整段话中所有否定表达，识别被排除的具体地名。地名不在用户原话中出现的不要编造。\n"
+                "5. 按&lt;examples&gt;规则生成 search_keywords 和 micro_keywords\n"
                 + planned_waypoints_step +
-                "5. 依次提取 start_time、original_location_label、food_pref_keywords、meal_search_keywords、meal_constraints、budget_per_capita、day_poi_constraints\n"
-                "6. 注意：不执行任何计算（时间预算、餐点窗口、容量过滤均交给后续工具）\n"
+                "6. 依次提取 start_time、original_location_label、food_pref_keywords、meal_search_keywords、meal_constraints、budget_per_capita、day_poi_constraints\n"
+                "7. 注意：不执行任何计算（时间预算、餐点窗口、容量过滤均交给后续工具）\n"
                 "</thinking_steps>\n"
                 "\n"
                 "<format>\n"

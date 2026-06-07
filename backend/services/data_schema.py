@@ -313,6 +313,7 @@ class ParsedIntent(BaseModel):
     crowd_type: str = "单人"             # 出行人群："单人"/"情侣"/"家庭"/"朋友"/"团建"，默认"单人"
     fixed_pois: list[FixedPoi] = []      # v3变更：可空。用户明确指定的必去地点，含时间预算。不受天气/容量过滤影响
     delete_list: list[str] = Field(default_factory=list)  # 用户明确排除的POI名称，如"外滩"
+    excluded_areas: list[str] = Field(default_factory=list)  # LLM 提取的排除区域/片区，如["外滩片区","陆家嘴"]
     transport_hint: Optional[str] = None # 可空。用户提到的交通偏好，默认公共交通。未提及→代码注入"公共交通"
     other_constraints: list[str] = []    # 可空。其他约束，由LLM提取（如"不排队""便宜"），作为补充关键词，不参与检索，但参与打分。
     day_poi_constraints: list[dict] = []  # 可空。分天固定地点，如{"day_index":2,"poi_name":"中山公园"}，用于Step2按天放置锚点
