@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import dataclasses
 import datetime as _dt
 import json
 import math
@@ -42,6 +43,7 @@ SSE_EVENT_ERROR = "error"
 
 
 # Pipeline 资源统计
+@dataclasses.dataclass
 class PipelineStats:
     """单次 pipeline 调用的资源消耗统计"""
     started_at: float = 0.0
