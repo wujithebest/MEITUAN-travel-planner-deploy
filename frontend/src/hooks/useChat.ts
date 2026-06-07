@@ -805,6 +805,7 @@ export function useChat(): UseChatReturn {
   const accumulatedContentRef = useRef<string>('');
   // 用于存储 complete 事件的数据
   const completeDataRef = useRef<any>(null);
+  const statsTextRef = useRef<string>('');
   // 本轮 request ID，用于将推荐理由消息绑定到特定用户请求
   const activeRequestIdRef = useRef<string | null>(null);
   // 本轮用户消息 ID，用于推荐理由消息关联用户消息
@@ -889,6 +890,7 @@ export function useChat(): UseChatReturn {
     finalResultRef.current = null;
     streamingMessageIdRef.current = null;
     accumulatedContentRef.current = '';
+    statsTextRef.current = '';
     // 注意：不清理 messages / 历史 recommendReasons / 历史 routeData
 
     try {
@@ -984,17 +986,7 @@ export function useChat(): UseChatReturn {
                   parts.push(`博查 ${s.bocha_calls}次`);
                 }
                 if (parts.length > 0) {
-                  accumulatedContentRef.current += `\n\n---\n${parts.join(' | ')}`;
-                  // 立即更新流式消息内容以反映 stats
-                  updateCurrentMessages(prev => {
-                    const targetId = streamingMessageIdRef.current;
-                    if (!targetId) return prev;
-                    const idx = prev.findIndex(m => m.id === targetId);
-                    if (idx < 0) return prev;
-                    const updated = [...prev];
-                    updated[idx] = { ...updated[idx], content: accumulatedContentRef.current.trim() };
-                    return updated;
-                  });
+                  statsTextRef.current = parts.join(' · ');
                 }
               }
 
@@ -1347,6 +1339,7 @@ export function useChat(): UseChatReturn {
                   parentUserMessageId: activeUserMessageIdRef.current || undefined,
                   recommendReasons: reasonsSnapshot.length > 0 ? reasonsSnapshot : undefined,
                   slotReasons: slotReasons.length > 0 ? slotReasons : undefined,
+                  statsText: statsTextRef.current || undefined,
                 };
 
                 if (existingIdx >= 0) {
@@ -1535,6 +1528,7 @@ export function useChat(): UseChatReturn {
     finalResultRef.current = null;
     streamingMessageIdRef.current = null;
     accumulatedContentRef.current = '';
+    statsTextRef.current = '';
     completeDataRef.current = null;
 
     if (abortControllerRef.current) {

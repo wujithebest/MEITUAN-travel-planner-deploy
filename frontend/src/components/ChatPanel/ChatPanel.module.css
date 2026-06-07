@@ -571,6 +571,15 @@
   overflow-wrap: anywhere;
 }
 
+.statsText {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.06);
+  font-size: 12px;
+  color: #999;
+  line-height: 1.5;
+}
+
 /* 错误消息 */
 .errorMessage {
   display: flex;

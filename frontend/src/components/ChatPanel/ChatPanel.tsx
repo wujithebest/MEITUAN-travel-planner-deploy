@@ -398,6 +398,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               </div>
             );
           })}
+          {(message as any).statsText && (
+            <div className={styles.statsText}>{(message as any).statsText}</div>
+          )}
         </div>
       );
     }
@@ -429,6 +432,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               </div>
             );
           })}
+          {(message as any).statsText && (
+            <div className={styles.statsText}>{(message as any).statsText}</div>
+          )}
         </div>
       );
     }
