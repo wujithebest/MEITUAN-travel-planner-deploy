@@ -2047,9 +2047,22 @@ async def _select_meals(
 ) -> list[MicroPOI]:
     """v5.2: day_anchor_locations 为每天已有锚点POI的坐标列表，用于散布约束。"""
     filtered = _budget_filter(_dedupe_micro(meals), budget_threshold)
+    # v9: 构建 anchor_name → bocha_keywords 查找表
+    anchor_bocha_kw: dict[str, list[str]] = {}
+    for day_plan in complete_plan.day_plans:
+        for anchor in day_plan.anchors:
+            kws = getattr(anchor, 'bocha_keywords', []) or []
+            if kws:
+                anchor_bocha_kw[anchor.name] = kws
+
     selected: list[MicroPOI] = []
     used_ids: set[str] = set()
     for day in complete_plan.day_plans:
+        # v9: 收集当天所有锚点的 bocha 关键词，用于微POI加分
+        day_bocha_kw: list[str] = []
+        for anchor in day.anchors:
+            day_bocha_kw.extend(getattr(anchor, 'bocha_keywords', []) or [])
+
         # v5.2: 计算当天POI质心和散布半径，用于锚点约束
         day_locs = (day_anchor_locations or {}).get(day.day_index, [])
         _centroid: dict[str, float] | None = None
@@ -2107,10 +2120,18 @@ async def _select_meals(
                 ]
                 if fixed_candidates:
                     candidates = fixed_candidates
+            # v9: 计算 bocha 关键词匹配加分
+            def _bocha_boost(item: MicroPOI) -> int:
+                if not day_bocha_kw:
+                    return 0
+                name_lower = item.name.lower()
+                return sum(1 for kw in day_bocha_kw if kw in name_lower)
+
             candidates.sort(
                 key=lambda item: (
                     -_meal_constraint_score(item, slot),
                     -_meal_quality_score(item),
+                    -_bocha_boost(item),  # v9: bocha关键词匹配加分
                     haversine_km(reference.get("location"), item.location),
                     -(item.gaode_rating or 0),
                     item.avg_cost if item.avg_cost is not None else 9999,

@@ -994,6 +994,15 @@ async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[Extrac
             place.has_event = True
             place.event_status = "uncertain"
             place.event_name = "主题活动"
+        # v9: 从博查摘要中提取关键词，供微观POI评分使用
+        kw_set: set[str] = set()
+        for item in web_items:
+            text = f"{item.get('name', '')} {item.get('snippet', '')}"
+            for word in text.replace("，", " ").replace("。", " ").replace("、", " ").split():
+                w = word.strip().lower()
+                if len(w) >= 2 and w not in {"推荐", "攻略", "活动", "上海", "介绍", "地址", "电话"}:
+                    kw_set.add(w)
+        place.bocha_keywords = list(kw_set)[:50]
     return places
 
 

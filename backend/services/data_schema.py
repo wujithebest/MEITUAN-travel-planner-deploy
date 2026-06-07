@@ -378,6 +378,7 @@ class ExtractedPlace(BaseModel):
     event_status: str = "none"
     enrichment_text: str = ""
     enrichment_heat: float = 0.0
+    bocha_keywords: list[str] = Field(default_factory=list)  # v9: 博查搜索结果中提取的关键词，供微观POI评分使用
 
 
 class ScoredPlace(ExtractedPlace):
