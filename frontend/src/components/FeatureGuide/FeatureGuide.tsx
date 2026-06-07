@@ -246,16 +246,23 @@ function buildRightBiasedConnector(
   badgeCenter: LinePoint,
   viewportWidth: number,
 ): { points: LinePoint[] } {
+  const safeRight = viewportWidth - 96;
+  const safeLeft = 24;
+
   const start = {
-    x: targetRect.left + targetRect.width / 2,
+    x: clamp(targetRect.left + targetRect.width / 2, safeLeft, safeRight),
     y: targetRect.bottom,
   };
-  const laneX = clamp(
-    targetRect.left + targetRect.width / 2,
-    targetRect.right + 24,
-    viewportWidth - 72,
+
+  const availableRightLane = Math.min(
+    safeRight,
+    Math.max(targetRect.left - 36, badgeCenter.x + 360),
   );
-  const laneY = Math.max(start.y + 28, badgeCenter.y);
+  const minLaneX = Math.min(badgeCenter.x + 260, safeRight);
+  const laneX = clamp(availableRightLane, minLaneX, safeRight);
+
+  const laneY = Math.max(start.y + 32, badgeCenter.y + 12);
+
   return {
     points: [
       start,
@@ -536,7 +543,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     <div className={styles.overlay}>
       {/* Spotlights */}
       {showDecorations && layouts.map((l) => {
-        if (!l.targetRect) return null;
+        if (!l.targetRect || l.idx === 5) return null;
         return (
           <div
             key={`spotlight-${l.idx}`}

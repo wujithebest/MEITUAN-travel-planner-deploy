@@ -5,7 +5,7 @@
   inset: 0;
   z-index: 9999;
   background: rgba(42, 45, 50, 0.72);
-  overflow: auto;
+  overflow: hidden;
 }
 
 .stepsContainer {
@@ -140,7 +140,7 @@
   padding: 96px 24px 120px;
   max-width: min(720px, calc(100vw - 48px));
   margin: 0 auto;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .stepsStacked .step {
