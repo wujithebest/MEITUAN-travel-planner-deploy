@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
 import AnimatedButton from '../AnimatedButton';
@@ -18,6 +19,7 @@ const AuthCard: React.FC<AuthCardProps> = ({
   onGuestMode,
   isLoading = false,
 }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -80,12 +82,8 @@ const AuthCard: React.FC<AuthCardProps> = ({
               登录
             </button>
             <button
-              onClick={() => setActiveTab('register')}
-              className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-300 ${
-                activeTab === 'register'
-                  ? 'bg-white text-black shadow-lg'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
-              }`}
+              onClick={() => navigate('/register')}
+              className="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-300 text-white/60 hover:text-white hover:bg-white/5"
             >
               注册
             </button>
