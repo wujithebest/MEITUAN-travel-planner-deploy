@@ -30,7 +30,7 @@ interface LoginForm {
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading, error, clearError } = useUserStore();
+  const { login, guestLogin, isLoading, error, clearError } = useUserStore();
   const [form] = Form.useForm();
   const [passwordVisible, setPasswordVisible] = useState(false);
 
@@ -44,7 +44,7 @@ const LoginPage: React.FC = () => {
   const handleLogin = async (values: LoginForm) => {
     try {
       clearError();
-      
+
       // 前端验证
       if (!validateEmail(values.email)) {
         message.error('请输入有效的邮箱地址');
@@ -63,6 +63,13 @@ const LoginPage: React.FC = () => {
       // 错误已在 store 中处理
       console.error('Login failed:', err);
     }
+  };
+
+  const handleGuestMode = () => {
+    clearError();
+    guestLogin();
+    message.success('已进入游客模式');
+    navigate('/app', { replace: true });
   };
 
   return (
@@ -246,6 +253,17 @@ const LoginPage: React.FC = () => {
                 {isLoading ? '登录中...' : '登录'}
               </Button>
             </Form.Item>
+
+            <Button
+              type="default"
+              size="large"
+              block
+              disabled={isLoading}
+              onClick={handleGuestMode}
+              className={styles.guestBtn}
+            >
+              以游客模式访问
+            </Button>
 
             <Divider className={styles.divider}>
               <Text className={styles.dividerText}>或使用第三方登录</Text>

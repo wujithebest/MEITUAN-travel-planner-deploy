@@ -54,6 +54,7 @@
   max-width: 380px;
   z-index: 10002;
   animation: fadeIn 0.35s ease both;
+  pointer-events: auto;
 }
 
 @keyframes fadeIn {
@@ -129,6 +130,21 @@
 .closeButton:hover {
   background: #FFC300;
   transform: translateY(-1px);
+}
+
+/* ── Narrow screen stacked fallback ── */
+.stepsStacked {
+  display: flex !important;
+  flex-direction: column;
+  gap: 28px;
+  padding: 24px 16px 100px;
+}
+
+.stepsStacked .step {
+  position: static !important;
+  max-width: 100%;
+  width: auto !important;
+  min-height: auto !important;
 }
 
 /* ── Mobile: stacked list ── */

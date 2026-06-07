@@ -4,6 +4,7 @@ MongoDB 数据库连接和配置
 """
 
 import os
+import re
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -15,8 +16,28 @@ settings = get_settings()
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("MONGODB_DATABASE", "travel_planner")
 
-# 创建 MongoDB 客户端
-client = AsyncIOMotorClient(MONGODB_URL)
+# 超时配置（避免注册/登录卡 30 秒以上）
+MONGODB_SERVER_SELECTION_TIMEOUT_MS = int(os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "5000"))
+MONGODB_CONNECT_TIMEOUT_MS = int(os.getenv("MONGODB_CONNECT_TIMEOUT_MS", "5000"))
+MONGODB_SOCKET_TIMEOUT_MS = int(os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "10000"))
+
+
+def sanitize_mongo_url(url: str) -> str:
+    """脱敏 MongoDB URL，只保留 scheme + host，隐藏用户名密码"""
+    try:
+        return re.sub(r"://[^@]+@", r"://<credentials>@", url)
+    except Exception:
+        return "<invalid-url>"
+
+
+# 创建 MongoDB 客户端（带显式超时）
+client = AsyncIOMotorClient(
+    MONGODB_URL,
+    serverSelectionTimeoutMS=MONGODB_SERVER_SELECTION_TIMEOUT_MS,
+    connectTimeoutMS=MONGODB_CONNECT_TIMEOUT_MS,
+    socketTimeoutMS=MONGODB_SOCKET_TIMEOUT_MS,
+    uuidRepresentation="standard",
+)
 db = client[DATABASE_NAME]
 
 # 集合引用
@@ -49,16 +70,17 @@ def get_database():
 async def init_mongodb():
     """初始化 MongoDB 数据库，创建索引"""
     try:
-        # 创建用户集合的索引
+        # 先验证连接
+        await client.admin.command('ping')
+        # 再创建索引
         await users_collection.create_index("email", unique=True)
         await users_collection.create_index("username", unique=True)
-        
-        # 验证连接
-        await client.admin.command('ping')
-        print(f"[OK] MongoDB connected: {MONGODB_URL}")
+        print(f"[OK] MongoDB connected: {sanitize_mongo_url(MONGODB_URL)}")
         print(f"[OK] Database initialized: {DATABASE_NAME}")
     except Exception as e:
         print(f"[ERROR] MongoDB connection failed: {e}")
+        print(f"  target: {sanitize_mongo_url(MONGODB_URL)}")
+        print(f"  database: {DATABASE_NAME}")
         raise
 
 

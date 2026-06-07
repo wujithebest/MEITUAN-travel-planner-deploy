@@ -102,7 +102,7 @@ const FALLBACK_POSITIONS: Record<string, Rect> = {
 };
 
 const CARD_WIDTH = 350;
-const CARD_HEIGHT = 128;
+const DEFAULT_CARD_HEIGHT = 128;
 const CALLOUT_GAP = 36;
 const SAFE_MARGIN = 16;
 const HEADER_OFFSET = 72;
@@ -119,20 +119,48 @@ function intersects(a: Rect, b: Rect): boolean {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
 
-function resolveVerticalCollisions(items: StepLayout[], viewportHeight: number): void {
-  if (items.length === 0) return;
-  const sorted = [...items].sort((a, b) => a.cardTop - b.cardTop);
-  let cursor = HEADER_OFFSET;
-  for (const item of sorted) {
-    item.cardTop = Math.max(item.cardTop, cursor);
-    cursor = item.cardTop + item.cardHeight + 18;
-  }
-  const last = sorted[sorted.length - 1];
-  const overflow = last.cardTop + last.cardHeight - (viewportHeight - 96);
-  if (overflow > 0) {
-    for (const item of sorted) {
-      item.cardTop = clamp(item.cardTop - overflow, HEADER_OFFSET, viewportHeight - item.cardHeight - 96);
+/** 全局碰撞避让：对所有非 mobile layout 做两两碰撞检测并下推 */
+function resolveAllCollisions(items: StepLayout[], vw: number, vh: number): void {
+  if (items.length <= 1) return;
+  // 按 cardTop 排序
+  const sorted = items.filter(l => l.targetRect).sort((a, b) => a.cardTop - b.cardTop);
+  if (sorted.length === 0) return;
+
+  // 多轮碰撞解决（最多 5 轮，避免死循环）
+  for (let round = 0; round < 5; round++) {
+    let moved = false;
+    for (let i = 0; i < sorted.length; i++) {
+      const a = sorted[i];
+      if (!a.targetRect) continue;
+      for (let j = i + 1; j < sorted.length; j++) {
+        const b = sorted[j];
+        if (!b.targetRect) continue;
+        if (intersects(layoutRect(a), layoutRect(b))) {
+          // 尝试下推 b
+          const proposedTop = a.cardTop + a.cardHeight + 18;
+          if (proposedTop + b.cardHeight <= vh - SAFE_MARGIN) {
+            b.cardTop = proposedTop;
+            moved = true;
+          } else {
+            // 下方空间不够，尝试上推 a
+            const proposedATop = b.cardTop - a.cardHeight - 18;
+            if (proposedATop >= HEADER_OFFSET) {
+              a.cardTop = proposedATop;
+              moved = true;
+            } else {
+              // 都推不动，水平偏移 b
+              b.cardLeft = clamp(
+                b.cardLeft + CARD_WIDTH + 40,
+                SAFE_MARGIN,
+                vw - b.cardWidth - SAFE_MARGIN,
+              );
+              moved = true;
+            }
+          }
+        }
+      }
     }
+    if (!moved) break;
   }
 }
 
@@ -189,6 +217,8 @@ interface FeatureGuideProps {
 export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => {
   const [layouts, setLayouts] = useState<StepLayout[]>([]);
   const rafRef = useRef<number>(0);
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const measuredHeights = useRef<number[]>([]);
 
   const getTargetRectRaw = useCallback((target: string): Rect | null => {
     const el = document.querySelector(`[data-guide="${target}"]`) as HTMLElement | null;
@@ -215,24 +245,28 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
   const computeLayouts = useCallback(() => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    const isNarrow = vw < 1180 || vh < 720;
     const isMobile = vw <= 768;
 
-    if (isMobile) {
+    if (isMobile || isNarrow) {
+      // 窄屏/低高屏：使用移动端纵向滚动模式
       setLayouts(STEPS.map((_, idx) => ({
         idx,
         targetRect: null,
         cardTop: 0,
         cardLeft: 0,
         cardWidth: CARD_WIDTH,
-        cardHeight: CARD_HEIGHT,
+        cardHeight: DEFAULT_CARD_HEIGHT,
         connectorPoints: [],
       })));
       return;
     }
 
-    // v3: use getGuideTargetRect (smaller box for map)
+    // 使用实测高度或默认值
     const raw: StepLayout[] = STEPS.map((step, idx) => {
       const targetRect = getGuideTargetRect(step);
+      const cardHeight = measuredHeights.current[idx] || DEFAULT_CARD_HEIGHT;
+
       if (!targetRect) {
         return {
           idx,
@@ -240,7 +274,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
           cardTop: 100 + idx * 140,
           cardLeft: 24,
           cardWidth: CARD_WIDTH,
-          cardHeight: CARD_HEIGHT,
+          cardHeight,
           connectorPoints: [],
         };
       }
@@ -251,21 +285,20 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       const targetCenterY = targetRect.top + targetRect.height / 2;
 
       if (placement === 'center-map') {
-        // v3: shift left by 120px and down by 12px to avoid step 5 overlap
         cardLeft = targetRect.left + targetRect.width / 2 - CARD_WIDTH / 2 - 120;
-        cardTop = targetRect.top + targetRect.height / 2 - CARD_HEIGHT / 2 + 12;
+        cardTop = targetRect.top + targetRect.height / 2 - cardHeight / 2 + 12;
         cardLeft = clamp(cardLeft, SAFE_MARGIN, vw - CARD_WIDTH - SAFE_MARGIN);
-        cardTop = clamp(cardTop, HEADER_OFFSET, vh - CARD_HEIGHT - 96);
+        cardTop = clamp(cardTop, HEADER_OFFSET, vh - cardHeight - 96);
       } else if (placement === 'left') {
         cardLeft = targetRect.left - CARD_WIDTH - CALLOUT_GAP;
         if (cardLeft < SAFE_MARGIN) cardLeft = SAFE_MARGIN;
-        cardTop = targetCenterY - CARD_HEIGHT / 2;
-        cardTop = clamp(cardTop, HEADER_OFFSET, vh - CARD_HEIGHT - 96);
+        cardTop = targetCenterY - cardHeight / 2;
+        cardTop = clamp(cardTop, HEADER_OFFSET, vh - cardHeight - 96);
       } else {
         cardLeft = targetRect.right + CALLOUT_GAP;
         if (cardLeft + CARD_WIDTH > vw - SAFE_MARGIN) cardLeft = vw - CARD_WIDTH - SAFE_MARGIN;
-        cardTop = targetCenterY - CARD_HEIGHT / 2;
-        cardTop = clamp(cardTop, HEADER_OFFSET, vh - CARD_HEIGHT - 96);
+        cardTop = targetCenterY - cardHeight / 2;
+        cardTop = clamp(cardTop, HEADER_OFFSET, vh - cardHeight - 96);
       }
 
       return {
@@ -274,33 +307,15 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
         cardTop,
         cardLeft,
         cardWidth: CARD_WIDTH,
-        cardHeight: CARD_HEIGHT,
+        cardHeight,
         connectorPoints: [],
       };
     });
 
-    // Group for collision avoidance
-    const leftGroup = raw.filter(l => STEPS[l.idx]?.placement === 'right' && l.targetRect);
-    const rightGroup = raw.filter(l => STEPS[l.idx]?.placement === 'left' && l.targetRect);
+    // 全局碰撞避让（所有 placement 统一参与）
+    resolveAllCollisions(raw, vw, vh);
 
-    resolveVerticalCollisions(leftGroup, vh);
-    resolveVerticalCollisions(rightGroup, vh);
-
-    // v3: center-map overlap detection with right group
-    const centerLayout = raw.find(l => STEPS[l.idx]?.placement === 'center-map');
-    if (centerLayout && centerLayout.targetRect) {
-      for (const other of rightGroup) {
-        if (other.targetRect && intersects(layoutRect(centerLayout), layoutRect(other))) {
-          centerLayout.cardLeft = clamp(
-            other.cardLeft - centerLayout.cardWidth - 44,
-            SAFE_MARGIN,
-            vw - centerLayout.cardWidth - SAFE_MARGIN,
-          );
-        }
-      }
-    }
-
-    // Build polyline connectors after final positions
+    // 碰撞解决后重新生成 connector points
     for (const l of raw) {
       if (!l.targetRect) continue;
       const conn = buildConnector(l.targetRect, l.cardLeft, l.cardTop);
@@ -331,6 +346,23 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     };
   }, [open, computeLayouts]);
 
+  // Measure card heights after render
+  useEffect(() => {
+    if (!open || layouts.length === 0) return;
+    const raf = requestAnimationFrame(() => {
+      const heights: number[] = [];
+      stepRefs.current.forEach((el, i) => {
+        heights[i] = el ? el.getBoundingClientRect().height : DEFAULT_CARD_HEIGHT;
+      });
+      const changed = heights.some((h, i) => h !== (measuredHeights.current[i] || DEFAULT_CARD_HEIGHT));
+      if (changed) {
+        measuredHeights.current = heights;
+        computeLayouts();
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open, layouts.length, computeLayouts]);
+
   // Lock body scroll
   useEffect(() => {
     if (!open) return;
@@ -349,9 +381,9 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const [mobile, setMobile] = useState(false);
+  const [isSmall, setSmall] = useState(false);
   useEffect(() => {
-    const check = () => setMobile(window.innerWidth <= 768);
+    const check = () => setSmall(window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 720);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -359,12 +391,12 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
 
   if (!open) return null;
 
-  const effectiveMobile = mobile;
+  const showDecorations = !isSmall;
 
   return (
     <div className={styles.overlay}>
       {/* Spotlights */}
-      {!effectiveMobile && layouts.map((l) => {
+      {showDecorations && layouts.map((l) => {
         if (!l.targetRect) return null;
         return (
           <div
@@ -381,7 +413,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       })}
 
       {/* SVG polyline connectors */}
-      {!effectiveMobile && (
+      {showDecorations && (
         <svg className={styles.connectorLayer} aria-hidden="true">
           {layouts.map((l) => {
             if (!l.targetRect || l.connectorPoints.length === 0) return null;
@@ -397,10 +429,10 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       )}
 
       {/* Step callouts */}
-      <div className={styles.stepsContainer}>
+      <div className={`${styles.stepsContainer} ${isSmall ? styles.stepsStacked : ''}`}>
         {STEPS.map((step, idx) => {
           const layout = layouts[idx];
-          const style: React.CSSProperties = effectiveMobile
+          const style: React.CSSProperties = isSmall
             ? {}
             : layout && layout.targetRect
               ? {
@@ -415,11 +447,15 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
                   top: 100 + idx * 140,
                   left: 24,
                   width: CARD_WIDTH,
-                  minHeight: CARD_HEIGHT,
+                  minHeight: DEFAULT_CARD_HEIGHT,
                 };
 
+          const setStepRef = (el: HTMLDivElement | null) => {
+            stepRefs.current[idx] = el;
+          };
+
           return (
-            <div key={step.target} className={styles.step} style={style}>
+            <div key={step.target} className={styles.step} style={style} ref={setStepRef}>
               <div className={styles.badge}>{idx + 1}</div>
               <div className={styles.callout}>
                 <p className={styles.title}>{step.title}</p>

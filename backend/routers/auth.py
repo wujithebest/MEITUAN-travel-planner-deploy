@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, validator, Field
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import uuid
@@ -13,6 +13,7 @@ import logging
 
 from models.mongodb import UserMongoDB
 from config import get_settings
+from pymongo.errors import ServerSelectionTimeoutError, PyMongoError
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,8 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):
     username: str
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(..., min_length=6)
     gender: Optional[str] = None
     birthday: Optional[str] = None
     preferences: Optional[Union[dict, list]] = {}
@@ -131,12 +132,19 @@ async def get_user_by_id(user_id: str) -> Optional[dict]:
 
 async def authenticate_user(email: str, password: str) -> Optional[dict]:
     """认证用户"""
-    user = await UserMongoDB.get_by_email_with_password(email)
-    if not user:
-        return None
-    if not verify_password(password, user.get("password_hash", "")):
-        return None
-    return user
+    try:
+        user = await UserMongoDB.get_by_email_with_password(email)
+        if not user:
+            return None
+        if not verify_password(password, user.get("password_hash", "")):
+            return None
+        return user
+    except ServerSelectionTimeoutError:
+        logger.exception("[Auth] MongoDB connection timeout during auth")
+        raise HTTPException(status_code=503, detail="数据库连接超时，请检查 Atlas Network Access 与 MONGODB_URL")
+    except PyMongoError:
+        logger.exception("[Auth] MongoDB error during auth")
+        raise HTTPException(status_code=503, detail="数据库暂时不可用，请稍后重试")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -188,58 +196,65 @@ async def register(user_data: UserCreate):
     """
     用户注册 - 使用 MongoDB 存储
     """
-    # 检查邮箱是否已注册
-    existing = await UserMongoDB.user_exists(email=user_data.email)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该邮箱已被注册"
+    try:
+        # 检查邮箱是否已注册
+        existing = await UserMongoDB.user_exists(email=user_data.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该邮箱已被注册"
+            )
+
+        # 检查用户名是否已存在
+        existing = await UserMongoDB.user_exists(username=user_data.username)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该用户名已被使用"
+            )
+
+        # 创建新用户
+        user_id = str(uuid.uuid4())
+        hashed_password = get_password_hash(user_data.password)
+
+        new_user = await UserMongoDB.create_user(
+            user_id=user_id,
+            username=user_data.username,
+            email=user_data.email,
+            password_hash=hashed_password,
+            gender=user_data.gender,
+            birthday=user_data.birthday,
+            preferences=user_data.preferences or {},
+            location=user_data.location,
+            bio=user_data.bio,
+            phone=user_data.phone,
+            avatar=None
         )
 
-    # 检查用户名是否已存在
-    existing = await UserMongoDB.user_exists(username=user_data.username)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该用户名已被使用"
-        )
+        # 创建访问令牌
+        access_token = create_access_token(data={"sub": user_id})
 
-    # 创建新用户
-    user_id = str(uuid.uuid4())
-    hashed_password = get_password_hash(user_data.password)
-    
-    new_user = await UserMongoDB.create_user(
-        user_id=user_id,
-        username=user_data.username,
-        email=user_data.email,
-        password_hash=hashed_password,
-        gender=user_data.gender,
-        birthday=user_data.birthday,
-        preferences=user_data.preferences or {},
-        location=user_data.location,
-        bio=user_data.bio,
-        phone=user_data.phone,
-        avatar=None
-    )
-
-    # 创建访问令牌
-    access_token = create_access_token(data={"sub": user_id})
-
-    return {
-        "token": access_token,
-        "user": {
-            "id": new_user["id"],
-            "username": new_user["username"],
-            "email": new_user["email"],
-            "avatar": new_user.get("avatar"),
-            "bio": new_user.get("bio"),
-            "phone": new_user.get("phone"),
-            "gender": new_user.get("gender"),
-            "birthday": new_user.get("birthday"),
-            "location": new_user.get("location"),
-            "preferences": new_user.get("preferences", {})
+        return {
+            "token": access_token,
+            "user": {
+                "id": new_user["id"],
+                "username": new_user["username"],
+                "email": new_user["email"],
+                "avatar": new_user.get("avatar"),
+                "bio": new_user.get("bio"),
+                "phone": new_user.get("phone"),
+                "gender": new_user.get("gender"),
+                "birthday": new_user.get("birthday"),
+                "location": new_user.get("location"),
+                "preferences": new_user.get("preferences", {})
+            }
         }
-    }
+    except ServerSelectionTimeoutError:
+        logger.exception("[Auth] MongoDB connection timeout during register")
+        raise HTTPException(status_code=503, detail="数据库连接超时，请检查 Atlas Network Access 与 MONGODB_URL")
+    except PyMongoError as e:
+        logger.exception("[Auth] MongoDB error during register")
+        raise HTTPException(status_code=503, detail="数据库暂时不可用，请稍后重试")
 
 
 @router.post("/auth/login", response_model=Token)

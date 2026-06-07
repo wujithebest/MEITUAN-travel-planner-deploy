@@ -189,6 +189,24 @@
   transform: translateY(0);
 }
 
+.guestBtn {
+  height: 44px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 209, 0, 0.85) !important;
+  color: #8a6d00 !important;
+  background: #fffdf0 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  margin-top: -8px !important;
+  margin-bottom: 8px !important;
+}
+
+.guestBtn:hover {
+  color: #333 !important;
+  border-color: #FFD100 !important;
+  background: #fff7c2 !important;
+}
+
 .divider {
   margin: 24px 0 !important;
   color: #a0aec0 !important;

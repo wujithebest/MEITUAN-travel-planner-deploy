@@ -289,13 +289,15 @@ async def api_health_check():
     except Exception as e:
         logger.warning(f"LLM服务检查失败: {e}")
     
-    # 检查数据库
+    # 检查数据库（真实 ping Atlas）
     try:
         from models.mongodb import get_database
         db = get_database()
-        services_status["database"] = db is not None
+        await db.command("ping")
+        services_status["database"] = True
     except Exception as e:
         logger.warning(f"数据库检查失败: {e}")
+        services_status["database"] = False
     
     # 如果有任何服务不可用，返回 503
     all_healthy = all(services_status.values())
