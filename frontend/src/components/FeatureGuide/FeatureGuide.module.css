@@ -136,14 +136,17 @@
 .stepsStacked {
   display: flex !important;
   flex-direction: column;
-  gap: 28px;
-  padding: 24px 16px 100px;
+  gap: 24px;
+  padding: 96px 24px 120px;
+  max-width: min(720px, calc(100vw - 48px));
+  margin: 0 auto;
+  overflow-y: auto;
 }
 
 .stepsStacked .step {
   position: static !important;
+  width: 100% !important;
   max-width: 100%;
-  width: auto !important;
   min-height: auto !important;
 }
 

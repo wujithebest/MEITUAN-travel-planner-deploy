@@ -147,9 +147,10 @@ export const useUserStore = create<UserState>()(
             user: fullUser,
             token,
             isLoggedIn: true,
+            isGuest: false,
             isLoading: false,
           });
-          
+
           localStorage.setItem('token', token);
           console.log('[UserStore] 登录成功, token=', token.substring(0, 30) + '...');
         } catch (error: any) {
@@ -191,9 +192,10 @@ export const useUserStore = create<UserState>()(
             user: fullUser,
             token,
             isLoggedIn: true,
+            isGuest: false,
             isLoading: false,
           });
-          
+
           localStorage.setItem('token', token);
           console.log('[UserStore] 注册成功, token=', token.substring(0, 30) + '...');
         } catch (error: any) {

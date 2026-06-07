@@ -58,7 +58,7 @@ const LoginPage: React.FC = () => {
 
       await login(values.email, values.password);
       message.success('登录成功！');
-      navigate('/', { replace: true });
+      navigate('/app', { replace: true });
     } catch (err: any) {
       // 错误已在 store 中处理
       console.error('Login failed:', err);

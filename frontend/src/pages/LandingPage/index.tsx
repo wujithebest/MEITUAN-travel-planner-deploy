@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, MapPin, Calendar, Camera } from 'lucide-react';
@@ -8,7 +8,13 @@ import { useUserStore } from '../../store/userStore';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, register, guestLogin, isLoading } = useUserStore();
+  const { login, register, guestLogin, isLoading, isLoggedIn, token } = useUserStore();
+
+  useEffect(() => {
+    if (isLoggedIn || token) {
+      navigate('/app', { replace: true });
+    }
+  }, [isLoggedIn, token, navigate]);
 
   const handleLogin = async (email: string, password: string) => {
     try {

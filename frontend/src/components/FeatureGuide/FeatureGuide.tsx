@@ -106,6 +106,8 @@ const DEFAULT_CARD_HEIGHT = 128;
 const CALLOUT_GAP = 36;
 const SAFE_MARGIN = 16;
 const HEADER_OFFSET = 72;
+const COLLISION_GAP = 28;
+const MAX_COLLISION_ROUNDS = 12;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -119,49 +121,90 @@ function intersects(a: Rect, b: Rect): boolean {
   return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
 }
 
-/** 全局碰撞避让：对所有非 mobile layout 做两两碰撞检测并下推 */
-function resolveAllCollisions(items: StepLayout[], vw: number, vh: number): void {
-  if (items.length <= 1) return;
-  // 按 cardTop 排序
-  const sorted = items.filter(l => l.targetRect).sort((a, b) => a.cardTop - b.cardTop);
-  if (sorted.length === 0) return;
+/** 带安全间距的矩形，用于碰撞检测 */
+function paddedLayoutRect(l: StepLayout, gap = COLLISION_GAP): Rect {
+  const rect = layoutRect(l);
+  return makeRect(
+    rect.top - gap / 2,
+    rect.left - gap / 2,
+    rect.width + gap,
+    rect.height + gap,
+  );
+}
 
-  // 多轮碰撞解决（最多 5 轮，避免死循环）
-  for (let round = 0; round < 5; round++) {
+function hasAnyCollision(items: StepLayout[]): boolean {
+  const visible = items.filter(l => l.targetRect);
+  for (let i = 0; i < visible.length; i++) {
+    for (let j = i + 1; j < visible.length; j++) {
+      if (intersects(paddedLayoutRect(visible[i]), paddedLayoutRect(visible[j]))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** 全局碰撞避让：所有 placement 统一参与，返回 true 表示碰撞已解决 */
+function resolveAllCollisions(items: StepLayout[], vw: number, vh: number): boolean {
+  const sorted = items.filter(l => l.targetRect);
+  if (sorted.length <= 1) return true;
+
+  for (let round = 0; round < MAX_COLLISION_ROUNDS; round++) {
     let moved = false;
+    sorted.sort((a, b) => a.cardTop - b.cardTop);
+
     for (let i = 0; i < sorted.length; i++) {
       const a = sorted[i];
       if (!a.targetRect) continue;
       for (let j = i + 1; j < sorted.length; j++) {
         const b = sorted[j];
         if (!b.targetRect) continue;
-        if (intersects(layoutRect(a), layoutRect(b))) {
-          // 尝试下推 b
-          const proposedTop = a.cardTop + a.cardHeight + 18;
-          if (proposedTop + b.cardHeight <= vh - SAFE_MARGIN) {
-            b.cardTop = proposedTop;
-            moved = true;
-          } else {
-            // 下方空间不够，尝试上推 a
-            const proposedATop = b.cardTop - a.cardHeight - 18;
-            if (proposedATop >= HEADER_OFFSET) {
-              a.cardTop = proposedATop;
-              moved = true;
-            } else {
-              // 都推不动，水平偏移 b
-              b.cardLeft = clamp(
-                b.cardLeft + CARD_WIDTH + 40,
-                SAFE_MARGIN,
-                vw - b.cardWidth - SAFE_MARGIN,
-              );
-              moved = true;
-            }
-          }
+        if (!intersects(paddedLayoutRect(a), paddedLayoutRect(b))) continue;
+
+        // 优先：b 下移到 a 下方
+        const below = a.cardTop + a.cardHeight + COLLISION_GAP;
+        if (below + b.cardHeight <= vh - SAFE_MARGIN) {
+          b.cardTop = below;
+          moved = true;
+          continue;
+        }
+        // 其次：b 上移到 a 上方
+        const above = a.cardTop - b.cardHeight - COLLISION_GAP;
+        if (above >= HEADER_OFFSET) {
+          b.cardTop = above;
+          moved = true;
+          continue;
+        }
+        // 再次：a 上移
+        const aAbove = b.cardTop - a.cardHeight - COLLISION_GAP;
+        if (aAbove >= HEADER_OFFSET) {
+          a.cardTop = aAbove;
+          moved = true;
+          continue;
+        }
+        // 都推不动：center-map 尝试水平偏移
+        const aPlace = STEPS[a.idx]?.placement;
+        const bPlace = STEPS[b.idx]?.placement;
+        if (aPlace === 'center-map') {
+          a.cardLeft = clamp(
+            b.cardLeft + b.cardWidth + COLLISION_GAP,
+            SAFE_MARGIN,
+            vw - a.cardWidth - SAFE_MARGIN,
+          );
+          moved = true;
+        } else if (bPlace === 'center-map') {
+          b.cardLeft = clamp(
+            a.cardLeft + a.cardWidth + COLLISION_GAP,
+            SAFE_MARGIN,
+            vw - b.cardWidth - SAFE_MARGIN,
+          );
+          moved = true;
         }
       }
     }
     if (!moved) break;
   }
+  return !hasAnyCollision(items);
 }
 
 /** 从矩形边缘找到离给定点最近的边点 */
@@ -216,6 +259,7 @@ interface FeatureGuideProps {
 
 export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => {
   const [layouts, setLayouts] = useState<StepLayout[]>([]);
+  const [forceStacked, setForceStacked] = useState(false);
   const rafRef = useRef<number>(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
   const measuredHeights = useRef<number[]>([]);
@@ -242,25 +286,31 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     return raw;
   }, [getTargetRectRaw]);
 
+  const stackedSet = useCallback(() => {
+    setLayouts(STEPS.map((_, idx) => ({
+      idx,
+      targetRect: null,
+      cardTop: 0,
+      cardLeft: 0,
+      cardWidth: CARD_WIDTH,
+      cardHeight: DEFAULT_CARD_HEIGHT,
+      connectorPoints: [],
+    })));
+  }, []);
+
   const computeLayouts = useCallback(() => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const isNarrow = vw < 1180 || vh < 720;
+    const isNarrow = vw < 1180 || vh < 760;
     const isMobile = vw <= 768;
 
     if (isMobile || isNarrow) {
-      // 窄屏/低高屏：使用移动端纵向滚动模式
-      setLayouts(STEPS.map((_, idx) => ({
-        idx,
-        targetRect: null,
-        cardTop: 0,
-        cardLeft: 0,
-        cardWidth: CARD_WIDTH,
-        cardHeight: DEFAULT_CARD_HEIGHT,
-        connectorPoints: [],
-      })));
+      setForceStacked(true);
+      stackedSet();
       return;
     }
+
+    setForceStacked(false);
 
     // 使用实测高度或默认值
     const raw: StepLayout[] = STEPS.map((step, idx) => {
@@ -312,8 +362,15 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       };
     });
 
-    // 全局碰撞避让（所有 placement 统一参与）
-    resolveAllCollisions(raw, vw, vh);
+    // 全局碰撞避让
+    const resolved = resolveAllCollisions(raw, vw, vh);
+
+    if (!resolved) {
+      // 碰撞无法解决 → 降级到纵向 stacked 模式
+      setForceStacked(true);
+      stackedSet();
+      return;
+    }
 
     // 碰撞解决后重新生成 connector points
     for (const l of raw) {
@@ -323,7 +380,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     }
 
     setLayouts(raw);
-  }, [getGuideTargetRect]);
+  }, [getGuideTargetRect, stackedSet]);
 
   // Recompute on resize/scroll
   useEffect(() => {
@@ -381,9 +438,9 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const [isSmall, setSmall] = useState(false);
+  const [windowSmall, setWindowSmall] = useState(false);
   useEffect(() => {
-    const check = () => setSmall(window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 720);
+    const check = () => setWindowSmall(window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 760);
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
@@ -391,7 +448,8 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
 
   if (!open) return null;
 
-  const showDecorations = !isSmall;
+  const effectiveStacked = windowSmall || forceStacked;
+  const showDecorations = !effectiveStacked;
 
   return (
     <div className={styles.overlay}>
@@ -429,10 +487,10 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       )}
 
       {/* Step callouts */}
-      <div className={`${styles.stepsContainer} ${isSmall ? styles.stepsStacked : ''}`}>
+      <div className={`${styles.stepsContainer} ${effectiveStacked ? styles.stepsStacked : ''}`}>
         {STEPS.map((step, idx) => {
           const layout = layouts[idx];
-          const style: React.CSSProperties = isSmall
+          const style: React.CSSProperties = effectiveStacked
             ? {}
             : layout && layout.targetRect
               ? {
