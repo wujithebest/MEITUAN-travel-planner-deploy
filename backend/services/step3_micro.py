@@ -2044,6 +2044,7 @@ async def _select_meals(
     meal_refs: dict[tuple[int, str], dict[str, Any]],
     diagnostics: list[dict[str, Any]] | None = None,
     day_anchor_locations: dict[int, list[dict[str, float]]] | None = None,
+    parsed_intent: ParsedIntent | None = None,
 ) -> list[MicroPOI]:
     """v5.2: day_anchor_locations 为每天已有锚点POI的坐标列表，用于散布约束。"""
     filtered = _budget_filter(_dedupe_micro(meals), budget_threshold)
@@ -2120,12 +2121,20 @@ async def _select_meals(
                 ]
                 if fixed_candidates:
                     candidates = fixed_candidates
-            # v9: 计算 bocha 关键词匹配加分
+            # v9: 计算 bocha 关键词匹配加分（与用户口味偏好联动）
             def _bocha_boost(item: MicroPOI) -> int:
                 if not day_bocha_kw:
                     return 0
                 name_lower = item.name.lower()
-                return sum(1 for kw in day_bocha_kw if kw in name_lower)
+                boost = sum(1 for kw in day_bocha_kw if kw in name_lower)
+                # 若 bocha 关键词同时命中用户口味偏好 → 额外加成
+                food_prefs = [fp.lower() for fp in (getattr(parsed_intent, 'food_pref_keywords', []) or []) if fp]
+                if food_prefs:
+                    bocha_text = ' '.join(day_bocha_kw).lower()
+                    for fp in food_prefs:
+                        if fp in name_lower and fp in bocha_text:
+                            boost += 2
+                return boost
 
             candidates.sort(
                 key=lambda item: (
@@ -4004,6 +4013,7 @@ async def run_step3(
     selected_meals = await _select_meals(
         meal_raw, complete_plan, budget_threshold, meal_refs_by_day, meal_selection_diagnostics,
         day_anchor_locations=_day_anchor_locs,
+        parsed_intent=parsed_intent,
     )
     micro_pois = selected_meals  # v5.2: 游览POI已在sub.internal_pois中，此处只有餐饮
 

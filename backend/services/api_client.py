@@ -876,7 +876,7 @@ async def bocha_search(query: str, count: int | None = None, summary: bool = Tru
                         None,
                         payload,
                         headers,
-                        API_TIMEOUT,
+                        config.BOCHA_TIMEOUT,
                         True,
                     )
                 except Exception as exc:
