@@ -1601,7 +1601,35 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     candidates: list[ScoredPlace] = []
     delete_list: list[str] = []
 
-    if not (fixed_anchors and fixed_budget >= parsed_intent.time_budget):
+    # v9: 探索模式下，即使 fixed anchors 填满预算，也跑 Bocha 富化
+    should_skip_search = bool(fixed_anchors and fixed_budget >= parsed_intent.time_budget)
+    is_exploratory = getattr(parsed_intent, 'plan_mode', 'exploratory') != 'planned'
+    if should_skip_search and is_exploratory and fixed_anchors:
+        # 仅富化 fixed anchors 本身，不跑宏观搜索
+        city_name = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+        # 把 fixed anchors 转为 ExtractedPlace 供 enrich 使用
+        fixed_places: list[ExtractedPlace] = []
+        for anchor in fixed_anchors:
+            loc = anchor.location or {}
+            p = ExtractedPlace(
+                name=anchor.name,
+                location={"lat": loc.get("lat", 0), "lng": loc.get("lng", 0)},
+                typecode=anchor.typecode or "",
+                time_capacity=anchor.final_capacity or anchor.time_capacity or "half_day",
+                gaode_rating=None,
+                avg_cost=None,
+                address="",
+                district="",
+                enrichment_text="",
+                enrichment_heat=0.0,
+                gaode_poi_id=None,
+            )
+            fixed_places.append(p)
+        await emit_status("正在补充目的地详情...")
+        await _enrich_places(fixed_places, city_name)
+        print(f"[DEBUG step2] enriched {len(fixed_places)} fixed anchor(s) without macro search")
+
+    if not should_skip_search:
         logger.start_step("step_2_1_gaode_search")
         await emit_status("正在搜索周边好去处...")
         central_locations = [anchor.location for anchor in fixed_anchors] if fixed_anchors else None
