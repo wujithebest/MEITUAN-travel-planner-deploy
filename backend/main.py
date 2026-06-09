@@ -250,6 +250,7 @@ logger.info("[Main] 中间件注册完成: SkipAuthMiddleware -> AuthMiddleware"
 
 # 健康检查
 @app.get("/health", tags=["系统"])
+@app.head("/health")
 async def health_check():
     """健康检查端点"""
     return {
@@ -262,6 +263,7 @@ async def health_check():
 
 # API 健康检查（前端使用）
 @app.get("/api/health", tags=["系统"])
+@app.head("/api/health")
 async def api_health_check():
     """
     API 健康检查端点
