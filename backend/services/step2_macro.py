@@ -649,14 +649,20 @@ async def _route_from_origin(parsed_intent: ParsedIntent, place: ExtractedPlace,
             from api_client import gaode_driving_route
 
             return await gaode_driving_route(origin, destination)
-        return await gaode_transit_route(origin, destination, city=city, require_polyline=False)
+        return await gaode_transit_route(
+            origin, destination, city=city, require_polyline=False,
+            departure_time=parsed_intent.start_time,
+        )
     except ExternalAPIError as exc:
         if "未返回可用路线" in str(exc):
             if distance <= 3.0:
                 return await gaode_walking_route(origin, destination, require_polyline=False)
             # 远郊/岛屿目的地公交常无结果，尝试最少换乘策略（更容易匹配渡轮）
             try:
-                return await gaode_transit_route(origin, destination, city=city, strategy=2, require_polyline=False)
+                return await gaode_transit_route(
+                    origin, destination, city=city, strategy=2, require_polyline=False,
+                    departure_time=parsed_intent.start_time,
+                )
             except ExternalAPIError:
                 pass
             from api_client import gaode_driving_route

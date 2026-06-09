@@ -749,16 +749,23 @@ async def gaode_transit_route(
     city: str = "",
     strategy: int = 0,
     require_polyline: bool = True,
+    departure_time: Any = None,
 ) -> dict | None:
     _require_key("高德地图", "GAODE_API_KEY", config.GAODE_API_KEY)
     url = config.GAODE_BASE_URL + config.GAODE_ENDPOINTS["transit_route"]
-    params = {
+    params: dict[str, Any] = {
         "key": config.GAODE_API_KEY,
         "origin": origin,
         "destination": destination,
         "city": city,
         "strategy": strategy,
     }
+    if departure_time is not None:
+        try:
+            params["date"] = departure_time.strftime("%Y-%m-%d")
+            params["time"] = departure_time.strftime("%H:%M")
+        except (AttributeError, ValueError):
+            pass
     try:
         data = await _gaode_get_json("公交路线", url, params)
         transits = data.get("route", {}).get("transits") or []

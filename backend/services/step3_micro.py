@@ -2518,11 +2518,12 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
     async def non_walking_route() -> dict:
         if transport_hint == "自驾":
             return await gaode_driving_route(origin, destination)
+        dep_time = getattr(parsed_intent, "start_time", None)
         try:
-            return await gaode_transit_route(origin, destination)
+            return await gaode_transit_route(origin, destination, departure_time=dep_time)
         except Exception:
             try:
-                return await gaode_transit_route(origin, destination, strategy=2)
+                return await gaode_transit_route(origin, destination, strategy=2, departure_time=dep_time)
             except Exception:
                 return await gaode_driving_route(origin, destination)
 
