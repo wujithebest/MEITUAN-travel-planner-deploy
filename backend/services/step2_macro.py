@@ -17,6 +17,7 @@ from . import config
 from .api_client import (
     bocha_search_batch,
     gaode_around_search_batch,
+    gaode_driving_route,
     gaode_text_search,
     gaode_transit_route,
     gaode_walking_route,
@@ -646,8 +647,6 @@ async def _route_from_origin(parsed_intent: ParsedIntent, place: ExtractedPlace,
         return await gaode_walking_route(origin, destination, require_polyline=False)
     try:
         if parsed_intent.transport_hint == "自驾":
-            from api_client import gaode_driving_route
-
             return await gaode_driving_route(origin, destination)
         return await gaode_transit_route(
             origin, destination, city=city, require_polyline=False,
@@ -665,8 +664,6 @@ async def _route_from_origin(parsed_intent: ParsedIntent, place: ExtractedPlace,
                 )
             except ExternalAPIError:
                 pass
-            from api_client import gaode_driving_route
-
             try:
                 return await gaode_driving_route(origin, destination)
             except ExternalAPIError:
