@@ -94,7 +94,7 @@ WEATHER_SCENE_TOKENS = [
     "春天", "夏天", "秋天", "冬天", "梅雨",
 ]
 KNOWN_POIS = [
-    "外滩",
+    "外滩", "北外滩",
     "陆家嘴",
     "东方明珠",
     "人民广场",
@@ -117,6 +117,22 @@ KNOWN_POIS = [
     "迪士尼",
     "上海迪士尼",
 ]
+
+# v10: POI 排除别名映射 — 排除一个地点时同时排除相关别名和子区域
+EXCLUDE_ALIASES: dict[str, list[str]] = {
+    "外滩": ["外滩", "北外滩", "外白渡桥", "万国建筑", "外滩源", "十六铺", "陈毅广场",
+             "外滩轮渡", "外滩观光隧道", "外滩信号台", "外滩气象广场", "外滩观景大道", "外滩观景台"],
+    "北外滩": ["北外滩", "外滩", "北外滩滨江", "北外滩国客中心", "北外滩滨江绿地", "外白渡桥"],
+    "陆家嘴": ["陆家嘴", "东方明珠", "上海中心", "金茂大厦", "环球金融中心", "国金中心",
+               "正大广场", "明珠广场", "上海海洋水族馆", "东方明珠公园"],
+    "东方明珠": ["东方明珠", "东方明珠公园", "东方明珠广播电视塔", "陆家嘴"],
+    "迪士尼": ["迪士尼", "上海迪士尼", "上海迪士尼乐园", "迪士尼乐园"],
+    "豫园": ["豫园", "城隍庙", "豫园商城", "豫园灯会"],
+}
+
+# 否定触发器 — 任意匹配即触发排除逻辑
+NEGATION_TRIGGERS = ["不要", "不想去", "别去", "避开", "排除", "不要安排", "换掉", "删掉", "也不想去",
+                     "不去", "别安排", "去掉", "跳过", "略过", "免了", "不要了", "不想要"]
 
 DAY_INDEX_PATTERNS = [
     (r"(周六|星期六|礼拜六|第?1天|第一天|day\s*1)", 1),
@@ -602,10 +618,21 @@ def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str)
 
 def _append_fixed_poi_from_request(parsed: ParsedIntent, user_request: str) -> ParsedIntent:
     existing_names = {fp.name for fp in parsed.fixed_pois}
+    excluded = set(name.lower() for name in (parsed.delete_list or []))
     for poi in sorted(KNOWN_POIS, key=len, reverse=True):
-        if poi in user_request and not any(poi in en or en in poi for en in existing_names):
-            parsed.fixed_pois.append(FixedPoi(name=poi, user_time_budget=None))
-            existing_names.add(poi)
+        if poi.lower() in excluded:
+            continue
+        if poi not in user_request:
+            continue
+        if any(poi in en or en in poi for en in existing_names):
+            continue
+        # v10: POI 附近有否定词则不加为固定锚点
+        idx = user_request.index(poi)
+        window = user_request[max(0, idx - 10):idx + len(poi) + 10]
+        if any(trig in window for trig in NEGATION_TRIGGERS):
+            continue
+        parsed.fixed_pois.append(FixedPoi(name=poi, user_time_budget=None))
+        existing_names.add(poi)
     return parsed
 
 
@@ -636,12 +663,23 @@ def _exclude_pois_from_request(parsed: ParsedIntent, user_request: str) -> Parse
         window_start = max(0, idx - 30)
         window_end = min(len(user_request), idx + len(poi) + 30)
         window = user_request[window_start:window_end]
+        matched = False
         for pattern in NEGATIVE_POI_PATTERNS:
             if re.search(pattern, window):
-                parsed.fixed_pois = [fp for fp in parsed.fixed_pois if fp.name != poi]
-                if poi not in parsed.delete_list:
-                    parsed.delete_list.append(poi)
+                matched = True
                 break
+        # v10: 也检查否定触发器
+        if not matched:
+            if any(trig in window for trig in NEGATION_TRIGGERS):
+                matched = True
+        if matched:
+            parsed.fixed_pois = [fp for fp in parsed.fixed_pois if fp.name != poi]
+            # v10: 扩展别名加入 delete_list
+            aliases = EXCLUDE_ALIASES.get(poi, [poi])
+            for alias in aliases:
+                if alias not in parsed.delete_list:
+                    parsed.delete_list.append(alias)
+            break
     return parsed
 
 

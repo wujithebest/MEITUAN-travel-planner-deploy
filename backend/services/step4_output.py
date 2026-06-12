@@ -744,6 +744,37 @@ async def _build_route_data(
                 mid = len(ordered_names) // 2
                 _name_period[name] = "morning" if i < mid else "afternoon"
 
+    # v10: 按 day 分组修正 period — 防止第二天活动被误标为 evening
+    if route_points and any(pt.get("day") for pt in route_points):
+        days_map: dict[int, list[str]] = {}
+        for pt in route_points:
+            d = pt.get("day", 1)
+            days_map.setdefault(d, []).append(pt.get("name", ""))
+        for day_idx, names in days_map.items():
+            # 对每一天独立推算 meal 位置
+            day_meals = [n for n in names if n in meal_names]
+            if not day_meals:
+                # 无餐食 → 前一半 morning，后一半 afternoon
+                mid = len(names) // 2
+                for i, n in enumerate(names):
+                    if day_idx > 1 and _name_period.get(n) == "evening":
+                        _name_period[n] = "morning" if i < mid else "afternoon"
+                continue
+            # 找到当天的 lunch 和 dinner
+            dlunch = day_meals[0] if len(day_meals) >= 1 else None
+            ddinner = day_meals[-1] if len(day_meals) >= 2 else None
+            for i, n in enumerate(names):
+                if n in day_meals:
+                    continue  # 餐食本身已有标记
+                if dlunch and names.index(dlunch) > i:
+                    _name_period[n] = "morning"
+                elif ddinner and names.index(ddinner) < i:
+                    _name_period[n] = "evening"
+                elif dlunch and ddinner and names.index(dlunch) < i < names.index(ddinner):
+                    _name_period[n] = "afternoon"
+                else:
+                    _name_period[n] = "afternoon"
+
     #  segments 有 period 属性时兜底
     for seg in route_segments:
         period = getattr(seg, "period", "") or ""
@@ -752,6 +783,9 @@ async def _build_route_data(
                 _name_period[seg.to_poi] = period
             if seg.from_poi and not _name_period.get(seg.from_poi):
                 _name_period[seg.from_poi] = period
+        # v10: segment period 优先用 to_poi 所在当天的 display_slot
+        if seg.to_poi and _name_period.get(seg.to_poi):
+            setattr(seg, "period", _name_period[seg.to_poi])
 
     # ---- Step 2: 转换 points，计算 route_order / display_order / display_slot ----
     # v6: detect planned mode early

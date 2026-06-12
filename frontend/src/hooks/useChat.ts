@@ -1261,13 +1261,14 @@ export function useChat(): UseChatReturn {
                       slot: slotType,
                       slotLabel: SLOT_LABEL_MAP[slotType] || slot.label || slotType,
                       slotOrder: SLOT_ORDER_MAP[slotType] || 99,
+                      dayIndex: (day as any).day_index || 1,
                       items,
                     });
                   }
                 }
               }
-              // Sort by slotOrder
-              slotReasons.sort((a, b) => a.slotOrder - b.slotOrder);
+              // v10: Sort by dayIndex then slotOrder
+              slotReasons.sort((a, b) => ((a as any).dayIndex || 0) - ((b as any).dayIndex || 0) || a.slotOrder - b.slotOrder);
 
               console.log('[useChat] slotReasons built:', slotReasons.map(s => ({
                 slot: s.slot, label: s.slotLabel, items: s.items.length,

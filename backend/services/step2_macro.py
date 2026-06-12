@@ -878,10 +878,20 @@ def _recommend_reason(place: ScoredPlace, parsed_intent: ParsedIntent) -> str:
 async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile) -> list[AnchorPlan]:
     if not parsed_intent.fixed_pois:
         return []
+    # v10: 过滤 delete_list 和别名
+    delete_lowered = {d.lower() for d in (parsed_intent.delete_list or [])}
+    area_lowered = {a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])}
+    all_excluded = delete_lowered | area_lowered
+    # expand aliases
+    from .step1_intent import EXCLUDE_ALIASES
+    for poi_name in list(all_excluded):
+        for alias in EXCLUDE_ALIASES.get(poi_name, []):
+            all_excluded.add(alias.lower())
+
     city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
 
     # 对未查询过的FixedPoi进行高德搜索
-    fixed_pois = parsed_intent.fixed_pois
+    fixed_pois = [fp for fp in parsed_intent.fixed_pois if fp.name.lower() not in all_excluded]
     to_search = [(i, fp) for i, fp in enumerate(fixed_pois) if not fp.location or not fp.typecode]
     if to_search:
         search_results = await asyncio.gather(*[
