@@ -11,6 +11,7 @@ import asyncio
 import datetime as dt
 import logging
 import json
+import re
 import sys
 import os
 import time
@@ -37,13 +38,24 @@ class GuestProfileSchema(BaseModel):
     budget_per_capita: float = 100.0
 
 
+class RouteContextSchema(BaseModel):
+    route_id: str | None = None
+    point_names: list[str] = []
+    candidate_names: list[str] = []
+    points: list[dict] = []
+    segments: list[dict] = []
+    exclusions: list[str] = []
+    recent_user_messages: list[str] = []
+
+
 class ChatRequest(BaseModel):
     message: str
     user_id: str = "default"
-    plan_mode: str = "exploratory"  # exploratory 或 planned
+    plan_mode: str = "exploratory"
     guest_profile: GuestProfileSchema | None = None
     client_sent_at: str | None = None
     client_timezone: str | None = None
+    route_context: RouteContextSchema | None = None
 
 
 class ChatResponse(BaseModel):
@@ -179,6 +191,266 @@ from services.step1_intent import run_step1
 from services.step2_macro import run_step2
 from services.step3_micro import run_step3
 from services.step4_output import run_step4
+from services.api_client import gaode_text_search
+from services.pipeline_replan_service import apply_pipeline_replan
+
+# ═══ v11: 聊天编辑意图分类 ═══
+
+_EDIT_ADD_WORDS = (
+    "加一个", "增加", "加上", "再加", "再安排",
+    "还想去", "我还想去", "也想去", "另外想去",
+    "顺便去", "顺便加", "再去"
+)
+_EDIT_REMOVE_WORDS = ("不想去", "不要", "不去了", "去掉", "删除", "删掉", "别安排", "跳过")
+_EDIT_REPLACE_WORDS = ("替换成", "替换为", "换成", "改成")
+
+
+def _clean_place_name(text: str) -> str:
+    text = re.sub(r"[，。,.!?！？；;、\s]+$", "", text.strip())
+    text = re.sub(r"^(一个|一下|去|到|成|为)", "", text)
+    text = re.sub(r"(吧|呀|呢|可以吗|行吗|其他安排不变|其余不变|别的地方|其他地方)$", "", text).strip()
+    return text
+
+
+def _match_route_point(text: str, names: list[str]) -> str | None:
+    for name in sorted([n for n in names if n], key=len, reverse=True):
+        if name in text or text in name:
+            return name
+    return None
+
+
+def _looks_like_full_planning_request(text: str) -> bool:
+    """检测完整的多时段/多活动新规划请求"""
+    time_words = ("上午", "中午", "下午", "晚上", "午饭", "午餐", "晚饭", "晚餐", "早餐")
+    date_words = ("今天", "明天", "后天", "周末", "下周", "一天", "两天", "三天", "一整天", "半天")
+    plan_words = ("规划", "路线", "安排", "逛逛", "游览", "玩", "吃饭", "吃个", "找个", "推荐")
+    connectors = ("，", ",", "。", "；", ";", "然后", "再", "接着", "顺便")
+
+    time_count = sum(1 for w in time_words if w in text)
+    has_date = any(w in text for w in date_words)
+    has_plan = any(w in text for w in plan_words)
+    has_connector = any(w in text for w in connectors)
+
+    if time_count >= 2:
+        return True
+    if has_date and has_plan:
+        return True
+    if has_connector and has_plan and len(text) >= 18:
+        return True
+    return False
+
+
+def _has_explicit_edit_intent(text: str) -> bool:
+    """检测用户是否明确表达了对当前路线的编辑意图"""
+    explicit_words = (
+        "当前路线", "这条路线", "刚才", "上一条", "原路线",
+        "其他安排不变", "其余不变", "保持不变",
+        "替换成", "替换为", "换成", "改成",
+        "不想去", "不要", "不去了", "去掉", "删除", "删掉", "别安排", "跳过",
+        "加一个", "增加", "加上", "再加", "再安排", "还想去", "我还想去",
+        "也想去", "另外想去", "顺便去", "顺便加", "再去"
+    )
+    return any(w in text for w in explicit_words)
+
+
+def _is_concrete_place_name(name: str) -> bool:
+    if not name:
+        return False
+    bad_words = ("路线", "规划", "安排", "地方", "好吃", "吃饭", "午饭", "晚饭", "上午", "下午", "晚上", "然后", "顺便")
+    return not any(w in name for w in bad_words)
+
+
+def _extract_add_place_after(text: str, word: str) -> str:
+    tail = text.split(word, 1)[1].strip()
+    tail = re.split(r"[，,。；;、]|然后|接着|晚上|下午|上午|中午|午饭|晚饭|午餐|晚餐", tail, maxsplit=1)[0]
+    return _clean_place_name(tail)
+
+
+def _classify_chat_edit(user_request: str, route_context: RouteContextSchema | None) -> dict:
+    text = user_request.strip()
+    point_names = route_context.point_names if route_context else []
+    has_route = bool(route_context and route_context.points)
+
+    # v12: 完整规划请求保护 — 有历史路线但当前是完整新规划
+    if has_route and _looks_like_full_planning_request(text) and not _has_explicit_edit_intent(text):
+        return {
+            "action": "new_plan",
+            "target_name": None,
+            "new_name": None,
+            "reason": "full planning request; skip chat edit"
+        }
+
+    new_plan_tokens = ("重新规划", "新路线", "下周", "明天", "后天", "周末", "两天", "三天", "杭州", "北京", "苏州")
+    has_edit_word = any(w in text for w in _EDIT_ADD_WORDS + _EDIT_REMOVE_WORDS + _EDIT_REPLACE_WORDS) or "其他安排不变" in text
+    if has_route and any(t in text for t in new_plan_tokens) and not has_edit_word:
+        return {"action": "new_plan", "target_name": None, "new_name": None, "reason": "new plan signal without edit word"}
+
+    for word in _EDIT_REPLACE_WORDS:
+        if word in text:
+            left, right = text.split(word, 1)
+            left = re.sub(r"^(把|将|请把|帮我把)", "", left).strip()
+            target = _match_route_point(left, point_names) or _clean_place_name(left)
+            new_name = _clean_place_name(right)
+            if target and new_name and new_name not in ("别的地方", "其他地方", "另一个", "换一个"):
+                return {"action": "replace", "target_name": target, "new_name": new_name, "reason": f"matched replace word {word}"}
+            if target:
+                return {"action": "remove", "target_name": target, "new_name": None, "reason": f"replace without concrete new name {word}"}
+
+    if any(w in text for w in _EDIT_REMOVE_WORDS):
+        target = _match_route_point(text, point_names)
+        if target:
+            return {"action": "remove", "target_name": target, "new_name": None, "reason": "matched remove with route point"}
+        return {"action": "normal", "target_name": None, "new_name": None, "reason": "remove word but no route target"}
+
+    if has_route:
+        for word in _EDIT_ADD_WORDS:
+            if word in text:
+                new_name = _extract_add_place_after(text, word)
+                if new_name and _is_concrete_place_name(new_name):
+                    return {"action": "add", "target_name": None, "new_name": new_name, "reason": f"matched add word {word}"}
+
+        # v12: 弱 add — 短句"我想去X"且有路线上下文
+        weak_add_match = re.match(r"^(?:我)?想去(.{1,20})$", text)
+        if weak_add_match and not _looks_like_full_planning_request(text):
+            new_name = _clean_place_name(weak_add_match.group(1))
+            if new_name and _is_concrete_place_name(new_name):
+                return {"action": "add", "target_name": None, "new_name": new_name, "reason": "short weak add"}
+
+    return {"action": "normal", "target_name": None, "new_name": None, "reason": "no edit rule matched"}
+
+
+async def _resolve_poi_for_chat_edit(name: str, city: str = "上海") -> dict | None:
+    items = await gaode_text_search(name, city=city, show_fields="business,photos")
+    if not items:
+        return None
+    poi = items[0]
+    loc = poi.get("location")
+    if isinstance(loc, str) and "," in loc:
+        lng, lat = loc.split(",", 1)
+        loc = {"lng": float(lng), "lat": float(lat)}
+    return {
+        "poi_id": poi.get("poi_id") or poi.get("id") or poi.get("gaode_poi_id"),
+        "gaode_poi_id": poi.get("gaode_poi_id") or poi.get("id") or poi.get("poi_id"),
+        "name": poi.get("name") or name,
+        "location": loc,
+        "typecode": poi.get("typecode", ""),
+        "category": poi.get("category") or poi.get("typecode", ""),
+        "address": poi.get("address", ""),
+        "rating": poi.get("rating") or poi.get("gaode_rating"),
+        "avg_cost": poi.get("avg_cost"),
+        "kind": "anchor_internal",
+        "is_waypoint": True,
+        "is_display_poi": True,
+    }
+
+
+async def _try_chat_edit_replan(
+    user_request: str,
+    route_context: RouteContextSchema | None,
+    user_profile,
+) -> bool:
+    edit = _classify_chat_edit(user_request, route_context)
+    print(f"[DEBUG chat_edit] action={edit['action']} target={edit['target_name']} new={edit['new_name']} reason={edit['reason']}")
+
+    if edit["action"] in ("normal", "new_plan"):
+        return False
+    if not route_context or not route_context.points:
+        return False
+
+    await emit_status("正在根据您的修改调整路线...")
+
+    operations = []
+    point_by_name = {str(p.get("name", "")): p for p in route_context.points}
+    target_name = edit.get("target_name")
+    target_point = point_by_name.get(target_name) if target_name else None
+
+    if edit["action"] == "remove":
+        if not target_point:
+            return False
+        operations.append({
+            "action": "remove",
+            "poi_id": target_point.get("poi_id") or target_point.get("gaode_poi_id") or f"{target_name}:{target_point.get('location')}",
+            "gaode_poi_id": target_point.get("gaode_poi_id"),
+            "poi_name": target_name,
+        })
+
+    elif edit["action"] == "replace":
+        if not target_point or not edit.get("new_name"):
+            return False
+        city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
+        new_poi = await _resolve_poi_for_chat_edit(edit["new_name"], city=city)
+        if not new_poi:
+            return False
+        new_poi["day"] = target_point.get("day", 1)
+        new_poi["display_slot"] = target_point.get("display_slot", "")
+        operations.append({
+            "action": "replace",
+            "poi_id": target_point.get("poi_id") or target_point.get("gaode_poi_id") or f"{target_name}:{target_point.get('location')}",
+            "gaode_poi_id": target_point.get("gaode_poi_id"),
+            "poi_name": target_name,
+            "poi": new_poi,
+        })
+
+    elif edit["action"] == "add":
+        if not edit.get("new_name"):
+            return False
+        city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
+        new_poi = await _resolve_poi_for_chat_edit(edit["new_name"], city=city)
+        if not new_poi:
+            return False
+        operations.append({"action": "add", "poi_id": new_poi.get("poi_id") or new_poi["name"], "poi": new_poi})
+
+    result = await apply_pipeline_replan(
+        points=route_context.points,
+        operations=operations,
+        route_id=route_context.route_id,
+    )
+    route_data = {
+        **result["route"],
+        "route_id": result["route_id"],
+        "candidate_points": [],
+        "hints": {},
+        "waypoint_annotations": {},
+        "plan_mode": "chat_edit",
+        "total_days": max([int(p.get("day", 1) or 1) for p in result["route"]["points"]] or [1]),
+    }
+    summary = "已根据您的要求调整路线。"
+    if edit["action"] == "replace":
+        summary = f"已将{edit['target_name']}替换为{edit['new_name']}，并重新计算路线。"
+    elif edit["action"] == "add":
+        summary = f"已为当前路线增加{edit['new_name']}，并重新计算路线。"
+    elif edit["action"] == "remove":
+        summary = f"已从当前路线移除{edit['target_name']}，并重新计算路线。"
+
+    # v12: 从 result points 合成基本 days 结构，避免前端左栏完全无数据
+    from collections import defaultdict
+    result_points = result["route"].get("points", [])
+    days_data: dict[int, list[dict]] = defaultdict(list)
+    for p in result_points:
+        days_data[int(p.get("day", 1) or 1)].append(p)
+    days_list = []
+    for day_idx in sorted(days_data):
+        day_pts = days_data[day_idx]
+        anchors = [{"name": p.get("name", ""), "recommend_reason": p.get("recommend_reason", ""),
+                     "location": p.get("location")} for p in day_pts if p.get("kind") not in ("start", "meal", "hint")]
+        meals = [{"name": p.get("name", ""), "meal": p.get("display_slot") or "",
+                  "location": p.get("location")} for p in day_pts if p.get("kind") == "meal"]
+        days_list.append({"day_index": day_idx, "anchors": anchors, "meal_slots": meals})
+    route_data["display_granularity"] = "day"
+
+    await push_output(f"[ROUTE_PLANNER]: {summary}")
+    await emit_done(
+        map_paths=[],
+        full_plan={
+            "summary": summary,
+            "city": "上海",
+            "duration": "",
+            "time_budget": 0,
+            "days": days_list,
+        },
+        route_data=route_data,
+    )
+    return True
 
 
 async def _run_pipeline_stream(
@@ -188,6 +460,7 @@ async def _run_pipeline_stream(
     guest_profile: GuestProfileSchema | None = None,
     client_sent_at: str | None = None,
     client_timezone: str | None = None,
+    route_context: RouteContextSchema | None = None,
 ):
     """
     运行美团 pipeline 并流式返回输出
@@ -236,6 +509,11 @@ async def _run_pipeline_stream(
                 except Exception:
                     pass
             print(f"[DEBUG meituan_chat] client_sent_at={client_sent_at} client_timezone={client_timezone} resolved_current_time={current_time}")
+
+            # v11: 聊天编辑快速通道 — 如果用户意图为修改/替换/新增/删除当前路线，不走完整pipeline
+            edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
+            if edited:
+                return
 
             # Step 1: 意图识别
             await emit_status("正在解析您的出行意图...")
@@ -527,7 +805,11 @@ async def meituan_chat_stream(req: ChatRequest):
     
     # 原有 pipeline 逻辑
     return StreamingResponse(
-        _run_pipeline_stream(req.message, req.user_id, req.plan_mode, req.guest_profile, req.client_sent_at, req.client_timezone),
+        _run_pipeline_stream(
+            req.message, req.user_id, req.plan_mode,
+            req.guest_profile, req.client_sent_at, req.client_timezone,
+            req.route_context,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
