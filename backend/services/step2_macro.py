@@ -28,6 +28,7 @@ from .day_slots import DURATION_TO_BUDGET, MEAL_WINDOWS, WEATHER_PENALTY, infer_
 from .poi_feedback_service import calculate_feedback_score, get_profile_feedback_records
 from .route_backbone import is_valid_route_poi
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
+from .theme_profiles import OFFICIAL_THEME_PROFILES
 
 
 ANCHOR_LEVEL_TYPECODES = ["110000", "110100", "110200", "080500", "080600", "140100", "140200", "190100"]
@@ -385,6 +386,11 @@ def _preference_match(place: ExtractedPlace, parsed_intent: ParsedIntent) -> tup
         "古街": ["老街", "水乡", "古镇", "历史街区"],
         "二次元": ["动漫", "ACG", "谷子", "手办", "潮玩", "卡牌", "一番赏", "周边", "漫展", "animate", "ZX"],
         "文艺": ["艺术", "创意园", "书店", "咖啡"],
+        "文艺优先": ["艺术", "创意园", "书店", "咖啡", "展览", "美术馆", "画廊", "文化空间"],
+        "有氛围": ["艺术", "创意园", "书店", "展览", "美术馆", "画廊", "历史街区", "老街", "里弄", "弄堂", "文化"],
+        "氛围优先": ["艺术", "创意园", "书店", "展览", "美术馆", "画廊", "历史街区", "老街", "里弄", "弄堂", "文化"],
+        "精神漫游": ["艺术", "创意园", "书店", "展览", "美术馆", "历史街区", "老街", "里弄", "公园", "滨江"],
+        "慢节奏": ["书店", "展览", "美术馆", "创意园", "历史街区", "老街", "里弄", "公园", "滨江"],
         "历史": ["博物馆", "旧址", "老建筑"],
         "拍照": ["打卡", "观景", "网红"],
         "逛吃": ["小吃", "美食", "夜市"],
@@ -994,6 +1000,105 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
     ]
 
 
+async def _theme_recall_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+    city: str,
+) -> list[ExtractedPlace]:
+    """v15: Bocha主题召回 — 从博查攻略语义中抽取主题片区/POI名称，高德校准后加入候选池"""
+    theme_id = getattr(parsed_intent, "theme_profile", None)
+    if not theme_id or theme_id not in OFFICIAL_THEME_PROFILES:
+        return []
+    profile = OFFICIAL_THEME_PROFILES[theme_id]
+    recall_queries = profile.get("recall_queries", [])
+    if not recall_queries:
+        return []
+
+    city_short = city[:-1] if city.endswith("市") else city
+    dest_terms = set(profile.get("destination_anchor_terms", []))
+    high_value_terms = set(profile.get("high_value_micro_terms", []))
+
+    all_web_items: list[dict] = []
+    for query in recall_queries[:3]:
+        try:
+            results = await bocha_search_batch([query.format(city=city_short)])
+            for items in results:
+                all_web_items.extend(items)
+        except Exception as exc:
+            print(f"[WARN step2] theme recall bocha search failed '{query}': {exc}")
+
+    if not all_web_items:
+        return []
+
+    # 从博查摘要中抽取候选名称
+    candidate_names: list[str] = []
+    for item in all_web_items:
+        text = f"{item.get('name', '')} {item.get('snippet', '')}"
+        for term in dest_terms:
+            if term in text and term not in candidate_names:
+                candidate_names.append(term)
+    # 补充正则抽取
+    import re as _re
+    for item in all_web_items:
+        snippet = item.get("snippet", "")
+        matches = _re.findall(r"[一-龥A-Za-z\d·]+(?:园|路|街区|风貌区|美术馆|书店|创意园|公馆|老场坊|艺术中心|博物馆|馆|坊|里弄|弄堂)", snippet)
+        for m in matches:
+            if len(m) >= 3 and m not in candidate_names and m not in dest_terms:
+                candidate_names.append(m)
+
+    if not candidate_names:
+        return []
+
+    # 高德坐标校准（最多校准8个名称）
+    places: list[ExtractedPlace] = []
+    import re as _re2
+    for name in candidate_names[:8]:
+        try:
+            raws = await gaode_text_search(name, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+            for raw in raws:
+                place = _to_extracted(raw)
+                if not place or not place.location:
+                    continue
+                if not is_valid_route_poi(place.typecode, place.name):
+                    continue
+                # 标记来源
+                place.recall_source = "bocha_theme_recall"
+                setattr(place, "recall_source", "bocha_theme_recall")
+                setattr(place, "poi_role", "destination_anchor")
+                # 主题分数
+                theme_score = 20.0
+                if name in dest_terms:
+                    theme_score = 30.0
+                elif name in high_value_terms:
+                    theme_score = 25.0
+                setattr(place, "theme_recall_score", theme_score)
+                # enrichment
+                snippets = " ".join(
+                    f"{item.get('name', '')} {item.get('snippet', '')}"
+                    for item in all_web_items[:10]
+                    if name[:3] in (item.get("snippet", "") + item.get("name", ""))
+                )
+                if snippets:
+                    place.enrichment_text = (place.enrichment_text or "") + snippets[:300]
+                # bocha keywords
+                kw_set = set()
+                for item in all_web_items:
+                    text = f"{item.get('name', '')} {item.get('snippet', '')}"
+                    for word in _re2.split(r"[，。、\s]", text):
+                        w = word.strip().lower()
+                        if len(w) >= 2:
+                            kw_set.add(w)
+                setattr(place, "bocha_keywords", list(kw_set)[:50])
+                places.append(place)
+                break
+        except Exception as exc:
+            print(f"[WARN step2] theme recall geocode failed '{name}': {exc}")
+
+    if places:
+        print(f"[DEBUG step2] theme recall found {len(places)} places: {[(p.name, p.location) for p in places]}")
+    return places
+
+
 async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[ExtractedPlace]:
     # v4.1 F7: 仅富化 top-6（从 10 降至 6），节省 bocha 配额和耗时
     enrich_limit = 6
@@ -1486,6 +1591,133 @@ def _has_strong_meal_intent(parsed_intent: ParsedIntent) -> bool:
     return any(token in lowered_text for token in strong_tokens)
 
 
+NON_MEAL_EXPLORATION_TERMS = [
+    "随便走走", "走走", "散步", "逛逛", "转转", "游览", "看看", "看美景",
+    "拍照", "打卡", "滨江", "江边", "步道", "公园", "绿地", "景点",
+    "自然景色", "风景", "夜景", "美景"
+]
+
+MEAL_TEXT_TERMS = [
+    "餐厅", "饭店", "晚餐", "晚饭", "午餐", "午饭", "吃饭", "美食",
+    "小吃", "咖啡", "甜品", "日料", "本帮菜", "人均", "不超过", "以内"
+]
+
+ACTIVITY_QUERY_STOP_WORDS = [
+    "上海", "上海市", "附近", "周边", "一带", "随便", "走走", "逛逛",
+    "散步", "转转", "游览", "看看", "看美景", "拍照", "打卡", "推荐",
+    "攻略", "路线", "帮我", "再", "顺便", "找一个", "找一家",
+    "餐厅", "饭店", "晚餐", "晚饭", "午餐", "午饭", "吃饭", "美食",
+    "小吃", "咖啡", "甜品", "人均", "不超过", "以内", "以下"
+]
+
+
+def _has_non_meal_explore_intent(parsed_intent: ParsedIntent) -> bool:
+    texts = [
+        *(getattr(parsed_intent, "raw_keywords", []) or []),
+        *(getattr(parsed_intent, "search_keywords", []) or []),
+        *(getattr(parsed_intent, "micro_keywords", []) or []),
+        *(getattr(parsed_intent, "other_constraints", []) or []),
+    ]
+    joined = " ".join(str(t) for t in texts if t)
+    if not joined:
+        return False
+    return any(term in joined for term in NON_MEAL_EXPLORATION_TERMS)
+
+
+def _clean_activity_query(text: str) -> str:
+    cleaned = str(text or "")
+    for token in ACTIVITY_QUERY_STOP_WORDS:
+        cleaned = cleaned.replace(token, " ")
+    cleaned = re.sub(r"\d+", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    parts = [p for p in cleaned.split(" ") if len(p) >= 2]
+    return " ".join(parts[:3]).strip()
+
+
+def _activity_fallback_queries(parsed_intent: ParsedIntent, user_profile: UserProfile) -> list[str]:
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    texts = [
+        *(getattr(parsed_intent, "micro_keywords", []) or []),
+        *(getattr(parsed_intent, "search_keywords", []) or []),
+        *(getattr(parsed_intent, "raw_keywords", []) or []),
+    ]
+    queries: list[str] = []
+    for text in texts:
+        raw = str(text or "").strip()
+        if not raw:
+            continue
+        if not any(term in raw for term in NON_MEAL_EXPLORATION_TERMS):
+            continue
+        query = _clean_activity_query(raw)
+        if not query:
+            continue
+        if city and city not in query:
+            query = f"{city} {query}"
+        if query not in queries:
+            queries.append(query)
+
+    joined = " ".join(str(t) for t in texts if t)
+    if "滨江" in joined:
+        fallback = f"{city} 滨江步道".strip()
+        if fallback and fallback not in queries:
+            queries.append(fallback)
+    if "公园" in joined:
+        fallback = f"{city} 公园".strip()
+        if fallback and fallback not in queries:
+            queries.append(fallback)
+
+    return queries[:4]
+
+
+async def _fallback_activity_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    if not _has_non_meal_explore_intent(parsed_intent):
+        return []
+
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    queries = _activity_fallback_queries(parsed_intent, user_profile)
+    if not queries:
+        return []
+
+    fallback_places: list[ExtractedPlace] = []
+    for query in queries:
+        try:
+            raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+        except Exception as exc:
+            print(f"[WARN step2] activity fallback text search failed query={query}: {exc}")
+            continue
+
+        for raw in raws:
+            place = _to_extracted(raw)
+            if not place or not place.location:
+                continue
+
+            text = f"{place.name} {place.address}"
+            is_food = any(term in text for term in MEAL_TEXT_TERMS)
+            is_area_like = any(term in text for term in ["滨江", "江边", "步道", "公园", "绿地", "景区", "广场", "码头"])
+            if is_food and not is_area_like:
+                continue
+
+            if not is_valid_route_poi(place.typecode, place.name):
+                continue
+
+            data = place.model_dump()
+            data["time_capacity"] = "quarter_day" if parsed_intent.time_budget <= 0.25 else (data.get("time_capacity") or "half_day")
+            data["enrichment_text"] = data.get("enrichment_text") or "用户指定区域的短途游览锚点"
+            data["enrichment_heat"] = max(float(data.get("enrichment_heat") or 0.0), 0.5)
+            fallback_places.append(ExtractedPlace(**data))
+            break
+
+        if fallback_places:
+            break
+
+    if fallback_places:
+        print(f"[DEBUG step2] activity fallback anchors={[(p.name, p.location) for p in fallback_places]}")
+    return fallback_places
+
+
 def _infer_meal_from_time(parsed_intent: ParsedIntent) -> str | None:
     """v6: 根据 start_time 推断 meal 类型"""
     st = parsed_intent.start_time
@@ -1606,7 +1838,11 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     # v6: planned 模式跳过宏观搜索，直接返回轻量 CompletePlan
     if getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned' and getattr(parsed_intent, 'planned_waypoints', []):
         city = user_profile.permanent_city[0] if user_profile.permanent_city else "上海市"
-        print(f"[DEBUG step2] planned 模式 — 跳过宏观搜索，返回轻量 CompletePlan")
+        budget_threshold = _budget_threshold(parsed_intent, user_profile)
+        print(
+            "[DEBUG step2] planned 模式 — 跳过宏观搜索，返回轻量 CompletePlan "
+            f"budget_threshold={budget_threshold} request_budget={parsed_intent.budget_per_capita}"
+        )
         return CompletePlan(
             time_budget=0.5,
             fixed_budget=0.0,
@@ -1614,7 +1850,8 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
             day_plans=[],
             city=city,
             transport=getattr(parsed_intent, 'transport_hint', '公共交通') or '公共交通',
-            budget_threshold=(user_profile.budget_per_capita or 100.0) * 1.5,
+            budget_threshold=budget_threshold,
+            request_budget_per_capita=parsed_intent.budget_per_capita,
         )
 
     fixed_anchors = await _fixed_anchors(parsed_intent, user_profile)
@@ -1681,9 +1918,14 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                     "budget_deleted": deleted,
                 },
             )
-            # v6: 强餐饮意图下，宏观 anchor 为空不抛错，交给 Step3 meal 搜索
-            if _has_strong_meal_intent(parsed_intent):
-                print("[DEBUG step2] 宏观 anchor 为空但强餐饮意图存在，跳过 ZeroOutputError，进入 meal-only 流程")
+            # v12: 混合任务（游览+餐饮）禁止直接 meal-only，先尝试活动 fallback
+            fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
+            if fallback_places:
+                places = fallback_places
+                deleted = []
+                print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
+            elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
+                print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
             else:
                 raise ZeroOutputError("宏观 POI 搜索结果为空或全部被过滤")
         delete_list.extend(deleted)
@@ -1740,15 +1982,20 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
             transit_map[pid] = route.get("duration_min") if route else None
         await logger.log_step("step_2_3_bocha_enrich", output_count=min(len(places_enriched), 10))
 
+        # v15: 主题召回 — 用博查搜索主题攻略语义，补充 destination_anchor
+        theme_recall_places = await _theme_recall_places(parsed_intent, user_profile, city_name)
+        if theme_recall_places:
+            places_enriched = list(places_enriched) + theme_recall_places
+
         logger.start_step("step_2_4_scoring")
         await emit_status("正在评估和筛选目的地...")
         # v4.1 F7: 直接用已预查的 transit 结果，不再重复 API 调用
         candidates = _score_places_prefetched(places_enriched, parsed_intent, user_profile, transit_map)
         if not candidates:
-            # v6: 强餐饮意图下允许无宏观 anchor，Step3 meal 搜索兜底
-            if _has_strong_meal_intent(parsed_intent):
+            # v12: 混合任务禁止直接 meal-only
+            if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
                 candidates = []
-                print("[DEBUG step2] 评分后无可用候选但强餐饮意图存在，进入 meal-only 流程")
+                print("[DEBUG step2] 评分后无可用候选且为纯餐饮意图，进入 meal-only 流程")
             else:
                 raise ZeroOutputError("宏观 POI 评分后无可用候选")
         await logger.log_step(
@@ -1773,9 +2020,9 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     pool_size = max(config.POOL_SIZE, 20) if "二次元" in parsed_intent.raw_keywords else config.POOL_SIZE
     selected = _select_anchors(fixed_anchors, candidates[:pool_size], parsed_intent)
     if not selected:
-        if _has_strong_meal_intent(parsed_intent):
+        if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
             selected = []
-            print("[DEBUG step2] 无可用路线锚点但强餐饮意图存在，进入 meal-only 流程")
+            print("[DEBUG step2] 无可用路线锚点且为纯餐饮意图，进入 meal-only 流程")
         else:
             raise ZeroOutputError("未匹配到可用路线锚点")
     # v3新增 (step_2_5_5)：确定每个锚点的final_time_budget

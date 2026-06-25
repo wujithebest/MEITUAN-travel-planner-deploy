@@ -27,6 +27,7 @@ from services.enroute_discovery import get_enroute_discovery
 from services.route_replanner import get_route_replanner
 from services.api_client import gaode_driving_route
 from services.step4_output import _route_cache
+from services.pipeline_replan_service import apply_pipeline_replan
 from config import get_settings
 from exceptions import OutOfShanghaiError, POINotFoundError, RoutePlanningError
 
@@ -217,22 +218,13 @@ async def generate_route(input_data: LocationInput):  # type: ignore[misc]
         logger.info(f"[generate_route] Step 3.1: 验证polyline, length={len(first_route_result.polyline) if first_route_result.polyline else 0}")
         
         if not first_route_result.polyline or len(first_route_result.polyline) < 10:
-            logger.warning(f"生成的polyline无效或太短: {first_route_result.polyline}")
-            # 手动构建基于主POI的polyline作为备用
-            try:
-                coords = []
-                for poi in main_pois[:10]:  # 最多10个点
-                    if poi.location and "," in poi.location:
-                        coords.append(poi.location)
-                if len(coords) >= 2:
-                    first_route_result.polyline = ";".join(coords)
-                    logger.info(f"使用主POI坐标构建备用polyline: {first_route_result.polyline}")
-                else:
-                    first_route_result.polyline = "121.4737,31.2304;121.5637,31.2904"
-                    logger.info(f"使用默认上海坐标作为polyline")
-            except Exception as e:
-                logger.error(f"构建备用polyline失败: {e}")
-                first_route_result.polyline = "121.4737,31.2304;121.5637,31.2904"
+            logger.error("[generate_route] 高德未返回有效真实道路polyline，拒绝使用直线兜底")
+            return ApiResponse(
+                success=False,
+                data=None,
+                message="路线规划暂时未返回有效道路轨迹，请稍后重试",
+                code="ROUTE_POLYLINE_MISSING"
+            )
         
         logger.info(
             f"[generate_route] Step 3完成: "
@@ -970,7 +962,7 @@ async def replan_route(req: ReplanRequest):
 
 class PipelineReplanOperation(BaseModel):
     """管线重新计算操作"""
-    action: str = Field(..., description="remove | replace")
+    action: str = Field(..., description="remove | replace | add")
     poi_id: str = Field(..., description="要操作的 POI ID（主键）")
     gaode_poi_id: Optional[str] = Field(None, description="高德 POI ID（辅助匹配）")
     poi_name: Optional[str] = Field(None, description="POI 名称（辅助匹配）")
@@ -989,13 +981,6 @@ class PipelineReplanRequest(BaseModel):
 
 @router.post("/route/replan-pipeline")
 async def replan_pipeline_route(req: PipelineReplanRequest):
-    """管线格式路线重新计算
-
-    接受管线生成的 points/segments 格式，
-    应用 delete/replace 操作后重新调用高德驾车 API 生成路线几何。
-    返回与 _build_route_data 相同格式的数据。
-    """
-    # 1. 加载数据（优先使用缓存）
     route_id = req.route_id
     if route_id and route_id in _route_cache:
         cached = _route_cache[route_id]
@@ -1003,144 +988,13 @@ async def replan_pipeline_route(req: PipelineReplanRequest):
     else:
         points = list(req.points)
 
-    # 2. 应用操作
-    for op in req.operations:
-        if op.action == "remove":
-            # 多重 ID 匹配：poi_id / gaode_poi_id / poi_name / name:location
-            def _should_remove(p: dict) -> bool:
-                pid = str(p.get("poi_id", ""))
-                gid = str(p.get("gaode_poi_id", ""))
-                pname = str(p.get("name", ""))
-
-                # 匹配 poi_id
-                if pid and pid == str(op.poi_id):
-                    return True
-                # 匹配 gaode_poi_id
-                if op.gaode_poi_id and gid == str(op.gaode_poi_id):
-                    return True
-                # 匹配 poi_name（精确匹配）
-                if op.poi_name and pname == op.poi_name:
-                    return True
-                # 匹配 name:location 格式（fallback ID）
-                if ":" in str(op.poi_id):
-                    parts = str(op.poi_id).split(":")
-                    if len(parts) >= 2 and pname == parts[0]:
-                        return True
-                return False
-
-            points = [p for p in points if not _should_remove(p)]
-
-        elif op.action == "replace":
-            if not op.poi:
-                continue
-            new_poi = op.poi
-
-            def _is_target(p: dict) -> bool:
-                pid = str(p.get("poi_id", ""))
-                gid = str(p.get("gaode_poi_id", ""))
-                pname = str(p.get("name", ""))
-
-                if pid and pid == str(op.poi_id):
-                    return True
-                if op.gaode_poi_id and gid == str(op.gaode_poi_id):
-                    return True
-                if op.poi_name and pname == op.poi_name:
-                    return True
-                if ":" in str(op.poi_id):
-                    parts = str(op.poi_id).split(":")
-                    if len(parts) >= 2 and pname == parts[0]:
-                        return True
-                return False
-
-            for i, p in enumerate(points):
-                if _is_target(p):
-                    points[i] = {
-                        **p,
-                        "poi_id": new_poi.get("poi_id") or new_poi.get("gaode_poi_id") or p.get("poi_id"),
-                        "gaode_poi_id": new_poi.get("gaode_poi_id") or new_poi.get("poi_id") or p.get("gaode_poi_id"),
-                        "name": new_poi.get("name", p.get("name")),
-                        "location": new_poi.get("location", p.get("location")),
-                        "typecode": new_poi.get("typecode", p.get("typecode")),
-                        "category": new_poi.get("category") or new_poi.get("typecode") or p.get("category"),
-                        "address": new_poi.get("address", p.get("address")),
-                        "rating": new_poi.get("rating", p.get("rating")),
-                        "avg_cost": new_poi.get("avg_cost", p.get("avg_cost")),
-                        "photo_url": new_poi.get("photo_url", p.get("photo_url")),
-                        "photo_source": new_poi.get("photo_source", p.get("photo_source")),
-                    }
-                    break
-
-    if not points:
-        return {"success": False, "data": None, "message": "操作后路线无剩余 POI"}
-
-    # 3. 按天分组 waypoint
-    from collections import defaultdict
-    day_waypoints: dict[int, list[dict]] = defaultdict(list)
-    for pt in points:
-        if pt.get("is_waypoint", True) and pt.get("kind") != "hint":
-            day = pt.get("day", 1)
-            day_waypoints[day].append(pt)
-
-    # 4. 为每对相邻 waypoint 调用高德驾车路线
-    new_segments = []
-    for day, waypoints in sorted(day_waypoints.items()):
-        for i in range(len(waypoints) - 1):
-            from_pt = waypoints[i]
-            to_pt = waypoints[i + 1]
-
-            loc_from = from_pt.get("location", {})
-            loc_to = to_pt.get("location", {})
-
-            origin = f"{loc_from.get('lng', 0)},{loc_from.get('lat', 0)}"
-            destination = f"{loc_to.get('lng', 0)},{loc_to.get('lat', 0)}"
-
-            try:
-                route = await gaode_driving_route(origin, destination)
-                if route:
-                    # gaode_driving_route 返回 [[lng, lat], ...]
-                    # 转为 _build_route_data 格式 [[lat, lng], ...]
-                    polyline_flipped = [[c[1], c[0]] for c in route["polyline"]]
-                    new_segments.append({
-                        "from_poi": from_pt.get("name", ""),
-                        "to_poi": to_pt.get("name", ""),
-                        "day_index": day,
-                        "transport": "自驾",
-                        "duration_min": route.get("duration_min", 0),
-                        "distance_km": route.get("distance_km", 0),
-                        "polyline": polyline_flipped,
-                    })
-                else:
-                    new_segments.append({
-                        "from_poi": from_pt.get("name", ""),
-                        "to_poi": to_pt.get("name", ""),
-                        "day_index": day,
-                        "transport": "自驾",
-                        "duration_min": 0,
-                        "distance_km": 0,
-                        "polyline": [],
-                    })
-            except Exception:
-                new_segments.append({
-                    "from_poi": from_pt.get("name", ""),
-                    "to_poi": to_pt.get("name", ""),
-                    "day_index": day,
-                    "transport": "自驾",
-                    "duration_min": 0,
-                    "distance_km": 0,
-                    "polyline": [],
-                })
-
-    # 5. 更新缓存
-    new_route_id = str(uuid.uuid4()) if not route_id else route_id
-    _route_cache[new_route_id] = {"points": points, "segments": new_segments}
-
-    return {
-        "success": True,
-        "data": {
-            "route": {
-                "points": points,
-                "segments": new_segments,
-            },
-            "route_id": new_route_id,
-        },
-    }
+    try:
+        data = await apply_pipeline_replan(
+            points=points,
+            operations=[op.model_dump() for op in req.operations],
+            route_id=route_id,
+        )
+        return {"success": True, "data": data}
+    except Exception as exc:
+        logger.exception(f"管线重规划失败: {exc}")
+        return {"success": False, "data": None, "message": str(exc)}

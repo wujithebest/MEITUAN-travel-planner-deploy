@@ -1036,14 +1036,110 @@ def _has_rating(poi: dict) -> bool:
     return float(poi.get("rating") or 0) > 0
 
 
+# ═══ v13: 微POI主题策略 ═══
+
+MICRO_SPORT_TERMS = (
+    "攀岩", "网球", "羽毛球", "乒乓", "篮球", "足球",
+    "保龄球", "游泳", "健身", "瑜伽", "拳击", "台球",
+    "射箭", "滑雪", "体育", "球馆",
+)
+
+MICRO_EXPLICIT_SPORT_TERMS = (
+    "攀岩", "网球", "羽毛球", "乒乓", "篮球", "足球",
+    "保龄球", "游泳", "健身", "瑜伽", "拳击", "台球",
+    "射箭", "滑雪", "运动",
+)
+
+# v14: 使用主题画像系统
+try:
+    from .theme_profiles import build_effective_theme_profile
+except ImportError:
+    from services.theme_profiles import build_effective_theme_profile
+
+
+def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
+    profile = build_effective_theme_profile(parsed_intent)
+    if not profile.get("active"):
+        return {"active": False, "label": "", "reject_unrequested_sports": False}
+
+    text = _intent_text(parsed_intent)
+    explicit_sport = any(term in text for term in MICRO_EXPLICIT_SPORT_TERMS)
+
+    excluded_terms = set(profile.get("excluded_terms", []) or [])
+    if explicit_sport:
+        excluded_terms = {t for t in excluded_terms if t not in MICRO_SPORT_TERMS}
+
+    return {
+        "active": True,
+        "profile_id": profile.get("id", ""),
+        "label": profile.get("label", ""),
+        "search_terms": tuple(profile.get("search_terms", []) or []),
+        "preferred_name_terms": tuple(profile.get("required_terms", []) or []),
+        "micro_keywords": tuple(profile.get("micro_keywords", []) or []),
+        "excluded_terms": tuple(excluded_terms),
+        "preferred_type_prefixes": set(profile.get("typecode_prefixes", []) or []),
+        "excluded_typecode_prefixes": set(profile.get("excluded_typecode_prefixes", []) or []),
+        "diversity_hint": tuple(profile.get("diversity_hint", []) or []),
+        "reject_unrequested_sports": not explicit_sport,
+        "minimum_themed_pois": 1,
+    }
+
+
+def _micro_poi_text(poi: dict[str, Any]) -> str:
+    return " ".join(
+        str(poi.get(field) or "")
+        for field in ("name", "address", "type", "typecode", "category")
+    ).lower()
+
+
+def _is_unrequested_sport_poi(poi: dict[str, Any]) -> bool:
+    text = _micro_poi_text(poi)
+    type_prefix = str(poi.get("typecode") or "")[:2]
+    return type_prefix == "08" or any(term in text for term in MICRO_SPORT_TERMS)
+
+
+def _micro_poi_theme_score(poi: dict[str, Any], policy: dict[str, Any]) -> float:
+    if not policy.get("active"):
+        return 0.0
+    text = _micro_poi_text(poi)
+    type_prefix = str(poi.get("typecode") or "")[:2]
+
+    required_hits = sum(1 for term in policy.get("preferred_name_terms", ()) if term and term.lower() in text)
+    keyword_hits = sum(1 for term in policy.get("micro_keywords", ()) if term and term.lower() in text)
+
+    score = min(required_hits, 3) * 12.0 + min(keyword_hits, 2) * 8.0
+    if type_prefix in policy.get("preferred_type_prefixes", set()):
+        score += 5.0
+    if any(term and term.lower() in text for term in policy.get("excluded_terms", ())):
+        score -= 100.0
+    return score
+
+
+def _is_micro_poi_compatible(poi: dict[str, Any], policy: dict[str, Any]) -> bool:
+    if not policy.get("active"):
+        return True
+    text = _micro_poi_text(poi)
+    type_prefix = str(poi.get("typecode") or "")[:2]
+    if type_prefix in policy.get("excluded_typecode_prefixes", set()):
+        return False
+    if any(term and term.lower() in text for term in policy.get("excluded_terms", ())):
+        return False
+    if policy.get("reject_unrequested_sports") and _is_unrequested_sport_poi(poi):
+        return False
+    return True
+
+
 def _filter_and_sort_internal_pois(
     raw_pois: list[dict],
     entry_point: dict,
     time_budget_min: int,
     variance_ratio: float = 0.0,
     is_large_area: bool = False,
+    micro_policy: dict[str, Any] | None = None,
 ) -> tuple[list[dict], str | None]:
     """v3：排除无关typecode → 空间排序 → 跳过优化 → 时间预算裁剪 → 深度体验兜底"""
+
+    policy = micro_policy or {"active": False}
 
     # v4.1 F1/F2: 用统一白/黑名单过滤，含咖啡放行+名称兜底
     valid: list[dict] = []
@@ -1061,6 +1157,26 @@ def _filter_and_sort_internal_pois(
     # 数量不足时放行商场内子店铺作为补充
     if len(valid) < 3 and subordinate_buffer:
         valid.extend(subordinate_buffer)
+
+    # v13: 主题策略过滤 — 在空间排序前执行
+    if policy.get("active"):
+        compatible = [
+            poi
+            for poi in valid
+            if _is_micro_poi_compatible(poi, policy)
+        ]
+        if not compatible:
+            return [], "该区域未检索到符合当前主题的可游览地点，已保留核心目的地供自由探索"
+
+        themed = [
+            poi
+            for poi in compatible
+            if _micro_poi_theme_score(poi, policy) > 0
+        ]
+        if len(themed) >= policy.get("minimum_themed_pois", 1):
+            valid = themed
+        else:
+            valid = compatible
 
     if not valid:
         return [], None
@@ -1274,7 +1390,12 @@ def _route_planning(
         # v6: 无 anchor 但有 meal slot 的纯餐饮日 — 直接将 meal POI 放入路线点
         if not day_subs:
             if day.meal_slots:
-                all_points.append({"day": day_index, "name": origin["name"], "location": origin.get("location", {}), "kind": "start", "display_slot": day.meal_slots[0].get("meal", "dinner")})
+                all_points.append({
+                    "day": day_index,
+                    "name": origin["name"],
+                    "location": origin.get("location", {}),
+                    "kind": "start",
+                })
                 for slot in day.meal_slots:
                     pn = slot.get("poi_name")
                     if pn and pn in meal_by_name:
@@ -1936,6 +2057,7 @@ async def _search_meals(
                     "keyword": keyword,
                     "requested_keywords": slot.get("requested_keywords", []),
                     "fixed_poi_name": slot.get("fixed_poi_name"),
+                    "budget_threshold": getattr(complete_plan, "budget_threshold", None),
                     "raw_count": len(group),
                     "parsed_count": parsed_count,
                     "search_radius_m": config.GAODE_RADIUS_MEAL,
@@ -2173,6 +2295,7 @@ async def _select_meals(
                         "selected": chosen.name if chosen else None,
                         "walk_distance_km": round(chosen_distance, 2) if chosen_distance is not None else None,
                         "max_route_km": config.MEAL_MAX_ROUTE_KM,
+                        "selected_avg_cost": chosen.avg_cost if chosen else None,
                         "requested_keywords": slot.get("requested_keywords", []),
                         "fixed_poi_name": slot.get("fixed_poi_name"),
                     }
@@ -2298,6 +2421,19 @@ def _origin_label(parsed_intent: ParsedIntent) -> str:
 
 def _origin_point(parsed_intent: ParsedIntent) -> dict[str, Any]:
     return {"name": _origin_label(parsed_intent), "location": parsed_intent.original_location or {}}
+
+
+def _fallback_meal_reference(day_plan, parsed_intent: ParsedIntent) -> dict[str, Any]:
+    """混合任务餐饮参考点：优先使用当天最后一个活动anchor，而不是出发点"""
+    anchors = getattr(day_plan, "anchors", []) or []
+    if anchors:
+        anchor = anchors[-1]
+        loc = getattr(anchor, "location", None) or {}
+        if loc and loc.get("lat") is not None and loc.get("lng") is not None:
+            return {"location": loc, "name": getattr(anchor, "name", "") or "活动区域"}
+
+    origin_loc = parsed_intent.original_location or {}
+    return {"location": origin_loc, "name": "出发点"}
 
 
 def _day_activity_minutes(parsed_intent: ParsedIntent, day_plan, day_count: int) -> int:
@@ -3399,13 +3535,7 @@ def _render_single_day_map(
             to_pt = next((p for p in day_points if p.get("name") == segment.to_poi), None)
             stub = _make_stub_polyline(from_pt or {}, to_pt or {})
             if stub:
-                print(f"[WARN step3] segment polyline <2, using stub: {segment.from_poi} -> {segment.to_poi}")
-                coords = [[s[1], s[0]] for s in stub]  # [lat,lng] → [lng,lat] for folium
-                polyline = folium.PolyLine(
-                    locations=coords, weight=_WALK_WEIGHT, opacity=_WALK_OPACITY,
-                    color=palette["primary"], dash_array=None,
-                )
-                all_segments_group.add_child(polyline)
+                print(f"[WARN step3] skip segment with no drawable polyline: {segment.from_poi} -> {segment.to_poi}")
             else:
                 print(f"[WARN step3] skip segment with no polyline and no coords: {segment.from_poi} -> {segment.to_poi}")
 
@@ -3718,9 +3848,11 @@ def _build_candidate_points(
     points: list[dict[str, Any]],
     micro_pois: list[MicroPOI],
     sub_anchors: list,
+    micro_policy: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """v6: 从 _candidate_pool 和 points 中未展示的 anchor_internal 构建候选 POI 列表。
 
+    v13: micro_policy 控制主题相关候选过滤和排序。
     过滤规则：
     - 只排除真正进入路线的展示/必经点：kind=start, kind=meal, is_waypoint=True 的路线点
     - 将 kind='anchor_internal' 且 is_waypoint=False 的内部 POI 纳入候选池
@@ -3762,6 +3894,8 @@ def _build_candidate_points(
     # 排除非展示 kind
     _excluded_kinds = {"hint", "free_explore", "route_only", "traffic", "empty"}
 
+    policy = micro_policy or {"active": False}
+
     # 按 sub_anchor 分组收集候选（从 _candidate_pool）
     _by_sub: dict[str, list[dict]] = {}
     for (d_idx, sub_name), cands in _candidate_pool.items():
@@ -3772,6 +3906,10 @@ def _build_candidate_points(
                 continue
             if c.get("kind") in _excluded_kinds:
                 continue
+            if not _is_micro_poi_compatible(c, policy):
+                continue
+            c = dict(c)
+            c["theme_score"] = _micro_poi_theme_score(c, policy)
             _by_sub.setdefault(sub_name, []).append(c)
 
     # 将 non_waypoint internal POIs 也加入候选池
@@ -3786,6 +3924,8 @@ def _build_candidate_points(
         # 去重检查
         existing = _by_sub.get(sub_name, [])
         if any((e.get("poi_id") or e.get("gaode_poi_id") or e.get("name")) == (pid or name) for e in existing):
+            continue
+        if not _is_micro_poi_compatible(pt, policy):
             continue
         rating_val = pt.get("rating") or pt.get("gaode_rating")
         try:
@@ -3812,17 +3952,20 @@ def _build_candidate_points(
             "recommend_reason": "",
             "candidate_score": rating_val,
             "day": pt.get("day", 1),
+            "theme_score": _micro_poi_theme_score(pt, policy),
         }
         _by_sub.setdefault(sub_name, []).append(cand)
 
-    # 对每个 sub_anchor 内的候选排序（rating 高优先，有 photo_url/address 加分）
+    # 对每个 sub_anchor 内的候选排序（主题相关性优先）
     def _candidate_sort_key(c: dict) -> float:
-        score = float(c.get("rating") or c.get("candidate_score") or 0)
+        rating_score = float(c.get("rating") or c.get("candidate_score") or 0)
+        richness_score = 0.0
         if c.get("photo_url"):
-            score += 1.0
+            richness_score += 1.0
         if c.get("address"):
-            score += 0.5
-        return -score  # 降序
+            richness_score += 0.5
+        theme_score = float(c.get("theme_score") or 0)
+        return -(theme_score * 10 + rating_score + richness_score)
 
     # 每天统计
     _day_counts: dict[int, int] = {}
@@ -3841,6 +3984,15 @@ def _build_candidate_points(
     for d_idx in sorted(_by_day_sub.keys()):
         for sub_name in sorted(_by_day_sub[d_idx].keys()):
             cands = sorted(_by_day_sub[d_idx][sub_name], key=_candidate_sort_key)
+            # v13: 主题模式 — 优先展示有主题得分的候选
+            if policy.get("active"):
+                themed_candidates = [
+                    candidate
+                    for candidate in cands
+                    if float(candidate.get("theme_score") or 0) > 0
+                ]
+                if themed_candidates:
+                    cands = themed_candidates
             taken_from_sub = 0
             for c in cands:
                 if len(candidate_points) >= _max_total:
@@ -3867,6 +4019,17 @@ async def run_step3(
     logger: PipelineLogger,
 ) -> tuple[list[MicroPOI], list[RouteSegment], str, dict[str, str], dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     city = complete_plan.city or "上海市"
+    micro_policy = _resolve_micro_poi_policy(parsed_intent)
+    print(
+        "[DEBUG step3] micro_theme_policy="
+        f"{{'active': {micro_policy.get('active')}, "
+        f"'profile_id': '{micro_policy.get('profile_id', '')}', "
+        f"'label': '{micro_policy.get('label', '')}', "
+        f"'search_terms': {list(micro_policy.get('search_terms', []))[:6]}, "
+        f"'required_terms': {list(micro_policy.get('preferred_name_terms', []))[:10]}, "
+        f"'excluded_terms': {list(micro_policy.get('excluded_terms', []))[:10]}, "
+        f"'reject_unrequested_sports': {micro_policy.get('reject_unrequested_sports')}}}"
+    )
 
     # ── v5.2 r3: 规划性意图分支 ──
     if getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned' and getattr(parsed_intent, 'planned_waypoints', []):
@@ -3904,7 +4067,12 @@ async def run_step3(
     for sub in sub_anchors:
         is_large = _is_large_area(sub.internal_pois)
         filtered, trim_hint = _filter_and_sort_internal_pois(
-            sub.internal_pois, prev_end, sub.time_budget_min, sub.variance_ratio, is_large,
+            sub.internal_pois,
+            prev_end,
+            sub.time_budget_min,
+            sub.variance_ratio,
+            is_large,
+            micro_policy=micro_policy,
         )
         sub.internal_pois = filtered
         # 更新prev_end为当前子锚点排序后最后一个POI的位置
@@ -3970,17 +4138,14 @@ async def run_step3(
             if meal and ref:
                 meal_refs_by_day[(day.day_index, meal)] = ref
 
-    # v6: 没有 sub_anchors 但有 meal_slots 时，用 origin 作为餐饮搜索参考点
+    # v12: 没有 sub_anchors 但有 meal_slots 时，用当天活动anchor（而非出发点）作为餐饮参考点
     if not meal_refs_by_day:
-        origin_loc = parsed_intent.original_location or {}
         for day in complete_plan.day_plans:
+            fallback_ref = _fallback_meal_reference(day, parsed_intent)
             for slot in day.meal_slots:
                 meal = slot.get("meal")
                 if meal:
-                    meal_refs_by_day[(day.day_index, meal)] = {
-                        "location": origin_loc,
-                        "name": "出发点",
-                    }
+                    meal_refs_by_day[(day.day_index, meal)] = fallback_ref
 
     # ── 3.4 餐饮搜索与筛选 ──
     meal_diagnostics: list[dict[str, Any]] = []
@@ -3995,6 +4160,11 @@ async def run_step3(
         parsed_intent.budget_per_capita
         if parsed_intent.budget_per_capita is not None
         else 100.0 * config.BUDGET_MULTIPLIER
+    )
+    print(
+        f"[MealDebug] budget_threshold={budget_threshold} "
+        f"request_budget={parsed_intent.budget_per_capita} "
+        f"complete_plan_budget={complete_plan.budget_threshold}"
     )
     # v5.2: 构建每天锚点POI坐标列表，用于meal散布约束
     # 注意：排除出发地（kind=start），只算锚点区域内的POI
@@ -4137,5 +4307,10 @@ async def run_step3(
 
     # 返回 points 用于前端验证
     # ── v6: 构建候选 POI 列表 ──
-    candidate_points = _build_candidate_points(points, micro_pois, sub_anchors)
+    candidate_points = _build_candidate_points(
+        points,
+        micro_pois,
+        sub_anchors,
+        micro_policy=micro_policy,
+    )
     return micro_pois, route_segments, map_path, _hints, waypoint_annotations, points, candidate_points

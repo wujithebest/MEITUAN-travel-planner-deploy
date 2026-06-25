@@ -682,10 +682,20 @@ async def _run_planned_pipeline_fast(
 
     # 1. 递进解析 waypoints（带候选 POI）
     await emit_status("正在搜索您的目标地点...")
+    planned_budget_threshold = (
+        parsed_intent.budget_per_capita
+        if getattr(parsed_intent, 'budget_per_capita', None) is not None
+        else getattr(user_profile, 'budget_per_capita', 100.0) * 1.5
+    )
     resolved_wps, candidate_map = await resolve_planned_waypoints_with_candidates(
-        waypoints, start_location, city, home_location=home_loc if home_loc.get('lat') else None
+        waypoints,
+        start_location,
+        city,
+        home_location=home_loc if home_loc.get('lat') else None,
+        budget_threshold=planned_budget_threshold,
     )
     resolved_count = sum(1 for wp in resolved_wps if wp.resolved_location)
+    print(f"[DEBUG planned_fast] budget_threshold={planned_budget_threshold} request_budget={getattr(parsed_intent, 'budget_per_capita', None)}")
     print(f"[DEBUG planned_fast] resolved_wps={[(wp.resolved_name or wp.search_keyword, wp.category) for wp in resolved_wps]} num_candidates={sum(len(v) for v in candidate_map.values())}")
 
     if resolved_count == 0:
@@ -708,6 +718,11 @@ async def _run_planned_pipeline_fast(
     # 5. 构建 complete_plan（轻量，用于 step4）
     from services.data_schema import CompletePlan, DayPlan
     if not hasattr(complete_plan, 'day_plans') or not complete_plan:
+        fallback_budget_threshold = (
+            parsed_intent.budget_per_capita
+            if getattr(parsed_intent, 'budget_per_capita', None) is not None
+            else getattr(user_profile, 'budget_per_capita', 100.0) * 1.5
+        )
         complete_plan = CompletePlan(
             time_budget=0.5,
             fixed_budget=0.0,
@@ -715,7 +730,8 @@ async def _run_planned_pipeline_fast(
             day_plans=[],
             city=city,
             transport=getattr(parsed_intent, 'transport_hint', '公共交通') or '公共交通',
-            budget_threshold=getattr(user_profile, 'budget_per_capita', 100.0) * 1.5,
+            budget_threshold=fallback_budget_threshold,
+            request_budget_per_capita=getattr(parsed_intent, 'budget_per_capita', None),
         )
     if not complete_plan.day_plans:
         complete_plan.day_plans = [DayPlan(day_index=1, anchors=[], meal_slots=[])]

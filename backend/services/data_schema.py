@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datetime
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field
 from .day_slots import (
     DURATION_TO_BUDGET, compute_meal_needs, WEATHER_PENALTY,
@@ -329,6 +329,16 @@ class ParsedIntent(BaseModel):
 
     # 微观POI搜索词
     micro_keywords: list[str] = []      # 可空。LLM从原话提取的微观体验类搜索词（2-4个），如["古镇 手工艺品","老街 小吃"]。空→代码兜底
+
+    # v14: 主题画像字段
+    theme_profile: Optional[str] = None          # LLM 输出的主题枚举 id 或 null
+    theme_label: Optional[str] = None             # 用户原始主题中文标签
+    theme_confidence: float = 0.0                 # 置信度 0-1
+    micro_poi_keywords: list[str] = Field(default_factory=list)     # 微观POI检索类别词
+    micro_required_terms: list[str] = Field(default_factory=list)   # 正向命中加分词
+    micro_excluded_terms: list[str] = Field(default_factory=list)   # 负向排除词
+    micro_diversity_hint: list[str] = Field(default_factory=list)   # 子簇多样性提示
+    custom_theme_profile: dict[str, Any] = Field(default_factory=dict)  # 自定义兜底主题
 
     # ── 代码计算字段 ──
 

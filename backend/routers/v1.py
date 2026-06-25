@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 import math
 
 from services.api_client import gaode_place_detail, gaode_text_search
+from services.utils import ExternalAPIError
 from services.alternative_service import generate_alternative_pool
 from services.poi_photo_service import resolve_poi_photo
 from services.poi_feedback_service import record_poi_preference
@@ -181,6 +182,24 @@ async def record_user_preferences_batch(items: list[PreferenceRequest]) -> dict[
     return {"success": True, "count": len(results), "results": results}
 
 
+def _degraded_poi_detail(poi_id: str, poi_name: str, location: str, category: str, reason: str) -> dict[str, Any]:
+    return {
+        "success": True,
+        "degraded": True,
+        "degrade_reason": reason,
+        "poi_id": poi_id,
+        "name": poi_name,
+        "location": location,
+        "category": category,
+        "address": "",
+        "rating": None,
+        "avg_cost": None,
+        "photo_url": "",
+        "photos": [],
+        "business": {},
+    }
+
+
 @router.get("/pois/detail")
 async def get_poi_detail(
     poi_id: str = Query("", description="Gaode POI id if available"),
@@ -199,7 +218,12 @@ async def get_poi_detail(
     stable_id = bool(poi_id) and ":" not in poi_id and "," not in poi_id
 
     if stable_id:
-        raw_detail = await gaode_place_detail(poi_id, show_fields="business,photos")
+        try:
+            raw_detail = await gaode_place_detail(poi_id, show_fields="business,photos")
+        except ExternalAPIError as exc:
+            if "USER_DAILY_QUERY_OVER_LIMIT" in str(exc):
+                return _degraded_poi_detail(poi_id, poi_name, location, category, "gaode_daily_query_over_limit")
+            raise
         # Validate: the result must match the requested name or location
         if raw_detail and poi_name:
             detail_name = str(raw_detail.get("name") or "")
@@ -216,7 +240,12 @@ async def get_poi_detail(
                     raw_detail = None
 
     if not raw_detail and poi_name:
-        matches = await gaode_text_search(poi_name, city="上海", show_fields="business,photos")
+        try:
+            matches = await gaode_text_search(poi_name, city="上海", show_fields="business,photos")
+        except ExternalAPIError as exc:
+            if "USER_DAILY_QUERY_OVER_LIMIT" in str(exc):
+                return _degraded_poi_detail(poi_id, poi_name, location, category, "gaode_daily_query_over_limit")
+            raise
         if matches:
             # Filter: prefer results whose name matches the request
             if target:

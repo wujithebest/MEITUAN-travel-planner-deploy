@@ -132,7 +132,8 @@ EXCLUDE_ALIASES: dict[str, list[str]] = {
 
 # 否定触发器 — 任意匹配即触发排除逻辑
 NEGATION_TRIGGERS = ["不要", "不想去", "别去", "避开", "排除", "不要安排", "换掉", "删掉", "也不想去",
-                     "不去", "别安排", "去掉", "跳过", "略过", "免了", "不要了", "不想要"]
+                     "不去", "别安排", "去掉", "跳过", "略过", "免了", "不要了", "不想要",
+                     "替换成", "替换为", "换成", "改成", "替换掉"]
 
 DAY_INDEX_PATTERNS = [
     (r"(周六|星期六|礼拜六|第?1天|第一天|day\s*1)", 1),
@@ -227,6 +228,17 @@ STRONG_MEAL_TOKENS = [
     "快餐", "小吃", "美食", "探店", "找一家", "找一家...店",
 ]
 
+STYLE_ROUTE_TOKENS = [
+    "文艺", "文艺感", "艺术氛围", "艺术感",
+    "有氛围", "氛围感", "有感觉", "小资", "有格调",
+    "精神漫游", "城市漫游", "慢逛", "慢慢逛", "松弛感",
+    "放空", "发呆", "独处",
+]
+
+STYLE_NIGHT_TOKENS = [
+    "夜景", "夜游", "夜间", "夜晚", "夜里", "晚上", "傍晚", "灯光",
+]
+
 KEYWORD_PROFILES = [
     {
         # v6: 只在命中真正闲逛动词时追加泛化游玩关键词
@@ -291,6 +303,42 @@ KEYWORD_PROFILES = [
         "raw": ["拍照"],
         "search": ["{city} 拍照 打卡", "{city} 网红打卡", "{city} 创意园", "{city} 展览"],
         "micro": ["网红打卡 拍照", "创意园 涂鸦墙", "展览 拍照"],
+    },
+    {
+        "tokens": ["文艺", "文艺感", "艺术氛围", "艺术感", "文艺路线"],
+        "raw": ["文艺"],
+        "search": [
+            "{city} 文艺街区",
+            "{city} 艺术展览",
+            "{city} 创意园",
+            "{city} 独立书店",
+        ],
+        "micro": ["艺术展览", "独立书店", "创意园区", "文化空间"],
+        "constraints": ["文艺优先", "慢节奏"],
+    },
+    {
+        "tokens": ["有氛围", "氛围感", "有感觉", "小资", "有格调"],
+        "raw": ["有氛围"],
+        "search": [
+            "{city} 文艺街区",
+            "{city} 历史街区 漫步",
+            "{city} 创意园",
+            "{city} 独立书店",
+        ],
+        "micro": ["文艺街区", "历史街区 漫步", "独立书店", "艺术展览"],
+        "constraints": ["氛围优先", "慢节奏"],
+    },
+    {
+        "tokens": ["精神漫游", "城市漫游", "慢逛", "慢慢逛", "松弛感", "放空", "发呆", "独处"],
+        "raw": ["精神漫游"],
+        "search": [
+            "{city} 文艺街区",
+            "{city} 城市漫步",
+            "{city} 独立书店",
+            "{city} 艺术展览",
+        ],
+        "micro": ["城市慢行", "独立书店", "艺术展览", "创意园区"],
+        "constraints": ["氛围优先", "慢节奏"],
     },
     {
         "tokens": ["夜景", "晚上", "夜游", "灯光"],
@@ -420,8 +468,7 @@ KEYWORD_PROFILES = [
     # 14. 生活场景兜底
     {
         "tokens": ["约会", "聚餐", "团建", "聚会",
-                  "一个人", "独处", "放空", "发呆",
-                  "散步", "慢跑", "跑步", "健身"],
+                  "一个人", "散步", "慢跑", "跑步", "健身"],
         "raw": ["生活场景"],
         "search": [
             "{city} 约会 餐厅",
@@ -611,15 +658,54 @@ def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str)
         # v6 Layer 3: LLM 关键词优先，profile 关键词只能补充
         parsed.search_keywords = _append_unique(parsed.search_keywords, explicit_search, limit=6)
         parsed.micro_keywords = _append_unique(parsed.micro_keywords, profile["micro"], limit=5)
+        # v13: 风格/氛围 profile 写入 other_constraints 供 step2/step3 使用
+        extra_constraints = profile.get("constraints", [])
+        if extra_constraints:
+            parsed.other_constraints = _append_unique(
+                parsed.other_constraints,
+                extra_constraints,
+            )
         if profile.get("meal"):
             parsed.meal_search_keywords = _append_unique(parsed.meal_search_keywords, profile["meal"], limit=6)
+
+    # v13: 风格主题请求 — 禁止未经用户明确许可的夜间词泄露
+    style_requested = any(token in lowered for token in STYLE_ROUTE_TOKENS)
+    explicit_night_requested = any(token in lowered for token in STYLE_NIGHT_TOKENS)
+    if style_requested and not explicit_night_requested:
+        night_leak_terms = ("夜景", "夜游", "夜间", "夜晚", "灯光", "酒吧", "lounge", "bar")
+        parsed.search_keywords = [
+            keyword
+            for keyword in parsed.search_keywords
+            if not any(term in keyword.lower() for term in night_leak_terms)
+        ]
+        parsed.micro_keywords = [
+            keyword
+            for keyword in parsed.micro_keywords
+            if not any(term in keyword.lower() for term in night_leak_terms)
+        ]
     return parsed
+
+
+def _replacement_left_pois(user_request: str) -> set[str]:
+    left_pois: set[str] = set()
+    for word in ("替换成", "替换为", "换成", "改成"):
+        if word not in user_request:
+            continue
+        left = user_request.split(word, 1)[0]
+        left = re.sub(r"^(把|将|请把|帮我把)", "", left).strip()
+        for poi in sorted(KNOWN_POIS, key=len, reverse=True):
+            if poi in left:
+                left_pois.add(poi)
+    return left_pois
 
 
 def _append_fixed_poi_from_request(parsed: ParsedIntent, user_request: str) -> ParsedIntent:
     existing_names = {fp.name for fp in parsed.fixed_pois}
     excluded = set(name.lower() for name in (parsed.delete_list or []))
+    replacement_left = _replacement_left_pois(user_request)
     for poi in sorted(KNOWN_POIS, key=len, reverse=True):
+        if poi in replacement_left:
+            continue
         if poi.lower() in excluded:
             continue
         if poi not in user_request:
@@ -651,6 +737,14 @@ NEGATIVE_POI_PATTERNS = [
 def _exclude_pois_from_request(parsed: ParsedIntent, user_request: str) -> ParsedIntent:
     # 合并 LLM 已提取的 delete_list
     llm_deletes = set(name.lower() for name in parsed.delete_list)
+
+    # v11: 替换左侧的POI自动排除
+    replacement_left = _replacement_left_pois(user_request)
+    for poi in replacement_left:
+        parsed.fixed_pois = [fp for fp in parsed.fixed_pois if fp.name != poi]
+        for alias in EXCLUDE_ALIASES.get(poi, [poi]):
+            if alias not in parsed.delete_list:
+                parsed.delete_list.append(alias)
 
     # 正则兜底：检测 LLM 可能漏掉的已知 POI
     for poi in sorted(KNOWN_POIS, key=len, reverse=True):
@@ -1114,6 +1208,9 @@ async def _llm_parse(
                 "2. duration 严格遵守枚举值映射：用户说\"一天/1天/一日/玩一天\"→\"a full day\"，说\"两天/周末\"→\"two days\"。不允许根据\"晚上\"推断多天。\n"
                 "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别。\n"
                 "4. 排除项提取：当用户明确说\"不去XX\"\"不要有XX\"\"排除XX\"\"XX去过了/别再安排\"\"XX不用了\"\"跳过XX\"\"把XX去掉\"\"XX别安排了\"等否定表达时，必须把被排除的地点/景区/餐厅名提取到 delete_list 中。这是强约束——如果漏提 exclude 项，后续路线规划会错误地包含用户明确拒绝的地点。\n"
+                "5. \"文艺\"\"有氛围\"\"精神漫游\"\"城市漫游\"\"松弛感\"\"放空\"等风格或氛围表达属于用户明确意图，必须保留到 raw_keywords，不能丢弃。\n"
+                "6. 对这类风格词只能展开为受控的地点类型或体验词，如文艺街区、历史街区、创意园、独立书店、艺术展览、文化空间、城市慢行；不得编造具体 POI 名称。\n"
+                "7. 用户没有明确提到夜晚、夜景、夜游、酒吧、餐饮时，不得因为\"有氛围\"自动生成夜游、夜景、酒吧或餐饮关键词。\n"
                 "</critical_rules>"
             ),
         },
@@ -1188,6 +1285,11 @@ async def _llm_parse(
                 "\n"
                 "13. micro_keywords (string[]) — 2-4个具体体验词\n"
                 '    "古镇"→["古镇 手工艺品","老街 小吃","古镇 拍照打卡"]\n'
+                "    风格词也必须生成可检索的具体体验词：\n"
+                '    "文艺路线" → ["艺术展览","独立书店","创意园区","文化空间"]\n'
+                '    "有氛围的路线" → ["文艺街区","历史街区 漫步","独立书店","艺术展览"]\n'
+                '    "精神漫游" → ["城市慢行","独立书店","艺术展览","创意园区"]\n'
+                "    若用户未提夜间，不要加入\"夜景\"\"夜游\"\"酒吧\"等词；若未提吃喝，不要加入餐饮词。\n"
                 "\n"
                 "14. delete_list (string[]) — 用户明确排除的地点/景区/区域名 ⚠️ 必检项\n"
                 "    用户用任何方式表达了\"不去/不要/排除/跳过/已去过\"的地点，必须放入本数组。\n"
@@ -1488,7 +1590,15 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     request_food_keywords = _request_food_keywords_from_constraints(parsed.meal_constraints)
     parsed.food_pref_keywords = _normalize_food_preferences(parsed.food_pref_keywords)
     parsed.food_pref_keywords = _append_unique(parsed.food_pref_keywords, request_food_keywords, limit=6)
-    if not parsed.food_pref_keywords and user_profile.food_pref_tag:
+    # v12: 先算 meal_needs，只有需要吃饭时才注入偏好
+    meal_overlap_threshold = 1.0 if parsed.time_budget <= 0.25 else 0.5
+    parsed.meal_needs = compute_meal_needs(
+        parsed.start_time,
+        parsed.duration,
+        min_overlap_hours=meal_overlap_threshold,
+    )
+    # 只有确实需要安排餐饮时，才用用户画像偏好作为兜底口味
+    if not parsed.food_pref_keywords and user_profile.food_pref_tag and bool(parsed.meal_needs):
         parsed.food_pref_keywords = list(user_profile.food_pref_tag)
     parsed.budget_per_capita = _budget_from_request(user_request) or parsed.budget_per_capita
 
@@ -1499,7 +1609,6 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             parsed.micro_keywords = ["景点 打卡", "咖啡 创意园", "展览 拍照"]
 
     parsed.reject_capacities = compute_reject_capacities(parsed.time_budget)
-    parsed.meal_needs = compute_meal_needs(parsed.start_time, parsed.duration)
     parsed.meal_needs = _merge_meal_needs(parsed.meal_needs, explicit_meals)
     parsed.meal_needs = _merge_constraint_meals(parsed.meal_needs, parsed.meal_constraints)
     parsed.meal_search_keywords = _normalize_meal_search_keywords(parsed, user_request)
