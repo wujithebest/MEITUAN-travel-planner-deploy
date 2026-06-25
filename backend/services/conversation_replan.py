@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
 from typing import Any, Literal
 
@@ -161,3 +163,96 @@ def _has_field_edits(text: str) -> bool:
     field_words = ("预算", "人均", "交通", "打车", "公交", "地铁", "步行", "骑行",
                     "上午", "下午", "晚上", "出发", "时间", "改成", "换成")
     return any(w in text for w in field_words)
+
+
+_CONVERSATION_SYSTEM_PROMPT = """你是多轮路线规划对话的意图分类器。根据用户的当前输入和已有路线上下文，
+判断用户意图是：
+- new_plan：开始一个全新的路线规划（新城市、新日期、新完整路线请求）
+- refine_current：修改当前路线的属性（预算、时间、主题、交通、餐饮偏好等），保留旧路线结构
+- point_edit：仅增删替换个别route point（"去掉A""换成B""加一个C"）
+- answer_only：只是询问信息，不需要重新规划路线
+- unsupported：无法判断
+
+输出严格的JSON格式：
+{
+  "mode": "new_plan | refine_current | point_edit | answer_only | unsupported",
+  "confidence": 0.0,
+  "latest_user_intent_summary": "一句话概括用户最新意图",
+  "changed_fields": [{"field":"预算/时间/主题/交通/餐饮/POI名称/区域", "old_value":"...", "new_value":"...", "earliest_step":"step1/step2/step3/step4/local_replan"}],
+  "earliest_step": "step1 | step2 | step3 | step4 | local_replan",
+  "intent_patch": {},
+  "include_constraints": {},
+  "exclude_constraints": {},
+  "point_operations": [{"action":"add|remove|replace", "target_name":"", "new_name":""}],
+  "reason": "分类依据简述"
+}
+
+规则：
+1. 新城市（如杭州、北京）、新日期（下周、周末）、两天以上且没有"其他不变"词的→new_plan
+2. "其他不变""保持路线""在刚才基础上"配合预算/时间/主题/交通/偏好修改→refine_current
+3. 仅增删替换个别POI名称→point_edit
+4. 新旧冲突时，用户最新输入优先
+5. 不确定时不要误判为point_edit，应走refine_current或new_plan"""
+
+
+async def classify_conversation_route_change(
+    user_request: str,
+    route_context: dict[str, Any] | None,
+) -> ConversationRouteDecision | None:
+    """LLM-based conversation route change classifier.
+
+    Takes user_request + compact route_context and returns a structured decision.
+    Falls back to fast rules on LLM failure.
+    """
+    if not route_context or not route_context.get("points"):
+        return classify_conversation_route_change_fast(user_request, None)
+
+    point_names = route_context.get("point_names", [])[:20]
+    compact: dict[str, Any] = {}
+    for p in (route_context.get("points", []) or [])[:30]:
+        compact[p.get("name", "")] = {
+            "kind": p.get("kind", ""),
+            "day": p.get("day", 1),
+            "display_slot": p.get("display_slot", ""),
+            "typecode": p.get("typecode", ""),
+        }
+
+    context_json = json.dumps({
+        "point_names": point_names,
+        "candidate_names": route_context.get("candidate_names", [])[:20],
+        "recent_messages": route_context.get("recent_user_messages", [])[-3:],
+        "previous_messages": route_context.get("previous_user_messages", [])[-3:],
+        "points_summary": compact,
+        "segments_count": len(route_context.get("segments", []) or []),
+    }, ensure_ascii=False, default=str)
+
+    messages = [
+        {"role": "system", "content": _CONVERSATION_SYSTEM_PROMPT},
+        {"role": "user", "content": (
+            f"<route_context>{context_json}</route_context>\n"
+            f"<user_input>{user_request}</user_input>"
+        )},
+    ]
+
+    try:
+        from .api_client import call_llm
+
+        decision = await asyncio.wait_for(
+            call_llm(
+                response_model=ConversationRouteDecision,
+                messages=messages,
+                max_tokens=600,
+                temperature=0.2,
+                max_retries=1,
+            ),
+            timeout=15.0,
+        )
+        print(
+            f"[DEBUG conversation] classifier=llm mode={decision.mode} "
+            f"confidence={decision.confidence} earliest_step={decision.earliest_step} "
+            f"reason={decision.reason}"
+        )
+        return decision
+    except Exception as exc:
+        print(f"[WARNING conversation] llm classifier failed: {exc}; fallback to fast rules")
+        return classify_conversation_route_change_fast(user_request, route_context)

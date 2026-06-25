@@ -916,6 +916,27 @@ export function useChat(): UseChatReturn {
       })),
       exclusions: [],
       recent_user_messages: recentUserMessages,
+      // v17: 多轮上下文
+      context_source: 'live',
+      previous_user_messages: getCurrentMessages()
+        .filter(m => m.role === 'user')
+        .slice(-5)
+        .map(m => m.content),
+      previous_intent: (rawRouteData as any)?.parsed_intent || null,
+      previous_complete_plan: (rawRouteData as any)?.complete_plan || null,
+      current_route_compact: {
+        points: displayPoints.map((p: any) => ({
+          name: p.name, kind: p.kind, day: p.day, display_slot: p.display_slot,
+          typecode: p.typecode, address: p.address, rating: p.rating,
+          parent_name: p.parent_name, sub_anchor_name: p.sub_anchor_name,
+        })),
+        segments: rawSegments.map((s: any) => ({
+          from_poi: s.from_poi, to_poi: s.to_poi,
+          day_index: s.day_index, transport: s.transport,
+          duration_min: s.duration_min, distance_km: s.distance_km,
+        })),
+        candidate_names: [...new Set(candidateNames)],
+      },
     };
   }, [getCurrentMessages]);
 

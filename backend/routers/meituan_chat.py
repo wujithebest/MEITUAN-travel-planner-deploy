@@ -46,6 +46,12 @@ class RouteContextSchema(BaseModel):
     segments: list[dict] = []
     exclusions: list[str] = []
     recent_user_messages: list[str] = []
+    # v17: 多轮对话上下文
+    context_source: str | None = None
+    previous_user_messages: list[str] = []
+    previous_intent: dict | None = None
+    previous_complete_plan: dict | None = None
+    current_route_compact: dict | None = None
 
 
 class ChatRequest(BaseModel):
@@ -193,7 +199,7 @@ from services.step3_micro import run_step3
 from services.step4_output import run_step4
 from services.api_client import gaode_text_search
 from services.pipeline_replan_service import apply_pipeline_replan
-from services.conversation_replan import classify_conversation_route_change_fast
+from services.conversation_replan import classify_conversation_route_change, classify_conversation_route_change_fast
 
 # ═══ v11: 聊天编辑意图分类 ═══
 
@@ -511,34 +517,61 @@ async def _run_pipeline_stream(
                     pass
             print(f"[DEBUG meituan_chat] client_sent_at={client_sent_at} client_timezone={client_timezone} resolved_current_time={current_time}")
 
-            # v17: 会话决策层 — 先判断是开新路线还是修改旧路线
+            # v17: 会话决策层 — LLM 优先判断是开新路线还是修改旧路线
             conv_ctx = {
                 "point_names": route_context.point_names if route_context else [],
                 "points": route_context.points if route_context else [],
                 "candidate_names": route_context.candidate_names if route_context else [],
+                "segments": route_context.segments if route_context else [],
+                "recent_user_messages": route_context.recent_user_messages if route_context else [],
+                "previous_user_messages": route_context.previous_user_messages if route_context else [],
+                "previous_intent": route_context.previous_intent if route_context else None,
+                "previous_complete_plan": route_context.previous_complete_plan if route_context else None,
             }
-            route_decision = classify_conversation_route_change_fast(user_request, conv_ctx if route_context else None)
-            if route_decision is None:
-                # Fast-path uncertain; fall back to existing chat_edit logic
-                pass
-            elif route_decision.mode == "new_plan":
-                print(f"[DEBUG chat_edit] conversation decision: new_plan reason={route_decision.reason}")
-                # Continue to full pipeline
-            elif route_decision.mode == "point_edit" and route_context and route_context.points:
-                # Try point edit via apply_pipeline_replan
-                print(f"[DEBUG chat_edit] conversation decision: point_edit ops={route_decision.point_operations}")
-                edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
-                if edited:
-                    return
-            elif route_decision.mode == "refine_current":
-                # For now, use existing chat_edit as refinement; future: per-step refine
-                print(f"[DEBUG chat_edit] conversation decision: refine_current reason={route_decision.reason}")
-                edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
-                if edited:
-                    return
+            route_decision = None
+            if route_context and route_context.points:
+                try:
+                    route_decision = await classify_conversation_route_change(user_request, conv_ctx)
+                    print(
+                        f"[DEBUG conversation] classifier=llm "
+                        f"mode={route_decision.mode if route_decision else 'None'} "
+                        f"confidence={getattr(route_decision, 'confidence', '?')} "
+                        f"earliest_step={getattr(route_decision, 'earliest_step', '?')} "
+                        f"reason={getattr(route_decision, 'reason', '?')}"
+                    )
+                except Exception as exc:
+                    print(f"[WARNING conversation] llm classifier failed, fallback=fast: {exc}")
+                    route_decision = classify_conversation_route_change_fast(user_request, conv_ctx)
             else:
-                # answer_only or unsupported — fall through to pipeline
-                pass
+                route_decision = classify_conversation_route_change_fast(user_request, None)
+
+            if route_decision is not None:
+                if route_decision.mode == "new_plan":
+                    print(f"[DEBUG conversation] decision: new_plan → full pipeline")
+                elif route_decision.mode == "point_edit" and route_context and route_context.points:
+                    print(f"[DEBUG conversation] decision: point_edit ops={route_decision.point_operations}")
+                    edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
+                    if edited:
+                        return
+                elif route_decision.mode == "refine_current":
+                    print(f"[DEBUG conversation] decision: refine_current → fallback to pipeline with context")
+                    # v17 temp: pass old context as augmented user_request so Step1 sees it
+                    effective_request = user_request
+                    if route_decision.include_constraints:
+                        parts = [user_request]
+                        for k, v in route_decision.include_constraints.items():
+                            if v and str(v).strip():
+                                parts.append(f"保持{k}={v}")
+                        if route_decision.intent_patch:
+                            patch_str = json.dumps(route_decision.intent_patch, ensure_ascii=False)
+                            parts.append(f"其他不变，按以下参数调整：{patch_str}")
+                        effective_request = "；".join(parts)
+                    user_request = effective_request
+                    print(f"[DEBUG conversation] refined effective_request={effective_request[:120]}")
+                elif route_decision.mode == "answer_only":
+                    print(f"[DEBUG conversation] decision: answer_only → answer without replan")
+                else:
+                    pass
 
             # v11: 聊天编辑快速通道 — 如果用户意图为修改/替换/新增/删除当前路线，不走完整pipeline
             edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
