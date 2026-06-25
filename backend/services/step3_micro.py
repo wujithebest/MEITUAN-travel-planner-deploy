@@ -3076,7 +3076,13 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
                 for (wp_a, wp_b), plist in passing.items():
                     stretch_segments[(wp_a, wp_b)] = plist
                     for p in plist:
-                        waypoint_annotations[p["name"]] = {"is_waypoint": False, "walk_from_route_min": 0, "day": p.get("day", 0)}
+                        # v16: 带 rebalance_reason 的点保持主展示
+                        marked = bool(p.get("rebalance_reason") or p.get("theme_anchor_fallback"))
+                        waypoint_annotations[p["name"]] = {
+                            "is_waypoint": bool(marked),
+                            "walk_from_route_min": 0,
+                            "day": p.get("day", 0),
+                        }
             else:
                 optimized.extend(stretch)
                 for p in stretch:
@@ -4167,6 +4173,148 @@ def _has_late_slot(points: list[dict[str, Any]]) -> bool:
     return False
 
 
+def _rebalance_theme_half_day_points(
+    route_points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> list[dict[str, Any]]:
+    """Theme route morning/afternoon balance: ensure morning has >=2 real visit POIs."""
+    _is_theme = bool(
+        getattr(parsed_intent, "theme_profile", None)
+        or getattr(parsed_intent, "theme_label", None)
+        or getattr(parsed_intent, "micro_poi_keywords", None)
+        or getattr(parsed_intent, "theme_keywords", None)
+    )
+    _is_full_day = float(getattr(parsed_intent, "time_budget", 0) or 0) >= 1.0
+    if not _is_theme or not _is_full_day:
+        return route_points
+
+    MIN_MORNING = 2
+    MIN_AFTERNOON = 2
+
+    def _is_real_visit(p: dict[str, Any]) -> bool:
+        kind = str(p.get("kind") or "").lower()
+        if kind in {"start", "meal", "restaurant", "hint", "free_explore"}:
+            return False
+        if _is_night_scene_point(p):
+            return False
+        return True
+
+    def _dist_between(a: dict, b: dict) -> float:
+        al = a.get("location") or {}
+        bl = b.get("location") or {}
+        if al and bl and al.get("lat") and bl.get("lat"):
+            return haversine_km(al, bl)
+        return 999.0
+
+    def _is_lunch_point(p: dict[str, Any]) -> bool:
+        name = str(p.get("name") or "")
+        slot = str(p.get("display_slot") or p.get("slot") or "").lower()
+        kind = str(p.get("kind") or "").lower()
+        return kind in {"meal", "restaurant"} and (slot == "lunch" or "午餐" in name or "午饭" in name)
+
+    def _is_dinner_point(p: dict[str, Any]) -> bool:
+        name = str(p.get("name") or "")
+        slot = str(p.get("display_slot") or p.get("slot") or "").lower()
+        kind = str(p.get("kind") or "").lower()
+        return kind in {"meal", "restaurant"} and (slot == "dinner" or "晚餐" in name or "晚饭" in name)
+
+    result: list[dict[str, Any]] = []
+    by_day: dict[int, list[dict[str, Any]]] = {}
+    for p in route_points:
+        day = int(p.get("day") or p.get("day_index") or 1)
+        by_day.setdefault(day, []).append(p)
+
+    for day in sorted(by_day.keys()):
+        points = list(by_day[day])
+        lunch_idx = next((i for i, p in enumerate(points) if _is_lunch_point(p)), None)
+        dinner_idx = next((i for i, p in enumerate(points) if _is_dinner_point(p)), None)
+
+        if lunch_idx is None:
+            result.extend(points)
+            continue
+
+        morning_end = lunch_idx
+        afternoon_end = dinner_idx if dinner_idx is not None else len(points)
+
+        morning_visits = [p for p in points[:morning_end] if _is_real_visit(p)]
+        afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
+        evening_visits = [p for p in points[afternoon_end:] if _is_real_visit(p)] if dinner_idx else []
+
+        before_counts = (len(morning_visits), len(afternoon_visits), len(evening_visits))
+
+        if len(morning_visits) >= MIN_MORNING or len(afternoon_visits) <= MIN_AFTERNOON:
+            result.extend(points)
+            continue
+
+        # Try to move points from afternoon to morning
+        moved_count = 0
+        morning_names = {p.get("name") for p in morning_visits}
+        last_morning = points[morning_end - 1] if morning_end > 0 else points[0]
+        lunch_point = points[lunch_idx]
+
+        for i in range(morning_end, afternoon_end):
+            candidate = points[i]
+            if not _is_real_visit(candidate):
+                continue
+            name = candidate.get("name")
+            if name in morning_names:
+                continue
+            if moved_count >= max(1, MIN_MORNING - len(morning_visits)):
+                break
+
+            # Distance constraint: close to lunch or last morning point
+            d_lunch = _dist_between(candidate, lunch_point)
+            d_morning = _dist_between(candidate, last_morning)
+            if min(d_lunch, d_morning) > 1.2:
+                continue
+
+            # Prefer same parent/sub_anchor
+            same_parent = (
+                candidate.get("parent_name") == last_morning.get("parent_name")
+                or candidate.get("parent_anchor") == last_morning.get("parent_anchor")
+                or candidate.get("sub_anchor_name") == last_morning.get("sub_anchor_name")
+            )
+            if moved_count == 0 and not same_parent and len(afternoon_visits) > MIN_AFTERNOON + 1:
+                continue
+
+            moved = dict(candidate)
+            moved["display_slot"] = "morning"
+            moved.pop("display_order", None)
+            moved["rebalance_reason"] = "theme_half_day_morning_floor"
+            morning_visits.append(moved)
+            morning_names.add(name)
+            morning_end += 1
+            moved_count += 1
+
+            # Remove from afternoon
+            points.pop(i)
+            points.insert(morning_end - 1, moved)
+            if lunch_idx and i < (lunch_idx or 0):
+                lunch_idx = min(lunch_idx + 1, len(points) - 1)
+            if dinner_idx and i < dinner_idx:
+                dinner_idx = min(dinner_idx + 1, len(points) - 1)
+            afternoon_end = dinner_idx if dinner_idx else len(points)
+            afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
+            evening_visits = [p for p in points[afternoon_end:] if _is_real_visit(p)] if dinner_idx else []
+
+        after_counts = (len(morning_visits), len(afternoon_visits), len(evening_visits))
+        if moved_count > 0:
+            names_moved = [p.get("name") for p in points if p.get("rebalance_reason")]
+            print(
+                f"[DEBUG step3] rebalanced theme half-day points day={day} "
+                f"moved={names_moved} before_counts={before_counts} after_counts={after_counts}"
+            )
+        result.extend(points)
+
+    for idx, p in enumerate(result, start=1):
+        if p.get("kind") != "start":
+            p["route_order"] = idx
+        else:
+            p["route_order"] = 1
+
+    return result
+
+
 def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Move morning-position night-scene POIs to a later same-day position.
 
@@ -4478,6 +4626,9 @@ async def run_step3(
         "[DEBUG step3] route_points after night-scene defer names/slots: "
         f"{[(p.get('name'), p.get('display_slot'), p.get('deferred_from_slot')) for p in points]}"
     )
+
+    # v16: 主题路线半日均衡 — 确保上午至少 2 个真实游览点
+    points = _rebalance_theme_half_day_points(points, parsed_intent)
 
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
