@@ -4063,6 +4063,120 @@ def _build_candidate_points(
     return candidate_points
 
 
+# v16: 夜景 POI 轻量重排 — 避免夜景内容被排在上午
+
+NIGHT_SCENE_TERMS = (
+    "夜景",
+    "夜景打卡",
+    "夜景观赏",
+    "灯光夜景",
+    "灯光",
+    "夜游",
+    "夜间",
+    "晚景",
+    "夜色",
+    "观夜景",
+)
+
+
+def _is_night_scene_point(point: dict[str, Any]) -> bool:
+    text = " ".join(
+        str(point.get(k) or "")
+        for k in (
+            "name",
+            "recommend_reason",
+            "reason",
+            "core_reason",
+            "description",
+            "summary",
+            "address",
+        )
+    )
+    return any(term in text for term in NIGHT_SCENE_TERMS)
+
+
+def _has_late_slot(points: list[dict[str, Any]]) -> bool:
+    for p in points:
+        slot = str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+        if slot in {"evening", "night", "dinner"}:
+            return True
+    return False
+
+
+def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not route_points:
+        return route_points
+
+    result: list[dict[str, Any]] = []
+    by_day: dict[int, list[dict[str, Any]]] = {}
+
+    for p in route_points:
+        day = int(p.get("day") or p.get("day_index") or 1)
+        by_day.setdefault(day, []).append(p)
+
+    for day in sorted(by_day.keys()):
+        points = by_day[day]
+        night_points: list[dict[str, Any]] = []
+        normal_points: list[dict[str, Any]] = []
+
+        for p in points:
+            kind = str(p.get("kind") or "")
+            slot = str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+
+            if kind in {"start", "meal", "restaurant"}:
+                normal_points.append(p)
+                continue
+
+            if slot == "morning" and _is_night_scene_point(p):
+                night_points.append(p)
+            else:
+                normal_points.append(p)
+
+        if not night_points:
+            result.extend(points)
+            continue
+
+        has_evening = any(
+            str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+            in {"evening", "night"}
+            for p in normal_points
+        )
+
+        for p in night_points:
+            if has_evening:
+                p["display_slot"] = "evening"
+            else:
+                p["display_slot"] = "afternoon"
+            p["deferred_from_slot"] = "morning"
+            p["defer_reason"] = "night_scene"
+
+        insert_idx = None
+        for idx, p in enumerate(normal_points):
+            slot = str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+            if has_evening and slot in {"evening", "night"}:
+                insert_idx = idx
+                break
+            if not has_evening and slot == "dinner":
+                insert_idx = idx
+                break
+
+        if insert_idx is None:
+            normal_points.extend(night_points)
+        else:
+            normal_points[insert_idx:insert_idx] = night_points
+
+        result.extend(normal_points)
+
+    for idx, p in enumerate(result, start=1):
+        if p.get("kind") != "start":
+            p["route_order"] = idx
+        else:
+            p["route_order"] = 1
+        p.pop("display_order", None)
+
+    return result
+
+
 async def run_step3(
     parsed_intent: ParsedIntent,
     complete_plan: CompletePlan,
@@ -4255,6 +4369,14 @@ async def run_step3(
     # v6: 注入强意图 anchor（如日料 POI）确保进入 route_points
     points = _inject_required_anchors(points, parsed_intent, complete_plan, micro_pois)
     print(f"[DEBUG step3] route_points after injection names/kinds: {[(p.get('name'), p.get('kind')) for p in points]}")
+
+    # v16: 夜景 POI 轻量重排 — 不放上午，优先下午/晚间
+    points = _defer_night_scene_points(points)
+    print(
+        "[DEBUG step3] route_points after night-scene defer names/slots: "
+        f"{[(p.get('name'), p.get('display_slot'), p.get('deferred_from_slot')) for p in points]}"
+    )
+
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
     # 将waypoint标注信息注入points，供地图渲染和输出使用
