@@ -783,9 +783,6 @@ async def _build_route_data(
                 _name_period[seg.to_poi] = period
             if seg.from_poi and not _name_period.get(seg.from_poi):
                 _name_period[seg.from_poi] = period
-        # v10: segment period 优先用 to_poi 所在当天的 display_slot
-        if seg.to_poi and _name_period.get(seg.to_poi):
-            setattr(seg, "period", _name_period[seg.to_poi])
 
     # ---- Step 2: 转换 points，计算 route_order / display_order / display_slot ----
     # v6: detect planned mode early

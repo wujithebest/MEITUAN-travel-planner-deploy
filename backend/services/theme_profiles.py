@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from .theme_profile_matcher import (
+    get_all_theme_profiles,
+    normalize_theme_profile_id,
+    build_effective_theme_profile_from_library,
+)
+
 
 def _unique(values: list[str], limit: int | None = None) -> list[str]:
     result: list[str] = []
@@ -128,8 +134,33 @@ THEME_ALIASES = {
     "shopping": "shopping_lifestyle", "shopping_lifestyle": "shopping_lifestyle",
 }
 
+# v16: 从 theme_profile_library.json 合并完整 profile
+try:
+    _LIBRARY_PROFILES = get_all_theme_profiles()
+    for _pid, _profile in _LIBRARY_PROFILES.items():
+        merged = dict(OFFICIAL_THEME_PROFILES.get(_pid, {}))
+        merged.update(_profile)
+        OFFICIAL_THEME_PROFILES[_pid] = merged
+except Exception as exc:
+    print(f"[WARN theme_profiles] failed to load theme_profile_library.json: {exc}")
+
 
 def normalize_theme_profile(value: str | None, text: str = "") -> str | None:
+    matched = normalize_theme_profile_id(value, text)
+    if matched:
+        return matched
+    raw = (value or "").strip()
+    if raw in OFFICIAL_THEME_PROFILES:
+        return raw
+    if raw in THEME_ALIASES:
+        return THEME_ALIASES[raw]
+    merged = text or raw
+    for key, profile in OFFICIAL_THEME_PROFILES.items():
+        if any(t and t in merged for t in profile.get("triggers", [])):
+            return key
+        if any(t and t in merged for t in profile.get("seed_keywords", [])):
+            return key
+    return None
     raw = (value or "").strip()
     if raw in OFFICIAL_THEME_PROFILES:
         return raw
@@ -143,6 +174,11 @@ def normalize_theme_profile(value: str | None, text: str = "") -> str | None:
 
 
 def build_effective_theme_profile(parsed_intent: Any) -> dict[str, Any]:
+    # v16: 优先使用 theme_profile_library.json 的完整 profile
+    lib_profile = build_effective_theme_profile_from_library(parsed_intent)
+    if lib_profile.get("active"):
+        return lib_profile
+
     text = " ".join([
         str(getattr(parsed_intent, "theme_label", "") or ""),
         " ".join(getattr(parsed_intent, "raw_keywords", []) or []),
