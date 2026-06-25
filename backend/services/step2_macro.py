@@ -29,6 +29,10 @@ from .poi_feedback_service import calculate_feedback_score, get_profile_feedback
 from .route_backbone import is_valid_route_poi
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
 from .theme_profiles import OFFICIAL_THEME_PROFILES
+try:
+    from .theme_profile_matcher import build_theme_recall_queries
+except ImportError:
+    from services.theme_profile_matcher import build_theme_recall_queries
 
 
 ANCHOR_LEVEL_TYPECODES = ["110000", "110100", "110200", "080500", "080600", "140100", "140200", "190100"]
@@ -1041,13 +1045,36 @@ async def _theme_recall_places(
     if not theme_id or theme_id not in OFFICIAL_THEME_PROFILES:
         return []
     profile = OFFICIAL_THEME_PROFILES[theme_id]
-    recall_queries = profile.get("recall_queries", [])
+    recall_queries = list(profile.get("recall_queries", []) or [])
+    if not recall_queries:
+        recall_queries = build_theme_recall_queries(profile, city, limit=3)
     if not recall_queries:
         return []
 
     city_short = city[:-1] if city.endswith("市") else city
     dest_terms = set(profile.get("destination_anchor_terms", []))
     high_value_terms = set(profile.get("high_value_micro_terms", []))
+
+    def _place_matches_city(raw: dict, place) -> bool:
+        """轻量城市一致性守卫，过滤跨城市误召回"""
+        cn = str(raw.get("cityname") or raw.get("city") or "")
+        pn = str(raw.get("pname") or raw.get("province") or "")
+        ad = str(raw.get("adname") or "")
+        addr = str(raw.get("address") or "")
+        name_t = str(raw.get("name") or getattr(place, "name", "") or "")
+
+        if city and city in cn:
+            return True
+        if city_short and city_short in cn:
+            return True
+
+        haystack = " ".join([cn, pn, ad, addr, name_t])
+        for t in {city, city_short}:
+            if t and t in haystack:
+                return True
+        if city_short in {"上海", "北京", "天津", "重庆"} and city_short in pn:
+            return True
+        return False
 
     all_web_items: list[dict] = []
     for query in recall_queries[:3]:
@@ -1091,6 +1118,12 @@ async def _theme_recall_places(
                 if not place or not place.location:
                     continue
                 if not is_valid_route_poi(place.typecode, place.name):
+                    continue
+                if not _place_matches_city(raw, place):
+                    print(
+                        f"[DEBUG step2] drop cross-city theme recall: "
+                        f"name={place.name} city={raw.get('cityname')} province={raw.get('pname')} target={city}"
+                    )
                     continue
                 # v15: 使用Pydantic字段直接赋值
                 place.recall_source = "bocha_theme_recall"

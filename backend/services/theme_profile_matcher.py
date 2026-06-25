@@ -195,11 +195,48 @@ def build_effective_theme_profile_from_library(parsed_intent: Any) -> dict[str, 
     profile["active"] = True
     profile["official"] = True
 
-    profile["macro_search_terms"] = _unique(profile.get("macro_search_terms", []) + getattr(parsed_intent, "search_keywords", []), 18)
-    profile["micro_poi_keywords"] = _unique(profile.get("micro_poi_keywords", []) + getattr(parsed_intent, "micro_poi_keywords", []) + getattr(parsed_intent, "micro_keywords", []), 28)
-    profile["required_terms"] = _unique(profile.get("required_terms", []) + getattr(parsed_intent, "micro_required_terms", []), 32)
-    profile["excluded_terms"] = _unique(profile.get("excluded_terms", []) + getattr(parsed_intent, "micro_excluded_terms", []), 32)
-    profile["diversity_hint"] = _unique(profile.get("diversity_hint", []) + getattr(parsed_intent, "micro_diversity_hint", []), 12)
+    profile["macro_search_terms"] = _unique(
+        list(profile.get("macro_search_terms", []) or []) + list(getattr(parsed_intent, "search_keywords", []) or []),
+        18,
+    )
+    profile["micro_poi_keywords"] = _unique(
+        list(profile.get("micro_poi_keywords", []) or [])
+        + list(getattr(parsed_intent, "micro_poi_keywords", []) or [])
+        + list(getattr(parsed_intent, "micro_keywords", []) or []),
+        28,
+    )
+    profile["required_terms"] = _unique(
+        list(profile.get("required_terms", []) or []) + list(getattr(parsed_intent, "micro_required_terms", []) or []),
+        32,
+    )
+    profile["excluded_terms"] = _unique(
+        list(profile.get("excluded_terms", []) or []) + list(getattr(parsed_intent, "micro_excluded_terms", []) or []),
+        32,
+    )
+    profile["diversity_hint"] = _unique(
+        list(profile.get("diversity_hint", []) or []) + list(getattr(parsed_intent, "micro_diversity_hint", []) or []),
+        12,
+    )
+
+    # 关键修复：library json 用 macro_search_terms / micro_poi_keywords，
+    # 但 Step3 读取 search_terms / micro_keywords。统一补齐别名。
+    intent_micro_terms = (
+        list(getattr(parsed_intent, "micro_poi_keywords", []) or [])
+        + list(getattr(parsed_intent, "micro_keywords", []) or [])
+    )
+    profile["search_terms"] = _unique(
+        list(profile.get("search_terms", []) or [])
+        + list(profile.get("micro_poi_keywords", []) or [])
+        + intent_micro_terms,
+        18,
+    )
+    profile["micro_keywords"] = _unique(
+        list(profile.get("micro_keywords", []) or [])
+        + list(profile.get("micro_poi_keywords", []) or [])
+        + intent_micro_terms,
+        32,
+    )
+
     return profile
 
 

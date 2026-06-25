@@ -921,6 +921,7 @@ def _kmeans_2(pois: list[dict]) -> tuple[list[dict] | None, list[int] | None]:
 async def _search_anchor_internals(
     sub_anchors: list[SubAnchor],
     city: str,
+    theme_search_terms: list[str] | None = None,
 ) -> list[SubAnchor]:
     """v3+v5.2：为half_day/quarter_day SubAnchor搜索内部POI；
     对已有POI但数量不足的子锚点做扩搜（1.5倍半径）；
@@ -952,6 +953,12 @@ async def _search_anchor_internals(
             # v5.2: 亲水/沿河关键词搜索 — v5.2 r5: 加types过滤
             {"location": loc_str, "keywords": f"{sub.parent_name} {config.WATERFRONT_KEYWORDS}", "radius": radius, "types": config.ANCHOR_INTERNAL_TYPES, "show_fields": config.GAODE_SHOW_FIELDS, "offset": 25},
         ])
+        # v16: 主题微观搜索 — 将theme_search_terms合并到第一组keywords搜索
+        if theme_search_terms:
+            requests[-3]["keywords"] = " ".join(
+                list(filter(None, [str(requests[-3].get("keywords", "") or "").strip()]))
+                + list(theme_search_terms[:6])
+            )[:200]
         metadata.append(sub)
 
     results = await gaode_around_search_batch(requests)
@@ -1586,7 +1593,45 @@ def _fill_segment(
         return []
 
     if segment.get("degradation") == "free":
-        return [{"day": day_index, "name": sub.name, "location": sub.location or start_location, "kind": "free_explore", "hint": segment.get("hint", "")}]
+        intent_theme_id = str(getattr(parsed_intent, "theme_profile", "") or "")
+        is_themed = bool(intent_theme_id or getattr(parsed_intent, "theme_label", None))
+        is_full_or_half = str(getattr(parsed_intent, "duration", "") or "").lower() in {
+            "a full day", "full_day", "half day", "half_day",
+        } or float(getattr(parsed_intent, "time_budget", 0) or 0) >= 0.5
+
+        if is_themed and is_full_or_half and (sub.location or start_location):
+            return [{
+                "day": day_index,
+                "name": sub.name,
+                "location": sub.location or start_location,
+                "kind": "anchor_internal",
+                "poi_id": getattr(sub, "poi_id", None) or sub.name,
+                "gaode_poi_id": getattr(sub, "gaode_poi_id", "") or "",
+                "typecode": getattr(sub, "typecode", "") or "",
+                "category": getattr(sub, "category", "") or "",
+                "address": getattr(sub, "address", "") or "",
+                "rating": getattr(sub, "rating", None),
+                "avg_cost": getattr(sub, "avg_cost", None),
+                "photo_url": getattr(sub, "photo_url", "") or "",
+                "photo_source": getattr(sub, "photo_source", "") or "",
+                "travel_before": 0,
+                "sub_anchor_name": sub.name,
+                "parent_name": getattr(sub, "parent_name", "") or "",
+                "is_passthrough": False,
+                "theme_anchor_fallback": True,
+                "fallback_reason": "theme_anchor_degraded_from_free",
+                "recommend_reason": segment.get("hint", "") or "该片区符合本次主题，但周边细分POI召回不足，先保留核心片区作为可执行游览点。",
+                "is_waypoint": True,
+                "is_display_poi": True,
+            }]
+
+        return [{
+            "day": day_index,
+            "name": sub.name,
+            "location": sub.location or start_location,
+            "kind": "free_explore",
+            "hint": segment.get("hint", ""),
+        }]
 
     backbone = segment.get("backbone", [])
     _used = used_names or set()
@@ -4059,7 +4104,8 @@ async def run_step3(
     # ── 3.1 锚点内子POI搜索 + 筛选排序 ──
     logger.start_step("step_3_1_internal_search")
     await emit_status("正在搜索目的地内部景点...")
-    sub_anchors = await _search_anchor_internals(sub_anchors, city)
+    theme_search = list(micro_policy.get("search_terms", []))[:8] if micro_policy.get("active") else None
+    sub_anchors = await _search_anchor_internals(sub_anchors, city, theme_search_terms=theme_search)
     # v5.2 r5: POI空间硬分配 — 每个POI只归最近的锚点，解决跨锚点POI泄漏
     sub_anchors = _spatial_assign_pois(sub_anchors, [a.name for a in all_anchors])
     # v5.2 r5: 后续子锚点的entry_point用前一个子锚点的终点，避免贪心排序从出发点开始导致折返
