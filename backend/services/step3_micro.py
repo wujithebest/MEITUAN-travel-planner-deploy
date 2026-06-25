@@ -1460,6 +1460,7 @@ def _route_planning(
                 used_names=used_names,
                 entry_point=parsed_intent.original_location or {},
                 next_anchor_center=next_anchor_center,
+                parsed_intent=parsed_intent,
             )
             for sp in seg_points:
                 # v5.2 r3 fix: _fill_segment可能把餐饮POI标记为anchor_internal，
@@ -1586,6 +1587,7 @@ def _fill_segment(
     used_names: set[str] | None = None,
     entry_point: dict | None = None,
     next_anchor_center: dict | None = None,
+    parsed_intent: ParsedIntent | None = None,
 ) -> list[dict[str, Any]]:
     """v5.2 r3：投影排序 + 2-opt优化 + 贪心选取，统一处理所有POI（不再区分anchor_internal和micro）"""
     sub = segment.get("sub_anchor")
@@ -1593,11 +1595,14 @@ def _fill_segment(
         return []
 
     if segment.get("degradation") == "free":
-        intent_theme_id = str(getattr(parsed_intent, "theme_profile", "") or "")
-        is_themed = bool(intent_theme_id or getattr(parsed_intent, "theme_label", None))
-        is_full_or_half = str(getattr(parsed_intent, "duration", "") or "").lower() in {
-            "a full day", "full_day", "half day", "half_day",
-        } or float(getattr(parsed_intent, "time_budget", 0) or 0) >= 0.5
+        intent_theme_id = str(getattr(parsed_intent, "theme_profile", "") or "") if parsed_intent else ""
+        is_themed = bool(intent_theme_id or getattr(parsed_intent, "theme_label", None)) if parsed_intent else False
+        is_full_or_half = (
+            str(getattr(parsed_intent, "duration", "") or "").lower() in {
+                "a full day", "full_day", "half day", "half_day",
+            }
+            or float(getattr(parsed_intent, "time_budget", 0) or 0) >= 0.5
+        ) if parsed_intent else False
 
         if is_themed and is_full_or_half and (sub.location or start_location):
             return [{
