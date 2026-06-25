@@ -28,6 +28,33 @@ export interface GuestProfile {
   budget_per_capita: number;
 }
 
+/** v11: 聊天编辑上下文 — 携带当前路线信息供后端判断修改/新增/删除意图 */
+export interface ChatRouteContext {
+  route_id?: string | null;
+  context_source?: "live" | "history_loaded";
+  point_names: string[];
+  candidate_names: string[];
+  points: any[];
+  segments?: Array<{
+    from_poi?: string;
+    to_poi?: string;
+    day_index?: number;
+    period?: string;
+    degraded?: boolean;
+    polyline_source?: string;
+  }>;
+  exclusions?: string[];
+  recent_user_messages?: string[];
+  previous_user_messages?: string[];
+  previous_intent?: object;
+  previous_complete_plan?: object;
+  current_route_compact?: {
+    points: any[];
+    segments: any[];
+    candidate_names: string[];
+  };
+}
+
 /**
  * 路线数据
  */
@@ -286,7 +313,8 @@ export function sendMeituanMessageStream(
   planMode: 'exploratory' | 'planned' = 'exploratory',
   userId?: string,
   callbacks?: StreamCallbacks,
-  guestProfile?: GuestProfile
+  guestProfile?: GuestProfile,
+  routeContext?: ChatRouteContext
 ): AbortController {
   const controller = new AbortController();
   const { onStatus, onResult, onDone, onError, onMessage, onComplete } = callbacks || {};
@@ -307,6 +335,7 @@ export function sendMeituanMessageStream(
       user_id: userId || localStorage.getItem('user_id') || 'default',
       plan_mode: planMode,
       guest_profile: guestProfile || undefined,
+      route_context: routeContext || undefined,
       client_sent_at: new Date().toISOString(),
       client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
     }),

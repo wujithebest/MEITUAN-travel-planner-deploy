@@ -193,6 +193,7 @@ from services.step3_micro import run_step3
 from services.step4_output import run_step4
 from services.api_client import gaode_text_search
 from services.pipeline_replan_service import apply_pipeline_replan
+from services.conversation_replan import classify_conversation_route_change_fast
 
 # ═══ v11: 聊天编辑意图分类 ═══
 
@@ -509,6 +510,35 @@ async def _run_pipeline_stream(
                 except Exception:
                     pass
             print(f"[DEBUG meituan_chat] client_sent_at={client_sent_at} client_timezone={client_timezone} resolved_current_time={current_time}")
+
+            # v17: 会话决策层 — 先判断是开新路线还是修改旧路线
+            conv_ctx = {
+                "point_names": route_context.point_names if route_context else [],
+                "points": route_context.points if route_context else [],
+                "candidate_names": route_context.candidate_names if route_context else [],
+            }
+            route_decision = classify_conversation_route_change_fast(user_request, conv_ctx if route_context else None)
+            if route_decision is None:
+                # Fast-path uncertain; fall back to existing chat_edit logic
+                pass
+            elif route_decision.mode == "new_plan":
+                print(f"[DEBUG chat_edit] conversation decision: new_plan reason={route_decision.reason}")
+                # Continue to full pipeline
+            elif route_decision.mode == "point_edit" and route_context and route_context.points:
+                # Try point edit via apply_pipeline_replan
+                print(f"[DEBUG chat_edit] conversation decision: point_edit ops={route_decision.point_operations}")
+                edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
+                if edited:
+                    return
+            elif route_decision.mode == "refine_current":
+                # For now, use existing chat_edit as refinement; future: per-step refine
+                print(f"[DEBUG chat_edit] conversation decision: refine_current reason={route_decision.reason}")
+                edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
+                if edited:
+                    return
+            else:
+                # answer_only or unsupported — fall through to pipeline
+                pass
 
             # v11: 聊天编辑快速通道 — 如果用户意图为修改/替换/新增/删除当前路线，不走完整pipeline
             edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
