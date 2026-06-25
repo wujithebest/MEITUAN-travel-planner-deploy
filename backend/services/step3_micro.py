@@ -2994,6 +2994,68 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
     stretch_segments: dict[tuple[str, str], list[dict[str, Any]]] = {}  # (wp_a, wp_b) → passing POIs
     waypoint_annotations: dict[str, dict[str, Any]] = {}  # name → {is_waypoint, walk_from_route_min}
 
+    _is_theme_route = bool(
+        getattr(parsed_intent, "theme_profile", None)
+        or getattr(parsed_intent, "theme_label", None)
+        or getattr(parsed_intent, "micro_poi_keywords", None)
+        or getattr(parsed_intent, "theme_keywords", None)
+    )
+    _theme_min_waypoints_per_stretch = 3 if _is_theme_route else 0
+
+    def _promote_theme_waypoints(
+        stretch: list[dict[str, Any]],
+        wps: list[dict[str, Any]],
+        passing: dict[tuple[str, str], list[dict[str, Any]]],
+    ) -> tuple[list[dict[str, Any]], dict[tuple[str, str], list[dict[str, Any]]]]:
+        if not _is_theme_route or _theme_min_waypoints_per_stretch <= 0:
+            return wps, passing
+
+        target = min(len(stretch), max(len(wps), _theme_min_waypoints_per_stretch))
+        if len(wps) >= target:
+            return wps, passing
+
+        wp_names = {str(p.get("name") or "") for p in wps if p.get("name")}
+        passing_names = {
+            str(p.get("name") or "")
+            for plist in passing.values()
+            for p in plist
+            if p.get("name")
+        }
+
+        promoted: list[dict[str, Any]] = []
+        for p in stretch:
+            name = str(p.get("name") or "")
+            if not name or name in wp_names:
+                continue
+            if name not in passing_names:
+                continue
+            promoted.append(p)
+            wp_names.add(name)
+            if len(wps) + len(promoted) >= target:
+                break
+
+        if not promoted:
+            return wps, passing
+
+        promoted_names = {str(p.get("name") or "") for p in promoted}
+        cleaned_passing: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for key, plist in passing.items():
+            rest = [p for p in plist if str(p.get("name") or "") not in promoted_names]
+            if rest:
+                cleaned_passing[key] = rest
+
+        index_by_name = {str(p.get("name") or ""): idx for idx, p in enumerate(stretch)}
+        merged_wps = sorted(
+            [*wps, *promoted],
+            key=lambda p: index_by_name.get(str(p.get("name") or ""), 10_000),
+        )
+
+        print(
+            "[DEBUG step3] promoted theme passing POIs to waypoints: "
+            f"{[p.get('name') for p in promoted]}"
+        )
+        return merged_wps, cleaned_passing
+
     i = 0
     while i < len(routable):
         kind = routable[i].get("kind", "")
@@ -3006,6 +3068,8 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
 
             if len(stretch) > 2:
                 wps, passing = _compute_waypoints(stretch)
+                wps, passing = _promote_theme_waypoints(stretch, wps, passing)
+
                 optimized.extend(wps)
                 for wp in wps:
                     waypoint_annotations[wp["name"]] = {"is_waypoint": True, "walk_from_route_min": 0, "day": wp.get("day", 0)}
@@ -4104,8 +4168,35 @@ def _has_late_slot(points: list[dict[str, Any]]) -> bool:
 
 
 def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Move morning-position night-scene POIs to a later same-day position.
+
+    This runs before Step4 assigns display_slot for normal activity points, so it
+    must infer "morning-position" from relative order before lunch/dinner instead
+    of relying on point.display_slot == "morning".
+    """
     if not route_points:
         return route_points
+
+    def _slot_of(p: dict[str, Any]) -> str:
+        return str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+
+    def _kind_of(p: dict[str, Any]) -> str:
+        return str(p.get("kind") or "").lower()
+
+    def _is_lunch(p: dict[str, Any]) -> bool:
+        slot = _slot_of(p)
+        kind = _kind_of(p)
+        name = str(p.get("name") or "")
+        return (kind in {"meal", "restaurant"} and slot == "lunch") or slot == "lunch" or "午餐" in name or "午饭" in name
+
+    def _is_dinner(p: dict[str, Any]) -> bool:
+        slot = _slot_of(p)
+        kind = _kind_of(p)
+        name = str(p.get("name") or "")
+        return (kind in {"meal", "restaurant"} and slot == "dinner") or slot == "dinner" or "晚餐" in name or "晚饭" in name
+
+    def _is_evening_slot(p: dict[str, Any]) -> bool:
+        return _slot_of(p) in {"evening", "night"}
 
     result: list[dict[str, Any]] = []
     by_day: dict[int, list[dict[str, Any]]] = {}
@@ -4116,62 +4207,73 @@ def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[s
 
     for day in sorted(by_day.keys()):
         points = by_day[day]
-        night_points: list[dict[str, Any]] = []
-        normal_points: list[dict[str, Any]] = []
+        if not points:
+            continue
 
-        for p in points:
-            kind = str(p.get("kind") or "")
-            slot = str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
+        lunch_idx = next((idx for idx, p in enumerate(points) if _is_lunch(p)), None)
+        dinner_idx = next((idx for idx, p in enumerate(points) if _is_dinner(p)), None)
+        first_meal_idx = lunch_idx if lunch_idx is not None else dinner_idx
+
+        normal_points: list[dict[str, Any]] = []
+        deferred_points: list[dict[str, Any]] = []
+
+        for idx, p in enumerate(points):
+            kind = _kind_of(p)
 
             if kind in {"start", "meal", "restaurant"}:
                 normal_points.append(p)
                 continue
 
-            if slot == "morning" and _is_night_scene_point(p):
-                night_points.append(p)
+            explicit_slot = _slot_of(p)
+            is_already_late = explicit_slot in {"afternoon", "evening", "night"}
+            is_before_first_meal = first_meal_idx is not None and idx < first_meal_idx
+
+            if is_before_first_meal and not is_already_late and _is_night_scene_point(p):
+                moved = dict(p)
+                moved["display_slot"] = "afternoon"
+                moved["deferred_from_slot"] = "morning"
+                moved["defer_reason"] = "night_scene_before_lunch"
+                moved.pop("display_order", None)
+                deferred_points.append(moved)
             else:
                 normal_points.append(p)
 
-        if not night_points:
+        if not deferred_points:
             result.extend(points)
             continue
 
-        has_evening = any(
-            str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
-            in {"evening", "night"}
-            for p in normal_points
-        )
+        has_evening = any(_is_evening_slot(p) for p in normal_points)
 
-        for p in night_points:
+        for p in deferred_points:
             if has_evening:
                 p["display_slot"] = "evening"
+            elif dinner_idx is not None:
+                p["display_slot"] = "afternoon"
             else:
                 p["display_slot"] = "afternoon"
-            p["deferred_from_slot"] = "morning"
-            p["defer_reason"] = "night_scene"
 
         insert_idx = None
         for idx, p in enumerate(normal_points):
-            slot = str(p.get("display_slot") or p.get("slot") or p.get("period") or "").lower()
-            if has_evening and slot in {"evening", "night"}:
+            if has_evening and _is_evening_slot(p):
                 insert_idx = idx
                 break
-            if not has_evening and slot == "dinner":
+            if not has_evening and _is_dinner(p):
                 insert_idx = idx
                 break
 
         if insert_idx is None:
-            normal_points.extend(night_points)
+            normal_points.extend(deferred_points)
         else:
-            normal_points[insert_idx:insert_idx] = night_points
+            normal_points[insert_idx:insert_idx] = deferred_points
 
+        print(
+            f"[DEBUG step3] deferred morning night-scene points day={day}: "
+            f"{[p.get('name') for p in deferred_points]}"
+        )
         result.extend(normal_points)
 
     for idx, p in enumerate(result, start=1):
-        if p.get("kind") != "start":
-            p["route_order"] = idx
-        else:
-            p["route_order"] = 1
+        p["route_order"] = idx
         p.pop("display_order", None)
 
     return result
