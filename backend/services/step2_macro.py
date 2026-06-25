@@ -552,7 +552,20 @@ def _score_place(
 ) -> ScoredPlace:
     rating = place.gaode_rating or 4.0
     rating_score = min(rating / 5.0, 1.0) * config.GAODE_RATING_WEIGHT
-    transit_score = max(0.0, 1.0 - (transit_min or config.MAX_TRANSIT_MIN) / config.MAX_TRANSIT_MIN) * config.TRANSIT_SCORE_WEIGHT
+
+    # v15: 角色化距离惩罚 — destination_anchor用更弱距离惩罚
+    poi_role = getattr(place, "poi_role", "") or "route_waypoint"
+    effective_transit = transit_min or config.MAX_TRANSIT_MIN
+    if poi_role == "destination_anchor":
+        distance_factor = 0.45
+    elif poi_role == "enroute_optional":
+        distance_factor = 1.35
+    else:
+        distance_factor = 0.85
+    transit_score = max(
+        0.0,
+        1.0 - (effective_transit * distance_factor) / config.MAX_TRANSIT_MIN
+    ) * config.TRANSIT_SCORE_WEIGHT
     anchor_score = rating_score + transit_score
 
     matched, total, _ = _preference_match(place, parsed_intent)
@@ -560,6 +573,24 @@ def _score_place(
     heat_score = min(max(place.enrichment_heat, 0.0), 1.0) * config.HEAT_SCORE_WEIGHT
     preference_score = (matched / total) * config.PREFERENCE_SCORE_WEIGHT
     enrichment_score = event_score + heat_score + preference_score
+
+    # v15: 主题召回与角色加成
+    recall_source = getattr(place, "recall_source", "") or ""
+    theme_recall_score = float(getattr(place, "theme_recall_score", 0.0) or 0.0)
+    if recall_source == "bocha_theme_recall":
+        enrichment_score += 18
+    if poi_role == "destination_anchor":
+        enrichment_score += 12
+    if theme_recall_score:
+        enrichment_score += theme_recall_score
+    # 泛文化点降权
+    theme_id = getattr(parsed_intent, "theme_profile", "") or ""
+    if theme_id == "art_culture_lifestyle":
+        text = f"{place.name} {place.address} {place.typecode} {place.enrichment_text}"
+        high_value = ["M50", "武康路", "衡复", "西岸", "上生新所", "田子坊", "思南公馆", "美术馆", "书店", "电影", "影院", "咖啡", "买手店", "中古", "Vintage", "市集", "画廊", "文创"]
+        generic = ["文化广场", "活动中心", "办公室", "多功能厅", "中心", "广场"]
+        if not any(t in text for t in high_value) and any(t in text for t in generic):
+            enrichment_score -= 18.0
     if "二次元" in parsed_intent.raw_keywords:
         name_text = place.name.lower()
         full_text = f"{place.name} {place.enrichment_text}".lower()
@@ -1061,17 +1092,15 @@ async def _theme_recall_places(
                     continue
                 if not is_valid_route_poi(place.typecode, place.name):
                     continue
-                # 标记来源
+                # v15: 使用Pydantic字段直接赋值
                 place.recall_source = "bocha_theme_recall"
-                setattr(place, "recall_source", "bocha_theme_recall")
-                setattr(place, "poi_role", "destination_anchor")
-                # 主题分数
+                place.poi_role = "destination_anchor"
                 theme_score = 20.0
                 if name in dest_terms:
                     theme_score = 30.0
                 elif name in high_value_terms:
                     theme_score = 25.0
-                setattr(place, "theme_recall_score", theme_score)
+                place.theme_recall_score = theme_score
                 # enrichment
                 snippets = " ".join(
                     f"{item.get('name', '')} {item.get('snippet', '')}"
@@ -1088,7 +1117,7 @@ async def _theme_recall_places(
                         w = word.strip().lower()
                         if len(w) >= 2:
                             kw_set.add(w)
-                setattr(place, "bocha_keywords", list(kw_set)[:50])
+                place.bocha_keywords = list(kw_set)[:50]
                 places.append(place)
                 break
         except Exception as exc:
@@ -1184,7 +1213,7 @@ def _score_places_prefetched(
     rainy_flag = _rainy_context(parsed_intent)
     print(f"[DEBUG step2] rainy_context={rainy_flag} before_filter={before_rainy} after_filter={after_rainy}")
     for i, c in enumerate(scored[:5]):
-        print(f"[DEBUG step2] top{i+1}: name={c.name} typecode={c.typecode} weather_penalty={c.weather_penalty} final_score={c.final_score}")
+        print(f"[DEBUG step2] top{i+1}: name={c.name} role={getattr(c, 'poi_role', '')} recall={getattr(c, 'recall_source', '')} theme_score={getattr(c, 'theme_recall_score', 0)} transit={c.transit_from_origin_min} typecode={c.typecode} weather_penalty={c.weather_penalty} final_score={c.final_score}")
     if parsed_intent.delete_list or getattr(parsed_intent, 'excluded_areas', []):
         delete_lowered = [name.lower() for name in parsed_intent.delete_list]
         excluded = delete_lowered + [a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])]

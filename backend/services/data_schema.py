@@ -389,6 +389,12 @@ class ExtractedPlace(BaseModel):
     enrichment_text: str = ""
     enrichment_heat: float = 0.0
     bocha_keywords: list[str] = Field(default_factory=list)  # v9: 博查搜索结果中提取的关键词，供微观POI评分使用
+    # ── v15: 主题召回与角色分层 ──
+    recall_source: str = ""
+    poi_role: str = "route_waypoint"
+    theme_recall_score: float = 0.0
+    theme_subcluster: str = ""
+    generic_theme_penalty: float = 0.0
 
 
 class ScoredPlace(ExtractedPlace):

@@ -11,6 +11,7 @@ from .api_client import call_llm, gaode_geocode, gaode_text_search, gaode_weathe
 from .data_schema import FixedPoi, ParsedIntent, PlannedWaypoint, PlanSegment, UserProfile
 from .day_slots import DURATION_TO_BUDGET, compute_meal_needs, compute_reject_capacities, infer_capacity_from_typecode
 from .utils import PipelineLogger, ZeroOutputError, emit_status, haversine_km
+from .theme_profiles import OFFICIAL_THEME_PROFILES, normalize_theme_profile
 
 
 INCOMPLETE_REQUEST_TEXT = "消息似乎不全面，可以再说得详细一点吗~"
@@ -1507,6 +1508,44 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed = _apply_keyword_overrides(parsed, user_request, city)
     parsed = _append_fixed_poi_from_request(parsed, user_request)
     parsed = _exclude_pois_from_request(parsed, user_request)
+
+    # v15: 主题归一化 — LLM没有输出theme_profile时，从用户文本后处理匹配
+    theme_text = " ".join([
+        user_request,
+        " ".join(parsed.raw_keywords or []),
+        " ".join(parsed.search_keywords or []),
+        " ".join(parsed.micro_keywords or []),
+        " ".join(parsed.other_constraints or []),
+        " ".join(getattr(parsed, "micro_poi_keywords", []) or []),
+    ])
+    profile_id = normalize_theme_profile(getattr(parsed, "theme_profile", None), theme_text)
+    if profile_id:
+        parsed.theme_profile = profile_id
+        profile = OFFICIAL_THEME_PROFILES[profile_id]
+        parsed.theme_label = parsed.theme_label or profile.get("label", "")
+        parsed.theme_confidence = max(float(parsed.theme_confidence or 0.0), 0.85)
+        parsed.micro_poi_keywords = _append_unique(
+            getattr(parsed, "micro_poi_keywords", []) or [],
+            profile.get("micro_keywords", []) or [],
+            limit=14,
+        )
+        parsed.micro_required_terms = _append_unique(
+            getattr(parsed, "micro_required_terms", []) or [],
+            profile.get("required_terms", []) or [],
+            limit=18,
+        )
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            profile.get("excluded_terms", []) or [],
+            limit=18,
+        )
+        parsed.search_keywords = _append_unique(
+            parsed.search_keywords,
+            [f"{city[:-1] if city.endswith('市') else city} {kw}" for kw in (profile.get("search_terms", []) or [])],
+            limit=8,
+        )
+    print(f"[DEBUG step1] theme_profile={getattr(parsed, 'theme_profile', None)} theme_label={getattr(parsed, 'theme_label', None)}")
+    print(f"[DEBUG step1] micro_poi_keywords={getattr(parsed, 'micro_poi_keywords', [])}")
 
     skip_destination_detection = (
         getattr(parsed, "plan_mode", "exploratory") == "planned"
