@@ -18,6 +18,7 @@ from .api_client import (
     bocha_search_batch,
     gaode_around_search_batch,
     gaode_driving_route,
+    gaode_reverse_geocode,
     gaode_text_search,
     gaode_transit_route,
     gaode_walking_route,
@@ -36,6 +37,120 @@ except ImportError:
 
 
 ANCHOR_LEVEL_TYPECODES = ["110000", "110100", "110200", "080500", "080600", "140100", "140200", "190100"]
+
+# ── v16: city 解析工具 — 不再信任前端手动 city ──
+CITY_NAME_RE = re.compile(r"([一-龥]{2,12}市)")
+DIRECT_MUNICIPALITIES = {"北京", "北京市", "上海", "上海市", "天津", "天津市", "重庆", "重庆市"}
+CITY_BOUNDS: dict[str, tuple[float, float, float, float]] = {
+    "上海": (120.80, 122.20, 30.60, 31.90),
+    "北京": (115.40, 117.60, 39.40, 41.10),
+    "天津": (116.70, 118.10, 38.50, 40.30),
+    "重庆": (105.20, 110.20, 28.10, 32.30),
+}
+
+
+def _normalize_city_name(value: Any) -> str:
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text in DIRECT_MUNICIPALITIES:
+        return text if text.endswith("市") else f"{text}市"
+    match = CITY_NAME_RE.search(text)
+    if match:
+        return match.group(1)
+    if len(text) >= 2 and not text.endswith("市"):
+        return f"{text}市"
+    return text
+
+
+def _city_short(city: str) -> str:
+    city = _normalize_city_name(city)
+    return city[:-1] if city.endswith("市") else city
+
+
+def _city_from_text(text: Any) -> str:
+    raw = str(text or "").strip()
+    if not raw:
+        return ""
+    for name in DIRECT_MUNICIPALITIES:
+        if name and name in raw:
+            return _normalize_city_name(name)
+    match = CITY_NAME_RE.search(raw)
+    return _normalize_city_name(match.group(1)) if match else ""
+
+
+def _location_to_lnglat(location: dict | None) -> str:
+    if not isinstance(location, dict):
+        return ""
+    lat = location.get("lat")
+    lng = location.get("lng")
+    if lat is None or lng is None:
+        return ""
+    return f"{lng},{lat}"
+
+
+def _in_city_bounds(city: str, location: dict | None) -> bool:
+    short = _city_short(city)
+    bounds = CITY_BOUNDS.get(short)
+    if not bounds or not isinstance(location, dict):
+        return False
+    lng = location.get("lng")
+    lat = location.get("lat")
+    if lng is None or lat is None:
+        return False
+    min_lng, max_lng, min_lat, max_lat = bounds
+    return min_lng <= float(lng) <= max_lng and min_lat <= float(lat) <= max_lat
+
+
+async def _resolve_city_from_profile(user_profile: UserProfile) -> str:
+    home_loc = getattr(user_profile, "home_location", None) or {}
+    device_loc = getattr(user_profile, "current_device_location", None) or {}
+
+    for text in [
+        home_loc.get("label") if isinstance(home_loc, dict) else "",
+        device_loc.get("label") if isinstance(device_loc, dict) else "",
+    ]:
+        city = _city_from_text(text)
+        if city:
+            return city
+
+    for loc in [home_loc, device_loc]:
+        loc_str = _location_to_lnglat(loc if isinstance(loc, dict) else None)
+        if not loc_str:
+            continue
+        try:
+            addr = await gaode_reverse_geocode(loc_str)
+        except Exception as exc:
+            print(f"[WARN step2] resolve city reverse geocode failed: {exc}")
+            addr = None
+        if not addr:
+            continue
+        city_value = addr.get("city")
+        if isinstance(city_value, list):
+            city_value = city_value[0] if city_value else ""
+        city = _normalize_city_name(city_value or addr.get("province") or "")
+        if city:
+            return city
+
+    old_city = ""
+    if getattr(user_profile, "permanent_city", None):
+        old_city = user_profile.permanent_city[0] or ""
+    return _normalize_city_name(old_city) or "上海市"
+
+
+def _apply_resolved_city(user_profile: UserProfile, city: str) -> None:
+    city = _normalize_city_name(city)
+    if not city:
+        return
+    old = list(getattr(user_profile, "permanent_city", []) or [])
+    district = old[1] if len(old) > 1 else ""
+    try:
+        user_profile.permanent_city = [city, district] if district else [city]
+    except Exception:
+        object.__setattr__(user_profile, "permanent_city", [city, district] if district else [city])
+
 # 050500(餐饮) 已从基础白名单移除，仅在餐饮意图时通过 EATING_ANCHOR_TYPECODES 放行
 ANIME_ANCHOR_TYPECODES = [
     *ANCHOR_LEVEL_TYPECODES,
@@ -1051,29 +1166,31 @@ async def _theme_recall_places(
     if not recall_queries:
         return []
 
-    city_short = city[:-1] if city.endswith("市") else city
+    city = _normalize_city_name(city) or await _resolve_city_from_profile(user_profile)
+    city_short = _city_short(city)
     dest_terms = set(profile.get("destination_anchor_terms", []))
     high_value_terms = set(profile.get("high_value_micro_terms", []))
 
     def _place_matches_city(raw: dict, place) -> bool:
-        """轻量城市一致性守卫，过滤跨城市误召回"""
+        if not city_short:
+            return True
+
         cn = str(raw.get("cityname") or raw.get("city") or "")
         pn = str(raw.get("pname") or raw.get("province") or "")
         ad = str(raw.get("adname") or "")
         addr = str(raw.get("address") or "")
         name_t = str(raw.get("name") or getattr(place, "name", "") or "")
-
-        if city and city in cn:
-            return True
-        if city_short and city_short in cn:
-            return True
-
         haystack = " ".join([cn, pn, ad, addr, name_t])
-        for t in {city, city_short}:
-            if t and t in haystack:
-                return True
-        if city_short in {"上海", "北京", "天津", "重庆"} and city_short in pn:
+
+        if city and city in haystack:
             return True
+        if city_short and city_short in haystack:
+            return True
+
+        loc = getattr(place, "location", None)
+        if _in_city_bounds(city, loc):
+            return True
+
         return False
 
     all_web_items: list[dict] = []
@@ -1897,6 +2014,10 @@ def _assemble_plan(
 
 
 async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logger: PipelineLogger) -> CompletePlan:
+    resolved_city = await _resolve_city_from_profile(user_profile)
+    _apply_resolved_city(user_profile, resolved_city)
+    print(f"[DEBUG step2] resolved_city_from_home={resolved_city} permanent_city={getattr(user_profile, 'permanent_city', [])}")
+
     # v6: planned 模式跳过宏观搜索，直接返回轻量 CompletePlan
     if getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned' and getattr(parsed_intent, 'planned_waypoints', []):
         city = user_profile.permanent_city[0] if user_profile.permanent_city else "上海市"

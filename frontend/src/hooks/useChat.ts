@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { sendMeituanMessageStream, extractMeituanMapData, MeituanRouteData, GuestProfile } from '@/api/meituanChat';
+import { sendMeituanMessageStream, extractMeituanMapData, MeituanRouteData, GuestProfile, ChatRouteContext } from '@/api/meituanChat';
 import { useRouteStore } from '@/store/routeStore';
 import { useUserStore } from '@/store/userStore';
 import { FALLBACK_HOME_LOCATION } from '@/utils/locationDefaults';
@@ -868,6 +868,57 @@ export function useChat(): UseChatReturn {
     return newMsg;
   }, [updateCurrentMessages]);
 
+  /** v11: 构建当前路线上下文，供后端判断编辑意图 */
+  const buildRouteContext = useCallback((): ChatRouteContext | undefined => {
+    const rawRouteData: any = useRouteStore.getState().rawRouteData;
+    const mapRouteData: any = useRouteStore.getState().mapRouteData;
+    const routeId: string | null = (useRouteStore.getState() as any).routeId || rawRouteData?.route_id || null;
+
+    const rawPoints = Array.isArray(rawRouteData?.points) ? rawRouteData.points : [];
+    const rawSegments = Array.isArray(rawRouteData?.segments) ? rawRouteData.segments : [];
+
+    const sourcePoints = rawPoints.length > 0 ? rawPoints : [];
+    if (!sourcePoints.length) return undefined;
+
+    const displayPoints = sourcePoints.filter((pt: any) => {
+      const kind = pt.kind || '';
+      if (kind === 'hint' || kind === 'free_explore') return false;
+      return pt.is_display_poi !== false && pt.is_waypoint !== false && !!pt.name;
+    });
+
+    const pointNames = [...new Set(displayPoints.map((pt: any) => String(pt.name || '').trim()).filter(Boolean))];
+    const candidateNames: string[] = [];
+    const markers = Array.isArray(mapRouteData?.markers) ? mapRouteData.markers : [];
+    for (const m of markers) {
+      if (m.type === 'candidate' || (m as any).is_candidate) {
+        const n = String(m.name || '').trim();
+        if (n) candidateNames.push(n);
+      }
+    }
+
+    const recentUserMessages = getCurrentMessages()
+      .filter(m => m.role === 'user')
+      .slice(-3)
+      .map(m => m.content);
+
+    return {
+      route_id: routeId,
+      point_names: pointNames,
+      candidate_names: [...new Set(candidateNames)],
+      points: displayPoints,
+      segments: rawSegments.map((seg: any) => ({
+        from_poi: seg.from_poi,
+        to_poi: seg.to_poi,
+        day_index: seg.day_index,
+        period: seg.period,
+        degraded: seg.degraded,
+        polyline_source: seg.polyline_source,
+      })),
+      exclusions: [],
+      recent_user_messages: recentUserMessages,
+    };
+  }, [getCurrentMessages]);
+
   /**
    * 发送消息
    */
@@ -921,7 +972,8 @@ export function useChat(): UseChatReturn {
           age: user.age || 30,
           activity_pref_tag: user.activity_pref_tag || user.preferences || [],
           food_pref_tag: user.food_preferences || [],
-          permanent_city: [user.city || '', user.location?.district || ''].filter(Boolean),
+          // city 由后端根据 home_location 自动解析，前端不再传用户可编辑 city
+          permanent_city: [],
           permanent_city_coord: { lat: currentLat, lng: currentLng },
           current_device_location: {
             lat: currentLat,
@@ -932,6 +984,8 @@ export function useChat(): UseChatReturn {
           budget_per_capita: user.budget_per_capita || 100,
         };
       }
+
+      const routeContext = buildRouteContext();
 
       abortControllerRef.current = sendMeituanMessageStream(
         trimmedInput,
@@ -1482,7 +1536,8 @@ export function useChat(): UseChatReturn {
             setIsLoading(false);
           },
         },
-        guestProfile
+        guestProfile,
+        routeContext
       );
     } catch (err: any) {
       setError(err.message || '服务暂时不可用');

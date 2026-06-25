@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Modal, Form, Input, Select, Button, message, Divider, AutoComplete, InputNumber } from 'antd';
+import { Modal, Form, Input, Button, message, Divider, AutoComplete, InputNumber } from 'antd';
 import { User, MapPin, Heart, Save } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { userApi } from '../../api/user';
@@ -40,21 +40,6 @@ const preferenceOptions = [
   { value: 'relax', label: '休闲度假' },
   { value: 'photography', label: '摄影打卡' },
   { value: 'family', label: '亲子游玩' },
-];
-
-const cityOptions = [
-  { value: 'beijing', label: '北京' },
-  { value: 'shanghai', label: '上海' },
-  { value: 'guangzhou', label: '广州' },
-  { value: 'shenzhen', label: '深圳' },
-  { value: 'chengdu', label: '成都' },
-  { value: 'hangzhou', label: '杭州' },
-  { value: 'xian', label: '西安' },
-  { value: 'nanjing', label: '南京' },
-  { value: 'chongqing', label: '重庆' },
-  { value: 'wuhan', label: '武汉' },
-  { value: 'tianjin', label: '天津' },
-  { value: 'suzhou', label: '苏州' },
 ];
 
 const normalizeHomeAddress = (user: any): HomeAddress | null => {
@@ -110,7 +95,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       form.setFieldsValue({
         username: user.username || '',
         email: user.email || '',
-        city: user.city || undefined,
         preferences: user.preferences || [],
         homeAddress: normalizedHomeAddress?.name || normalizedHomeAddress?.full_address || '',
       });
@@ -198,16 +182,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     setDropdownOpen(true);
 
     try {
-      // 获取用户选择的城市
-      const cityValue = formRef.current.getFieldValue('city');
-      const cityLabel = cityOptions.find(c => c.value === cityValue)?.label || null;
-      
-      console.log('[AddressSearch] 搜索关键词:', keyword, '城市:', cityLabel);
-      
+      // 地址搜索城市固定为上海
       const params = new URLSearchParams({ keyword });
-      if (cityLabel) {
-        params.append('city', cityLabel);
-      }
+      params.append('city', '上海');
       
       // 使用相对路径，通过 Vite 代理转发到后端
       // 注意：不使用 baseURL: ''，直接用相对路径让 axios 使用默认 baseURL（空字符串）
@@ -324,7 +301,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           username: values.username,
           gender: values.gender,
           age: values.age,
-          city: values.city,
           preferences: values.preferences,
           food_preferences: values.food_preferences,
           budget_per_capita: values.budget_per_capita,
@@ -341,7 +317,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
       // 注册用户：调用 API
       const updateData: any = {
         username: values.username,
-        city: values.city,
         preferences: values.preferences,
       };
 
@@ -366,7 +341,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         updateUser({
           ...user,
           username: values.username,
-          city: values.city,
           preferences: values.preferences,
           location: {
             ...user.location,
@@ -508,21 +482,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             <MapPin size={16} />
             <span>位置偏好</span>
           </div>
-
-          <Form.Item
-            name="city"
-            label="常住城市"
-          >
-            <Select
-              placeholder="选择您的常住城市"
-              allowClear
-              showSearch
-              options={cityOptions}
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            />
-          </Form.Item>
 
           <Form.Item
             name="homeAddress"

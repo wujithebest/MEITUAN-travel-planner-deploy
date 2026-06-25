@@ -174,7 +174,8 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
         age=guest.get("age", 30),
         activity_pref_tag=guest.get("activity_pref_tag", ["文艺", "历史"]),
         food_pref_tag=guest.get("food_pref_tag", ["本帮菜", "咖啡"]),
-        permanent_city=guest.get("permanent_city", []),
+        # city 后续由 Step2 基于 home_location 自动解析，不再信任前端手动 city
+        permanent_city=[],
         permanent_city_coord=guest.get("permanent_city_coord") or {
             "lat": home_loc.get("lat", current_device.get("lat", FALLBACK_LAT)),
             "lng": home_loc.get("lng", current_device.get("lng", FALLBACK_LNG)),
