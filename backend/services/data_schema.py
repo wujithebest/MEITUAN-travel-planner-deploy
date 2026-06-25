@@ -31,9 +31,9 @@ class UserProfile(BaseModel):
     #异步处理：这里基于高德api读取permanent_city的经纬度信息，只读取一次，自动读取并存储。只有当用户主动在设置中进行修改的时候才修改。
     
     current_device_location: Optional[dict[str, float | str]] = None
-    #异步处理：这里基于高德api读取用户当前设备的位置信息，在本次对话请求内自动读取并存储。当距离上次对话读取超过30min，自动更新。
+    # v18: 保留字段但不再参与路线出发地决策。用户未显式指定出发地时，original_location 固定由 user_profile.home_location 注入。
     home_location: Optional[dict[str, float | str]] = None
-    #用户长期规划的默认出发点，如家的位置；短期规划未指定出发地时优先使用current_device_location。
+    # v18: 唯一路线出发地来源。用户长期规划的默认出发点（家/常驻地址）。未指定时统一由此字段注入 original_location。
 
     #transport_pref这个变量就不需要了，默认公共交通，除非用户在request中说"自驾"或其他驾驶方式，否则默认公共交通。
     
@@ -319,7 +319,7 @@ class ParsedIntent(BaseModel):
     day_poi_constraints: list[dict] = []  # 可空。分天固定地点，如{"day_index":2,"poi_name":"中山公园"}，用于Step2按天放置锚点
 
     # 出发地
-    original_location_label: Optional[str] = None  # 可空。用户明确说的出发地名，如"同济大学"。未提及/未搜索到→短期取current_device_location，长期取home_location，再降级取permanent_city_coord
+    original_location_label: Optional[str] = None  # v18: 可空。用户明确说的出发地名。未指定时统一由 user_profile.home_location 注入；permanent_city_coord 仅兼容兜底；current_device_location 不再参与出发地决策
 
     # 餐饮偏好
     food_pref_keywords: list[str] = []  # 可空。LLM从原话提取的口味/餐饮偏好，如["本帮菜","日料"]。空→代码注入UserProfile.food_pref_tag

@@ -21,18 +21,14 @@ import styles from './ChatPanel.module.css';
 
 const { TextArea } = Input;
 
-const QUICK_PROMPTS_BY_MODE: Record<string, string[]> = {
-  exploratory: [
-    '我明天想去外滩玩一整天，帮我规划一下路线',
-    '上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方',
-    '还有两个小时，我在杨浦滨江附近随便走走',
-  ],
-  planned: [
-    '待会儿下班，在附近找一家日料店，然后回家',
-    '下班路上想顺便买点水果，再找个地方简单吃晚饭',
-    '回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿',
-  ],
-};
+const QUICK_PROMPTS: string[] = [
+  '我明天想去外滩玩一整天，帮我规划一下路线',
+  '上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方',
+  '还有两个小时，我在杨浦滨江附近随便走走',
+  '待会儿下班，在附近找一家日料店，然后回家',
+  '下班路上想顺便买点水果，再找个地方简单吃晚饭',
+  '回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿',
+];
 
 interface ChatPanelProps {
   /** 聊天消息列表 */
@@ -49,10 +45,6 @@ interface ChatPanelProps {
   isPlanningActive: boolean;
   /** 当前高亮的天数 */
   activeDay: number | null;
-  /** 当前规划模式 */
-  planMode: 'exploratory' | 'planned' | null;
-  /** 设置规划模式 */
-  setPlanMode: (mode: 'exploratory' | 'planned') => void;
   /** 发送消息 */
   sendMessage: (text: string) => Promise<void>;
   /** 清空聊天 */
@@ -96,8 +88,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   planningElapsedSeconds,
   isPlanningActive,
   activeDay,
-  planMode,
-  setPlanMode,
   sendMessage,
   clearChat,
   setActiveDay,
@@ -591,12 +581,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   /**
    * 获取输入框占位符
    */
-  const getInputPlaceholder = () => {
-    if (planMode === 'planned') {
-      return '请描述您的有序途经点...';
-    }
-    return '请描述您的出行需求...';
-  };
+  const getInputPlaceholder = () => '请描述您的出行需求...';
 
   // v6: 推荐用例常驻显示，不因发送消息而消失
   const shouldShowQuickPrompts = true;
@@ -671,51 +656,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           )}
         </div>
       )}
-
-      {/* 规划模式切换 */}
-      <div className={styles.modeToggleWrapper} data-guide="mode-toggle">
-        <div className={styles.modeToggleTrack}>
-          <div
-            className={`${styles.modeToggleSlider} ${
-              planMode === 'planned' ? styles.modeToggleSliderRight : ''
-            }`}
-          />
-          <Tooltip
-            title={`适合还没有明确行程安排的情况。你可以用自然语言描述大概想法，例如“下午想在外滩附近随便逛逛，顺便找点好吃的”，系统会根据当前位置、兴趣偏好和时间余量，自动推荐一条轻量、灵活、可随时调整的探索路线。`}
-            color="#262626"
-            overlayStyle={{ maxWidth: 300 }}
-            overlayInnerStyle={{ color: '#fff', backgroundColor: '#262626', fontWeight: 300 }}
-            mouseEnterDelay={0.5}
-          >
-            <button
-              className={`${styles.modeToggleOption} ${
-                planMode === 'exploratory' ? styles.modeToggleOptionActive : ''
-              }`}
-              onClick={() => setPlanMode('exploratory')}
-              disabled={isLoading}
-            >
-              自由探索
-            </button>
-          </Tooltip>
-          <Tooltip
-            title={`适合已经有明确目的地、时间段或必去地点的情况。你可以直接说明上午、下午、晚上分别想去哪里，或指定餐饮、交通、预算等要求，系统会按时间顺序组织 POI、餐饮和路线，并生成更稳定的完整行程安排。`}
-            color="#262626"
-            overlayStyle={{ maxWidth: 300 }}
-            overlayInnerStyle={{ color: '#fff', backgroundColor: '#262626', fontWeight: 300 }}
-            mouseEnterDelay={0.5}
-          >
-            <button
-              className={`${styles.modeToggleOption} ${
-                planMode === 'planned' ? styles.modeToggleOptionActive : ''
-              }`}
-              onClick={() => setPlanMode('planned')}
-              disabled={isLoading}
-            >
-              精准规划
-            </button>
-          </Tooltip>
-        </div>
-      </div>
 
       {/* 消息列表 */}
       <div className={styles.messageList}>
@@ -808,7 +748,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           <div className={styles.quickPrompts} data-guide="quick-prompts">
             <div className={styles.quickPromptsTitle}>例如</div>
             <div className={styles.quickPromptsList}>
-              {QUICK_PROMPTS_BY_MODE[planMode || 'exploratory'].map((prompt, idx) => (
+              {QUICK_PROMPTS.map((prompt, idx) => (
                 <button
                   key={idx}
                   className={styles.quickPromptBtn}

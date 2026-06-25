@@ -1181,7 +1181,15 @@ def _filter_and_sort_internal_pois(
             if _micro_poi_theme_score(poi, policy) > 0
         ]
         if len(themed) >= policy.get("minimum_themed_pois", 1):
-            valid = themed
+            # v18: 主题命中足够时，themed 优先排序，但保留 compatible 作密度兜底
+            themed_names = {p.get("name") for p in themed}
+            extras = [p for p in compatible if p.get("name") not in themed_names]
+            max_keep = max(12, len(themed) + 4)
+            valid = themed + extras[:max(0, max_keep - len(themed))]
+            print(
+                f"[DEBUG step3] theme_policy kept compatible fallback "
+                f"raw={len(valid)} themed={len(themed)} compatible={len(compatible)} final={len(valid)}"
+            )
         else:
             valid = compatible
 
@@ -1605,6 +1613,48 @@ def _fill_segment(
         ) if parsed_intent else False
 
         if is_themed and is_full_or_half and (sub.location or start_location):
+            # v18: 优先从 sub.internal_pois 取真实 POI，避免每半日只有一个 anchor
+            internal = getattr(sub, "internal_pois", []) or []
+            extra_points: list[dict[str, Any]] = []
+            for ipo in internal[:4]:
+                name = str(ipo.get("name") or "").strip()
+                if not name or (used_names and name in used_names):
+                    continue
+                loc = ipo.get("location") or sub.location or start_location
+                extra_points.append({
+                    "day": day_index,
+                    "name": name,
+                    "location": loc,
+                    "kind": "anchor_internal",
+                    "poi_id": ipo.get("poi_id") or ipo.get("gaode_poi_id") or name,
+                    "gaode_poi_id": str(ipo.get("gaode_poi_id") or ""),
+                    "typecode": str(ipo.get("typecode") or ""),
+                    "category": str(ipo.get("category") or ""),
+                    "address": str(ipo.get("address") or ""),
+                    "rating": ipo.get("rating"),
+                    "avg_cost": ipo.get("avg_cost"),
+                    "photo_url": str(ipo.get("photo_url") or ""),
+                    "photo_source": str(ipo.get("photo_source") or ""),
+                    "travel_before": 0,
+                    "sub_anchor_name": sub.name,
+                    "parent_name": getattr(sub, "parent_name", "") or "",
+                    "is_passthrough": False,
+                    "theme_anchor_fallback": True,
+                    "fallback_reason": "theme_anchor_degraded_from_free_internal",
+                    "recommend_reason": ipo.get("recommend_reason") or segment.get("hint", "") or f"该片区符合本次主题",
+                    "is_waypoint": True,
+                    "is_display_poi": True,
+                })
+                if used_names is not None:
+                    used_names.add(name)
+            if extra_points:
+                print(
+                    f"[DEBUG step3] filled free segment from internal_pois: "
+                    f"{[p.get('name') for p in extra_points]}"
+                )
+                return extra_points
+
+            # 没有 internal_pois 才退回单个 anchor_internal 占位
             return [{
                 "day": day_index,
                 "name": sub.name,
@@ -2612,6 +2662,18 @@ def _is_drawable_route_polyline(
     if len(polyline) <= 3 and straight_km > 0.1 and path_km > 0 and straight_km > 0 and (path_km / straight_km) < 0.3:
         return False
 
+    # v8.1: 近距离步行/骑行段若 API 路线远大于直线距离，通常是 waypoint 落入不可步行区域或导航绕桥
+    if straight_km > 0:
+        detour_ratio = api_distance_km / straight_km if api_distance_km > 0 else path_km / straight_km
+        is_walk_like = transport in ("步行", "骑行", "")
+        if is_walk_like and straight_km < 1.2 and api_distance_km > max(1.5, straight_km * 4.0):
+            print(
+                f"[RouteDebug] invalid detour: transport={transport} "
+                f"straight={straight_km:.3f}km api_distance={api_distance_km:.3f}km "
+                f"path={path_km:.3f}km ratio={detour_ratio:.1f} src={polyline_source}"
+            )
+            return False
+
     max_gap = _max_adjacent_gap_km(polyline)
     transit_or_drive = transport in ("地铁/公交", "公交", "自驾")
     gap_limit = max(0.8, straight_km * 0.55) if transit_or_drive else max(0.35, straight_km * 0.45)
@@ -2684,22 +2746,53 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
             waypoint = f"{wp_lng:.6f},{mid_lat:.6f}"
             result = await gaode_walking_route_waypoints(origin, destination, [waypoint])
             if result and result.get("polyline") and len(result["polyline"]) >= 2:
+                result["polyline_source"] = "waterfront_waypoint"
+                wp_dist = float(result.get("distance_km", 0) or 0)
+                if _is_drawable_route_polyline(
+                    result.get("polyline") or [],
+                    straight_km,
+                    result.get("polyline_source", ""),
+                    result.get("transport", "步行"),
+                    wp_dist,
+                ):
+                    return {
+                        "transport": "步行",
+                        "duration_min": round(result.get("duration_min", straight_km * 60 / 4.5), 1),
+                        "distance_km": round(wp_dist, 3),
+                        "polyline": result["polyline"],
+                        "polyline_source": "waterfront_waypoint",
+                    }
+                print(
+                    f"[RouteDebug] waterfront waypoint route rejected: "
+                    f"{a.get('name')} -> {b.get('name')} "
+                    f"straight={straight_km:.3f}km route={wp_dist:.3f}km "
+                    f"waypoint={waypoint}"
+                )
+            # waypoint导航失败或路线被拒绝，降级为普通步行导航
+        result = await gaode_walking_route(origin, destination)
+        if result and result.get("polyline") and len(result["polyline"]) >= 2:
+            result.setdefault("polyline_source", "same_sub_anchor_walk")
+            walk_dist = float(result.get("distance_km", 0) or 0)
+            if _is_drawable_route_polyline(
+                result.get("polyline") or [],
+                straight_km,
+                result.get("polyline_source", ""),
+                result.get("transport", "步行"),
+                walk_dist,
+            ):
                 return {
                     "transport": "步行",
                     "duration_min": round(result.get("duration_min", straight_km * 60 / 4.5), 1),
-                    "distance_km": round(result.get("distance_km", straight_km), 3),
+                    "distance_km": round(walk_dist, 3),
                     "polyline": result["polyline"],
+                    "polyline_source": result.get("polyline_source", "same_sub_anchor_walk"),
                 }
-            # waypoint导航失败，降级为普通步行导航
-        result = await gaode_walking_route(origin, destination)
-        if result and result.get("polyline") and len(result["polyline"]) >= 2:
-            return {
-                "transport": "步行",
-                "duration_min": round(result.get("duration_min", straight_km * 60 / 4.5), 1),
-                "distance_km": round(result.get("distance_km", straight_km), 3),
-                "polyline": result["polyline"],
-            }
-        # API失败降级为两点直线
+            print(
+                f"[RouteDebug] same-sub-anchor walking route rejected: "
+                f"{a.get('name')} -> {b.get('name')} "
+                f"straight={straight_km:.3f}km route={walk_dist:.3f}km"
+            )
+        # API失败或路线被拒绝，降级到后续通用路线逻辑
 
     async def non_walking_route() -> dict:
         if transport_hint == "自驾":
@@ -4173,11 +4266,14 @@ def _has_late_slot(points: list[dict[str, Any]]) -> bool:
     return False
 
 
-def _rebalance_theme_half_day_points(
+def _ensure_theme_half_day_density(
     route_points: list[dict[str, Any]],
     parsed_intent: ParsedIntent,
 ) -> list[dict[str, Any]]:
-    """Theme route morning/afternoon balance: ensure morning has >=2 real visit POIs."""
+    """v18: 主题路线半日密度保障 — soft target 3个真实游览点/half-day, hard floor 2个。
+
+    若某半日低于 hard floor，优先从同天另一半日挪冗余点，但不能把另一半降到 floor 以下。
+    """
     _is_theme = bool(
         getattr(parsed_intent, "theme_profile", None)
         or getattr(parsed_intent, "theme_label", None)
@@ -4188,8 +4284,8 @@ def _rebalance_theme_half_day_points(
     if not _is_theme or not _is_full_day:
         return route_points
 
-    MIN_MORNING = 2
-    MIN_AFTERNOON = 2
+    SOFT_TARGET = 3
+    HARD_FLOOR = 2
 
     def _is_real_visit(p: dict[str, Any]) -> bool:
         kind = str(p.get("kind") or "").lower()
@@ -4199,24 +4295,28 @@ def _rebalance_theme_half_day_points(
             return False
         return True
 
+    def _slot_key(p: dict[str, Any]) -> str:
+        slot = str(p.get("display_slot") or p.get("slot") or "").lower()
+        return slot
+
+    def _is_lunch(p: dict[str, Any]) -> bool:
+        slot = _slot_key(p)
+        kind = str(p.get("kind") or "").lower()
+        name = str(p.get("name") or "")
+        return (kind in {"meal", "restaurant"} and slot == "lunch") or "午餐" in name or "午饭" in name
+
+    def _is_dinner(p: dict[str, Any]) -> bool:
+        slot = _slot_key(p)
+        kind = str(p.get("kind") or "").lower()
+        name = str(p.get("name") or "")
+        return (kind in {"meal", "restaurant"} and slot == "dinner") or "晚餐" in name or "晚饭" in name
+
     def _dist_between(a: dict, b: dict) -> float:
         al = a.get("location") or {}
         bl = b.get("location") or {}
         if al and bl and al.get("lat") and bl.get("lat"):
             return haversine_km(al, bl)
         return 999.0
-
-    def _is_lunch_point(p: dict[str, Any]) -> bool:
-        name = str(p.get("name") or "")
-        slot = str(p.get("display_slot") or p.get("slot") or "").lower()
-        kind = str(p.get("kind") or "").lower()
-        return kind in {"meal", "restaurant"} and (slot == "lunch" or "午餐" in name or "午饭" in name)
-
-    def _is_dinner_point(p: dict[str, Any]) -> bool:
-        name = str(p.get("name") or "")
-        slot = str(p.get("display_slot") or p.get("slot") or "").lower()
-        kind = str(p.get("kind") or "").lower()
-        return kind in {"meal", "restaurant"} and (slot == "dinner" or "晚餐" in name or "晚饭" in name)
 
     result: list[dict[str, Any]] = []
     by_day: dict[int, list[dict[str, Any]]] = {}
@@ -4226,8 +4326,8 @@ def _rebalance_theme_half_day_points(
 
     for day in sorted(by_day.keys()):
         points = list(by_day[day])
-        lunch_idx = next((i for i, p in enumerate(points) if _is_lunch_point(p)), None)
-        dinner_idx = next((i for i, p in enumerate(points) if _is_dinner_point(p)), None)
+        lunch_idx = next((i for i, p in enumerate(points) if _is_lunch(p)), None)
+        dinner_idx = next((i for i, p in enumerate(points) if _is_dinner(p)), None)
 
         if lunch_idx is None:
             result.extend(points)
@@ -4242,67 +4342,102 @@ def _rebalance_theme_half_day_points(
 
         before_counts = (len(morning_visits), len(afternoon_visits), len(evening_visits))
 
-        if len(morning_visits) >= MIN_MORNING or len(afternoon_visits) <= MIN_AFTERNOON:
+        # Check if any half needs help
+        need_morning = len(morning_visits) < HARD_FLOOR
+        need_afternoon = len(afternoon_visits) < HARD_FLOOR
+
+        if not need_morning and not need_afternoon:
             result.extend(points)
             continue
 
-        # Try to move points from afternoon to morning
-        moved_count = 0
-        morning_names = {p.get("name") for p in morning_visits}
-        last_morning = points[morning_end - 1] if morning_end > 0 else points[0]
-        lunch_point = points[lunch_idx]
+        moved_names: list[str] = []
 
-        for i in range(morning_end, afternoon_end):
-            candidate = points[i]
-            if not _is_real_visit(candidate):
-                continue
-            name = candidate.get("name")
-            if name in morning_names:
-                continue
-            if moved_count >= max(1, MIN_MORNING - len(morning_visits)):
-                break
+        # Try moving from afternoon to morning
+        if need_morning and len(afternoon_visits) > HARD_FLOOR:
+            morning_names = {p.get("name") for p in morning_visits}
+            last_morning = points[morning_end - 1] if morning_end > 0 else points[0]
+            lunch_point = points[lunch_idx]
+            needed = max(1, HARD_FLOOR - len(morning_visits))
+            moved_count = 0
 
-            # Distance constraint: close to lunch or last morning point
-            d_lunch = _dist_between(candidate, lunch_point)
-            d_morning = _dist_between(candidate, last_morning)
-            if min(d_lunch, d_morning) > 1.2:
-                continue
+            for i in range(morning_end, afternoon_end):
+                if moved_count >= needed:
+                    break
+                candidate = points[i]
+                if not _is_real_visit(candidate):
+                    continue
+                name = candidate.get("name")
+                if name in morning_names:
+                    continue
+                d_lunch = _dist_between(candidate, lunch_point)
+                d_morning = _dist_between(candidate, last_morning)
+                if min(d_lunch, d_morning) > 3.0:
+                    continue
 
-            # Prefer same parent/sub_anchor
-            same_parent = (
-                candidate.get("parent_name") == last_morning.get("parent_name")
-                or candidate.get("parent_anchor") == last_morning.get("parent_anchor")
-                or candidate.get("sub_anchor_name") == last_morning.get("sub_anchor_name")
-            )
-            if moved_count == 0 and not same_parent and len(afternoon_visits) > MIN_AFTERNOON + 1:
-                continue
+                moved = dict(candidate)
+                moved["display_slot"] = "morning"
+                moved.pop("display_order", None)
+                moved["rebalance_reason"] = "theme_half_day_density_floor"
+                points.pop(i)
+                points.insert(morning_end, moved)
+                morning_end += 1
+                moved_count += 1
+                moved_names.append(name)
+                morning_names.add(name)
+                if lunch_idx is not None and i < lunch_idx:
+                    lunch_idx += 1
+                if dinner_idx is not None and i < dinner_idx:
+                    dinner_idx += 1
+                afternoon_end = dinner_idx if dinner_idx is not None else len(points)
+                afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
+                if len(afternoon_visits) <= HARD_FLOOR:
+                    break
 
-            moved = dict(candidate)
-            moved["display_slot"] = "morning"
-            moved.pop("display_order", None)
-            moved["rebalance_reason"] = "theme_half_day_morning_floor"
-            morning_visits.append(moved)
-            morning_names.add(name)
-            morning_end += 1
-            moved_count += 1
+        # Try moving from morning to afternoon
+        afternoon_end = dinner_idx if dinner_idx is not None else len(points)
+        afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
+        if need_afternoon and len(morning_visits) > HARD_FLOOR:
+            afternoon_names = {p.get("name") for p in afternoon_visits}
+            first_afternoon = points[morning_end] if morning_end < len(points) else points[-1]
+            needed = max(1, HARD_FLOOR - len(afternoon_visits))
+            moved_count = 0
 
-            # Remove from afternoon
-            points.pop(i)
-            points.insert(morning_end - 1, moved)
-            if lunch_idx and i < (lunch_idx or 0):
-                lunch_idx = min(lunch_idx + 1, len(points) - 1)
-            if dinner_idx and i < dinner_idx:
-                dinner_idx = min(dinner_idx + 1, len(points) - 1)
-            afternoon_end = dinner_idx if dinner_idx else len(points)
-            afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
-            evening_visits = [p for p in points[afternoon_end:] if _is_real_visit(p)] if dinner_idx else []
+            for i in range(morning_end - 1, -1, -1):
+                if moved_count >= needed:
+                    break
+                candidate = points[i]
+                if not _is_real_visit(candidate):
+                    continue
+                name = candidate.get("name")
+                if name in afternoon_names:
+                    continue
+                d_anchor = _dist_between(candidate, first_afternoon)
+                if d_anchor > 3.0:
+                    continue
+
+                moved = dict(candidate)
+                moved["display_slot"] = "afternoon"
+                moved.pop("display_order", None)
+                moved["rebalance_reason"] = "theme_half_day_density_floor"
+                points.pop(i)
+                points.insert(morning_end, moved)
+                moved_count += 1
+                moved_names.append(name)
+                afternoon_names.add(name)
+                if lunch_idx is not None and i < lunch_idx:
+                    lunch_idx -= 1
+                if dinner_idx is not None and i < dinner_idx:
+                    dinner_idx -= 1
+                afternoon_end = dinner_idx if dinner_idx is not None else len(points)
+                afternoon_visits = [p for p in points[morning_end:afternoon_end] if _is_real_visit(p)]
+                if len(morning_visits) - moved_count <= HARD_FLOOR:
+                    break
 
         after_counts = (len(morning_visits), len(afternoon_visits), len(evening_visits))
-        if moved_count > 0:
-            names_moved = [p.get("name") for p in points if p.get("rebalance_reason")]
+        if moved_names:
             print(
-                f"[DEBUG step3] rebalanced theme half-day points day={day} "
-                f"moved={names_moved} before_counts={before_counts} after_counts={after_counts}"
+                f"[DEBUG step3] ensured theme half-day density day={day} "
+                f"moved={moved_names} before_counts={before_counts} after_counts={after_counts}"
             )
         result.extend(points)
 
@@ -4313,6 +4448,98 @@ def _rebalance_theme_half_day_points(
             p["route_order"] = 1
 
     return result
+
+
+def _promote_density_waypoints(
+    points: list[dict[str, Any]],
+    waypoint_annotations: dict[str, dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    """v18: 主题路线半日密度兜底 — 将隐藏的非waypoint anchor_internal提升为主展示点。
+
+    对主题路线按 day + slot 分组，若某半日主展示 POI < HARD_FLOOR，
+    优先从同 day 同 slot 的 anchor_internal(is_waypoint=False)中提升。
+    """
+    _is_theme = bool(
+        getattr(parsed_intent, "theme_profile", None)
+        or getattr(parsed_intent, "theme_label", None)
+        or getattr(parsed_intent, "micro_poi_keywords", None)
+        or getattr(parsed_intent, "theme_keywords", None)
+    )
+    if not _is_theme:
+        return points, waypoint_annotations
+
+    HARD_FLOOR = 2
+
+    def _slot_of(p: dict[str, Any]) -> str:
+        ds = str(p.get("display_slot") or p.get("slot") or "").lower()
+        if ds in ("morning", "am", "上午"):
+            return "morning"
+        if ds in ("afternoon", "pm", "下午"):
+            return "afternoon"
+        if ds in ("evening", "night", "晚上"):
+            return "evening"
+        return ""
+
+    def _is_real_display(p: dict[str, Any]) -> bool:
+        kind = str(p.get("kind") or "").lower()
+        if kind in {"start", "meal", "restaurant", "hint", "free_explore"}:
+            return False
+        if p.get("same_building"):
+            return False
+        if _is_night_scene_point(p):
+            return False
+        return True
+
+    # Group points by (day, slot)
+    groups: dict[tuple[int, str], list[dict[str, Any]]] = {}
+    for p in points:
+        day = int(p.get("day") or p.get("day_index") or 1)
+        slot = _slot_of(p)
+        groups.setdefault((day, slot), []).append(p)
+
+    promoted_total: list[str] = []
+    for (day, slot), group in groups.items():
+        if slot not in ("morning", "afternoon"):
+            continue
+        # Count real display waypoints
+        display_wps = [p for p in group if _is_real_display(p) and p.get("is_waypoint")]
+        if len(display_wps) >= HARD_FLOOR:
+            continue
+
+        # Find candidates: same day+slot, anchor_internal, not waypoint, not night
+        needed = HARD_FLOOR - len(display_wps)
+        candidates = [
+            p for p in group
+            if p.get("kind") == "anchor_internal"
+            and not p.get("is_waypoint")
+            and _is_real_display(p)
+            and p.get("name") not in {wp.get("name") for wp in display_wps}
+        ]
+        # Sort by rating desc
+        candidates.sort(key=lambda p: float(p.get("rating") or p.get("gaode_rating") or 0), reverse=True)
+
+        promoted: list[str] = []
+        for c in candidates[:needed]:
+            c["is_waypoint"] = True
+            c["density_promoted"] = True
+            name = str(c.get("name") or "")
+            promoted.append(name)
+            waypoint_annotations[name] = {
+                "is_waypoint": True,
+                "walk_from_route_min": 0,
+                "day": day,
+                "density_promoted": True,
+            }
+
+        if promoted:
+            promoted_total.extend(promoted)
+            print(
+                f"[DEBUG step3] promoted density POIs to waypoints "
+                f"day={day} slot={slot} names={promoted}"
+            )
+
+    return points, waypoint_annotations
 
 
 def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -4628,7 +4855,7 @@ async def run_step3(
     )
 
     # v16: 主题路线半日均衡 — 确保上午至少 2 个真实游览点
-    points = _rebalance_theme_half_day_points(points, parsed_intent)
+    points = _ensure_theme_half_day_density(points, parsed_intent)
 
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
@@ -4658,6 +4885,9 @@ async def run_step3(
                 "day": point.get("day", 0),
                 "same_building": True,
             }
+
+    # v18: 主题路线密度兜底 — 提升隐藏点为主展示点
+    points, waypoint_annotations = _promote_density_waypoints(points, waypoint_annotations, parsed_intent)
 
     # ── 3.6 POI路线标注 ──
     # v5.2: 对每个sub-anchor内的POI，标注其在路线polyline上的最近点和距离

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import MainLayout from './components/Layout/MainLayout';
@@ -33,8 +33,9 @@ const App: React.FC = () => {
       <BrowserRouter>
         <ErrorBoundary>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          {/* v18: 封锁注册/登录 — /login 和 /register 直接重定向到 /app */}
+          <Route path="/login" element={<Navigate to="/app" replace />} />
+          <Route path="/register" element={<Navigate to="/app" replace />} />
           <Route path="/" element={<LandingPage />} />
           {/* /app 路由 - 登录后的主入口，默认显示 PlannerPage */}
           {/* PlannerPage 有自己的完整布局，不使用 MainLayout */}

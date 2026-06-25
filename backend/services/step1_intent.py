@@ -494,6 +494,61 @@ def _append_unique(values: list[str], additions: list[str], limit: int | None = 
     return result
 
 
+# v18: 父母/长辈/老人误判为儿童亲子主题的后处理修正
+_CHILD_TERMS = {"孩子", "小孩", "儿童", "亲子", "带娃", "带孩子", "遛娃", "宝宝", "小朋友", "婴儿", "幼儿", "少年"}
+_PARENT_ELDER_TERMS = {"父母", "爸妈", "爸爸", "妈妈", "父亲", "母亲", "长辈", "老人", "老年", "爸妈来", "父母来"}
+_CHILD_FAMILY_IDS = {"family_friendly", "family_child_friendly"}
+
+
+def _apply_parent_elder_theme_guard(parsed: ParsedIntent, user_request: str, city: str) -> ParsedIntent:
+    """防止"父母/长辈/老人"误触发儿童亲子主题。
+
+    若用户提到父母/长辈且未提到儿童，且当前 theme_profile 是亲子类，
+    则将主题修改为更宽泛的城市热闹/经典游览主题。
+    """
+    current_profile = getattr(parsed, "theme_profile", None)
+    if current_profile not in _CHILD_FAMILY_IDS:
+        return parsed
+
+    text_lower = user_request.lower()
+    has_parent = any(t in user_request for t in _PARENT_ELDER_TERMS)
+    has_child = any(t in user_request for t in _CHILD_TERMS)
+
+    if not has_parent or has_child:
+        return parsed
+
+    # 命中：仅提到父母/长辈且未提儿童 → 不能使用儿童亲子 profile
+    old_profile = current_profile
+    parsed.theme_profile = "local_character"
+    parsed.theme_label = parsed.theme_label or "长辈友好 / 热闹商圈 / 城市经典"
+    parsed.theme_confidence = max(float(getattr(parsed, "theme_confidence", 0) or 0), 0.80)
+
+    # micro_poi_keywords: 替换儿童词为成人通用词
+    child_blocked = {"儿童博物馆", "儿童乐园", "亲子餐厅", "亲子", "儿童", "科技馆", "自然教育", "动物园", "游乐场", "主题乐园"}
+    adult_keywords = ["热门景点", "热闹商圈", "城市地标", "老字号", "历史街区", "步行街", "公园", "本帮菜", "经典游览", "城市漫步"]
+    existing = [k for k in (getattr(parsed, "micro_poi_keywords", []) or []) if k not in child_blocked]
+    parsed.micro_poi_keywords = _append_unique(existing, adult_keywords, limit=14)
+
+    # micro_required_terms: 移除强儿童词
+    child_required = {"儿童", "亲子", "母婴", "玩具", "婴儿", "幼儿"}
+    parsed.micro_required_terms = [
+        t for t in (getattr(parsed, "micro_required_terms", []) or [])
+        if t not in child_required
+    ]
+
+    # search_keywords: 补入成人通用搜索词
+    city_short = city[:-1] if city.endswith("市") else city
+    adult_search = [f"{city_short} 热门景点", f"{city_short} 热闹商圈", f"{city_short} 城市地标", f"{city_short} 老字号", f"{city_short} 历史街区"]
+    parsed.search_keywords = _append_unique(parsed.search_keywords, adult_search, limit=8)
+
+    print(
+        f"[DEBUG step1] parent_elder_theme_guard applied "
+        f"old_profile={old_profile} new_profile={parsed.theme_profile} "
+        f"keywords={parsed.micro_poi_keywords[:8]}"
+    )
+    return parsed
+
+
 def _duration_hint_for_llm(user_request: str) -> str:
     duration = _duration_from_request(user_request)
     if duration:
@@ -1091,24 +1146,29 @@ def _next_start_time(user_request: str, current_time: dt.datetime, duration: str
 
 
 def _fallback_origin(parsed: ParsedIntent, user_profile: UserProfile) -> dict | None:
-    # v5.2 r5: 本地生活路线规划始终优先设备位置（nearby visit），与time_budget无关
-    device_location = getattr(user_profile, "current_device_location", None)
+    # v18: 统一使用 home_location 作为路线出发地，不再优先 device_location
     home_location = getattr(user_profile, "home_location", None)
     permanent_city_coord = getattr(user_profile, "permanent_city_coord", None)
-    return device_location or home_location or permanent_city_coord
+    result = home_location or permanent_city_coord
+    if result:
+        print(
+            f"[DEBUG step1] fallback_origin_source=home_location "
+            f"label={result.get('label','')} lat={result.get('lat','')} lng={result.get('lng','')}"
+        )
+    return result
 
 
 async def _llm_parse(
     user_request: str,
     current_time: dt.datetime,
-    plan_mode: str = "exploratory",
+    plan_mode: str = "auto",  # v18: "auto" — LLM 自己判断 exploratory/planned
     planned_rule_hints: list[PlannedWaypoint] | None = None,
 ) -> ParsedIntent:
     time_str = current_time.strftime("%Y-%m-%d %H:%M")
 
     # v6: 构造 rule hints 文本，帮助 LLM 更稳定地提取 planned_waypoints
     planned_rule_hints_text = ""
-    if plan_mode == "planned" and planned_rule_hints:
+    if plan_mode in ("auto", "planned") and planned_rule_hints:
         hint_payload = [
             {
                 "type": wp.type,
@@ -1133,13 +1193,16 @@ async def _llm_parse(
         )
 
     # v6: planned 模式下追加 planned_waypoints 提取说明
+    # v18: auto 模式也注入 — LLM 需要自己判断是否填充 planned_waypoints
     planned_waypoints_section = ""
     planned_waypoints_field = ""
     planned_waypoints_step = ""
-    if plan_mode == "planned":
+    if plan_mode in ("auto", "planned"):
         planned_waypoints_field = (
             "\n"
-            "14. planned_waypoints (object[]) — 有序途经点列表 ⚠️ 精准规划/连续决策时必填\n"
+            "14. planned_waypoints (object[]) — 有序途经点列表"
+            + (" ⚠️ 精准规划/连续决策时必填" if plan_mode == "planned" else " ⚠️ 仅在用户明确表达有序任务序列时填写") +
+            "\n"
             '   用户表达了一系列按顺序执行的动作时（如"先X，然后Y，再Z"），提取为有序途经点。\n'
             '   每个途经点含：type(fixed|placeholder)、name、search_keyword、category、stay_minutes、search_keywords、required_terms、excluded_terms。\n'
             '   search_keyword：该点的主检索词，必须是可搜索品类或具体地点名，不要使用"附近/顺路/下班路上/找个地方"这类上下文词。\n'
@@ -1220,7 +1283,11 @@ async def _llm_parse(
             "content": (
                 f"<context>当前时间：{time_str}。"
                 f"系统预检测：{_duration_hint_for_llm(user_request)}"
-                f"当前模式：{plan_mode}（{'精准规划，需提取planned_waypoints' if plan_mode == 'planned' else '自由探索，无需planned_waypoints'}）</context>\n"
+                f"当前模式：{plan_mode}（"
+                + ("精准规划，需提取planned_waypoints" if plan_mode == "planned" else
+                   "自动判断 — 若用户给出有序任务/连续决策，设 plan_mode='planned' 并填 planned_waypoints；若只是主题/氛围/区域探索，设 plan_mode='exploratory' 并留空 planned_waypoints"
+                   if plan_mode == "auto" else "自由探索，无需planned_waypoints")
+                + "）</context>\n"
                 + planned_rule_hints_text +
                 "\n"
                 f"<user_input>{user_request}</user_input>\n"
@@ -1307,7 +1374,15 @@ async def _llm_parse(
                 '      "博物馆就别安排了" → delete_list: ["博物馆"]\n'
                 '      "不想去人太多的地方" → delete_list: [] （这是偏好不是具体地点排除，放 other_constraints）\n'
                 "\n"
-                + planned_waypoints_field +
+                + planned_waypoints_field
+                + (
+                    "\n"
+                    "15. plan_mode (string) — 路线模式 ⚠️ auto 模式下必须输出\n"
+                    '    "planned"：用户给出了有序途经点、通勤链路、上午/下午/晚上分时段安排、先X再Y等连续决策\n'
+                    '    "exploratory"：用户只给出了主题/氛围/区域/泛游玩需求，没有明确的时间顺序\n'
+                    '    若为 "planned"，必须同时填充 planned_waypoints；若为 "exploratory"，planned_waypoints 留空。\n'
+                    if plan_mode == "auto" else ""
+                ) +
                 "</field_definitions>\n"
                 "\n"
                 "<examples>\n"
@@ -1546,6 +1621,9 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         )
     print(f"[DEBUG step1] theme_profile={getattr(parsed, 'theme_profile', None)} theme_label={getattr(parsed, 'theme_label', None)}")
     print(f"[DEBUG step1] micro_poi_keywords={getattr(parsed, 'micro_poi_keywords', [])}")
+
+    # v18: 父母/长辈/老人不应触发儿童亲子主题
+    parsed = _apply_parent_elder_theme_guard(parsed, user_request, city)
 
     skip_destination_detection = (
         getattr(parsed, "plan_mode", "exploratory") == "planned"
@@ -1998,13 +2076,14 @@ async def run_step1(
     user_profile: UserProfile,
     current_time: dt.datetime,
     logger: PipelineLogger,
-    plan_mode: str = "exploratory",  # v5.2 r3: "exploratory" | "planned" — 前端切换按钮传入
+    plan_mode: str = "auto",  # v18: "auto" | "exploratory" | "planned" — auto = LLM 自行判断
 ) -> ParsedIntent:
     logger.start_step("step_1_1_llm_extract")
     await emit_status("正在解析您的出行意图...")
     # v6: planned 模式只生成 rule hints 辅助 LLM，不再直接使用 fast planned 结果
+    # v18: auto 模式也生成 rule hints（LLM 可能判断为 planned）
     planned_rule_hints: list[PlannedWaypoint] = []
-    if plan_mode == "planned":
+    if plan_mode in ("auto", "planned"):
         planned_rule_hints = _fallback_planned_waypoints_from_request(user_request, include_generic=False)
         if planned_rule_hints:
             print(
@@ -2056,16 +2135,33 @@ async def run_step1(
     fixed_budget, weather_info = await asyncio.gather(fixed_task, weather_task)
     parsed.weather_info = weather_info
     await logger.log_step("step_1_3_fixed_and_weather", output_count=1 if fixed_budget >= 0 else 0)
-    # v5.2 r3: 规划性意图处理 — 不再额外调用 LLM
-    # planned_waypoints 优先使用 _llm_parse() 第一次提取的结果
-    # 若 LLM 未提取（空列表），使用确定性 fallback 兜底，绝不再调第二次 LLM
+    # v18: plan_mode postprocessing
+    # - "planned": forced planned (backward compat), downgrade if no waypoints
+    # - "auto": trust LLM's parsed.plan_mode; if LLM says planned but no valid waypoints → downgrade
+    # - "exploratory": ignore waypoints, set exploratory
     if plan_mode == "planned":
         parsed.plan_mode = "planned"
         if not parsed.planned_waypoints:
             parsed.planned_waypoints = _fallback_planned_waypoints_from_request(user_request)
         if not parsed.planned_waypoints:
             parsed.plan_mode = "exploratory"  # 提取失败降级为探索模式
+            print("[DEBUG step1] forced planned but no valid waypoints → downgraded to exploratory")
+    elif plan_mode == "auto":
+        llm_plan_mode = getattr(parsed, 'plan_mode', 'exploratory') or 'exploratory'
+        if llm_plan_mode == "planned":
+            if not parsed.planned_waypoints:
+                parsed.planned_waypoints = _fallback_planned_waypoints_from_request(user_request)
+            if not parsed.planned_waypoints:
+                parsed.plan_mode = "exploratory"
+                print("[DEBUG step1] auto mode: LLM said planned but no valid waypoints → downgraded to exploratory")
+            else:
+                parsed.plan_mode = "planned"
+                print(f"[DEBUG step1] auto mode: LLM detected planned, {len(parsed.planned_waypoints)} waypoints")
+        else:
+            parsed.plan_mode = "exploratory"
+            print(f"[DEBUG step1] auto mode: LLM detected exploratory (llm_plan_mode={llm_plan_mode})")
     else:
+        # explicit "exploratory" or other
         parsed.plan_mode = "exploratory"
 
     return parsed

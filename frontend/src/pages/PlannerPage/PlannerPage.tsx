@@ -37,19 +37,35 @@ import styles from './PlannerPage.module.css';
 
 const PlannerPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout } = useUserStore();
+  const { user, logout, isGuest, ensureGuestSession } = useUserStore();
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  // v6: 按模式隔离发送状态，两个模式的 hasSent 互不影响
-  const [hasSentByMode, setHasSentByMode] = useState<Record<string, boolean>>({
-    exploratory: false,
-    planned: false,
-  });
+  // v18: 单一发送状态，不再按模式隔离
+  const [hasSentInSession, setHasSentInSession] = useState(false);
+
+  // v18: 游客初始化标记 — 首次使用时自动弹出身份定制页
+  const GUEST_INIT_KEY = 'guest-profile-initialized-v1';
+  const [guestOnboardingOpen, setGuestOnboardingOpen] = useState(false);
+
+  // v18: 页面挂载时保障游客会话
+  useEffect(() => {
+    ensureGuestSession();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v18: 首次游客使用，自动弹出身份定制页（等 FeatureGuide 之后）
+  useEffect(() => {
+    if (isGuest && !localStorage.getItem(GUEST_INIT_KEY)) {
+      // 延迟弹窗，避免与 FeatureGuide 抢焦
+      const timer = setTimeout(() => {
+        setGuestOnboardingOpen(true);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isGuest]);
   const [recentHistories, setRecentHistories] = useState<RouteHistory[]>([]);
-  const isGuest = useUserStore(state => state.isGuest);
 
   // 功能指引
   const GUIDE_STORAGE_KEY = 'local-life-route-feature-guide-seen-v1';
@@ -73,7 +89,7 @@ const PlannerPage: React.FC = () => {
 
   // 聊天状态管理（必须在 hasSentCurrentMode 之前初始化）
   const chat = useChat();
-  const hasSentCurrentMode = hasSentByMode[chat.planMode || 'exploratory'];
+  const hasSentCurrentMode = hasSentInSession;
   
   // 从 routeStore 获取 CompletePlan 和 mapRouteData
   const currentPlan = useRouteStore(state => state.currentPlan);
@@ -591,16 +607,14 @@ const PlannerPage: React.FC = () => {
             planningElapsedSeconds={chat.planningElapsedSeconds}
             isPlanningActive={chat.isPlanningActive}
             activeDay={chat.activeDay}
-            planMode={chat.planMode}
-            setPlanMode={chat.setPlanMode}
             sendMessage={chat.sendMessage}
-            clearChat={() => { chat.clearChat(); setHasSentByMode(prev => ({ ...prev, [chat.planMode || 'exploratory']: false })); }}
+            clearChat={() => { chat.clearChat(); setHasSentInSession(false); }}
             setActiveDay={chat.setActiveDay}
             onRouteChange={handleRouteChange}
             onDayChange={handleDayChange}
             onPlanningComplete={(resultText) => {
               console.log('[PlannerPage] 规划完成，触发行程侧边栏显示');
-              setHasSentByMode(prev => ({ ...prev, [chat.planMode || 'exploratory']: true }));
+              setHasSentInSession(true);
               itinerary.completePlanning(resultText, []);
               // 刷新近期历史
               routeHistoryService.listHistories(isGuest).then(setRecentHistories).catch(() => {});
@@ -609,7 +623,7 @@ const PlannerPage: React.FC = () => {
             isSidebarCollapsed={itinerary.collapsed}
             onLoadHistory={handleLoadHistory}
             onDeleteHistory={handleDeleteHistory}
-            onSend={() => setHasSentByMode(prev => ({ ...prev, [chat.planMode || 'exploratory']: true }))}
+            onSend={() => setHasSentInSession(true)}
             recentHistories={recentHistories}
             hasSentInSession={hasSentCurrentMode}
           />
@@ -690,6 +704,18 @@ const PlannerPage: React.FC = () => {
       <SettingsModal
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
+      />
+
+      {/* v18: 游客首次身份定制（不可关闭/跳过） */}
+      <SettingsModal
+        mode="onboarding"
+        open={guestOnboardingOpen}
+        closable={false}
+        onClose={() => setGuestOnboardingOpen(false)}
+        onSaved={() => {
+          localStorage.setItem(GUEST_INIT_KEY, '1');
+          setGuestOnboardingOpen(false);
+        }}
       />
 
       {/* 右侧行程锚点 — 始终存在，用于功能指引定位 */}

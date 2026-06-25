@@ -542,6 +542,10 @@ export default function MapContainer({
     }
     if (routeDistance >= 0.3 && pathKm < routeDistance * 0.5) return true;
     if (routeDistance > 0 && routeDistance < 5 && maxGap > Math.max(0.8, routeDistance * 0.6)) return true;
+    // v8.1: 近距离步行段绕路比校验 — waypoint 落入不可步行区域导致绕桥
+    if (routeDistance > 0 && routeDistance < 1.2 && pathKm > Math.max(1.5, routeDistance * 4)) {
+      return true;
+    }
     return false;
   }
 

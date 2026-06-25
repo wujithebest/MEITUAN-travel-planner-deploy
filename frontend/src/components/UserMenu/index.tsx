@@ -13,43 +13,36 @@ import { useUserStore } from '@/store/userStore';
 import styles from './UserMenu.module.css';
 
 const UserMenu: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, isLoggedIn, logout } = useUserStore();
+  const { user, isLoggedIn, logout, ensureGuestSession } = useUserStore();
   const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     setOpen(false);
-    navigate('/login');
+    ensureGuestSession();  // v18: 退出后重新进入游客模式
   };
 
   const handleLogin = () => {
-    navigate('/login');
+    // v18: 统一走游客模式
+    ensureGuestSession();
   };
 
   const handleRegister = () => {
-    navigate('/register');
+    // v18: 统一走游客模式
+    ensureGuestSession();
   };
 
-  // 未登录状态
+  // v18: 封锁注册/登录 — 未登录时仅显示游客入口
   if (!isLoggedIn || !user) {
     return (
       <Space>
-        <Button 
-          type="text" 
+        <Button
+          type="text"
           icon={<LogIn size={16} />}
           onClick={handleLogin}
           className={styles.authBtn}
         >
-          登录
-        </Button>
-        <Button 
-          type="primary" 
-          icon={<UserPlus size={16} />}
-          onClick={handleRegister}
-          className={styles.authBtn}
-        >
-          注册
+          游客进入
         </Button>
       </Space>
     );

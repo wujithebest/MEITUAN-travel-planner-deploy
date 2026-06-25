@@ -1,12 +1,43 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Modal, Form, Input, Select, Button, message, Divider, AutoComplete, InputNumber } from 'antd';
-import { User, MapPin, Heart, Save } from 'lucide-react';
+import { Modal, Form, Input, Select, Button, message, Divider, AutoComplete, InputNumber, Tooltip } from 'antd';
+import { User, MapPin, Heart, Save, Navigation } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { userApi } from '../../api/user';
 import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION, makeDeviceHomeAddress, makeLocationPayload } from '@/utils/locationDefaults';
 import axios from 'axios';
 import { buildApiUrl } from '@/config/api.config';
 import styles from './SettingsModal.module.css';
+
+// ── 常量 ──
+
+const TRAVEL_PREFERENCES = [
+  { id: 'history', label: '历史文化', icon: '🏛️', color: '#8B4513' },
+  { id: 'food', label: '美食探店', icon: '🍜', color: '#FF6B35' },
+  { id: 'nature', label: '自然风光', icon: '🌳', color: '#4CAF50' },
+  { id: 'shopping', label: '购物娱乐', icon: '🛍️', color: '#E91E63' },
+  { id: 'art', label: '艺术展览', icon: '🎨', color: '#9C27B0' },
+  { id: 'nightlife', label: '夜生活', icon: '🌙', color: '#3F51B5' },
+  { id: 'photography', label: '摄影打卡', icon: '📸', color: '#00BCD4' },
+  { id: 'family', label: '亲子游玩', icon: '👨‍👩‍👧‍👦', color: '#FF9800' },
+  { id: 'adventure', label: '户外探险', icon: '🏔️', color: '#795548' },
+];
+
+const TASTE_OPTIONS = [
+  { value: '百味皆爱', label: '百味皆爱' },
+  { value: '川菜', label: '川菜' },
+  { value: '粤菜', label: '粤菜' },
+  { value: '湘菜', label: '湘菜' },
+  { value: '鲁菜', label: '鲁菜' },
+  { value: '苏浙菜', label: '苏浙菜' },
+  { value: '日料', label: '日料' },
+  { value: '韩餐', label: '韩餐' },
+  { value: '西餐', label: '西餐' },
+  { value: '东南亚菜', label: '东南亚菜' },
+  { value: '烧烤火锅', label: '烧烤火锅' },
+  { value: '小吃快餐', label: '小吃快餐' },
+];
+
+// ── 接口 ──
 
 interface AddressOption {
   value: string;
@@ -29,18 +60,15 @@ interface HomeAddress {
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  /** v18: 'settings' = 普通设置, 'onboarding' = 首次游客身份定制（不可跳过） */
+  mode?: 'settings' | 'onboarding';
+  /** v18: 是否允许关闭（onboarding 模式默认 false） */
+  closable?: boolean;
+  /** v18: 保存成功后的回调 */
+  onSaved?: () => void;
 }
 
-const preferenceOptions = [
-  { value: 'scenic', label: '自然风光' },
-  { value: 'cultural', label: '人文古迹' },
-  { value: 'food', label: '美食探店' },
-  { value: 'shopping', label: '购物休闲' },
-  { value: 'adventure', label: '户外探险' },
-  { value: 'relax', label: '休闲度假' },
-  { value: 'photography', label: '摄影打卡' },
-  { value: 'family', label: '亲子游玩' },
-];
+// ── 辅助函数 ──
 
 const normalizeHomeAddress = (user: any): HomeAddress | null => {
   const homeAddress = user?.location?.home_address;
@@ -52,7 +80,6 @@ const normalizeHomeAddress = (user: any): HomeAddress | null => {
       lat: homeAddress.lat ?? null,
     };
   }
-
   if (user?.home_location?.lat && user?.home_location?.lng) {
     return {
       name: user.home_location.label || '常住地址',
@@ -61,7 +88,6 @@ const normalizeHomeAddress = (user: any): HomeAddress | null => {
       lat: user.home_location.lat,
     };
   }
-
   if (user?.location?.address) {
     return {
       name: user.location.address,
@@ -70,158 +96,157 @@ const normalizeHomeAddress = (user: any): HomeAddress | null => {
       lat: user.location.latitude ?? null,
     };
   }
-
   return null;
 };
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
+// ── 组件 ──
+
+const SettingsModal: React.FC<SettingsModalProps> = ({
+  open,
+  onClose,
+  mode = 'settings',
+  closable = true,
+  onSaved,
+}) => {
   const { user, isGuest, updateUser, updateGuestProfile } = useUserStore();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  
+
   // 地址搜索相关状态
   const [addressOptions, setAddressOptions] = useState<AddressOption[]>([]);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedAddress, setSelectedAddress] = useState<HomeAddress | null>(null);
-  // 用 ref 保存 form 引用，避免 useCallback 依赖 form 导致防抖重建
   const formRef = useRef(form);
   formRef.current = form;
 
+  // v18: 旅行偏好卡片式选择（onboarding 模式使用，settings 模式也用）
+  const [travelPrefs, setTravelPrefs] = useState<string[]>([]);
+  const [tastePref, setTastePref] = useState<string>('百味皆爱');
+
+  // v18: 地理定位状态
+  const [geoLocated, setGeoLocated] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [userEditedAddress, setUserEditedAddress] = useState(false);
+
+  const isOnboarding = mode === 'onboarding';
+
+  // ── 打开时填充表单 ──
   useEffect(() => {
     if (open && user) {
       const normalizedHomeAddress = normalizeHomeAddress(user);
       form.setFieldsValue({
         username: user.username || '',
         email: user.email || '',
+        gender: user.gender || '男',
+        age: user.age || 30,
+        district: user.location?.district || '杨浦区',
+        budget_per_capita: user.budget_per_capita || 100,
+        food_preferences: user.food_preferences || [],
         preferences: user.preferences || [],
         homeAddress: normalizedHomeAddress?.name || normalizedHomeAddress?.full_address || '',
       });
-      if (isGuest) {
-        form.setFieldsValue({
-          gender: user.gender || '男',
-          age: user.age || 30,
-          district: user.location?.district || '杨浦区',
-          budget_per_capita: user.budget_per_capita || 100,
-          food_preferences: user.food_preferences || [],
-        });
-      }
       setSelectedAddress(normalizedHomeAddress);
+      setTravelPrefs(user.preferences || []);
+      const fp = (user.food_preferences || [])[0];
+      setTastePref(fp && TASTE_OPTIONS.find(o => o.value === fp) ? fp : '百味皆爱');
     } else if (open && !user) {
       form.resetFields();
       setSelectedAddress(null);
+      setTravelPrefs([]);
+      setTastePref('百味皆爱');
     }
-  }, [open, user, form, isGuest]);
+  }, [open, user, form]);
 
-  // 组件卸载时清理定时器
+  // v18: onboarding 首次打开自动获取设备位置
+  useEffect(() => {
+    if (open && isOnboarding && !geoLocated && !userEditedAddress) {
+      setGeoLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude: lat, longitude: lng } = position.coords;
+          try {
+            const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${lng}&lat=${lat}`));
+            const addr = res.data?.data || res.data;
+            const name = addr?.address || addr?.formatted_address || '当前设备位置';
+            const homeAddr: HomeAddress = { name, full_address: name, lng, lat };
+            setSelectedAddress(homeAddr);
+            form.setFieldsValue({ homeAddress: name });
+            // 同步写入 store
+            const { user: curUser, updateGuestProfile: ugp } = useUserStore.getState();
+            if (isGuest && curUser) {
+              ugp({
+                ...curUser,
+                location: {
+                  ...curUser.location,
+                  home_address: homeAddr,
+                  latitude: lat,
+                  longitude: lng,
+                },
+                home_location: makeLocationPayload(lat, lng, name),
+              });
+            }
+          } catch {
+            // reverse geocode failed, use raw coords
+            const homeAddr = makeDeviceHomeAddress(lat, lng);
+            setSelectedAddress(homeAddr);
+            form.setFieldsValue({ homeAddress: homeAddr.name });
+          }
+          setGeoLocated(true);
+          setGeoLoading(false);
+        },
+        () => {
+          // geolocation denied or failed, use fallback
+          setSelectedAddress(FALLBACK_HOME_ADDRESS);
+          form.setFieldsValue({ homeAddress: FALLBACK_HOME_ADDRESS.name });
+          setGeoLocated(true);
+          setGeoLoading(false);
+        },
+        { timeout: 8000, enableHighAccuracy: false },
+      );
+    }
+  }, [open, isOnboarding, geoLocated, userEditedAddress, isGuest, form]);
+
+  // 清理定时器
   useEffect(() => {
     return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, []);
 
-  // 游客模式首次打开时尝试获取设备位置
-  const [geoLocated, setGeoLocated] = useState(false);
-  useEffect(() => {
-    if (open && isGuest && !geoLocated && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          console.log('[SettingsModal] 设备定位成功:', { latitude, longitude });
-          if (accuracy && accuracy > 300) {
-            console.warn(`[LocationDebug] SettingsModal geolocation accuracy is low: ${accuracy}m`);
-          }
-          const hasManualHome = !!user?.location?.home_address || !!user?.home_location;
-          // 用户手动修改过常住地址后，不再被自动定位覆盖
-          const homeAddress = hasManualHome ? user?.location?.home_address : makeDeviceHomeAddress(latitude, longitude);
-          const homeLocation = hasManualHome ? user?.home_location : makeLocationPayload(latitude, longitude);
-          updateGuestProfile({
-            location: {
-              ...user?.location,
-              latitude,
-              longitude,
-              home_address: homeAddress,
-            },
-            home_location: homeLocation,
-          });
-          setGeoLocated(true);
-        },
-        (err) => {
-          console.warn('[SettingsModal] 设备定位失败，使用默认位置:', err.message);
-          if (!user?.location?.home_address && !user?.home_location) {
-            updateGuestProfile({
-              location: {
-                ...user?.location,
-                latitude: FALLBACK_HOME_LOCATION.lat,
-                longitude: FALLBACK_HOME_LOCATION.lng,
-                home_address: FALLBACK_HOME_ADDRESS,
-              },
-              home_location: FALLBACK_HOME_LOCATION,
-            });
-          }
-          setGeoLocated(true);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-      );
-    }
-  }, [open, isGuest, geoLocated, user?.location, user?.home_location, updateGuestProfile]);
-
-  // 地址搜索函数（带防抖）- 不依赖 form，使用 formRef
+  // ── 地址搜索 ──
   const doSearch = useCallback(async (keyword: string) => {
-    // 关键词少于2个字符时不搜索
     if (!keyword || keyword.length < 2) {
       setAddressOptions([]);
       setDropdownOpen(false);
       return;
     }
-
     setSearchingAddress(true);
     setDropdownOpen(true);
-
     try {
-      // 地址搜索城市固定为上海
-      const params = new URLSearchParams({ keyword });
-      params.append('city', '上海');
-      
-      // 使用相对路径，通过 Vite 代理转发到后端
-      // 注意：不使用 baseURL: ''，直接用相对路径让 axios 使用默认 baseURL（空字符串）
-      // Vite 代理会将 /api/* 请求转发到 http://localhost:8002
-      const response = await axios.get(buildApiUrl(`/address/search?${params.toString()}`));
-      
-      console.log('[AddressSearch] API响应:', response.data);
-      
-      const data = response.data?.data || [];
-      
-      // 格式化选项
-      const options: AddressOption[] = data.map((item: any) => ({
-        value: item.name,
+      const res = await axios.get(buildApiUrl(`/address/search?keyword=${encodeURIComponent(keyword)}&city=上海`));
+      const data = res.data?.data || res.data || [];
+      const items = Array.isArray(data) ? data : [];
+      const options: AddressOption[] = items.map((item: any) => ({
+        value: item.name || item.address || '',
         label: (
           <div className={styles.addressOption}>
-            <div className={styles.addressName}>{item.name}</div>
-            <div className={styles.addressDetail}>
-              {item.district && <span>{item.district} </span>}
-              {item.address}
-            </div>
+            <div className={styles.addressName}>{item.name || item.address}</div>
+            <div className={styles.addressDetail}>{item.address || item.district || ''}</div>
           </div>
         ),
         address: {
-          name: item.name,
-          full_address: item.address,
-          lng: item.location?.lng || null,
-          lat: item.location?.lat || null,
+          name: item.name || item.address || '',
+          full_address: item.address || item.name || '',
+          lng: item.lng ?? item.location?.lng ?? null,
+          lat: item.lat ?? item.location?.lat ?? null,
         },
       }));
-      
-      console.log('[AddressSearch] 格式化后的选项数:', options.length);
       setAddressOptions(options);
-      // 有结果时保持下拉打开，无结果时也打开以显示 notFoundContent
-      setDropdownOpen(options.length > 0 || response.data?.status === 'success');
-    } catch (error: any) {
-      console.error('[AddressSearch] 地址搜索失败:', error);
-      // 显示网络错误信息
+      setDropdownOpen(options.length > 0);
+    } catch (err) {
+      console.error('[SettingsModal] 地址搜索失败:', err);
       setAddressOptions([]);
       setDropdownOpen(false);
     } finally {
@@ -229,57 +254,80 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
     }
   }, []);
 
-  // 防抖搜索入口
-  const handleAddressSearch = useCallback((keyword: string) => {
-    // 清除之前的定时器
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // 关键词少于2个字符时立即清空
-    if (!keyword || keyword.length < 2) {
-      setAddressOptions([]);
-      setDropdownOpen(false);
-      return;
-    }
-
-    // 设置防抖定时器（350ms，留余量避免中文输入法问题）
-    debounceTimer.current = setTimeout(() => {
-      doSearch(keyword);
-    }, 350);
+  const handleAddressSearch = useCallback((value: string) => {
+    if (!value) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => doSearch(value), 350);
   }, [doSearch]);
 
-  // 地址选择处理
-  const handleAddressSelect = useCallback((value: string, option: any) => {
-    console.log('[AddressSearch] 选中地址:', option?.address);
-    if (option?.address) {
-      setSelectedAddress(option.address);
-    }
+  const handleAddressSelect = useCallback((_value: string, option: any) => {
+    setSelectedAddress(option.address);
+    setUserEditedAddress(true);
   }, []);
 
-  // 地址输入变化处理
   const handleAddressChange = useCallback((value: string) => {
     if (!value) {
       setSelectedAddress(null);
       setAddressOptions([]);
       setDropdownOpen(false);
+      setUserEditedAddress(true);
     }
   }, []);
 
-  // 输入框获得焦点时，如果有已保存的地址或有选项，显示下拉
   const handleFocus = useCallback(() => {
-    if (addressOptions.length > 0) {
-      setDropdownOpen(true);
-    }
+    if (addressOptions.length > 0) setDropdownOpen(true);
   }, [addressOptions.length]);
 
+  // v18: 手动定位
+  const handleLocate = useCallback(() => {
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        try {
+          const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${lng}&lat=${lat}`));
+          const addr = res.data?.data || res.data;
+          const name = addr?.address || addr?.formatted_address || '当前设备位置';
+          const homeAddr: HomeAddress = { name, full_address: name, lng, lat };
+          setSelectedAddress(homeAddr);
+          form.setFieldsValue({ homeAddress: name });
+          setUserEditedAddress(false);
+        } catch {
+          const homeAddr = makeDeviceHomeAddress(lat, lng);
+          setSelectedAddress(homeAddr);
+          form.setFieldsValue({ homeAddress: homeAddr.name });
+          setUserEditedAddress(false);
+        }
+        setGeoLoading(false);
+      },
+      () => {
+        message.warning('无法获取设备位置，请手动输入地址');
+        setGeoLoading(false);
+      },
+      { timeout: 8000, enableHighAccuracy: false },
+    );
+  }, [form]);
+
+  // v18: 旅行偏好切换
+  const toggleTravelPref = (id: string) => {
+    setTravelPrefs(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id].slice(0, 5)
+    );
+  };
+
+  // ── 保存 ──
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
 
+      // 合并偏好
+      const finalPrefs = isOnboarding ? travelPrefs : (values.preferences || []);
+      const finalTaste = isOnboarding
+        ? (tastePref !== '百味皆爱' ? [tastePref] : [])
+        : (values.food_preferences || []);
+
       if (isGuest) {
-        // 游客模式：本地保存
         const updatedLocation = { ...user?.location };
         if (selectedAddress) {
           updatedLocation.home_address = selectedAddress;
@@ -288,47 +336,45 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
           updatedLocation.district = values.district;
         }
 
-        // v6: 同时写入 home_location（用于路线规划）
         const homeLocation = selectedAddress
           ? {
               lat: selectedAddress.lat ?? FALLBACK_HOME_LOCATION.lat,
               lng: selectedAddress.lng ?? FALLBACK_HOME_LOCATION.lng,
               label: selectedAddress.name || selectedAddress.full_address || FALLBACK_HOME_LOCATION.label,
             }
-          : null;
+          : FALLBACK_HOME_LOCATION;
 
+        // v18: 游客模式写入完整字段
         updateGuestProfile({
           username: values.username,
           gender: values.gender,
           age: values.age,
-          preferences: values.preferences,
-          food_preferences: values.food_preferences,
+          preferences: finalPrefs,
+          activity_pref_tag: finalPrefs,
+          food_preferences: finalTaste,
           budget_per_capita: values.budget_per_capita,
-          location: updatedLocation as any,
+          location: {
+            ...updatedLocation,
+            latitude: selectedAddress?.lat ?? FALLBACK_HOME_LOCATION.lat,
+            longitude: selectedAddress?.lng ?? FALLBACK_HOME_LOCATION.lng,
+          } as any,
           home_location: homeLocation,
         });
 
-        message.success('设置已保存（本地）');
+        message.success(isOnboarding ? '身份信息已保存，开始探索吧！' : '设置已保存（本地）');
         setLoading(false);
+        onSaved?.();
         onClose();
         return;
       }
 
-      // 注册用户：调用 API
-      const updateData: any = {
-        username: values.username,
-        preferences: values.preferences,
-      };
-
+      // 注册用户
+      const updateData: any = { username: values.username, preferences: finalPrefs };
       if (selectedAddress) {
-        updateData.location = {
-          home_address: selectedAddress,
-        };
+        updateData.location = { home_address: selectedAddress };
       }
-
       await userApi.updateProfile(updateData);
 
-      // v6: 构建 home_location
       const homeLocation = selectedAddress
         ? {
             lat: selectedAddress.lat || 31.2809,
@@ -341,133 +387,86 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
         updateUser({
           ...user,
           username: values.username,
-          preferences: values.preferences,
-          location: {
-            ...user.location,
-            home_address: selectedAddress || undefined,
-          },
+          preferences: finalPrefs,
+          food_preferences: finalTaste,
+          location: { ...user.location, home_address: selectedAddress || undefined },
           home_location: homeLocation,
         });
       }
 
       message.success('设置已保存');
+      onSaved?.();
       onClose();
     } catch (error: any) {
-      if (error.errorFields) {
-        return;
-      }
+      if (error.errorFields) return;
       message.error(error.message || '保存失败，请稍后重试');
     } finally {
       setLoading(false);
     }
   };
 
+  // ── 渲染 ──
   return (
     <Modal
-      title="我的设置"
+      title={isOnboarding ? '🎉 欢迎！请完善您的出行偏好' : '我的设置'}
       open={open}
-      onCancel={onClose}
+      onCancel={closable ? onClose : undefined}
       footer={null}
-      width={520}
+      width={560}
       centered
+      closable={closable}
+      maskClosable={closable}
+      keyboard={closable}
       className={styles.modal}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        className={styles.form}
-      >
+      <Form form={form} layout="vertical" className={styles.form}>
         {/* 基本信息 */}
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
             <User size={16} />
             <span>基本信息</span>
           </div>
-          
-          <Form.Item
-            name="username"
-            label="用户名"
-            rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 2, message: '用户名至少2个字符' },
-              { max: 20, message: '用户名最多20个字符' },
-            ]}
-          >
-            <Input
-              placeholder="请输入用户名"
-              prefix={<User size={14} color="#999" />}
-            />
-          </Form.Item>
 
           <Form.Item
-            name="email"
-            label="邮箱"
+            name="username"
+            label="昵称"
+            rules={[
+              { required: true, message: '请输入昵称' },
+              { min: 2, message: '至少2个字符' },
+              { max: 20, message: '最多20个字符' },
+            ]}
           >
-            <Input
-              disabled
-              placeholder="邮箱不可修改"
-            />
+            <Input placeholder="请输入昵称" prefix={<User size={14} color="#999" />} />
           </Form.Item>
 
           {isGuest && (
             <>
-              <Form.Item
-                name="gender"
-                label="性别"
-              >
-                <Select
-                  placeholder="选择性别"
-                  options={[
-                    { value: '男', label: '男' },
-                    { value: '女', label: '女' },
-                    { value: '其他', label: '其他' },
-                  ]}
-                />
-              </Form.Item>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <Form.Item name="gender" label="性别" style={{ flex: 1 }}>
+                  <Select
+                    placeholder="选择性别"
+                    options={[
+                      { value: '男', label: '男' },
+                      { value: '女', label: '女' },
+                      { value: '其他', label: '其他' },
+                    ]}
+                  />
+                </Form.Item>
+                <Form.Item name="age" label="年龄" style={{ flex: 1 }}>
+                  <InputNumber min={1} max={120} placeholder="年龄" style={{ width: '100%' }} />
+                </Form.Item>
+              </div>
 
-              <Form.Item
-                name="age"
-                label="年龄"
-              >
-                <InputNumber
-                  min={1}
-                  max={120}
-                  placeholder="年龄"
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="district"
-                label="所在区县"
-              >
+              <Form.Item name="district" label="所在区县">
                 <Input placeholder="如：杨浦区" />
               </Form.Item>
 
-              <Form.Item
-                name="budget_per_capita"
-                label="人均预算（元）"
-                tooltip="用于筛选餐厅和消费场所"
-              >
+              <Form.Item name="budget_per_capita" label="人均预算（元）" tooltip="用于筛选餐厅和消费场所">
                 <InputNumber
-                  min={0}
-                  max={10000}
-                  step={10}
+                  min={0} max={10000} step={10}
                   placeholder="人均消费预算"
                   style={{ width: '100%' }}
                   addonAfter="元"
-                />
-              </Form.Item>
-
-              <Form.Item
-                name="food_preferences"
-                label="美食偏好"
-                tooltip="输入后按回车添加标签"
-              >
-                <Select
-                  mode="tags"
-                  placeholder="如：本帮菜、咖啡、日料"
-                  maxTagCount={6}
                 />
               </Form.Item>
             </>
@@ -476,89 +475,119 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
 
         <Divider />
 
-        {/* 位置偏好 */}
+        {/* 常驻地址 */}
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
             <MapPin size={16} />
-            <span>位置偏好</span>
+            <span>常驻地址（路线出发地）</span>
           </div>
 
-          <Form.Item
-            name="homeAddress"
-            label="常住地址"
-            tooltip="输入2个字后开始搜索，支持小区、写字楼、商场等"
-          >
-            <AutoComplete
-              placeholder="请输入您的常住地址（如：陆家嘴、徐家汇）"
-              options={addressOptions}
-              onSelect={handleAddressSelect}
-              onSearch={(value) => {
-                // onSearch 在用户按下回车或点击搜索图标时触发
-                // 中文输入法下，onSearch 在确认输入后触发
-                handleAddressSearch(value);
-              }}
-              onChange={(value) => {
-                // 处理清空情况
-                if (!value) {
-                  setSelectedAddress(null);
-                  setAddressOptions([]);
-                  setDropdownOpen(false);
-                  return;
-                }
-                // 触发搜索（带防抖）
-                handleAddressSearch(value);
-              }}
-              onFocus={handleFocus}
-              notFoundContent={searchingAddress ? '搜索中...' : '请输入至少2个字进行搜索'}
-              allowClear
-              filterOption={false}
-              open={dropdownOpen}
-              onDropdownVisibleChange={(visible) => {
-                // 允许用户手动关闭下拉框
-                if (!visible) {
-                  setDropdownOpen(false);
-                } else if (addressOptions.length > 0 || searchingAddress) {
-                  setDropdownOpen(true);
-                }
-              }}
-            />
-          </Form.Item>
-          
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}>
+              <Form.Item
+                name="homeAddress"
+                label=""
+                tooltip="输入2个字后开始搜索"
+              >
+                <AutoComplete
+                  placeholder="请输入您的常驻地址（如：陆家嘴、徐家汇）"
+                  options={addressOptions}
+                  onSelect={handleAddressSelect}
+                  onSearch={handleAddressSearch}
+                  onChange={(value: any) => {
+                    if (!value) { handleAddressChange(''); return; }
+                    handleAddressSearch(String(value));
+                  }}
+                  onFocus={handleFocus}
+                  notFoundContent={searchingAddress ? '搜索中...' : '请输入至少2个字进行搜索'}
+                  allowClear
+                  filterOption={false}
+                  open={dropdownOpen}
+                  onDropdownVisibleChange={(visible: boolean) => {
+                    if (!visible) setDropdownOpen(false);
+                    else if (addressOptions.length > 0 || searchingAddress) setDropdownOpen(true);
+                  }}
+                />
+              </Form.Item>
+            </div>
+            <Tooltip title={geoLoading ? '定位中...' : '获取当前设备位置'}>
+              <Button
+                icon={<Navigation size={16} />}
+                onClick={handleLocate}
+                loading={geoLoading}
+                style={{ marginTop: 28 }}
+              />
+            </Tooltip>
+          </div>
+
           {selectedAddress && (
             <div className={styles.selectedAddress}>
               <MapPin size={14} color="#1890ff" />
-              <span className={styles.selectedAddressText}>
-                {selectedAddress.full_address}
-              </span>
+              <span className={styles.selectedAddressText}>{selectedAddress.full_address}</span>
             </div>
           )}
         </div>
 
         <Divider />
 
-        {/* 旅行偏好 */}
+        {/* 口味偏好 */}
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
-            <Heart size={16} />
-            <span>旅行偏好</span>
+            <span>😋</span>
+            <span>口味偏好</span>
           </div>
-
-          <Form.Item
-            name="preferences"
-            label="偏好标签（可多选）"
-          >
+          <Form.Item name="food_preferences" label="选择您喜欢的口味" style={{ marginBottom: 0 }}>
             <Select
               mode="multiple"
-              placeholder="选择您感兴趣的旅行类型"
-              options={preferenceOptions}
-              maxTagCount={4}
+              placeholder="选择口味偏好（可多选）"
+              options={TASTE_OPTIONS.map(o => ({ value: o.value, label: `${o.label}` }))}
+              maxTagCount={6}
             />
           </Form.Item>
         </div>
 
+        <Divider />
+
+        {/* 旅行偏好 — 卡片式 */}
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Heart size={16} />
+            <span>旅行偏好（可多选，最多5项）</span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+            {TRAVEL_PREFERENCES.map(pref => {
+              const active = travelPrefs.includes(pref.id);
+              return (
+                <button
+                  key={pref.id}
+                  type="button"
+                  onClick={() => toggleTravelPref(pref.id)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '6px 14px', borderRadius: 20, border: `2px solid ${active ? pref.color : '#e8e8e8'}`,
+                    background: active ? `${pref.color}15` : '#fff',
+                    cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400,
+                    color: active ? pref.color : '#666',
+                    transition: 'all 0.2s', outline: 'none',
+                  }}
+                >
+                  <span>{pref.icon}</span>
+                  <span>{pref.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* 隐藏的 Form.Item 用于兼容 settings 模式的 preferences Select */}
+          {!isOnboarding && (
+            <Form.Item name="preferences" style={{ display: 'none' }}>
+              <Select mode="multiple" />
+            </Form.Item>
+          )}
+        </div>
+
         {/* 提交按钮 */}
         <div className={styles.actions}>
-          <Button onClick={onClose}>取消</Button>
+          {closable && <Button onClick={onClose}>取消</Button>}
           <Button
             type="primary"
             icon={<Save size={14} />}
@@ -566,7 +595,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
             loading={loading}
             className={styles.submitBtn}
           >
-            保存设置
+            {isOnboarding ? '开始探索' : '保存设置'}
           </Button>
         </div>
       </Form>

@@ -105,34 +105,30 @@ def _in_city_bounds(city: str, location: dict | None) -> bool:
 
 
 async def _resolve_city_from_profile(user_profile: UserProfile) -> str:
+    """v18: 只基于 home_location 解析城市，不再 fallback 到 current_device_location。"""
     home_loc = getattr(user_profile, "home_location", None) or {}
-    device_loc = getattr(user_profile, "current_device_location", None) or {}
 
-    for text in [
-        home_loc.get("label") if isinstance(home_loc, dict) else "",
-        device_loc.get("label") if isinstance(device_loc, dict) else "",
-    ]:
-        city = _city_from_text(text)
+    # text label match
+    if isinstance(home_loc, dict) and home_loc.get("label"):
+        city = _city_from_text(str(home_loc["label"]))
         if city:
             return city
 
-    for loc in [home_loc, device_loc]:
-        loc_str = _location_to_lnglat(loc if isinstance(loc, dict) else None)
-        if not loc_str:
-            continue
+    # reverse geocode home_location
+    loc_str = _location_to_lnglat(home_loc if isinstance(home_loc, dict) else None)
+    if loc_str:
         try:
             addr = await gaode_reverse_geocode(loc_str)
         except Exception as exc:
             print(f"[WARN step2] resolve city reverse geocode failed: {exc}")
             addr = None
-        if not addr:
-            continue
-        city_value = addr.get("city")
-        if isinstance(city_value, list):
-            city_value = city_value[0] if city_value else ""
-        city = _normalize_city_name(city_value or addr.get("province") or "")
-        if city:
-            return city
+        if addr:
+            city_value = addr.get("city")
+            if isinstance(city_value, list):
+                city_value = city_value[0] if city_value else ""
+            city = _normalize_city_name(city_value or addr.get("province") or "")
+            if city:
+                return city
 
     old_city = ""
     if getattr(user_profile, "permanent_city", None):

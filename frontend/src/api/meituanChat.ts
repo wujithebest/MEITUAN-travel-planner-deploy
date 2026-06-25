@@ -310,7 +310,7 @@ function parseSSEMessage(rawData: string): SSEMessage | null {
  */
 export function sendMeituanMessageStream(
   message: string,
-  planMode: 'exploratory' | 'planned' = 'exploratory',
+  planMode: string = 'auto',
   userId?: string,
   callbacks?: StreamCallbacks,
   guestProfile?: GuestProfile,

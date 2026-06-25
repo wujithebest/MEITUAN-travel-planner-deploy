@@ -141,8 +141,8 @@ async def get_mock_profile(user_id: str = None) -> UserProfile:
         food_pref_tag=["本帮菜", "咖啡"],           # 口味偏好，request未提餐饮偏好时注入餐饮搜索
         permanent_city=perm_city,                    # 从环境变量读取，默认空
         permanent_city_coord={"lat": home_loc.get("lat", 31.2809), "lng": home_loc.get("lng", 121.5011)},
-        current_device_location=_env_device_location(),  # 当前设备位置；本地测试可用 ROUTE_PLANNER_DEVICE_* 覆盖
-        home_location=home_loc,                      # ← 异步获取个性化地址
+        current_device_location=None,                     # v18: 不再作为独立出发地
+        home_location=home_loc,                      # ← 异步获取个性化地址（唯一出发地来源）
         budget_per_capita=100.0,                     # 人均消费预算（元），阈值=100*1.5=150元
     )
 
@@ -153,20 +153,23 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
     当用户以游客模式使用应用时，前端将用户在设置中编辑的画像数据通过
     guest_profile 字段传入后端，后端据此构建 UserProfile 而非使用硬编码兜底。
 
-    Args:
-        guest: 前端传来的游客画像字典，包含 nickname, gender, age,
-               activity_pref_tag, food_pref_tag, permanent_city,
-               permanent_city_coord, current_device_location,
-               home_location, budget_per_capita
-
-    Returns:
-        UserProfile 实例
+    v18: home_location 为唯一路线出发地来源。
     """
-    current_device = guest.get("current_device_location") or {}
-    home_loc = guest.get("home_location") or {}
 
+    home_loc = guest.get("home_location") or {}
     FALLBACK_LAT = 31.2809
     FALLBACK_LNG = 121.5011
+
+    # 统一使用 home_location 作为位置来源
+    resolved_lat = home_loc.get("lat", FALLBACK_LAT)
+    resolved_lng = home_loc.get("lng", FALLBACK_LNG)
+    resolved_label = home_loc.get("label", "同济大学四平路校区")
+
+    resolved_home = {
+        "lat": resolved_lat,
+        "lng": resolved_lng,
+        "label": resolved_label,
+    }
 
     return UserProfile(
         nickname=guest.get("nickname", "游客"),
@@ -176,23 +179,10 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
         food_pref_tag=guest.get("food_pref_tag", ["本帮菜", "咖啡"]),
         # city 后续由 Step2 基于 home_location 自动解析，不再信任前端手动 city
         permanent_city=[],
-        permanent_city_coord=guest.get("permanent_city_coord") or {
-            "lat": home_loc.get("lat", current_device.get("lat", FALLBACK_LAT)),
-            "lng": home_loc.get("lng", current_device.get("lng", FALLBACK_LNG)),
-        },
-        current_device_location={
-            "lat": current_device.get("lat", FALLBACK_LAT),
-            "lng": current_device.get("lng", FALLBACK_LNG),
-            "label": current_device.get("label", "当前设备位置"),
-        } if current_device else {
-            "lat": FALLBACK_LAT, "lng": FALLBACK_LNG, "label": "同济大学四平路校区",
-        },
-        home_location={
-            "lat": home_loc.get("lat", FALLBACK_LAT),
-            "lng": home_loc.get("lng", FALLBACK_LNG),
-            "label": home_loc.get("label", "同济大学四平路校区"),
-        } if home_loc else {
-            "lat": FALLBACK_LAT, "lng": FALLBACK_LNG, "label": "同济大学四平路校区",
-        },
+        # v18: permanent_city_coord = home_location 坐标，不再降级到 current_device
+        permanent_city_coord=guest.get("permanent_city_coord") or {"lat": resolved_lat, "lng": resolved_lng},
+        # v18: current_device_location 不再作为独立出发地
+        current_device_location=None,
+        home_location=resolved_home,
         budget_per_capita=guest.get("budget_per_capita", 100.0),
     )

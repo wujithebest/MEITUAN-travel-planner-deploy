@@ -3,44 +3,19 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, MapPin, Calendar, Camera } from 'lucide-react';
 import BackgroundHero from '../../components/BackgroundHero';
-import AuthCard from '../../components/AuthCard';
 import { useUserStore } from '../../store/userStore';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, register, guestLogin, isLoading, isLoggedIn, token } = useUserStore();
+  const { ensureGuestSession } = useUserStore();
 
   useEffect(() => {
-    if (isLoggedIn || token) {
-      navigate('/app', { replace: true });
-    }
-  }, [isLoggedIn, token, navigate]);
-
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      await login(email, password);
-      navigate('/app', { replace: true });
-    } catch (error) {
-      // 错误已在store中处理
-      console.error('Login failed:', error);
-    }
-  };
-
-  const handleRegister = async (username: string, email: string, password: string) => {
-    try {
-      await register({ username, email, password });
-      navigate('/app', { replace: true });
-    } catch (error) {
-      // 错误已在store中处理
-      console.error('Register failed:', error);
-    }
-  };
-
-  const handleGuestMode = () => {
-    guestLogin();
+    // v18: 封锁登录 — 直接进入游客模式并跳转
+    ensureGuestSession();
     navigate('/app', { replace: true });
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // v18: 所有入口统一走游客模式，不再展示 AuthCard
   return (
     <BackgroundHero>
       {/* 主标题区域 */}
@@ -89,13 +64,7 @@ const LandingPage: React.FC = () => {
         </motion.p>
       </motion.div>
 
-      {/* 认证卡片 */}
-      <AuthCard
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        onGuestMode={handleGuestMode}
-        isLoading={isLoading}
-      />
+      {/* v18: 认证卡片已移除 — 统一游客模式 */}
 
       {/* 底部特性展示 */}
       <motion.div

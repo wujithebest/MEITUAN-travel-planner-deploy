@@ -590,6 +590,7 @@ async def run_step4(
         route_points, route_segments, anchor_hints, waypoint_annotations,
         candidate_points=candidate_points, plan_mode=_plan_mode,
         duration=_duration, time_budget=_time_budget_val,
+        parsed_intent=parsed_intent,  # v18: for planning_state in route_data
     )
 
     # v6: 一致性校验 — summary 核心 POI 是否在 route_data.points 中
@@ -625,6 +626,7 @@ async def _build_route_data(
     plan_mode: str = "exploratory",
     duration: str = "",
     time_budget: float = 0,
+    parsed_intent: Any = None,  # v18: ParsedIntent for planning_state output
 ) -> dict[str, Any]:
     """构建路线数据，用于前端验证
 
@@ -1008,6 +1010,41 @@ async def _build_route_data(
     route_id = str(uuid.uuid4())
     _route_cache[route_id] = {"points": points, "segments": segments}
 
+    # v18: build planning_state from parsed_intent for frontend compatibility
+    planning_state: dict[str, Any] = {}
+    parsed_intent_light: dict[str, Any] = {}
+    if parsed_intent is not None:
+        wp_list = []
+        for wp in (getattr(parsed_intent, 'planned_waypoints', []) or []):
+            wp_list.append({
+                "type": getattr(wp, 'type', ''),
+                "name": getattr(wp, 'name', ''),
+                "search_keyword": getattr(wp, 'search_keyword', ''),
+                "category": getattr(wp, 'category', ''),
+                "stay_minutes": getattr(wp, 'stay_minutes', 0),
+                "search_keywords": getattr(wp, 'search_keywords', []) or [],
+            })
+        parsed_intent_light = {
+            "duration": getattr(parsed_intent, 'duration', ''),
+            "start_time": parsed_intent.start_time.isoformat() if getattr(parsed_intent, 'start_time', None) else None,
+            "raw_keywords": getattr(parsed_intent, 'raw_keywords', []) or [],
+            "search_keywords": getattr(parsed_intent, 'search_keywords', []) or [],
+            "micro_keywords": getattr(parsed_intent, 'micro_keywords', []) or [],
+            "fixed_pois": [{"name": f.name, "user_time_budget": f.user_time_budget} for f in (getattr(parsed_intent, 'fixed_pois', []) or [])],
+            "delete_list": getattr(parsed_intent, 'delete_list', []) or [],
+            "food_pref_keywords": getattr(parsed_intent, 'food_pref_keywords', []) or [],
+            "meal_search_keywords": getattr(parsed_intent, 'meal_search_keywords', []) or [],
+            "budget_per_capita": getattr(parsed_intent, 'budget_per_capita', None),
+            "transport_hint": getattr(parsed_intent, 'transport_hint', '公共交通'),
+            "evening_requested": getattr(parsed_intent, 'evening_requested', False),
+            "plan_mode": getattr(parsed_intent, 'plan_mode', 'exploratory') or 'exploratory',
+            "planned_waypoints": wp_list,
+        }
+        planning_state = {
+            "plan_mode": parsed_intent_light["plan_mode"],
+            "parsed_intent": parsed_intent_light,
+        }
+
     return {
         "points": points,
         "segments": segments,
@@ -1018,4 +1055,6 @@ async def _build_route_data(
         "plan_mode": plan_mode,
         "total_days": _total_days,
         "display_granularity": display_granularity,
+        "planning_state": planning_state,       # v18: for frontend to read detected plan_mode
+        "parsed_intent": parsed_intent_light,   # v18: backward compat for previous_intent
     }

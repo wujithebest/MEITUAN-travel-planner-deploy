@@ -57,7 +57,7 @@ class RouteContextSchema(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     user_id: str = "default"
-    plan_mode: str = "exploratory"
+    plan_mode: str = "auto"  # v18: "auto" — 后端 LLM 自动判断 exploratory/planned，不信任前端
     guest_profile: GuestProfileSchema | None = None
     client_sent_at: str | None = None
     client_timezone: str | None = None
@@ -199,7 +199,14 @@ from services.step3_micro import run_step3
 from services.step4_output import run_step4
 from services.api_client import gaode_text_search
 from services.pipeline_replan_service import apply_pipeline_replan
-from services.conversation_replan import classify_conversation_route_change, classify_conversation_route_change_fast
+from services.conversation_replan import (
+    classify_conversation_route_change,
+    classify_conversation_route_change_fast,
+    classify_planning_dispatch,
+    _detect_plan_mode_from_text,
+    _planning_dispatch_fast_fallback,
+    PlanningDispatchDecision,
+)
 
 # ═══ v11: 聊天编辑意图分类 ═══
 
@@ -517,7 +524,7 @@ async def _run_pipeline_stream(
                     pass
             print(f"[DEBUG meituan_chat] client_sent_at={client_sent_at} client_timezone={client_timezone} resolved_current_time={current_time}")
 
-            # v17: 会话决策层 — LLM 优先判断是开新路线还是修改旧路线
+            # v18: 统一调度 — LLM 一次性判断 conversation_mode + target_plan_mode
             conv_ctx = {
                 "point_names": route_context.point_names if route_context else [],
                 "points": route_context.points if route_context else [],
@@ -528,62 +535,83 @@ async def _run_pipeline_stream(
                 "previous_intent": route_context.previous_intent if route_context else None,
                 "previous_complete_plan": route_context.previous_complete_plan if route_context else None,
             }
-            route_decision = None
+            dispatch_decision = None
+            plan_mode_for_step1 = "auto"
+            step1_request = user_request  # v18: 默认原样传入，refine_current 分支可覆写
             if route_context and route_context.points:
                 try:
-                    route_decision = await classify_conversation_route_change(user_request, conv_ctx)
-                    print(
-                        f"[DEBUG conversation] classifier=llm "
-                        f"mode={route_decision.mode if route_decision else 'None'} "
-                        f"confidence={getattr(route_decision, 'confidence', '?')} "
-                        f"earliest_step={getattr(route_decision, 'earliest_step', '?')} "
-                        f"reason={getattr(route_decision, 'reason', '?')}"
-                    )
+                    dispatch_decision = await classify_planning_dispatch(user_request, conv_ctx)
+                    if dispatch_decision is not None:
+                        plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
+                        print(
+                            f"[DEBUG dispatch] classifier=llm "
+                            f"conversation_mode={dispatch_decision.conversation_mode} "
+                            f"target_plan_mode={dispatch_decision.target_plan_mode} "
+                            f"previous_plan_mode={dispatch_decision.previous_plan_mode} "
+                            f"mode_changed={dispatch_decision.mode_changed} "
+                            f"confidence={dispatch_decision.confidence} "
+                            f"earliest_step={dispatch_decision.earliest_step} "
+                            f"reason={dispatch_decision.reason}"
+                        )
                 except Exception as exc:
-                    print(f"[WARNING conversation] llm classifier failed, fallback=fast: {exc}")
-                    route_decision = classify_conversation_route_change_fast(user_request, conv_ctx)
+                    print(f"[WARNING dispatch] llm classifier failed, fallback=fast: {exc}")
+                    dispatch_decision = _planning_dispatch_fast_fallback(user_request, conv_ctx, None)
+                    if dispatch_decision is not None:
+                        plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
             else:
-                route_decision = classify_conversation_route_change_fast(user_request, None)
+                # No route context: first message, just detect plan_mode from text
+                target_pm = _detect_plan_mode_from_text(user_request)
+                plan_mode_for_step1 = target_pm
+                dispatch_decision = PlanningDispatchDecision(
+                    conversation_mode="new_plan",
+                    target_plan_mode=target_pm,
+                    confidence=0.85,
+                    earliest_step="step1",
+                    reason="no route context, auto-detected",
+                )
+                print(
+                    f"[DEBUG dispatch] classifier=heuristic conversation_mode=new_plan "
+                    f"target_plan_mode={target_pm} previous_plan_mode=None mode_changed=False "
+                    f"reason=no route context, auto-detected"
+                )
 
-            if route_decision is not None:
-                if route_decision.mode == "new_plan":
-                    print(f"[DEBUG conversation] decision: new_plan → full pipeline")
-                elif route_decision.mode == "point_edit" and route_context and route_context.points:
-                    print(f"[DEBUG conversation] decision: point_edit ops={route_decision.point_operations}")
+            if dispatch_decision is not None:
+                if dispatch_decision.conversation_mode == "new_plan":
+                    print(f"[DEBUG dispatch] decision: new_plan → full pipeline")
+                elif dispatch_decision.conversation_mode == "point_edit" and route_context and route_context.points:
+                    print(f"[DEBUG dispatch] decision: point_edit ops={dispatch_decision.point_operations}")
                     edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
                     if edited:
                         return
-                elif route_decision.mode == "refine_current":
-                    print(f"[DEBUG conversation] decision: refine_current → fallback to pipeline with context")
-                    # v17 temp: pass old context as augmented user_request so Step1 sees it
+                elif dispatch_decision.conversation_mode == "refine_current":
+                    print(f"[DEBUG dispatch] decision: refine_current → enriching request with old context")
                     effective_request = user_request
-                    if route_decision.include_constraints:
+                    if dispatch_decision.include_constraints:
                         parts = [user_request]
-                        for k, v in route_decision.include_constraints.items():
+                        for k, v in dispatch_decision.include_constraints.items():
                             if v and str(v).strip():
                                 parts.append(f"保持{k}={v}")
-                        if route_decision.intent_patch:
-                            patch_str = json.dumps(route_decision.intent_patch, ensure_ascii=False)
+                        if dispatch_decision.intent_patch:
+                            patch_str = json.dumps(dispatch_decision.intent_patch, ensure_ascii=False)
                             parts.append(f"其他不变，按以下参数调整：{patch_str}")
                         effective_request = "；".join(parts)
-                    user_request = effective_request
-                    print(f"[DEBUG conversation] refined effective_request={effective_request[:120]}")
-                elif route_decision.mode == "answer_only":
-                    print(f"[DEBUG conversation] decision: answer_only → answer without replan")
+                    step1_request = effective_request
+                    print(f"[DEBUG dispatch] refined effective_request={effective_request[:120]}")
+                elif dispatch_decision.conversation_mode == "answer_only":
+                    print(f"[DEBUG dispatch] decision: answer_only — answering without replan")
+                    await push_output(f"[ROUTE_PLANNER]: {dispatch_decision.reason or '这个问题不需要重新规划路线。'}")
+                    await emit_done(map_paths=[], full_plan={}, route_data={})
+                    return
                 else:
                     pass
-
-            # v11: 聊天编辑快速通道 — 如果用户意图为修改/替换/新增/删除当前路线，不走完整pipeline
-            edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
-            if edited:
-                return
 
             # Step 1: 意图识别
             await emit_status("正在解析您的出行意图...")
             # [DEBUG-跨时段] 打印实际收到的 user_request
-            print(f"[DEBUG meituan_chat] received user_request={user_request[:120]}")
+            print(f"[DEBUG meituan_chat] received step1_request={step1_request[:120]} "
+                  f"plan_mode_for_step1={plan_mode_for_step1}")
             parsed_intent = await run_step1(
-                user_request, user_profile, current_time, logger_obj, plan_mode=plan_mode
+                step1_request, user_profile, current_time, logger_obj, plan_mode=plan_mode_for_step1
             )
 
             # Step 2: 宏观规划 + Step 3: 微观规划
@@ -722,11 +750,11 @@ async def _run_planned_pipeline_fast(
 
     city = (user_profile.permanent_city[0] if (user_profile.permanent_city and user_profile.permanent_city[0]) else "")
     raw_start_location = getattr(parsed_intent, 'original_location', None) or {}
+    # v18: 统一使用 home_location 作为路线出发地
     home_loc_fb = getattr(user_profile, 'home_location', None) or {}
-    device_loc_fb = getattr(user_profile, 'current_device_location', None) or {}
-    fb_lat = device_loc_fb.get('lat') or home_loc_fb.get('lat') or 31.2809
-    fb_lng = device_loc_fb.get('lng') or home_loc_fb.get('lng') or 121.5011
-    fb_label = device_loc_fb.get('label') or home_loc_fb.get('label') or '当前设备位置'
+    fb_lat = raw_start_location.get('lat') or home_loc_fb.get('lat') or 31.2809
+    fb_lng = raw_start_location.get('lng') or home_loc_fb.get('lng') or 121.5011
+    fb_label = raw_start_location.get('label') or home_loc_fb.get('label') or '同济大学四平路校区'
 
     start_lng = raw_start_location.get('lng') or fb_lng
     start_lat = raw_start_location.get('lat') or fb_lat
@@ -854,10 +882,8 @@ async def meituan_chat_stream(req: ChatRequest):
     if not req.message or req.message.strip() in ("", "__init__", "__welcome__"):
         welcome_text = (
             "[ROUTE_PLANNER]: 欢迎使用路线规划系统！\n"
-            "[ROUTE_PLANNER]: 请选择规划模式：\n"
-            "[ROUTE_PLANNER]:   1 - 自由探索（系统推荐路线）\n"
-            "[ROUTE_PLANNER]:   2 - 连续决策（指定途经点，逐步规划）\n"
-            "[ROUTE_PLANNER]: 请输入模式编号（默认1）："
+            "[ROUTE_PLANNER]: 请描述您的出行需求，我会自动为您规划路线。\n"
+            "[ROUTE_PLANNER]: 例如：周末想去外滩附近逛逛 / 下班后顺路买点水果再回家"
         )
         
         async def welcome_stream():

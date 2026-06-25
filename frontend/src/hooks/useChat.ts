@@ -170,10 +170,9 @@ function generateId(): string {
 /**
  * 按规划模式生成欢迎语
  */
-function createWelcomeMessage(planMode: PlanMode): ChatMessage {
-  const content = planMode === 'planned'
-    ? '下班后、回家前，有什么顺路需求？下个馆子、买点水果、理个发、去哪里逛会儿……一条链路即刻满足！'
-    : '朋友聚会、家人来访、周末出游……不知道怎么安排？交给我来帮你规划吧！';
+function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
+  // v18: 统一欢迎语，不再区分模式
+  const content = '朋友聚会、家人来访、周末出游、下班顺路……不知道怎么安排？交给我来帮你规划吧！';
   return {
     id: 'welcome-1',
     role: 'assistant',
@@ -773,16 +772,13 @@ function getTransportColor(transport: string): string {
  * useChat Hook
  */
 export function useChat(): UseChatReturn {
-  // v6: 按模式隔离消息，自由探索和精准规划互不污染
-  const [messagesByMode, setMessagesByMode] = useState<Record<string, ChatMessage[]>>({
-    exploratory: [],
-    planned: [],
-  });
+  // v18: 单一消息列表，不再按模式隔离（模式由后端自动判断）
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeDay, setActiveDay] = useState<number | null>(null);
-  const [planMode, setPlanMode] = useState<PlanMode>('exploratory');
+  const [planMode, setPlanMode] = useState<PlanMode>(null);  // v18: display-only, derived from backend response
   const [currentPlanningStatus, setCurrentPlanningStatus] = useState<string | null>(null);
   const [planningElapsedSeconds, setPlanningElapsedSeconds] = useState(0);
   const [isPlanningActive, setIsPlanningActive] = useState(false);
@@ -837,26 +833,7 @@ export function useChat(): UseChatReturn {
   }, [clearPlanningTimer]);
 
   /**
-   * 获取当前模式的 messages
-   */
-  const getCurrentMessages = useCallback((): ChatMessage[] => {
-    const m = planMode || 'exploratory';
-    return messagesByMode[m] || [];
-  }, [planMode, messagesByMode]);
-
-  /**
-   * 更新当前模式的 messages
-   */
-  const updateCurrentMessages = useCallback((updater: (prev: ChatMessage[]) => ChatMessage[]) => {
-    const m = planMode || 'exploratory';
-    setMessagesByMode(prev => ({
-      ...prev,
-      [m]: updater(prev[m] || []),
-    }));
-  }, [planMode]);
-
-  /**
-   * 添加消息（仅写入当前模式）
+   * 添加消息
    */
   const addMessage = useCallback((msg: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMsg: ChatMessage = {
@@ -864,9 +841,9 @@ export function useChat(): UseChatReturn {
       id: generateId(),
       timestamp: Date.now(),
     };
-    updateCurrentMessages(prev => [...prev, newMsg]);
+    setMessages(prev => [...prev, newMsg]);
     return newMsg;
-  }, [updateCurrentMessages]);
+  }, []);
 
   /** v11: 构建当前路线上下文，供后端判断编辑意图 */
   const buildRouteContext = useCallback((): ChatRouteContext | undefined => {
@@ -896,7 +873,7 @@ export function useChat(): UseChatReturn {
       }
     }
 
-    const recentUserMessages = getCurrentMessages()
+    const recentUserMessages = messages
       .filter(m => m.role === 'user')
       .slice(-3)
       .map(m => m.content);
@@ -918,12 +895,23 @@ export function useChat(): UseChatReturn {
       recent_user_messages: recentUserMessages,
       // v17: 多轮上下文
       context_source: 'live',
-      previous_user_messages: getCurrentMessages()
+      previous_user_messages: messages
         .filter(m => m.role === 'user')
         .slice(-5)
         .map(m => m.content),
-      previous_intent: (rawRouteData as any)?.parsed_intent || null,
-      previous_complete_plan: (rawRouteData as any)?.complete_plan || null,
+      // v18: previous_intent 优先从 planning_state 取，确保准确反映后端自动判定的 plan_mode
+      previous_intent:
+        (rawRouteData as any)?.planning_state?.parsed_intent
+        || (rawRouteData as any)?.parsed_intent
+        || null,
+      // v18: 附带 plan_mode 信息，供 dispatch 判断 mode_changed
+      previous_complete_plan: {
+        ...((rawRouteData as any)?.complete_plan || {}),
+        plan_mode:
+          (rawRouteData as any)?.planning_state?.plan_mode
+          || (rawRouteData as any)?.plan_mode
+          || 'exploratory',
+      },
       current_route_compact: {
         points: displayPoints.map((p: any) => ({
           name: p.name, kind: p.kind, day: p.day, display_slot: p.display_slot,
@@ -938,7 +926,7 @@ export function useChat(): UseChatReturn {
         candidate_names: [...new Set(candidateNames)],
       },
     };
-  }, [getCurrentMessages]);
+  }, [messages]);
 
   /**
    * 发送消息
@@ -975,17 +963,19 @@ export function useChat(): UseChatReturn {
       const { isGuest, user } = useUserStore.getState();
       let guestProfile: GuestProfile | undefined;
       if (isGuest && user) {
-        const currentLat = user.location?.latitude ?? (user as any).home_location?.lat ?? FALLBACK_HOME_LOCATION.lat;
-        const currentLng = user.location?.longitude ?? (user as any).home_location?.lng ?? FALLBACK_HOME_LOCATION.lng;
-        const homeLocation = (user as any).home_location
-          ? (user as any).home_location
-          : user.location?.home_address
-            ? {
-                lat: user.location.home_address.lat ?? FALLBACK_HOME_LOCATION.lat,
-                lng: user.location.home_address.lng ?? FALLBACK_HOME_LOCATION.lng,
-                label: user.location.home_address.name || FALLBACK_HOME_LOCATION.label,
-              }
-            : FALLBACK_HOME_LOCATION;
+        // v18: getCanonicalHomeLocation — 统一使用 home_location 作为路线出发地
+        const canonicalHome: { lat: number; lng: number; label: string } =
+          (user as any).home_location?.lat && (user as any).home_location?.lng
+            ? (user as any).home_location
+            : user.location?.home_address?.lat && user.location?.home_address?.lng
+              ? {
+                  lat: user.location.home_address.lat,
+                  lng: user.location.home_address.lng,
+                  label: user.location.home_address.name || FALLBACK_HOME_LOCATION.label,
+                }
+              : FALLBACK_HOME_LOCATION;
+
+        console.log('[useChat] canonicalHomeLocation used for route origin:', canonicalHome);
 
         guestProfile = {
           nickname: user.username || '游客',
@@ -995,13 +985,11 @@ export function useChat(): UseChatReturn {
           food_pref_tag: user.food_preferences || [],
           // city 由后端根据 home_location 自动解析，前端不再传用户可编辑 city
           permanent_city: [],
-          permanent_city_coord: { lat: currentLat, lng: currentLng },
-          current_device_location: {
-            lat: currentLat,
-            lng: currentLng,
-            label: '当前设备位置',
-          },
-          home_location: homeLocation,
+          // v18: permanent_city_coord 使用 canonical home location
+          permanent_city_coord: { lat: canonicalHome.lat, lng: canonicalHome.lng },
+          // v18: current_device_location 不再作为独立出发地，传 null 让后端只用 home_location
+          current_device_location: null,
+          home_location: canonicalHome,
           budget_per_capita: user.budget_per_capita || 100,
         };
       }
@@ -1010,7 +998,7 @@ export function useChat(): UseChatReturn {
 
       abortControllerRef.current = sendMeituanMessageStream(
         trimmedInput,
-        planMode!,
+        'auto',  // v18: 后端 LLM 自动判断 exploratory/planned
         undefined,
         {
           // 处理 status 事件 - 只更新最新状态，不创建消息
@@ -1118,6 +1106,10 @@ export function useChat(): UseChatReturn {
                       degraded: seg.degraded || seg.polyline_source === 'fallback_straight' || false,
                       polyline_source: seg.polyline_source || '',
                       route_error: seg.route_error || '',
+                      distance_km: seg.distance_km,
+                      duration_min: seg.duration_min,
+                      from_poi: seg.from_poi,
+                      to_poi: seg.to_poi,
                     };
                   });
                   
@@ -1384,7 +1376,7 @@ export function useChat(): UseChatReturn {
                 currentUserMsgSnap: currentUserMessage,
               };
 
-              updateCurrentMessages(prev => {
+              setMessages(prev => {
                 const existingIdx = currentRequestId
                   ? prev.findIndex(
                       m =>
@@ -1489,7 +1481,7 @@ export function useChat(): UseChatReturn {
               const hasRealContent = currentContent.length > 0;
 
               if (hasRealContent) {
-                updateCurrentMessages(prev => {
+                setMessages(prev => {
                   const existingIdx = streamingMessageIdRef.current
                     ? prev.findIndex(m => m.id === streamingMessageIdRef.current)
                     : -1;
@@ -1567,23 +1559,18 @@ export function useChat(): UseChatReturn {
       setIsPlanningActive(false);
       setCurrentPlanningStatus(null);
     }
-  }, [isLoading, planMode, addMessage, startPlanningTimer, clearPlanningTimer, updateCurrentMessages]);
+  }, [isLoading, planMode, addMessage, startPlanningTimer, clearPlanningTimer, setMessages]);
 
-  /** 替换消息列表（用于加载历史，仅写入当前模式） */
+  /** 替换消息列表（用于加载历史） */
   const replaceMessages = useCallback((nextMessages: ChatMessage[]) => {
-    const mode = planMode || 'exploratory';
-    setMessagesByMode(prev => ({
-      ...prev,
-      [mode]: nextMessages.length > 0 ? nextMessages : [createWelcomeMessage(planMode)],
-    }));
-  }, [planMode]);
+    setMessages(nextMessages.length > 0 ? nextMessages : [createWelcomeMessage(null)]);
+  }, []);
 
   /**
-   * 清空聊天（仅清空当前模式的聊天记录，不切换模式）
+   * 清空聊天
    */
   const clearChat = useCallback(() => {
-    const mode = planMode || 'exploratory';
-    setMessagesByMode(prev => ({ ...prev, [mode]: [] }));
+    setMessages([]);
     setRouteData(null);
     setError(null);
     setActiveDay(null);
@@ -1603,7 +1590,7 @@ export function useChat(): UseChatReturn {
     }
   }, [clearPlanningTimer]);
 
-  const currentMessages = getCurrentMessages();
+  const currentMessages = messages;
   return {
     messages: currentMessages.length === 0 ? [createWelcomeMessage(planMode)] : currentMessages,
     routeData,

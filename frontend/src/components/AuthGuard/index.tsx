@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useUserStore } from '@/store/userStore';
 
@@ -8,11 +7,11 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
-  const { isLoggedIn, token } = useUserStore();
+  const { isLoggedIn, isGuest, token, ensureGuestSession } = useUserStore();
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // 已有登录态则立即放行（in-session 点击游客模式等场景）
+    // v18: 已有登录态则立即放行
     if (isLoggedIn || token) {
       setHydrated(true);
       return;
@@ -23,6 +22,13 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     });
     return () => cancelAnimationFrame(raf);
   }, [isLoggedIn, token]);
+
+  // v18: 水合完成后若未登录，自动进入游客模式
+  useEffect(() => {
+    if (hydrated && !isLoggedIn && !token) {
+      ensureGuestSession();
+    }
+  }, [hydrated, isLoggedIn, token, ensureGuestSession]);
 
   if (!hydrated) {
     return (
@@ -40,10 +46,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     );
   }
 
-  if (!isLoggedIn && !token) {
-    return <Navigate to="/login" replace />;
-  }
-
+  // v18: 不再重定向到 /login — 未登录时自动游客会话已在上方 useEffect 处理
   return <>{children}</>;
 };
 

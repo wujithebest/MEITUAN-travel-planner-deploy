@@ -62,6 +62,8 @@ interface UserState {
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   guestLogin: () => void;
+  /** v18: 幂等保障 — 确保当前是游客会话，补齐缺失字段，不覆盖已有偏好 */
+  ensureGuestSession: () => void;
   updateUser: (user: User) => void;
   updatePreferences: (prefs: string[]) => Promise<void>;
   updateGuestProfile: (data: Partial<User>) => void;
@@ -245,6 +247,42 @@ export const useUserStore = create<UserState>()(
           isGuest: true,
         });
         console.log('[UserStore] 游客模式（完整画像）');
+      },
+
+      /** v18: 幂等保障 — 确保当前是游客会话，补齐缺失字段，不覆盖已有偏好 */
+      ensureGuestSession: () => {
+        const current = get();
+        // 如果不是游客或已登录，先清掉旧 token
+        if (!current.isGuest || current.token) {
+          localStorage.removeItem('token');
+        }
+        const existing = current.user;
+        const merged: User = {
+          id: 'guest',
+          username: existing?.username || '游客',
+          email: '',
+          gender: existing?.gender || '男',
+          age: existing?.age || 30,
+          preferences: existing?.preferences?.length ? existing.preferences : ['cultural', 'food'],
+          activity_pref_tag: existing?.activity_pref_tag?.length ? existing.activity_pref_tag : ['文艺', '历史'],
+          food_preferences: existing?.food_preferences?.length ? existing.food_preferences : ['本帮菜', '咖啡'],
+          budget_per_capita: existing?.budget_per_capita ?? 100,
+          city: existing?.city || undefined,
+          location: existing?.location?.home_address
+            ? existing.location
+            : {
+                latitude: existing?.home_location?.lat ?? FALLBACK_HOME_LOCATION.lat,
+                longitude: existing?.home_location?.lng ?? FALLBACK_HOME_LOCATION.lng,
+                home_address: existing?.location?.home_address || FALLBACK_HOME_ADDRESS,
+              },
+          home_location: existing?.home_location || FALLBACK_HOME_LOCATION,
+        };
+        set({
+          user: merged,
+          token: null,
+          isLoggedIn: true,
+          isGuest: true,
+        });
       },
 
       updateUser: (updatedUser: User) => {
