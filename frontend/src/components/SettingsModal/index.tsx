@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Modal, Form, Input, Button, message, Divider, AutoComplete, InputNumber } from 'antd';
+import { Modal, Form, Input, Select, Button, message, Divider, AutoComplete, InputNumber } from 'antd';
 import { User, MapPin, Heart, Save } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { userApi } from '../../api/user';
