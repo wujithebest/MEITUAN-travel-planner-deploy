@@ -242,7 +242,7 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
 
 function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
   // v18: 统一欢迎语，不再区分模式
-  const content = '朋友聚会、家人来访、周末出游、下班顺路……不知道怎么安排？交给我来帮你规划吧！';
+  const content = '一句话，就出发！';
   return {
     id: 'welcome-1',
     role: 'assistant',
