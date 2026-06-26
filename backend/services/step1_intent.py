@@ -83,11 +83,18 @@ LIFE_SCENE_TOKENS = [
     "下班", "下班路上", "通勤", "路上",
     "顺路", "顺便", "路过", "顺道",
     "加班", "出差", "周末", "假期",
-    "带孩子", "遛娃", "带娃", "亲子",
+    "带孩子", "遛娃", "溜娃", "带娃", "亲子",
     "约会", "聚餐", "团建", "聚会",
     "一个人", "独处", "放空", "发呆",
     "散步", "慢跑", "跑步", "健身",
 ]
+
+# v18: 短关键词意图路由 — 补充裸词命中后转可执行字段
+CYCLING_TRANSPORT_TOKENS = ["骑行", "骑车", "自行车", "单车", "骑单车", "共享单车"]
+LIGHT_TOUR_TOKENS = ["轻游", "轻松游", "轻松逛", "低强度", "不累", "慢游"]
+STROLL_EAT_TOKENS = ["逛吃", "边逛边吃", "吃吃逛逛", "边玩边吃"]
+NIGHT_SHORT_ROUTE_TOKENS = ["夜游", "夜景路线", "夜晚游览", "夜间游览", "灯光秀"]
+
 # === v6 扩展：季节天气类 ===
 WEATHER_SCENE_TOKENS = [
     "下雨", "雨天", "阴雨", "有雨", "下雨天", "避雨",
@@ -441,7 +448,7 @@ KEYWORD_PROFILES = [
     },
     # 12. 亲子遛娃
     {
-        "tokens": ["带孩子", "遛娃", "带娃", "亲子",
+        "tokens": ["带孩子", "遛娃", "溜娃", "带娃", "亲子",
                   "儿童", "宝宝", "小朋友", "幼儿园"],
         "raw": ["遛娃"],
         "search": [
@@ -495,7 +502,7 @@ def _append_unique(values: list[str], additions: list[str], limit: int | None = 
 
 
 # v18: 父母/长辈/老人误判为儿童亲子主题的后处理修正
-_CHILD_TERMS = {"孩子", "小孩", "儿童", "亲子", "带娃", "带孩子", "遛娃", "宝宝", "小朋友", "婴儿", "幼儿", "少年"}
+_CHILD_TERMS = {"孩子", "小孩", "儿童", "亲子", "带娃", "带孩子", "遛娃", "溜娃", "宝宝", "小朋友", "婴儿", "幼儿", "少年"}
 _PARENT_ELDER_TERMS = {"父母", "爸妈", "爸爸", "妈妈", "父亲", "母亲", "长辈", "老人", "老年", "爸妈来", "父母来"}
 _CHILD_FAMILY_IDS = {"family_friendly", "family_child_friendly"}
 
@@ -739,6 +746,32 @@ def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str)
             for keyword in parsed.micro_keywords
             if not any(term in keyword.lower() for term in night_leak_terms)
         ]
+
+    # v18: 裸词后处理 — 命中短关键词后转成可执行字段
+    # CYCLING: 设置 transport_hint = "骑行"
+    if any(token in lowered for token in CYCLING_TRANSPORT_TOKENS):
+        parsed.transport_hint = "骑行"
+
+    # STROLL_EAT: 逛吃 → 注入小吃/咖啡/甜品搜索
+    if any(token in lowered for token in STROLL_EAT_TOKENS):
+        parsed.raw_keywords = _append_unique(parsed.raw_keywords, ["逛吃"])
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["逛吃穿插"])
+        parsed.meal_search_keywords = _append_unique(parsed.meal_search_keywords, ["小吃", "美食", "咖啡", "甜品"], limit=6)
+        parsed.micro_keywords = _append_unique(parsed.micro_keywords, ["街区逛吃", "小吃探店", "咖啡甜品"], limit=5)
+
+    # LIGHT_TOUR: 轻游 → 低强度约束，不强拉 duration
+    if any(token in lowered for token in LIGHT_TOUR_TOKENS):
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["轻游", "低强度", "节奏宽松"])
+
+    # NIGHT_SHORT: 夜游短路线 → evening + half_day
+    _has_night_short = any(token in lowered for token in NIGHT_SHORT_ROUTE_TOKENS)
+    _has_full_day_intent = any(token in lowered for token in ["全天", "一整天", "整天", "两天", "周末", "上午", "下午"])
+    if _has_night_short and not _has_full_day_intent:
+        parsed.evening_requested = True
+        if parsed.duration in ("a full day", "two days", "three days", None, ""):
+            parsed.duration = "a half day"
+        parsed.time_budget = min(float(getattr(parsed, "time_budget", 999) or 999), 0.5)
+
     return parsed
 
 

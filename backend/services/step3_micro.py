@@ -2822,6 +2822,12 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
 
     if transport_hint == "步行" or _is_late_nearby_walk_request(parsed_intent):
         result = await gaode_walking_route(origin, destination)
+    elif transport_hint == "骑行" and not involves_meal and straight_km >= 0.05:
+        # v18: 显式骑行模式 → 优先骑行，失败降级步行 → driving
+        try:
+            result = await gaode_bicycling_route(origin, destination)
+        except Exception:
+            result = await gaode_walking_route(origin, destination)
     elif not involves_meal and a.get("kind") in scene_kinds and b.get("kind") in scene_kinds and not same_sub_anchor:
         # v4 M8: 跨 sub-anchor 游览段，按距离选交通方式
         #   >= INTER_SEG_DRIVE_KM(2km) → 驾车
@@ -4542,6 +4548,85 @@ def _promote_density_waypoints(
     return points, waypoint_annotations
 
 
+def _interleave_stroll_eat_points(
+    points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> list[dict[str, Any]]:
+    """v18: 逛吃穿插 — 在上午/下午游览点间穿插轻食/小吃/咖啡/甜品。
+
+    每 1-2 个 anchor_internal 游览点后最多补 1 个轻餐饮点，不替换正餐 slots。
+    """
+    constraints = getattr(parsed_intent, "other_constraints", []) or []
+    if "逛吃穿插" not in constraints:
+        return points
+
+    LIGHT_EAT_NAMES = {"小吃", "咖啡", "甜品", "蛋糕", "奶茶", "茶饮", "冰淇淋", "烘焙", "面包", "零食", "轻食", "简餐"}
+    LIGHT_EAT_TYPECODES = {"050100", "050200", "050300", "050301", "050302", "050900", "051000", "060400"}
+
+    def _is_light_eat(p: dict[str, Any]) -> bool:
+        kind = str(p.get("kind") or "").lower()
+        if kind in {"meal", "restaurant", "start", "hint", "free_explore"}:
+            return False
+        name = str(p.get("name") or "")
+        typecode = str(p.get("typecode") or "")
+        return (
+            any(term in name for term in LIGHT_EAT_NAMES)
+            or typecode[:6] in LIGHT_EAT_TYPECODES
+        )
+
+    def _is_visit(p: dict[str, Any]) -> bool:
+        kind = str(p.get("kind") or "").lower()
+        return kind in {"anchor_internal", "micro"} and p.get("is_waypoint") not in (False, None)
+
+    # Group by day
+    by_day: dict[int, list[dict[str, Any]]] = {}
+    for p in points:
+        day = int(p.get("day") or p.get("day_index") or 1)
+        by_day.setdefault(day, []).append(p)
+
+    result: list[dict[str, Any]] = []
+    for day in sorted(by_day.keys()):
+        day_points = by_day[day]
+        # Identify light eat candidates within this day's points that are NOT already waypoints
+        light_candidates = [p for p in day_points if _is_light_eat(p) and not p.get("is_waypoint")]
+        if not light_candidates:
+            result.extend(day_points)
+            continue
+
+        interleaved: list[dict[str, Any]] = []
+        visit_count = 0
+        light_used = 0
+        max_light = min(len(light_candidates), 3)
+
+        for p in day_points:
+            interleaved.append(p)
+            if _is_visit(p):
+                visit_count += 1
+                if visit_count % 2 == 0 and light_used < max_light:
+                    lc = light_candidates[light_used]
+                    lc["is_waypoint"] = True
+                    lc["stroll_eat_promoted"] = True
+                    lc["display_slot"] = p.get("display_slot", "")
+                    lc.pop("display_order", None)
+                    interleaved.append(lc)
+                    light_used += 1
+
+        if light_used > 0:
+            print(
+                f"[DEBUG step3] interleaved stroll-eat points day={day} "
+                f"count={light_used} names={[light_candidates[i].get('name') for i in range(light_used)]}"
+            )
+        result.extend(interleaved)
+
+    for idx, p in enumerate(result, start=1):
+        if p.get("kind") != "start":
+            p["route_order"] = idx
+        else:
+            p["route_order"] = 1
+
+    return result
+
+
 def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Move morning-position night-scene POIs to a later same-day position.
 
@@ -4856,6 +4941,9 @@ async def run_step3(
 
     # v16: 主题路线半日均衡 — 确保上午至少 2 个真实游览点
     points = _ensure_theme_half_day_density(points, parsed_intent)
+
+    # v18: 逛吃穿插 — 上午/下午游览点之间优先穿插轻食/小吃/咖啡/甜品
+    points = _interleave_stroll_eat_points(points, parsed_intent)
 
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
