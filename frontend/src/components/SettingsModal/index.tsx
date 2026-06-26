@@ -10,16 +10,21 @@ import styles from './SettingsModal.module.css';
 
 // ── 常量 ──
 
-const TRAVEL_PREFERENCES = [
-  { id: 'history', label: '历史文化', icon: '🏛️', color: '#8B4513' },
-  { id: 'food', label: '美食探店', icon: '🍜', color: '#FF6B35' },
-  { id: 'nature', label: '自然风光', icon: '🌳', color: '#4CAF50' },
-  { id: 'shopping', label: '购物娱乐', icon: '🛍️', color: '#E91E63' },
-  { id: 'art', label: '艺术展览', icon: '🎨', color: '#9C27B0' },
-  { id: 'nightlife', label: '夜生活', icon: '🌙', color: '#3F51B5' },
-  { id: 'photography', label: '摄影打卡', icon: '📸', color: '#00BCD4' },
-  { id: 'family', label: '亲子游玩', icon: '👨‍👩‍👧‍👦', color: '#FF9800' },
-  { id: 'adventure', label: '户外探险', icon: '🏔️', color: '#795548' },
+const MAX_ACTIVITY_PREFS = 3;
+
+const ACTIVITY_PREFERENCES = [
+  { id: 'history', label: '历史文化', tag: '历史文化', icon: '🏛️', color: '#8B4513' },
+  { id: 'food', label: '美食探店', tag: '美食', icon: '🍜', color: '#FF6B35' },
+  { id: 'nature', label: '自然风光', tag: '自然风光', icon: '🌳', color: '#4CAF50' },
+  { id: 'shopping', label: '购物娱乐', tag: '购物娱乐', icon: '🛍️', color: '#E91E63' },
+  { id: 'art', label: '艺术展览', tag: '文艺', icon: '🎨', color: '#9C27B0' },
+  { id: 'nightlife', label: '夜生活', tag: '夜生活', icon: '🌙', color: '#3F51B5' },
+  { id: 'photography', label: '摄影打卡', tag: '拍照', icon: '📸', color: '#00BCD4' },
+  { id: 'family', label: '亲子游玩', tag: '亲子', icon: '👨‍👩‍👧‍👦', color: '#FF9800' },
+  { id: 'adventure', label: '户外探险', tag: '户外', icon: '🏔️', color: '#795548' },
+  { id: 'citywalk', label: '城市漫游', tag: '城市漫游', icon: '🚶', color: '#0EA5E9' },
+  { id: 'local', label: '在地市井', tag: '本地特色', icon: '🏮', color: '#D97706' },
+  { id: 'wellness', label: '康养疗愈', tag: '康养疗愈', icon: '🧘', color: '#10B981' },
 ];
 
 const TASTE_OPTIONS = [
@@ -137,12 +142,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         username: user.username || '',
         gender: user.gender || '男',
         age: user.age || 30,
-        district: user.location?.district || '杨浦区',
         budget_per_capita: user.budget_per_capita || 100,
         homeAddress: normalizedHomeAddress?.name || normalizedHomeAddress?.full_address || '',
       });
       setSelectedAddress(normalizedHomeAddress);
-      setTravelPrefs(user.preferences || []);
+      // v18: 回显时兼容旧数据 — 优先 id，其次从 activity_pref_tag 中文反查
+      const rawPrefs = (user.preferences || []).filter((p: string) =>
+        ACTIVITY_PREFERENCES.some(ap => ap.id === p)
+      );
+      if (rawPrefs.length > 0) {
+        setTravelPrefs(rawPrefs.slice(0, MAX_ACTIVITY_PREFS));
+      } else if ((user.activity_pref_tag || []).length > 0) {
+        const mapped = (user.activity_pref_tag || [])
+          .map((tag: string) => ACTIVITY_PREFERENCES.find(ap => ap.tag === tag)?.id)
+          .filter(Boolean) as string[];
+        setTravelPrefs(mapped.slice(0, MAX_ACTIVITY_PREFS));
+      } else {
+        setTravelPrefs([]);
+      }
       const fp = (user.food_preferences || [])[0];
       setTastePref(fp && TASTE_OPTIONS.find(o => o.value === fp) ? fp : '百味皆爱');
     } else if (open && !user) {
@@ -302,9 +319,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // ── 偏好切换 ──
   const toggleTravelPref = (id: string) => {
-    setTravelPrefs(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id].slice(0, 5)
-    );
+    setTravelPrefs(prev => {
+      if (prev.includes(id)) return prev.filter(p => p !== id);
+      if (prev.length >= MAX_ACTIVITY_PREFS) {
+        message.warning(`活动偏好最多选择${MAX_ACTIVITY_PREFS}项`);
+        return prev;
+      }
+      return [...prev, id];
+    });
   };
 
   const toggleTastePref = (value: string) => {
@@ -317,17 +339,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      // 统一使用 chip 状态，不依赖 Form 字段
-      const finalPrefs = travelPrefs;
+      // v18: 拆分为 UI id 和后端中文 tag
+      const finalPrefs = travelPrefs.slice(0, MAX_ACTIVITY_PREFS);
+      const finalActivityTags = finalPrefs
+        .map(id => ACTIVITY_PREFERENCES.find(pref => pref.id === id)?.tag)
+        .filter(Boolean) as string[];
       const finalTaste = tastePref && tastePref !== '百味皆爱' ? [tastePref] : [];
 
       if (isGuest) {
         const updatedLocation = { ...user?.location };
         if (selectedAddress) {
           updatedLocation.home_address = selectedAddress;
-        }
-        if (values.district) {
-          updatedLocation.district = values.district;
         }
 
         const homeLocation = selectedAddress
@@ -343,7 +365,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           gender: values.gender,
           age: values.age,
           preferences: finalPrefs,
-          activity_pref_tag: finalPrefs,
+          activity_pref_tag: finalActivityTags,
           food_preferences: finalTaste,
           budget_per_capita: values.budget_per_capita,
           location: {
@@ -381,6 +403,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           ...user,
           username: values.username,
           preferences: finalPrefs,
+          activity_pref_tag: finalActivityTags,
           food_preferences: finalTaste,
           location: { ...user.location, home_address: selectedAddress || undefined },
           home_location: homeLocation,
@@ -452,10 +475,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   </Form.Item>
                 </div>
 
-                <Form.Item name="district" label="所在区县">
-                  <Input placeholder="如：杨浦区" />
-                </Form.Item>
-
                 <Form.Item name="budget_per_capita" label="人均预算（元）" tooltip="用于筛选餐厅和消费场所">
                   <InputNumber
                     min={0} max={10000} step={10}
@@ -474,7 +493,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <MapPin size={16} />
-              <span>常驻地址（路线出发地）</span>
+              <span>路线出发地</span>
             </div>
             <p className={styles.sectionHint}>可定位获取设备位置 或 手动搜索选择地址</p>
 
@@ -559,14 +578,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <Divider />
 
-          {/* 旅行偏好 — chip 多选 */}
+          {/* 活动偏好 — chip 多选 */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <Heart size={16} />
-              <span>旅行偏好（可多选，最多5项）</span>
+              <span>活动偏好（可多选，最多3项）</span>
             </div>
             <div className={styles.chipGrid}>
-              {TRAVEL_PREFERENCES.map(pref => {
+              {ACTIVITY_PREFERENCES.map(pref => {
                 const active = travelPrefs.includes(pref.id);
                 return (
                   <button

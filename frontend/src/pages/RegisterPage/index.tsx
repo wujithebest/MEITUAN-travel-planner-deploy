@@ -41,16 +41,21 @@ import styles from './RegisterPage.module.css';
 const { Title, Text } = Typography;
 const { Step } = Steps;
 
+const MAX_ACTIVITY_PREFS = 3;
+
 const TRAVEL_PREFERENCES = [
-  { id: 'history', label: '历史文化', icon: '🏛️', color: '#8B4513' },
-  { id: 'food', label: '美食探店', icon: '🍜', color: '#FF6B35' },
-  { id: 'nature', label: '自然风光', icon: '🌳', color: '#4CAF50' },
-  { id: 'shopping', label: '购物娱乐', icon: '🛍️', color: '#E91E63' },
-  { id: 'art', label: '艺术展览', icon: '🎨', color: '#9C27B0' },
-  { id: 'nightlife', label: '夜生活', icon: '🌙', color: '#3F51B5' },
-  { id: 'photography', label: '摄影打卡', icon: '📸', color: '#00BCD4' },
-  { id: 'family', label: '亲子游玩', icon: '👨‍👩‍👧‍👦', color: '#FF9800' },
-  { id: 'adventure', label: '户外探险', icon: '🏔️', color: '#795548' },
+  { id: 'history', label: '历史文化', tag: '历史文化', icon: '🏛️', color: '#8B4513' },
+  { id: 'food', label: '美食探店', tag: '美食', icon: '🍜', color: '#FF6B35' },
+  { id: 'nature', label: '自然风光', tag: '自然风光', icon: '🌳', color: '#4CAF50' },
+  { id: 'shopping', label: '购物娱乐', tag: '购物娱乐', icon: '🛍️', color: '#E91E63' },
+  { id: 'art', label: '艺术展览', tag: '文艺', icon: '🎨', color: '#9C27B0' },
+  { id: 'nightlife', label: '夜生活', tag: '夜生活', icon: '🌙', color: '#3F51B5' },
+  { id: 'photography', label: '摄影打卡', tag: '拍照', icon: '📸', color: '#00BCD4' },
+  { id: 'family', label: '亲子游玩', tag: '亲子', icon: '👨‍👩‍👧‍👦', color: '#FF9800' },
+  { id: 'adventure', label: '户外探险', tag: '户外', icon: '🏔️', color: '#795548' },
+  { id: 'citywalk', label: '城市漫游', tag: '城市漫游', icon: '🚶', color: '#0EA5E9' },
+  { id: 'local', label: '在地市井', tag: '本地特色', icon: '🏮', color: '#D97706' },
+  { id: 'wellness', label: '康养疗愈', tag: '康养疗愈', icon: '🧘', color: '#10B981' },
 ];
 
 const TASTE_OPTIONS = [
@@ -336,7 +341,7 @@ const RegisterPage: React.FC = () => {
   const steps = [
     { title: '账号信息', icon: <User size={20} /> },
     { title: '个人资料', icon: <VenetianMask size={20} /> },
-    { title: '旅行偏好', icon: <Sparkles size={20} /> },
+    { title: '活动偏好', icon: <Sparkles size={20} /> },
     { title: '口味偏好', icon: <Utensils size={20} /> },
     { title: '地址信息', icon: <MapPin size={20} /> },
     { title: '完成注册', icon: <CheckCircle size={20} /> },
@@ -546,8 +551,8 @@ const RegisterPage: React.FC = () => {
           {currentStep === 2 && (
             <div className={styles.stepContent}>
               <div className={styles.stepHeader}>
-                <Title level={3} className={styles.stepTitle}>选择您的旅行偏好</Title>
-                <Text className={styles.stepSubtitle}>选择您感兴趣的旅行类型（可多选）</Text>
+                <Title level={3} className={styles.stepTitle}>选择您的活动偏好</Title>
+                <Text className={styles.stepSubtitle}>选择您感兴趣的活动类型（可多选，最多3项）</Text>
               </div>
               <div className={styles.preferences}>
                 <Row gutter={[16, 16]}>
@@ -572,7 +577,7 @@ const RegisterPage: React.FC = () => {
                 </Row>
               </div>
               <div className={styles.selectedCount}>
-                <Text>已选择 {selectedPrefs.length} 个偏好</Text>
+                <Text>已选择 {selectedPrefs.length} / {MAX_ACTIVITY_PREFS} 个偏好</Text>
               </div>
               <Space className={styles.stepActions} size="large">
                 <Button size="large" onClick={() => setCurrentStep(1)} className={styles.backBtn}>
