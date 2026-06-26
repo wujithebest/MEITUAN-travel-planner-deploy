@@ -478,6 +478,7 @@ class RouteSegment(BaseModel):
     degraded: bool = False               # v6: 路线获取失败时为 True，polyline 为直线占位
     polyline_source: str = ""            # v6: 路线来源，"fallback_straight" 表示降级直线
     route_error: str = ""                # v7: 路线错误描述，"real_route_unavailable" 等
+    transport_options: list[dict[str, Any]] = Field(default_factory=list)  # v18: 首段多交通方案
 
 
 ### v4 新增：先路后点架构数据模型

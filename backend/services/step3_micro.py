@@ -3065,6 +3065,46 @@ def _make_stub_polyline(a: dict[str, Any], b: dict[str, Any]) -> list[list[float
     return []
 
 
+def _estimate_taxi_fare(distance_km: float) -> int:
+    """v18: 粗略估算出租车/网约车费用。起步价14元（3km），超出后2.7元/km。"""
+    if distance_km <= 3:
+        return 14
+    return round(14 + (distance_km - 3) * 2.7)
+
+
+async def _build_origin_transport_options(parsed_intent: ParsedIntent, origin: str, destination: str) -> list[dict[str, Any]]:
+    """v18: 起点到第一个POI的多交通方案。只在exploratory模式下调用。"""
+    from .api_client import gaode_transit_route, gaode_driving_route
+    options: list[dict[str, Any]] = []
+    try:
+        transit = await gaode_transit_route(origin, destination, departure_time=getattr(parsed_intent, "start_time", None))
+        if transit and transit.get("distance_km"):
+            options.append({
+                "mode": "transit",
+                "label": "公共交通",
+                "transport": transit.get("transport", "地铁/公交"),
+                "distance_km": round(float(transit.get("distance_km", 0)), 2),
+                "duration_min": round(float(transit.get("duration_min", 0)), 1),
+            })
+    except Exception:
+        pass
+    try:
+        driving = await gaode_driving_route(origin, destination)
+        if driving and driving.get("distance_km"):
+            d_km = float(driving.get("distance_km", 0))
+            options.append({
+                "mode": "driving",
+                "label": "驾车",
+                "transport": "自驾",
+                "distance_km": round(d_km, 2),
+                "duration_min": round(float(driving.get("duration_min", 0)), 1),
+                "estimated_fare_yuan": _estimate_taxi_fare(d_km),
+            })
+    except Exception:
+        pass
+    return options
+
+
 async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, points: list[dict[str, Any]]) -> tuple[list[RouteSegment], dict[str, dict[str, Any]]]:
     # 过滤掉非路线点（hint/free_explore 不参与路线连线）
     routable = [p for p in points if p.get("kind") not in ("hint", "free_explore")]
@@ -3242,6 +3282,18 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
                 route_error=route_err or "real_route_unavailable",
             ))
             continue
+        # v18: 首段起点→第一个POI，exploratory模式下附加多交通方案
+        transport_options: list[dict[str, Any]] = []
+        is_planned = getattr(parsed_intent, "plan_mode", "") == "planned"
+        is_origin_start = str(a.get("kind", "")).lower() in ("start", "origin")
+        if is_origin_start and not is_planned:
+            try:
+                origin_str = f"{a['location']['lng']},{a['location']['lat']}"
+                dest_str = f"{b['location']['lng']},{b['location']['lat']}"
+                transport_options = await _build_origin_transport_options(parsed_intent, origin_str, dest_str)
+            except Exception:
+                pass
+
         segments.append(
             RouteSegment(
                 from_poi=a["name"],
@@ -3254,6 +3306,7 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
                 degraded=is_degraded,
                 polyline_source=polyline_src,
                 route_error=route.get("route_error", ""),
+                transport_options=transport_options,
             )
         )
     return segments, waypoint_annotations

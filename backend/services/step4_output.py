@@ -985,6 +985,7 @@ async def _build_route_data(
             "degraded": getattr(seg, "degraded", False),
             "polyline_source": getattr(seg, "polyline_source", ""),
             "route_error": getattr(seg, "route_error", ""),
+            "transport_options": getattr(seg, "transport_options", []) or [],
         })
 
     # ---- [RouteDebug] 调试日志 ----

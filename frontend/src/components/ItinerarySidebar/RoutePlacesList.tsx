@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { MapPin } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { MapPin, Heart, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
+import { message } from 'antd';
 import styles from './styles.module.css';
 
 // ── types ──
@@ -18,6 +19,13 @@ interface PanelPoiData {
   rating?: string | number;
   address?: string;
   parent_anchor?: string;
+  poi_id?: string;
+  gaode_poi_id?: string;
+  typecode?: string;
+  category?: string;
+  display_slot?: string;
+  sub_anchor_name?: string;
+  candidate_score?: number;
 }
 
 interface PanelSlotData {
@@ -36,8 +44,11 @@ interface RoutePlacesListProps {
   panelDays: PanelDayData[] | null;
   points: any[];
   segments: any[];
+  candidatePoints?: any[];
   onPOIClick: (name: string) => void;
   onRouteClick?: (segment: any) => void;
+  onPoiAction?: (action: any) => void;
+  onCandidatePreview?: (candidate: any | null) => void;
 }
 
 // ── helpers ──
@@ -66,6 +77,9 @@ function parseLocation(raw: any): { lat: number; lng: number } | null {
     const lat = parseFloat(parts[1]);
     if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
     return null;
+  }
+  if (Array.isArray(raw) && raw.length >= 2) {
+    return { lng: Number(raw[0]), lat: Number(raw[1]) };
   }
   const lat = Number(raw.lat);
   const lng = Number(raw.lng);
@@ -113,9 +127,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
   panelDays,
   points,
   segments,
+  candidatePoints = [],
   onPOIClick,
   onRouteClick,
+  onPoiAction,
+  onCandidatePreview,
 }) => {
+  const [candidateMode, setCandidateMode] = useState<{
+    action: 'replace' | 'add';
+    anchorPoi: any;
+  } | null>(null);
+
   // Find origin point for distance calculation
   const origin = useMemo(() => {
     const startPt = points.find((p: any) =>
@@ -156,12 +178,77 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             parent_anchor: poi.parent_anchor || enriched.parent_anchor || '',
             kind: poi.kind || enriched.kind || '',
             is_start: poi.is_start || false,
+            poi_id: poi.poi_id || enriched.poi_id || '',
+            gaode_poi_id: poi.gaode_poi_id || enriched.gaode_poi_id || '',
+            display_slot: poi.display_slot || enriched.display_slot || slot.type,
+            sub_anchor_name: poi.sub_anchor_name || enriched.sub_anchor_name || '',
           });
         }
       }
     }
     return result;
   }, [panelDays, points]);
+
+  // Filter candidates by same day + slot as anchorPoi
+  const filteredCandidates = useMemo(() => {
+    if (!candidateMode) return [];
+    const anchor = candidateMode.anchorPoi;
+    const anchorDay = anchor.day_index;
+    const anchorSlot = anchor.slot || anchor.display_slot || '';
+    const anchorParent = anchor.parent_anchor || anchor.sub_anchor_name || '';
+
+    let filtered = (candidatePoints || []).filter((c: any) => {
+      const cDay = c.day ?? c.day_index;
+      const cSlot = c.display_slot || c.slot || c.period || '';
+      if (cDay != null && cDay !== anchorDay) return false;
+      if (anchorSlot && cSlot && cSlot !== anchorSlot) return false;
+      return true;
+    });
+
+    // If too few, try matching by parent_anchor
+    if (filtered.length === 0 && anchorParent) {
+      filtered = (candidatePoints || []).filter((c: any) => {
+        const cParent = c.parent_name || c.parent_anchor || c.sub_anchor_name || '';
+        if (cParent && anchorParent && !cParent.includes(anchorParent) && !anchorParent.includes(cParent)) return false;
+        return true;
+      });
+    }
+    return filtered;
+  }, [candidateMode, candidatePoints]);
+
+  const handlePoiActionClick = (poi: any, actionType: string) => {
+    if (actionType === 'delete') {
+      const poiKey = poi.name;
+      onPoiAction?.({ type: 'delete', poiId: poiKey, poi });
+    } else if (actionType === 'replace') {
+      setCandidateMode({ action: 'replace', anchorPoi: poi });
+    } else if (actionType === 'add') {
+      setCandidateMode({ action: 'add', anchorPoi: poi });
+    }
+  };
+
+  const handleCandidateSelect = (candidate: any) => {
+    if (!candidateMode) return;
+    const anchor = candidateMode.anchorPoi;
+    const normalized = normalizeCandidate(candidate);
+    if (candidateMode.action === 'replace') {
+      onPoiAction?.({ type: 'replace', poiId: anchor.name, replacementPoi: normalized, poi: anchor });
+    } else {
+      onPoiAction?.({
+        type: 'add',
+        poiId: normalized.name || candidate.name,
+        poi: normalized,
+        afterPoiId: anchor.name,
+        afterPoiName: anchor.name,
+        afterPoiLocation: anchor.location,
+      });
+    }
+  };
+
+  const clearCandidateMode = () => {
+    setCandidateMode(null);
+    onCandidatePreview?.(null);
+  };
 
   // Match segment between two POIs
   const matchSegment = (fromName: string, toName: string, fromOrder: number, toOrder: number) => {
@@ -181,6 +268,60 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     );
   }
 
+  // ── Candidate mode render ──
+  if (candidateMode) {
+    const anchor = candidateMode.anchorPoi;
+    return (
+      <div className={styles.routePlacesList}>
+        <div className={styles.candidateHeader}>
+          <span className={styles.candidateTitle}>
+            {candidateMode.action === 'replace' ? `替换「${anchor.name}」` : `添加到「${anchor.name}」之后`}
+          </span>
+          <button type="button" className={styles.candidateCancelBtn} onClick={clearCandidateMode}>
+            <X size={16} /> 取消
+          </button>
+        </div>
+        {filteredCandidates.length === 0 ? (
+          <div className={styles.emptyState}><p>暂无可选备选点</p></div>
+        ) : (
+          filteredCandidates.map((c: any, idx: number) => (
+            <div
+              key={c.name || idx}
+              className={styles.routePlaceCard}
+              onClick={() => onCandidatePreview?.(c)}
+            >
+              <div className={styles.routePlaceThumb}>
+                {c.photo_url ? (
+                  <img src={c.photo_url} alt={c.name} />
+                ) : (
+                  <div className={styles.routePlaceThumbPlaceholder}>
+                    <MapPin size={22} color="#ccc" />
+                  </div>
+                )}
+              </div>
+              <div className={styles.routePlaceMain}>
+                <span className={styles.routePlaceName}>{c.name}</span>
+                <div className={styles.routePlaceMeta}>
+                  <span className={styles.routePlaceRating}>
+                    {c.rating ? `${Number(c.rating).toFixed(1)}星` : '暂无评分'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.candidateActionBtn}
+                onClick={(e) => { e.stopPropagation(); handleCandidateSelect(c); }}
+              >
+                {candidateMode.action === 'replace' ? '替换为此点' : '添加到此处'}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    );
+  }
+
+  // ── Normal list render ──
   // Group by day
   const days = new Map<number, any[]>();
   for (const poi of flatPois) {
@@ -207,54 +348,74 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
               ? matchSegment(poi.name, nextPoi.name, poi.order ?? idx, nextPoi.order ?? idx + 1)
               : undefined;
 
+            // Check for origin transport options
+            const isOriginSeg = isStart && seg;
+
             return (
               <React.Fragment key={`${poi.name}-${idx}`}>
                 {/* POI card */}
                 {!isStart && (
                   <div className={styles.routePlaceRow}>
                     <div className={styles.routePlaceIndex}>{idx}</div>
-                    <button
-                      type="button"
-                      className={styles.routePlaceCard}
-                      onClick={() => onPOIClick(poi.name)}
-                    >
-                      <div className={styles.routePlaceThumb}>
-                        {poi.photo_url ? (
-                          <img src={poi.photo_url} alt={poi.name} />
-                        ) : (
-                          <div className={styles.routePlaceThumbPlaceholder}>
-                            <MapPin size={22} color="#ccc" />
+                    <div className={styles.routePlaceCardWrap}>
+                      <button
+                        type="button"
+                        className={styles.routePlaceBody}
+                        onClick={() => onPOIClick(poi.name)}
+                      >
+                        <div className={styles.routePlaceThumb}>
+                          {poi.photo_url ? (
+                            <img src={poi.photo_url} alt={poi.name} />
+                          ) : (
+                            <div className={styles.routePlaceThumbPlaceholder}>
+                              <MapPin size={22} color="#ccc" />
+                            </div>
+                          )}
+                        </div>
+                        <div className={styles.routePlaceMain}>
+                          <div className={styles.routePlaceTitleRow}>
+                            <span className={styles.routePlaceName}>{poi.name}</span>
+                            {distKm != null && (
+                              <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
+                            )}
                           </div>
-                        )}
+                          <div className={styles.routePlaceMeta}>
+                            <span className={styles.routePlaceRating}>
+                              {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
+                            </span>
+                            <span className={styles.routePlaceType}>
+                              {categoryLabel(poi.kind, poi.typecode)}
+                            </span>
+                            {poi.address && (
+                              <span className={styles.routePlaceAddress}>{poi.address}</span>
+                            )}
+                          </div>
+                          <div className={styles.routePlaceReason}>
+                            {poi.recommend_reason || poi.address || '符合本次路线偏好'}
+                          </div>
+                        </div>
+                      </button>
+                      {/* Action buttons */}
+                      <div className={styles.routePlaceActions}>
+                        <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
+                          <Heart size={15} />
+                        </button>
+                        <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
+                          <ArrowLeftRight size={15} />
+                        </button>
+                        <button type="button" className={styles.poiActionBtn} title="增加" onClick={() => handlePoiActionClick(poi, 'add')}>
+                          <Plus size={15} />
+                        </button>
+                        <button type="button" className={styles.poiActionBtn} title="删除" onClick={() => handlePoiActionClick(poi, 'delete')}>
+                          <Trash2 size={15} />
+                        </button>
                       </div>
-                      <div className={styles.routePlaceMain}>
-                        <div className={styles.routePlaceTitleRow}>
-                          <span className={styles.routePlaceName}>{poi.name}</span>
-                          {distKm != null && (
-                            <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
-                          )}
-                        </div>
-                        <div className={styles.routePlaceMeta}>
-                          <span className={styles.routePlaceRating}>
-                            {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
-                          </span>
-                          <span className={styles.routePlaceType}>
-                            {categoryLabel(poi.kind, poi.typecode)}
-                          </span>
-                          {poi.address && (
-                            <span className={styles.routePlaceAddress}>{poi.address}</span>
-                          )}
-                        </div>
-                        <div className={styles.routePlaceReason}>
-                          {poi.recommend_reason || poi.address || '符合本次路线偏好'}
-                        </div>
-                      </div>
-                    </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Transport connector */}
-                {seg && (
+                {seg && !isOriginSeg && (
                   <div
                     className={styles.routeConnector}
                     onClick={() => onRouteClick?.(seg)}
@@ -272,6 +433,35 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Origin transport options */}
+                {isOriginSeg && seg.transport_options?.length > 0 && (
+                  <div className={styles.routeConnector}>
+                    <div className={styles.routeConnectorLine} />
+                    <div className={styles.originTransportGroup}>
+                      {seg.transport_options.map((opt: any, oidx: number) => (
+                        <div key={oidx} className={styles.routeTransportPill}>
+                          <span className={styles.routeTransportIcon}>
+                            {opt.mode === 'transit' ? <Bus size={14} /> : <Car size={14} />}
+                          </span>
+                          <span className={styles.routeTransportText}>
+                            {opt.label} {formatDistance(opt.distance_km)} · {formatDuration(opt.duration_min)}
+                          </span>
+                        </div>
+                      ))}
+                      {seg.transport_options.some((o: any) => o.estimated_fare_yuan) && (
+                        <button
+                          type="button"
+                          className={styles.taxiBtn}
+                          onClick={(e) => { e.stopPropagation(); message.success('已模拟发起叫车'); }}
+                        >
+                          <Navigation size={14} />
+                          <span>一键叫车 ¥{seg.transport_options.find((o: any) => o.estimated_fare_yuan)?.estimated_fare_yuan}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </React.Fragment>
             );
           })}
@@ -280,5 +470,29 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     </div>
   );
 };
+
+/** Normalize candidate location to consistent format */
+function normalizeCandidate(c: any): any {
+  const loc = c.location;
+  let location: any = loc;
+  if (typeof loc === 'string' && loc.includes(',')) {
+    const [lng, lat] = loc.split(',').map(Number);
+    location = { lng, lat };
+  } else if (Array.isArray(loc)) {
+    location = { lng: loc[0], lat: loc[1] };
+  }
+  return {
+    ...c,
+    name: c.name || '',
+    location,
+    typecode: c.typecode || '',
+    category: c.category || '',
+    photo_url: c.photo_url || '',
+    rating: c.rating ?? null,
+    address: c.address || '',
+    poi_id: c.poi_id || c.gaode_poi_id || '',
+    gaode_poi_id: c.gaode_poi_id || c.poi_id || '',
+  };
+}
 
 export default RoutePlacesList;

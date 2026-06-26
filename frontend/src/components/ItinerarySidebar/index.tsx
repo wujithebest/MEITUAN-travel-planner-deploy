@@ -52,6 +52,10 @@ interface ItinerarySidebarProps {
   onToggleCollapse?: () => void;
   /** 规划模式 */
   planMode?: 'exploratory' | 'planned' | null;
+  /** v18: POI 操作回调 */
+  onPoiAction?: (action: any) => void;
+  /** v18: 候选点预览回调 */
+  onCandidatePreview?: (candidate: any | null) => void;
 }
 
 export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
@@ -70,6 +74,8 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
   planMode = null,
+  onPoiAction,
+  onCandidatePreview,
 }) => {
   const [data, setData] = useState<ParsedItinerary | null>(initialData || null);
   const [textBuffer, setTextBuffer] = useState<string>('');
@@ -575,8 +581,11 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
             panelDays={panelDays}
             points={rawRouteData?.points || []}
             segments={rawRouteData?.segments || []}
+            candidatePoints={rawRouteData?.candidate_points || []}
             onPOIClick={handleLocationPOIClick}
             onRouteClick={handleRouteClick}
+            onPoiAction={onPoiAction}
+            onCandidatePreview={onCandidatePreview}
           />
         )}
       </div>

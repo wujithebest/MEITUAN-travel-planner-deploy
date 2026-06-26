@@ -35,6 +35,54 @@ import axios from 'axios';
 import { buildApiUrl } from '@/config/api.config';
 import styles from './PlannerPage.module.css';
 
+/** Normalize POI payload for replan API */
+function normalizePoiPayload(alt: any) {
+  let loc: any = alt.location;
+  if (typeof loc === 'string' && loc.includes(',')) {
+    const [lng, lat] = loc.split(',').map(Number);
+    loc = { lat, lng };
+  } else if (Array.isArray(loc)) {
+    loc = { lng: loc[0], lat: loc[1] };
+  } else if (loc && loc.lat == null && loc.lng != null) {
+    // already has lng/lat
+  } else if (loc && loc.lng == null && loc.lat != null) {
+    loc = { lng: loc.lat, lat: loc.lng };
+  }
+  return {
+    poi_id: alt.poi_id || alt.gaode_poi_id || '',
+    gaode_poi_id: alt.gaode_poi_id || alt.poi_id || '',
+    name: alt.name || '',
+    location: loc || { lat: 0, lng: 0 },
+    category: alt.category || '',
+    typecode: alt.typecode || '',
+    address: alt.address || '',
+    rating: alt.rating ?? null,
+    avg_cost: alt.avg_cost ?? null,
+    photo_url: alt.photo_url || '',
+    photo_source: alt.photo_source || '',
+  };
+}
+
+/** Normalize candidate to map marker */
+function normalizeCandidateToMarker(c: any): any | null {
+  if (!c) return null;
+  const locStr = typeof c.location === 'string'
+    ? c.location
+    : (c.location ? `${c.location.lng},${c.location.lat}` : '');
+  return {
+    type: 'candidate_preview',
+    name: c.name || '',
+    location: locStr,
+    poi_id: c.poi_id || c.gaode_poi_id || '',
+    gaode_poi_id: c.gaode_poi_id || c.poi_id || '',
+    photo_url: c.photo_url || '',
+    rating: c.rating,
+    category: c.category || '',
+    typecode: c.typecode || '',
+    address: c.address || '',
+  };
+}
+
 const PlannerPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout, isGuest, ensureGuestSession } = useUserStore();
@@ -109,6 +157,8 @@ const PlannerPage: React.FC = () => {
 
   // v6: 单段路线显示 — 路线 tab 点击后只显示被选中的那一段
   const [selectedRouteSegment, setSelectedRouteSegment] = useState<any | null>(null);
+  // v18: 候选点预览 marker
+  const [previewCandidateMarker, setPreviewCandidateMarker] = useState<any | null>(null);
 
   // 地图路线数据状态（本地状态，优先使用 ChatPanel 传来的数据）
   const [localMapRouteData, setLocalMapRouteData] = useState<{
@@ -392,15 +442,18 @@ const PlannerPage: React.FC = () => {
     itinerary.openSidebar();
   }, [itinerary]);
 
-  // 处理 POI 操作（删除/替换）—— 触发管线重规划
+  // 处理 POI 操作（删除/替换/增加）—— 触发管线重规划
   const handlePoiAction = useCallback(async (action: {
-    type: 'delete' | 'replace';
+    type: 'delete' | 'replace' | 'add';
     poiId: string;
     replacementPoi?: any;
+    poi?: any;
+    afterPoiId?: string;
+    afterPoiName?: string;
+    afterPoiLocation?: any;
   }) => {
     console.log('[PlannerPage] POI 操作:', action.type, action.poiId);
 
-    // 从 store 查找完整 POI 信息，确保多 ID 字段正确传递给后端
     const allMarkers = useRouteStore.getState().mapRouteData?.markers || [];
     const marker = allMarkers.find(m => {
       const id = m.poi_id || m.gaode_poi_id || `${m.name}:${m.location}`;
@@ -417,26 +470,20 @@ const PlannerPage: React.FC = () => {
 
     if (action.type === 'replace' && action.replacementPoi) {
       const alt = action.replacementPoi;
-      ops[0].poi = {
-        poi_id: alt.poi_id || alt.gaode_poi_id,
-        gaode_poi_id: alt.gaode_poi_id || alt.poi_id,
-        name: alt.name,
-        location: alt.location
-          ? { lat: alt.location.lat, lng: alt.location.lng }
-          : { lat: alt.lnglat?.[1] ?? 0, lng: alt.lnglat?.[0] ?? 0 },
-        category: alt.category,
-        typecode: alt.typecode,
-        address: alt.address,
-        rating: alt.rating,
-        avg_cost: alt.avg_cost,
-        photo_url: alt.photo_url,
-        photo_source: alt.photo_source,
-      };
+      ops[0].poi = normalizePoiPayload(alt);
+    }
+    if (action.type === 'add' && action.poi) {
+      const alt = action.poi;
+      ops[0].poi = normalizePoiPayload(alt);
+      ops[0].after_poi_id = action.afterPoiId;
+      ops[0].after_poi_name = action.afterPoiName;
+      ops[0].after_poi_location = typeof action.afterPoiLocation === 'string'
+        ? action.afterPoiLocation
+        : (action.afterPoiLocation ? `${action.afterPoiLocation.lng},${action.afterPoiLocation.lat}` : undefined);
     }
     await replanPipelineRoute(ops);
-    // 清除本地路线数据，让 store.mapRouteData 生效
     setLocalMapRouteData(null);
-    setSelectedRouteSegment(null);  // v6: 重规划后清除单段选择
+    setSelectedRouteSegment(null);
     setRouteVersion(v => v + 1);
   }, [replanPipelineRoute]);
 
@@ -663,6 +710,7 @@ const PlannerPage: React.FC = () => {
             zoom={mapRouteData?.center ? 12 : deviceLocation ? 15 : 12}
             dailyPolylines={mapPolylines}
             markers={mapMarkers}
+            previewCandidateMarker={previewCandidateMarker}
             onPoiAction={handlePoiAction}
             onCandidateAction={handleCandidateAction}
             routeVersion={routeVersion}
@@ -702,6 +750,8 @@ const PlannerPage: React.FC = () => {
         onMapClick={(path) => {
           console.log('[PlannerPage] 地图路径点击:', path);
         }}
+        onPoiAction={handlePoiAction}
+        onCandidatePreview={(candidate) => setPreviewCandidateMarker(candidate ? normalizeCandidateToMarker(candidate) : null)}
       />
 
       {/* 规划历史弹窗 */}

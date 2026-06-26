@@ -1430,3 +1430,171 @@
   color: #555;
   white-space: nowrap;
 }
+
+/* ── v18: POI actions and candidate mode ── */
+
+.routePlaceCardWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.routePlaceBody {
+  flex: 1;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px 10px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.routePlaceActions {
+  display: flex;
+  gap: 2px;
+  padding: 4px 8px 8px 46px;
+  border-top: 1px solid #f5f5f5;
+}
+
+.poiActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.poiActionBtn:hover {
+  background: #fff9e6;
+  color: #f5b400;
+}
+
+.candidateHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.candidateTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.candidateCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  background: #fff;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.candidateCancelBtn:hover {
+  background: #fafafa;
+}
+
+.candidateActionBtn {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid #FFD100;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.candidateActionBtn:hover {
+  background: #FFD100;
+}
+
+.originTransportGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.taxiBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #FFD100;
+  border-radius: 12px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.taxiBtn:hover {
+  background: #FFD100;
+}
+
+.mapPoiLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.mapPoiThumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.mapPoiBadge {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: #FFD100;
+  color: #333;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.mapPoiName {
+  font-size: 11px;
+  color: #333;
+  font-weight: 600;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #fff;
+  background: rgba(255,255,255,0.85);
+  padding: 1px 4px;
+  border-radius: 3px;
+}

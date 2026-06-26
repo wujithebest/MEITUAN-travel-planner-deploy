@@ -74,6 +74,8 @@ interface MapContainerProps {
   onCandidateAction?: (action: { type: 'delete' | 'add' | 'replace'; poiId: string; candidateMarker?: any; routePoiId?: string }) => void;
   /** v6: 外部焦点请求 — 定位并可选打开弹窗 */
   focusPoiRequest?: { requestId: number; poiName: string; behavior: 'openPopup' | 'centerOnly' } | null;
+  /** v18: 候选点预览 marker */
+  previewCandidateMarker?: any | null;
 }
 
 // 路况颜色映射
@@ -244,6 +246,7 @@ export default function MapContainer({
   onCandidateAction,
   routeVersion = 0,
   focusPoiRequest,
+  previewCandidateMarker = null,
 }: MapContainerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -315,11 +318,21 @@ export default function MapContainer({
       .filter((marker) => {
         const id = getMarkerPoiId(marker);
         if (removedPoiIds.has(id)) return false;
-        // v6: Filter removed candidate POIs
         if (removedCandidatePoiIds.has(id)) return false;
+        // v18: 候选点默认不显示在地图上
+        if (marker.type === 'candidate' || marker.is_candidate || marker.theme === 'blue') return false;
         return true;
       });
   }, [getMarkerPoiId, markerOverrides, markers, removedPoiIds, removedCandidatePoiIds, promotedCandidateIds]);
+
+  // v18: 候选点预览marker
+  const effectiveMarkers = useMemo(() => {
+    const result = [...visibleMarkers];
+    if (previewCandidateMarker) {
+      result.push({ ...previewCandidateMarker, is_candidate: false, type: 'preview', theme: 'blue' });
+    }
+    return result;
+  }, [visibleMarkers, previewCandidateMarker]);
 
   // 路线版本号变化时清除乐观 UI 状态
   // 只清除 markerOverrides；removedPoiIds 延迟清除，给新 markers 数据到达的时间
@@ -685,7 +698,7 @@ export default function MapContainer({
       return;
     }
 
-    if (!visibleMarkers || visibleMarkers.length === 0) {
+    if (!effectiveMarkers || effectiveMarkers.length === 0) {
       console.log('[Map] 无 marker 数据');
       return;
     }
@@ -703,7 +716,7 @@ export default function MapContainer({
 
     let drawnCount = 0;
 
-    visibleMarkers.forEach((marker, idx) => {
+    effectiveMarkers.forEach((marker, idx) => {
       if (!marker.location || typeof marker.location !== 'string') {
         console.warn('[Map] marker 坐标无效', marker);
         return;
@@ -1294,7 +1307,7 @@ export default function MapContainer({
     markerObjectRefs.current = newMarkerObjects;
     markerDataRefs.current = newMarkerData;
 
-  }, [getMarkerPoiId, isMapReady, onPoiAction, onCandidateAction, visibleMarkers, removedPoiIds, promotedCandidateIds, removedCandidatePoiIds]);
+  }, [getMarkerPoiId, isMapReady, onPoiAction, onCandidateAction, effectiveMarkers, removedPoiIds, promotedCandidateIds, removedCandidatePoiIds]);
 
   // Step 6: 数据变化时重绘 polylines
   useEffect(() => {
