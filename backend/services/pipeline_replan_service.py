@@ -142,6 +142,16 @@ async def apply_pipeline_replan(
     if not next_points:
         raise ValueError("操作后路线无剩余 POI")
 
+    # v18: 重新按当前列表顺序编号 route_order / display_order
+    disp_idx = 1
+    for idx, pt in enumerate(next_points, start=1):
+        pt["route_order"] = idx
+        if pt.get("is_waypoint", True) and pt.get("kind") not in ("hint",):
+            pt["display_order"] = disp_idx
+            disp_idx += 1
+        elif pt.get("display_order") is not None:
+            pt["display_order"] = None
+
     day_waypoints: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for pt in next_points:
         if pt.get("is_waypoint", True) and pt.get("kind") != "hint":
@@ -149,10 +159,8 @@ async def apply_pipeline_replan(
 
     new_segments: list[dict[str, Any]] = []
     for day, waypoints in sorted(day_waypoints.items()):
-        waypoints = sorted(waypoints, key=lambda p: (
-            int(p.get("route_order") or 9999),
-            int(p.get("display_order") if p.get("display_order") is not None else 9999),
-        ))
+        # v18: 保持当前列表顺序，不再按旧 route_order 排序
+        waypoints = list(waypoints)
         for i in range(len(waypoints) - 1):
             from_pt = waypoints[i]
             to_pt = waypoints[i + 1]

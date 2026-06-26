@@ -689,101 +689,7 @@ async def optimize_route(request: RouteOptimizeRequest):
             code="OPTIMIZE_ERROR"
         )
 
-@router.get("/{route_id}", response_model=ApiResponse, summary="获取路线详情")
-async def get_route(route_id: str):
-    """获取路线详情"""
-    route = _route_store.get(route_id)
-    if not route:
-        return ApiResponse(
-            success=False,
-            data=None,
-            message=f"路线不存在: {route_id}",
-            code="NOT_FOUND"
-        )
-
-    return ApiResponse(
-        success=True,
-        data=json.loads(json.dumps(route.model_dump(), default=str)),
-        message="获取成功"
-    )
-
-@router.post("/poi/disambiguate", response_model=ApiResponse, summary="POI消歧")
-async def disambiguate_poi(request: DisambiguateRequest):
-    """
-    处理POI歧义选择
-    用户从歧义选项中选择一个POI
-    """
-    try:
-        gaode_service = get_gaode_service()
-        
-        # 重新搜索获取选项
-        pois_data = await gaode_service.place_text(
-            keywords=request.poi_name,
-            offset=10
-        )
-
-        selected_poi = None
-        for poi_data in pois_data:
-            if poi_data.get("id") == request.selected_id:
-                selected_poi = POI(
-                    id=poi_data.get("id", ""),
-                    name=poi_data.get("name", ""),
-                    address=poi_data.get("address", ""),
-                    location=poi_data.get("location", ""),
-                    city=poi_data.get("cityname", ""),
-                    district=poi_data.get("district", ""),
-                    type=poi_data.get("type", ""),
-                    rating=float(poi_data.get("biz_ext", {}).get("rating", 0) or 0),
-                    open_time=poi_data.get("open_info"),
-                    close_time=poi_data.get("close_info"),
-                    ambiguity=False,
-                    duration_minutes=60,
-                    metro_hint=""
-                    # reviews=[]  # 注释掉，因为POI模型没有reviews字段
-                )
-                break
-
-        if not selected_poi:
-            return ApiResponse(
-                success=False,
-                data=None,
-                message="未找到选中的POI",
-                code="POI_NOT_FOUND"
-            )
-
-        return ApiResponse(
-            success=True,
-            data=json.loads(json.dumps(selected_poi.model_dump(), default=str)),
-            message="POI消歧成功"
-        )
-
-    except Exception as e:
-        logger.exception(f"POI消歧异常: {str(e)}")
-        return ApiResponse(
-            success=False,
-            data=None,
-            message=f"POI消歧失败: {str(e)}",
-            code="DISAMBIGUATE_ERROR"
-        )
-
-
-class ReplanOperation(BaseModel):
-    """单次路线重规划操作"""
-    action: str = Field(..., description="add | remove | replace")
-    poi: Optional[dict] = Field(None, description="要添加的 POI 数据")
-    poi_id: Optional[str] = Field(None, description="要操作的 POI ID")
-
-
-class ReplanRequest(BaseModel):
-    """路线重规划请求"""
-    route_id: Optional[str] = Field(None, description="当前路线 ID")
-    main_pois: List[dict] = Field(default_factory=list, description="当前主 POI 列表")
-    enroute_pois: List[dict] = Field(default_factory=list, description="当前备选 POI 列表")
-    operations: List[ReplanOperation] = Field(..., description="操作列表")
-    transport_mode: str = Field(default="driving", description="交通方式")
-
-
-@router.post("/route/replan")
+@router.post("/replan")
 async def replan_route(req: ReplanRequest):
     """重新规划路线，支持添加、删除、替换 POI"""
     try:
@@ -982,7 +888,7 @@ class PipelineReplanRequest(BaseModel):
     route_id: Optional[str] = Field(None, description="路线 ID")
 
 
-@router.post("/route/replan-pipeline")
+@router.post("/replan-pipeline")
 async def replan_pipeline_route(req: PipelineReplanRequest):
     route_id = req.route_id
     if route_id and route_id in _route_cache:
@@ -1001,3 +907,97 @@ async def replan_pipeline_route(req: PipelineReplanRequest):
     except Exception as exc:
         logger.exception(f"管线重规划失败: {exc}")
         return {"success": False, "data": None, "message": str(exc)}
+@router.get("/{route_id}", response_model=ApiResponse, summary="获取路线详情")
+async def get_route(route_id: str):
+    """获取路线详情"""
+    route = _route_store.get(route_id)
+    if not route:
+        return ApiResponse(
+            success=False,
+            data=None,
+            message=f"路线不存在: {route_id}",
+            code="NOT_FOUND"
+        )
+
+    return ApiResponse(
+        success=True,
+        data=json.loads(json.dumps(route.model_dump(), default=str)),
+        message="获取成功"
+    )
+
+@router.post("/poi/disambiguate", response_model=ApiResponse, summary="POI消歧")
+async def disambiguate_poi(request: DisambiguateRequest):
+    """
+    处理POI歧义选择
+    用户从歧义选项中选择一个POI
+    """
+    try:
+        gaode_service = get_gaode_service()
+        
+        # 重新搜索获取选项
+        pois_data = await gaode_service.place_text(
+            keywords=request.poi_name,
+            offset=10
+        )
+
+        selected_poi = None
+        for poi_data in pois_data:
+            if poi_data.get("id") == request.selected_id:
+                selected_poi = POI(
+                    id=poi_data.get("id", ""),
+                    name=poi_data.get("name", ""),
+                    address=poi_data.get("address", ""),
+                    location=poi_data.get("location", ""),
+                    city=poi_data.get("cityname", ""),
+                    district=poi_data.get("district", ""),
+                    type=poi_data.get("type", ""),
+                    rating=float(poi_data.get("biz_ext", {}).get("rating", 0) or 0),
+                    open_time=poi_data.get("open_info"),
+                    close_time=poi_data.get("close_info"),
+                    ambiguity=False,
+                    duration_minutes=60,
+                    metro_hint=""
+                    # reviews=[]  # 注释掉，因为POI模型没有reviews字段
+                )
+                break
+
+        if not selected_poi:
+            return ApiResponse(
+                success=False,
+                data=None,
+                message="未找到选中的POI",
+                code="POI_NOT_FOUND"
+            )
+
+        return ApiResponse(
+            success=True,
+            data=json.loads(json.dumps(selected_poi.model_dump(), default=str)),
+            message="POI消歧成功"
+        )
+
+    except Exception as e:
+        logger.exception(f"POI消歧异常: {str(e)}")
+        return ApiResponse(
+            success=False,
+            data=None,
+            message=f"POI消歧失败: {str(e)}",
+            code="DISAMBIGUATE_ERROR"
+        )
+
+
+class ReplanOperation(BaseModel):
+    """单次路线重规划操作"""
+    action: str = Field(..., description="add | remove | replace")
+    poi: Optional[dict] = Field(None, description="要添加的 POI 数据")
+    poi_id: Optional[str] = Field(None, description="要操作的 POI ID")
+
+
+class ReplanRequest(BaseModel):
+    """路线重规划请求"""
+    route_id: Optional[str] = Field(None, description="当前路线 ID")
+    main_pois: List[dict] = Field(default_factory=list, description="当前主 POI 列表")
+    enroute_pois: List[dict] = Field(default_factory=list, description="当前备选 POI 列表")
+    operations: List[ReplanOperation] = Field(..., description="操作列表")
+    transport_mode: str = Field(default="driving", description="交通方式")
+
+

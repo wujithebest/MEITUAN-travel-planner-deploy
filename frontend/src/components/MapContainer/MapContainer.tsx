@@ -328,7 +328,7 @@ export default function MapContainer({
   const effectiveMarkers = useMemo(() => {
     const result = [...visibleMarkers];
     if (previewCandidateMarker) {
-      result.push({ ...previewCandidateMarker, is_candidate: false, type: 'preview', theme: 'blue' });
+      result.push({ ...previewCandidateMarker, is_candidate: false, type: 'candidate_preview', theme: 'blue' });
     }
     return result;
   }, [visibleMarkers, previewCandidateMarker]);
@@ -744,7 +744,7 @@ export default function MapContainer({
       // v18: 显示 POI 缩略图+名称常驻 marker
       const escapedName = String(marker.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       const photoUrl = (marker as any).photo_url || (marker as any).firstPhotoUrl || '';
-      const isPreview = marker.type === 'preview';
+      const isPreview = marker.type === 'preview' || marker.type === 'candidate_preview';
 
       const thumbHtml = photoUrl
         ? `<img class="mapPoiThumb" src="${photoUrl}" alt="${escapedName}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:2px solid ${isPreview ? '#3B82F6' : '#fff'};box-shadow:0 2px 6px rgba(0,0,0,0.15);" />`

@@ -252,7 +252,7 @@ interface RouteState {
   addPoiToRoute: (poi: POI) => Promise<void>;
   removePoiFromRoute: (poiId: string) => Promise<void>;
   replacePoiInRoute: (removeId: string, addPoi: POI) => Promise<void>;
-  replanPipelineRoute: (operations: { action: 'remove' | 'replace'; poi_id: string; poi?: any }[]) => Promise<void>;
+  replanPipelineRoute: (operations: { action: 'remove' | 'replace' | 'add'; poi_id: string; poi?: any; gaode_poi_id?: string; poi_name?: string; poi_location?: string; after_poi_id?: string; after_poi_name?: string; after_poi_location?: string }[]) => Promise<void>;
   recordPoiLike: (poiName: string, poiType: string) => void;
   recordPoiDislike: (poiName: string, poiType: string) => void;
   recordPoiRemove: (poiName: string, poiType: string) => void;

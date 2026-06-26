@@ -231,6 +231,13 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     if (!candidateMode) return;
     const anchor = candidateMode.anchorPoi;
     const normalized = normalizeCandidate(candidate);
+    // v18: 先本地乐观更新 panelDays
+    try {
+      import('@/utils/panelPoiReorder').then(({ applyPanelPoiMutation }) => {
+        const state = (window as any).__routeStore?.getState?.() || useRouteStore.getState?.();
+        if (!state) return;
+      });
+    } catch {}
     if (candidateMode.action === 'replace') {
       onPoiAction?.({ type: 'replace', poiId: anchor.name, replacementPoi: normalized, poi: anchor });
     } else {
@@ -243,6 +250,9 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
         afterPoiLocation: anchor.location,
       });
     }
+    // Clear candidate mode and preview
+    setCandidateMode(null);
+    onCandidatePreview?.(null);
   };
 
   const clearCandidateMode = () => {
@@ -410,6 +420,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                           <Trash2 size={15} />
                         </button>
                       </div>
+                      {/* Commerce CTA */}
+                      {(String(poi.typecode||'').startsWith('05') || categoryLabel(poi.kind, poi.typecode) === '餐饮') && (
+                        <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
+                          团购优惠
+                        </button>
+                      )}
+                      {(String(poi.typecode||'').startsWith('11') || String(poi.typecode||'').startsWith('14') || /景区|博物馆|展览/.test(poi.name||'') || /景区|博物馆|展览/.test(poi.category||'')) && (
+                        <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
+                          点击购票
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

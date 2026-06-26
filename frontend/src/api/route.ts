@@ -240,7 +240,7 @@ export async function replanRoute(req: ReplanRequest): Promise<RouteResponse> {
 export interface PipelineReplanRequest {
   points: any[];
   segments: any[];
-  operations: { action: 'remove' | 'replace'; poi_id: string; poi?: any; gaode_poi_id?: string; poi_name?: string; poi_location?: string }[];
+  operations: { action: 'remove' | 'replace' | 'add'; poi_id: string; poi?: any; gaode_poi_id?: string; poi_name?: string; poi_location?: string; after_poi_id?: string; after_poi_name?: string; after_poi_location?: string }[];
   transport_mode?: string;
   route_id?: string | null;
 }

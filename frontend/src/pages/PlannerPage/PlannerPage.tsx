@@ -456,12 +456,25 @@ const PlannerPage: React.FC = () => {
 
     const allMarkers = useRouteStore.getState().mapRouteData?.markers || [];
     const marker = allMarkers.find(m => {
-      const id = m.poi_id || m.gaode_poi_id || `${m.name}:${m.location}`;
-      return id === action.poiId;
+      return (
+        (m.poi_id && m.poi_id === action.poiId) ||
+        (m.gaode_poi_id && m.gaode_poi_id === action.poiId) ||
+        (m.name && m.name === action.poiId) ||
+        (m.name && m.location && `${m.name}:${m.location}` === action.poiId)
+      );
     });
 
+    const normalizeLoc = (loc: any): string | undefined => {
+      if (!loc) return undefined;
+      if (typeof loc === 'string') return loc;
+      if (Array.isArray(loc)) return `${loc[0]},${loc[1]}`;
+      if (loc.lng != null && loc.lat != null) return `${loc.lng},${loc.lat}`;
+      return undefined;
+    };
+
+    const apiAction = action.type === 'delete' ? 'remove' : action.type;
     const ops: any[] = [{
-      action: action.type,
+      action: apiAction,
       poi_id: action.poiId,
       gaode_poi_id: marker?.gaode_poi_id || undefined,
       poi_name: marker?.name || undefined,
@@ -469,21 +482,18 @@ const PlannerPage: React.FC = () => {
     }];
 
     if (action.type === 'replace' && action.replacementPoi) {
-      const alt = action.replacementPoi;
-      ops[0].poi = normalizePoiPayload(alt);
+      ops[0].poi = normalizePoiPayload(action.replacementPoi);
     }
     if (action.type === 'add' && action.poi) {
-      const alt = action.poi;
-      ops[0].poi = normalizePoiPayload(alt);
+      ops[0].poi = { ...normalizePoiPayload(action.poi), location: normalizeLoc(action.poi.location) };
       ops[0].after_poi_id = action.afterPoiId;
       ops[0].after_poi_name = action.afterPoiName;
-      ops[0].after_poi_location = typeof action.afterPoiLocation === 'string'
-        ? action.afterPoiLocation
-        : (action.afterPoiLocation ? `${action.afterPoiLocation.lng},${action.afterPoiLocation.lat}` : undefined);
+      ops[0].after_poi_location = normalizeLoc(action.afterPoiLocation);
     }
     await replanPipelineRoute(ops);
     setLocalMapRouteData(null);
     setSelectedRouteSegment(null);
+    setPreviewCandidateMarker(null);
     setRouteVersion(v => v + 1);
   }, [replanPipelineRoute]);
 
