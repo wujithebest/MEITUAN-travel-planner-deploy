@@ -178,6 +178,19 @@
   background: #fff;
 }
 
+/* ── 底图透明度：仅降低地图瓦片，不影响 marker/路线/控件 ── */
+
+:global(.amap-layer img),
+:global(.amap-layer canvas) {
+  opacity: 0.65;
+}
+
+:global(.amap-marker),
+:global(.amap-overlay-layer),
+:global(.amap-info) {
+  opacity: 1;
+}
+
 /* 覆盖物样式覆盖 */
 :global(.amap-marker-label) {
   border: none !important;

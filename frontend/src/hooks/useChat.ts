@@ -1217,7 +1217,7 @@ export function useChat(): UseChatReturn {
                 if (s.elapsed_seconds != null) parts.push(`耗时 ${s.elapsed_seconds}s`);
                 if (s.total_tokens != null) parts.push(`Token ${s.total_tokens.toLocaleString()}`);
                 parts.push(`DeepSeek ${s.deepseek_calls ?? 0}次`);
-                parts.push(`高德 ${s.gaode_calls ?? 0}次`);
+                parts.push(`地图 ${s.gaode_calls ?? 0}次`);
                 parts.push(`博查 ${s.bocha_calls ?? 0}次`);
                 statsTextRef.current = parts.join(' · ');
               }

@@ -1466,8 +1466,9 @@
 }
 
 .routePlaceMedia {
-  width: 96px;
-  flex: 0 0 96px;
+  --route-media-width: 96px;
+  width: var(--route-media-width);
+  flex: 0 0 var(--route-media-width);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1585,6 +1586,18 @@
   flex-direction: column;
   gap: 6px;
   padding: 4px 0;
+  align-items: flex-start;
+}
+
+/* ── origin transport alignment ── */
+
+.originRouteConnector {
+  padding-left: 32px;
+  padding-right: 16px;
+}
+
+.originRouteConnector .routeConnectorLine {
+  display: none;
 }
 
 .taxiBtn {
@@ -1593,13 +1606,15 @@
   gap: 4px;
   padding: 5px 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #FFD100;
   color: #333;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
+  width: 96px;
+  justify-content: center;
 }
 
 .taxiBtn:hover {

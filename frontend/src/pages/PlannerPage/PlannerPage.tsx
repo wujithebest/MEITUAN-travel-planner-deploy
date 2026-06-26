@@ -17,7 +17,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, User, Settings, LogOut, ChevronDown, Heart, Clock3, HelpCircle } from 'lucide-react';
 import { Avatar, message } from 'antd';
-import favoriteRoutesService from '@/services/favoriteRoutes';
+import favoriteRoutesService, { routeHash } from '@/services/favoriteRoutes';
 import ChatPanel from '@/components/ChatPanel/ChatPanel';
 import HeaderWeather from '@/components/HeaderWeather';
 import MapContainer, { MarkerData } from '@/components/MapContainer/MapContainer';
@@ -704,19 +704,35 @@ const PlannerPage: React.FC = () => {
             onRouteCardFavorite={async (snapshot) => {
               if (snapshot) {
                 try {
-                  await favoriteRoutesService.saveFavorite({
-                    title: snapshot.title || '路线规划',
-                    complete_plan: snapshot.complete_plan,
-                    route_data: snapshot.route_data,
+                  const routeData = snapshot.route_data || {};
+                  const completePlan = snapshot.complete_plan || null;
+                  const title = snapshot.title || '路线规划';
+                  const days = completePlan?.parsed_intent?.days || snapshot.summary?.days || 1;
+                  const destination = completePlan?.parsed_intent?.destination || '上海';
+
+                  const favData = {
+                    title,
+                    destination,
+                    days,
+                    route_id: routeData?.route_id || String(routeData?.route_id || ''),
+                    route_hash: snapshot.route_hash || routeHash({
+                      title,
+                      days,
+                      route_data: routeData,
+                    }),
+                    complete_plan: completePlan,
+                    route_data: routeData,
                     panel_days: snapshot.panel_days || [],
-                    map_route_data: snapshot.map_route_data,
+                    map_route_data: snapshot.map_route_data || {},
                     poi_details: snapshot.poi_details || {},
-                    summary: snapshot.summary || {},
-                    days: snapshot.summary?.poi_count || 1,
-                    destination: '上海',
-                    user_input: '',
-                    messages: [],
-                  });
+                    summary: snapshot.summary || {
+                      poi_count: snapshot.summary?.poi_count || 0,
+                      distance: 0,
+                      duration: 0,
+                    },
+                  };
+
+                  await favoriteRoutesService.saveFavorite(isGuest, favData);
                   message.success('已收藏路线');
                 } catch {
                   message.error('收藏失败');

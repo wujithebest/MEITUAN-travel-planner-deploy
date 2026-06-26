@@ -461,7 +461,8 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
 
                 {/* Origin transport options */}
                 {isOriginSeg && seg.transport_options?.length > 0 && (
-                  <div className={styles.routeConnector}
+                  <div
+                    className={`${styles.routeConnector} ${styles.originRouteConnector}`}
                     onClick={() => onRouteClick?.(seg)}
                     role="button"
                     tabIndex={0}
