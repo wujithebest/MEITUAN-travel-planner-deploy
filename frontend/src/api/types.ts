@@ -434,6 +434,14 @@ export interface RouteSegmentDTO {
   degraded?: boolean;
   polyline_source?: string;
   route_error?: string;
+  transport_options?: Array<{
+    mode: string;
+    label: string;
+    transport: string;
+    distance_km: number;
+    duration_min: number;
+    estimated_fare_yuan?: number;
+  }>;
 }
 
 /** 时间段 DTO - 与后端 TimePeriodDTO 对应 */

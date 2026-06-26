@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { createRoot, Root } from 'react-dom/client';
 import styles from './MapContainer.module.css';
 import POIDetailModal from '../POIDetailModal';
-import POIPopup, { POIData, Tag } from '../POIPopup';
+// POIPopup removed in v18 — markers now use thumbnail+name, actions moved to sidebar
 import { getPoiAlternatives, getPoiDetail, recordPoiPreference, type AlternativePoi, type PoiDetail } from '@/api/poi';
 import { patchGuestFavoritePoiDetail } from '@/services/favoriteRoutes';
 import { useRouteStore } from '@/store/routeStore';
@@ -742,62 +741,28 @@ export default function MapContainer({
       const markerIndex = marker.index;  // undefined for non-display POIs
       const isDisplayPoi = markerIndex != null || marker.is_display_poi === true;
       const isStart = marker.type === 'origin' || marker.type === 'start' || marker.display_label === '起点';
+      // v18: 显示 POI 缩略图+名称常驻 marker
+      const escapedName = String(marker.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const photoUrl = (marker as any).photo_url || (marker as any).firstPhotoUrl || '';
+      const isPreview = marker.type === 'preview';
+
+      const thumbHtml = photoUrl
+        ? `<img class="mapPoiThumb" src="${photoUrl}" alt="${escapedName}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:2px solid ${isPreview ? '#3B82F6' : '#fff'};box-shadow:0 2px 6px rgba(0,0,0,0.15);" />`
+        : `<div class="mapPoiBadge" style="width:40px;height:40px;border-radius:6px;background:${isPreview ? '#DBEAFE' : '#FFD100'};color:#333;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid ${isPreview ? '#3B82F6' : '#fff'};box-shadow:0 2px 6px rgba(0,0,0,0.15);">${isPreview ? '?' : (markerIndex || '')}</div>`;
+
       const htmlContent = isCandidate
-        ? `<div style="
-            width: 32px;
-            height: 32px;
-            background: #3B82F6;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            cursor: pointer;
-            border: 2px solid white;
-          "></div>`
+        ? `<div style="width:12px;height:12px;background:#3B82F6;border-radius:50%;border:2px solid white;"></div>`
         : isStart
-        ? `<div style="
-            width: 34px;
-            height: 34px;
-            background: #111827;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-            color: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            cursor: pointer;
-            border: 2px solid white;
-          ">起</div>`
-        : isDisplayPoi
-        ? `<div style="
-            width: 32px;
-            height: 32px;
-            background: #FFD600;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
-            color: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            cursor: pointer;
-            border: 2px solid white;
-          ">
-            ${markerIndex}
+        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            <div style="width:34px;height:34px;background:#111827;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;">起</div>
+            <span style="font-size:11px;color:#333;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px #fff;background:rgba(255,255,255,0.85);padding:1px 4px;border-radius:3px;">${marker.name}</span>
           </div>`
-        : `<div style="
-            width: 10px;
-            height: 10px;
-            background: #999;
-            border-radius: 50%;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-            cursor: pointer;
-            border: 1px solid white;
-          "></div>`;
+        : isDisplayPoi || isPreview
+        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+            ${thumbHtml}
+            <span style="font-size:11px;color:#333;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px #fff;background:rgba(255,255,255,0.85);padding:1px 4px;border-radius:3px;">${escapedName}</span>
+          </div>`
+        : `<div style="width:10px;height:10px;background:#999;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.2);border:1px solid white;"></div>`;
 
       try {
         const markerObj = new window.AMap.Marker({
@@ -958,329 +923,10 @@ export default function MapContainer({
             ],
           };
 
-          // 设置弹窗数据和位置
-          setPoiPopupData(poiData);
-          setPoiPopupPosition([lng, lat]);
-          setPoiPopupVisible(true);
-
-          // 创建或更新 InfoWindow
-          if (infoWindowRef.current) {
-            infoWindowRef.current.close();
+          // v18: 点击标记只定位地图中心，不再弹出操作卡片
+          if (map && map.setZoomAndCenter) {
+            map.setZoomAndCenter(16, [lng, lat]);
           }
-
-          // 创建容器用于 React 渲染
-          const popupContainer = document.createElement('div');
-          popupContainer.id = 'poi-popup-container';
-
-          // Make a snapshot of marker data to avoid stale closure references
-          const markerSnapshot = { ...marker, poiData: marker.poiData ? { ...marker.poiData } : undefined };
-
-          const renderPopup = (dataForPopup: POIData) => {
-            // Clean up previous root if exists
-            if (popupRootRef.current) {
-              popupRootRef.current.unmount();
-              popupRootRef.current = null;
-            }
-            const root = createRoot(popupContainer);
-            popupRootRef.current = root;
-
-            if (isCandidateMarker) {
-              // v6: 蓝色候选 POI 弹窗 — 替换、删除、增加三个动作
-              root.render(
-                <POIPopup
-                  data={dataForPopup}
-                  visible={true}
-                  mode="candidate"
-                  theme="blue"
-                  onDelete={(data) => {
-                    const deletePoiId = data.poiId || `${data.nameEn}:${data.location}`;
-                    setRemovedCandidatePoiIds((prev) => new Set(prev).add(deletePoiId));
-                    recordPoiPreference({
-                      poi_id: data.poiId,
-                      poi_name: data.nameEn,
-                      poi_type: data.category || data.typecode || '',
-                      action: 'delete',
-                    });
-                    onCandidateAction?.({ type: 'delete', poiId: deletePoiId, candidateMarker: marker });
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                  }}
-                  onAdd={(data) => {
-                    const addPoiId = data.poiId || `${data.nameEn}:${data.location}`;
-                    setPromotedCandidateIds((prev) => new Set(prev).add(addPoiId));
-                    // v6: Panel mutation — add candidate to panelDays
-                    const candPoi: PanelPoi = {
-                      order: 0,
-                      name: data.nameEn,
-                      kind: 'anchor_internal',
-                      day_index: marker.day_index || 1,
-                      slot: marker.display_slot || '',
-                      location: data.location || marker.location || '',
-                      is_start: false,
-                      transport_text: '',
-                      recommend_reason: marker.recommend_reason || '',
-                      photo_url: marker.photo_url || '',
-                      rating: marker.rating ?? marker.gaode_rating ?? null,
-                      address: marker.address || '',
-                      parent_anchor: marker.parent_anchor || '',
-                      poi_id: marker.poi_id,
-                      gaode_poi_id: marker.gaode_poi_id,
-                      typecode: marker.typecode,
-                      category: marker.category,
-                      display_slot: marker.display_slot,
-                      sub_anchor_name: marker.sub_anchor_name,
-                    } as any;
-                    import('@/utils/panelPoiReorder').then(({ applyPanelPoiMutation, buildMarkerOrderMap }) => {
-                      const state = useRouteStore.getState();
-                      const current = state.panelDays;
-                      const next = applyPanelPoiMutation(current, {
-                        action: 'addCandidate',
-                        candidate: candPoi,
-                      });
-                      if (next) {
-                        const orderMap = buildMarkerOrderMap(next);
-                        const orderInfo = orderMap[addPoiId] || Object.values(orderMap).find(
-                          (v: any) => v.index && candPoi.name && Object.keys(orderMap).some(k => k === addPoiId)
-                        ) || Object.values(orderMap).find(
-                          (v: any) => v.index
-                        );
-                        useRouteStore.getState().setPanelDays(next);
-                        // Also apply marker override for promoted candidate
-                        if (orderInfo) {
-                          setMarkerOverrides((prev) => ({
-                            ...prev,
-                            [addPoiId]: {
-                              ...marker,
-                              type: 'destination' as const,
-                              theme: 'yellow' as const,
-                              is_candidate: false,
-                              is_display_poi: true,
-                              index: orderInfo.index,
-                              display_order: orderInfo.index,
-                              display_slot: orderInfo.display_slot,
-                              day_index: orderInfo.day_index,
-                            },
-                          }));
-                        }
-                      }
-                    });
-                    recordPoiPreference({
-                      poi_id: data.poiId,
-                      poi_name: data.nameEn,
-                      poi_type: data.category || data.typecode || '',
-                      action: 'like',
-                    });
-                    onCandidateAction?.({ type: 'add', poiId: addPoiId, candidateMarker: marker });
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                  }}
-                  onReplace={(data) => {
-                    // 设置待替换状态，等待用户点击路线 POI
-                    setPendingCandidateReplacement(marker);
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                    console.log('[Map] 候选 POI 替换模式：请点击地图上的路线 POI 进行替换');
-                  }}
-                  onClick={(data) => {
-                    console.log('[Map] 点击候选POI弹窗:', data.nameEn);
-                    setPoiPopupVisible(false);
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                    setPoiDetailModal({
-                      isOpen: true,
-                      poiName: data.nameEn,
-                      poiId: data.poiId || markerSnapshot.location,
-                      location: markerSnapshot.location,
-                      poi: markerSnapshot.poiData,
-                    });
-                  }}
-                />
-              );
-            } else {
-              // 原有黄色路线 POI 弹窗逻辑
-              root.render(
-                <POIPopup
-                  data={dataForPopup}
-                  visible={true}
-                  onFavoriteChange={(data, isFavorited) => {
-                    recordPoiPreference({
-                      poi_id: data.poiId,
-                      poi_name: data.nameEn,
-                      poi_type: data.category || data.typecode || '',
-                      action: isFavorited ? 'like' : 'dislike',
-                    });
-                    const index = data.nameEn;
-                    console.log(`[Map] POI ${index} 收藏状态: ${isFavorited}`);
-                  }}
-                  onDelete={(data) => {
-                    const deletePoiId = data.poiId || `${data.nameEn}:${data.location}`;
-                    setRemovedPoiIds((prev) => new Set(prev).add(deletePoiId));
-                    // v6: Panel mutation — delete route POI
-                    import('@/utils/panelPoiReorder').then(({ applyPanelPoiMutation }) => {
-                      const state = useRouteStore.getState();
-                      const next = applyPanelPoiMutation(state.panelDays, {
-                        action: 'deleteRoutePoi',
-                        poiKey: deletePoiId,
-                      });
-                      if (next) useRouteStore.getState().setPanelDays(next);
-                    });
-                    recordPoiPreference({
-                      poi_id: data.poiId,
-                      poi_name: data.nameEn,
-                      poi_type: data.category || data.typecode || '',
-                      action: 'delete',
-                    });
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                    onPoiAction?.({ type: 'delete', poiId: deletePoiId });
-                  }}
-                  onReplaceOpen={(data) => getPoiAlternatives({
-                    poi_id: data.gaodePoiId || data.poiId || data.nameEn,
-                    poi_name: data.nameEn,
-                    location: data.location,
-                    category: data.typecode || data.category,
-                    limit: 5,
-                  })}
-                  onReplaceSelect={(data, alternative: AlternativePoi) => {
-                    const oldId = data.poiId || `${data.nameEn}:${data.location}`;
-                    const [altLng, altLat] = alternative.lnglat || [0, 0];
-                    setMarkerOverrides((prev) => ({
-                      ...prev,
-                      [oldId]: {
-                        ...markerSnapshot,
-                        poi_id: alternative.poi_id,
-                        gaode_poi_id: alternative.gaode_poi_id,
-                        name: alternative.name,
-                        location: alternative.location
-                          ? `${alternative.location.lng},${alternative.location.lat}`
-                          : `${altLng},${altLat}`,
-                        category: alternative.category,
-                        typecode: alternative.typecode,
-                        address: alternative.address,
-                        rating: alternative.rating,
-                        avg_cost: alternative.avg_cost,
-                        photo_url: alternative.photo_url,
-                        photo_source: alternative.photo_source,
-                        poiData: alternative,
-                      },
-                    }));
-                    // v6: Panel mutation — replace route POI
-                    import('@/utils/panelPoiReorder').then(({ applyPanelPoiMutation }) => {
-                      const state = useRouteStore.getState();
-                      const newPoi: PanelPoi = {
-                        order: 0,
-                        name: alternative.name,
-                        kind: 'anchor_internal',
-                        day_index: markerSnapshot.day_index || 1,
-                        slot: markerSnapshot.display_slot || '',
-                        location: alternative.location
-                          ? `${alternative.location.lng},${alternative.location.lat}`
-                          : `${altLng},${altLat}`,
-                        is_start: false,
-                        transport_text: '',
-                        recommend_reason: '',
-                        photo_url: alternative.photo_url || '',
-                        rating: alternative.rating ?? null,
-                        address: alternative.address || '',
-                        parent_anchor: '',
-                        poi_id: alternative.poi_id,
-                        gaode_poi_id: alternative.gaode_poi_id,
-                        typecode: alternative.typecode,
-                        category: alternative.category,
-                      } as any;
-                      const next = applyPanelPoiMutation(state.panelDays, {
-                        action: 'replaceRoutePoi',
-                        poiKey: oldId,
-                        newPoi,
-                      });
-                      if (next) useRouteStore.getState().setPanelDays(next);
-                    });
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                    onPoiAction?.({ type: 'replace', poiId: oldId, replacementPoi: alternative });
-                  }}
-                  onAlternativeLike={(alternative, liked) => {
-                    recordPoiPreference({
-                      poi_id: alternative.poi_id,
-                      poi_name: alternative.name,
-                      poi_type: alternative.category || alternative.typecode || '',
-                      action: liked ? 'like' : 'dislike',
-                    });
-                  }}
-                  onClick={(data) => {
-                    console.log('[Map] 点击POI弹窗:', data.nameEn);
-                    // 关闭弹窗并打开详情弹窗
-                    setPoiPopupVisible(false);
-                    if (infoWindowRef.current) {
-                      infoWindowRef.current.close();
-                    }
-                    setPoiDetailModal({
-                      isOpen: true,
-                      poiName: data.nameEn,
-                      poiId: data.poiId || markerSnapshot.location,
-                      location: markerSnapshot.location,
-                      poi: markerSnapshot.poiData,
-                    });
-                  }}
-                />
-              );
-            }
-          };
-
-          renderPopup(poiData);
-
-          // 创建高德 InfoWindow (使用 any 类型绕过类型检查)
-          const infoWindowOptions: any = {
-            content: popupContainer,
-            isCustom: true,
-            offset: new window.AMap.Pixel(0, -30),
-          };
-          infoWindowRef.current = new window.AMap.InfoWindow(infoWindowOptions);
-
-          // 打开 InfoWindow
-          infoWindowRef.current.open(map, [lng, lat]);
-
-          if (!poiData.imageUrl || poiData.hasRating === false || !poiData.address) {
-            const detailPoiId = marker.gaode_poi_id || (poiId && !poiId.includes(':') && !poiId.includes(',') ? poiId : '');
-            getPoiDetail({
-              poi_id: detailPoiId,
-              poi_name: marker.name,
-              location: marker.location,
-              category: marker.typecode || marker.category || marker.type,
-            }).then((detail) => {
-              if (!detail || !infoWindowRef.current) return;
-              mergePoiDetailIntoMarker(marker, detail);
-              patchGuestFavoritePoiDetail(marker, detail);
-              const enrichedPoiData = mergePoiDetailIntoPopup(poiData, detail, marker.name, marker.location);
-              setPoiPopupData(enrichedPoiData);
-              renderPopup(enrichedPoiData);
-              console.log('[Map] POI详情已补全:', {
-                name: marker.name,
-                hasPhoto: !!enrichedPoiData.imageUrl,
-                hasRating: enrichedPoiData.hasRating,
-                hasAddress: !!enrichedPoiData.address,
-              });
-            });
-          }
-
-          // 监听 InfoWindow 关闭事件
-          infoWindowRef.current.on('close', () => {
-            setPoiPopupVisible(false);
-            setPoiPopupData(null);
-            setPoiPopupPosition(null);
-            // Clean up React root
-            if (popupRootRef.current) {
-              popupRootRef.current.unmount();
-              popupRootRef.current = null;
-            }
-            infoWindowRef.current = null;
-          });
         });
 
         // v6: Register marker in refs (key by name, poi_id, gaode_poi_id, name:location)
