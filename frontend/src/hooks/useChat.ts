@@ -184,17 +184,11 @@ function generateId(): string {
 /**
  * 按规划模式生成欢迎语
  */
-/** v18: 从用户 query 生成路线卡片标题 */
+/** v18: 从用户 query 和后端 parsedIntent 生成路线卡片标题 */
 
 // ── title helpers ──
 
-/** 不允许进入标题的脏词：动作/时间/指令/泛化游览词 */
-const TITLE_DIRTY_WORDS_SET = new Set([
-  '路线', '规划', '推荐', '攻略', '帮我', '想去', '想逛', '想玩', '想去玩',
-  '玩', '游', '逛', '走', '走走', '玩玩', '逛逛', '帮我规划', '请', '安排',
-]);
-
-/** 白名单主题词（可包含"游/逛"等字仍允许） */
+/** 白名单主题词 */
 const TITLE_THEME_WHITELIST = new Set([
   '文艺', '历史文化', '历史', '文史', '美食', '逛吃', '夜游', '夜景',
   '亲子', '溜娃', '遛娃', '自然', '赏花', '骑行', '养生', '雅致',
@@ -208,22 +202,68 @@ const TITLE_LOCATION_WHITELIST = new Set([
   '苏州河', '杨浦滨江',
 ]);
 
-/** 日期词 */
-const TITLE_DATE_WORDS = ['今天', '明天', '后天', '今晚', '周末', '本周末', '下周末'];
-/** 时段/时长词（含夜游因为它也是时段信号） */
-const TITLE_DURATION_WORDS = ['一整天', '全天', '整天', '半天', '上午', '下午', '晚上', '夜里', '夜间', '夜游', '两天', '2天', '三天', '3天'];
-
-/** 所有脏词合并（包含式过滤用） */
-const _TITLE_ALL_DIRTY = [...TITLE_DIRTY_WORDS_SET, ...TITLE_DATE_WORDS, ...TITLE_DURATION_WORDS];
+/** 不允许进入标题的脏词/时间词 */
+const TITLE_RAW_BLOCKED = new Set([
+  '路线', '规划', '推荐', '攻略', '帮我', '想去', '想逛', '想玩', '想去玩',
+  '玩', '游', '逛', '走', '走走', '玩玩', '逛逛', '帮我规划', '请', '安排',
+  '今天', '明天', '后天', '今晚', '周末', '本周末', '下周末',
+  '一整天', '全天', '整天', '半天', '上午', '下午', '晚上', '夜里', '夜间', '夜游',
+  '两天', '2天', '三天', '3天', '全天游',
+]);
 
 function _titleTokenIsClean(token: string): boolean {
   const t = String(token || '').trim();
-  if (!t || t.length > 8) return false;
-  // 白名单直接放行
+  if (!t || t.length > 6) return false;
   if (TITLE_THEME_WHITELIST.has(t)) return true;
   if (TITLE_LOCATION_WHITELIST.has(t)) return true;
-  // 包含任意脏词/时间词则拒绝
-  return !_TITLE_ALL_DIRTY.some(word => word && t.includes(word));
+  return ![...TITLE_RAW_BLOCKED].some(word => word && t.includes(word));
+}
+
+function getRouteTitleDurationLabel(parsedIntent: any, planData: any, query: string): string {
+  const duration =
+    parsedIntent?.duration
+    || planData?.duration
+    || '';
+
+  const timeBudget = Number(
+    parsedIntent?.time_budget
+    ?? planData?.time_budget
+    ?? 0
+  );
+
+  const eveningRequested = Boolean(parsedIntent?.evening_requested);
+
+  if (eveningRequested && (duration === 'a quarter day' || duration === 'a half day' || timeBudget <= 0.5)) {
+    return '夜游';
+  }
+
+  switch (duration) {
+    case 'a quarter day': return '短途游';
+    case 'a half day': return '半日游';
+    case 'a full day': return '一日游';
+    case 'a day and a half': return '一日半游';
+    case 'two days': return '两日游';
+    case 'two and a half days': return '两日半游';
+    case 'three days': return '三日游';
+  }
+
+  if (timeBudget > 0) {
+    if (timeBudget <= 0.25) return '短途游';
+    if (timeBudget <= 0.5) return '半日游';
+    if (timeBudget <= 1.0) return '一日游';
+    if (timeBudget <= 1.5) return '一日半游';
+    if (timeBudget <= 2.0) return '两日游';
+    if (timeBudget <= 2.5) return '两日半游';
+    return '三日游';
+  }
+
+  // query 兜底（仅当 parsedIntent 无数据时）
+  if (/半天|上午|下午/.test(query)) return '半日游';
+  if (/夜游|夜景|晚上|夜里|夜间/.test(query)) return '夜游';
+  if (/两天|2天|周末/.test(query)) return '两日游';
+  if (/三天|3天/.test(query)) return '三日游';
+
+  return '一日游';
 }
 
 function buildRouteCardTitle(query: string, planData: any, backendRouteData: any): string {
@@ -237,7 +277,7 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
       || backendRouteData?.city
       || '上海');
 
-  // 2. 从 query 匹配候选词
+  // 2. parsedIntent（用于 duration label）
   const parsedIntent =
     backendRouteData?.planning_state?.parsed_intent
     || backendRouteData?.parsed_intent
@@ -248,32 +288,46 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
     .map((p: any) => typeof p === 'string' ? p : p?.name)
     .filter(Boolean);
 
+  // auxTerms：只从白名单字段取，raw_keywords 严格过滤
+  const rawFiltered = (parsedIntent.raw_keywords || [])
+    .map((t: any) => String(t || '').trim())
+    .filter((t: string) => t.length <= 6 && text.includes(t) && _titleTokenIsClean(t));
+
   const auxTerms = [
     parsedIntent.theme_label,
-    ...(parsedIntent.raw_keywords || []),
+    ...rawFiltered,
     ...(parsedIntent.theme_keywords || []),
     ...(parsedIntent.micro_poi_keywords || []),
     ...fixedPoiNames,
-  ].filter(Boolean).map(t => String(t).trim());
+  ].filter(Boolean).map((t: any) => String(t).trim());
+
+  // 标记词的类型：whitelist | aux
+  const isWhitelist = (t: string) =>
+    TITLE_LOCATION_WHITELIST.has(t) || TITLE_THEME_WHITELIST.has(t);
 
   const matched: string[] = [];
   const seen = new Set<string>();
 
-  const tryPush = (term: string) => {
-    const t = String(term || '').trim();
+  const tryPush = (term: string, fromWhitelist: boolean) => {
+    const t = term.trim();
     if (!t || seen.has(t)) return;
     if (!text.includes(t)) return;
-    if (!_titleTokenIsClean(t)) return;
+    if (!fromWhitelist && !_titleTokenIsClean(t)) return;
+    if (fromWhitelist && !isWhitelist(t)) return; // 不应该发生
 
-    // 包含去重：已有更长词，跳过；新词更长则替换
+    // 去重：如果新词是白名单词，看是否和已有词重叠
     const existingIdx = matched.findIndex(existing =>
       existing.includes(t) || t.includes(existing)
     );
+
     if (existingIdx >= 0) {
-      if (t.length > matched[existingIdx].length) {
+      const existingIsWL = isWhitelist(matched[existingIdx]);
+      // 只有同是白名单词时，更长词才能替换短词（如"北外滩"替换"外滩"）
+      if (fromWhitelist && existingIsWL && t.length > matched[existingIdx].length) {
         matched[existingIdx] = t;
         seen.add(t);
       }
+      // aux 词遇到已有白名单词 → 跳过，不替换
       return;
     }
 
@@ -281,25 +335,18 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
     matched.push(t);
   };
 
-  // 按长度从长到短匹配，避免短词抢占
-  for (const loc of [...TITLE_LOCATION_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(loc);
-  for (const theme of [...TITLE_THEME_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(theme);
-  for (const aux of auxTerms) tryPush(aux);
+  // 按长度从长到短匹配白名单
+  for (const loc of [...TITLE_LOCATION_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(loc, true);
+  for (const theme of [...TITLE_THEME_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(theme, true);
+  for (const aux of auxTerms) tryPush(aux, false);
 
-  const titleTerms = matched.slice(0, 2);
+  // 最多取 1 个地点/主题词
+  const core = matched[0] || '';
+  const durationLabel = getRouteTitleDurationLabel(parsedIntent, planData, text);
 
-  // 3. 时间词
-  const timeParts: string[] = [];
-  for (const t of TITLE_DATE_WORDS) {
-    if (text.includes(t)) { timeParts.push(t); break; }
-  }
-  for (const t of TITLE_DURATION_WORDS) {
-    if (text.includes(t) && !timeParts.includes(t)) { timeParts.push(t); break; }
-  }
-
-  // 4. 拼装
-  const parts = [scope, ...titleTerms, ...timeParts].filter(Boolean);
-  return `${parts.join('')}路线规划`;
+  // 3. 拼装
+  const parts = [scope, core, durationLabel].filter(Boolean);
+  return `${parts.join('')}路线`;
 }
 
 function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
