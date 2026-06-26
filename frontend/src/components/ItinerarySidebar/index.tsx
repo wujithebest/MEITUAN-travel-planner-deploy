@@ -13,16 +13,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, MoreHorizontal, X, Star } from 'lucide-react';
-import type { ParsedItinerary } from '@/utils/parseItinerary';
-import { parseItinerary } from '@/utils/parseItinerary';
-import type { CompletePlan, DayPlan } from '@/types/plan';
-import { DayPanel } from './DayPanel';
-import { AnchorSummaryList } from './AnchorSummary';
-import { ItineraryTab } from './ItineraryTab';
-import { LocationsTab } from './LocationsTab';
-import { RoutesTab } from './RoutesTab';
-import { PoiRouteCard } from './PoiRouteCard';
+import { MoreHorizontal, Star } from 'lucide-react';
+import { RoutePlacesList } from './RoutePlacesList';
 import { useRouteStore } from '@/store/routeStore';
 import { useUserStore } from '@/store/userStore';
 import favoriteRoutesService, { routeHash } from '@/services/favoriteRoutes';
@@ -80,7 +72,6 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
   planMode = null,
 }) => {
   const [data, setData] = useState<ParsedItinerary | null>(initialData || null);
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'places' | 'route'>('itinerary');
   const [textBuffer, setTextBuffer] = useState<string>('');
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -538,7 +529,7 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
         >
           {'>'}
         </button>
-        <h2 className={styles.title}>行程概览</h2>
+        <h2 className={styles.title}>路线地点</h2>
         <Tooltip title={!hasRoute ? '暂无可收藏路线' : isFavorited ? '已收藏' : '收藏路线'}>
           <button
             className={styles.starBtn}
@@ -572,93 +563,21 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
         </button>
       </header>
 
-      {/* 标签页 */}
-      <nav className={styles.tabs}>
-        <button
-          className={`${styles.tab} ${activeTab === 'itinerary' ? styles.activeTab : ''}`}
-          onClick={() => {
-            if (activeTab === 'route') onRouteSelectionClear?.();
-            setActiveTab('itinerary');
-          }}
-        >
-          行程
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'places' ? styles.activeTab : ''}`}
-          onClick={() => {
-            if (activeTab === 'route') onRouteSelectionClear?.();
-            setActiveTab('places');
-          }}
-        >
-          地点
-        </button>
-        <button
-          className={`${styles.tab} ${activeTab === 'route' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('route')}
-        >
-          路线
-        </button>
-      </nav>
-
       {/* 内容区域 */}
       <div className={styles.content}>
-        {!data && (!panelDays || panelDays.length === 0) ? (
+        {(!panelDays || panelDays.length === 0) && (!rawRouteData?.points?.length) ? (
           <div className={styles.emptyState}>
             <p>暂无行程数据</p>
             <p className={styles.emptyHint}>请在聊天中描述您的旅行需求</p>
           </div>
         ) : (
-          <>
-            {/* 天气警告 - 始终显示 */}
-            {data?.weatherWarning && (
-              <div className={styles.weatherWarning}>
-                <span className={styles.warningIcon}>⚠️</span>
-                {data?.weatherWarning}
-              </div>
-            )}
-
-            {/* Tab 内容 */}
-            {activeTab === 'itinerary' && (
-              panelDays && panelDays.length > 0 ? (
-                (() => {
-                  console.log('[ItineraryDebug] ✅ Rendering PoiRouteCard with', panelDays.length, 'days');
-                  return (
-                    <PoiRouteCard
-                      panelDays={panelDays}
-                      onPOIClick={handleItineraryPOIClick}
-                      planMode={planMode}
-                    />
-                  );
-                })()
-              ) : (
-                (() => {
-                  console.log('[ItineraryDebug] ❌ Fallback to ItineraryTab, panelDays empty');
-                  return (
-                    <ItineraryTab
-                      days={data.itinerary.days}
-                      onPOIClick={handleItineraryPOIClick}
-                      planMode={planMode}
-                    />
-                  );
-                })()
-              )
-            )}
-
-            {activeTab === 'places' && (
-              <LocationsTab
-                panelDays={panelDays}
-                onPOIClick={handleLocationPOIClick}
-              />
-            )}
-
-            {activeTab === 'route' && (
-              <RoutesTab
-                segments={rawRouteData?.segments || []}
-                panelDays={panelDays}
-                onRouteClick={handleRouteClick}
-              />
-            )}
-          </>
+          <RoutePlacesList
+            panelDays={panelDays}
+            points={rawRouteData?.points || []}
+            segments={rawRouteData?.segments || []}
+            onPOIClick={handleLocationPOIClick}
+            onRouteClick={handleRouteClick}
+          />
         )}
       </div>
 
