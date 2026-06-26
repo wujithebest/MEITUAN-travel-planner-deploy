@@ -457,7 +457,12 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
 
                 {/* Origin transport options */}
                 {isOriginSeg && seg.transport_options?.length > 0 && (
-                  <div className={styles.routeConnector}>
+                  <div className={styles.routeConnector}
+                    onClick={() => onRouteClick?.(seg)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onRouteClick?.(seg); } }}
+                  >
                     <div className={styles.routeConnectorLine} />
                     <div className={styles.originTransportGroup}>
                       {seg.transport_options.map((opt: any, oidx: number) => (

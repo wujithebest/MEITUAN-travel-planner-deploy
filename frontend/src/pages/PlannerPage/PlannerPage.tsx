@@ -16,7 +16,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, User, Settings, LogOut, ChevronDown, Heart, Clock3, HelpCircle } from 'lucide-react';
-import { Avatar } from 'antd';
+import { Avatar, message } from 'antd';
+import favoriteRoutesService from '@/services/favoriteRoutes';
 import ChatPanel from '@/components/ChatPanel/ChatPanel';
 import HeaderWeather from '@/components/HeaderWeather';
 import MapContainer, { MarkerData } from '@/components/MapContainer/MapContainer';
@@ -700,6 +701,28 @@ const PlannerPage: React.FC = () => {
             onDeleteHistory={handleDeleteHistory}
             onSend={() => setHasSentInSession(true)}
             onRouteCardSelect={handleRouteCardSelect}
+            onRouteCardFavorite={async (snapshot) => {
+              if (snapshot) {
+                try {
+                  await favoriteRoutesService.saveFavorite({
+                    title: snapshot.title || '路线规划',
+                    complete_plan: snapshot.complete_plan,
+                    route_data: snapshot.route_data,
+                    panel_days: snapshot.panel_days || [],
+                    map_route_data: snapshot.map_route_data,
+                    poi_details: snapshot.poi_details || {},
+                    summary: snapshot.summary || {},
+                    days: snapshot.summary?.poi_count || 1,
+                    destination: '上海',
+                    user_input: '',
+                    messages: [],
+                  });
+                  message.success('已收藏路线');
+                } catch {
+                  message.error('收藏失败');
+                }
+              }
+            }}
             recentHistories={recentHistories}
             hasSentInSession={hasSentCurrentMode}
           />

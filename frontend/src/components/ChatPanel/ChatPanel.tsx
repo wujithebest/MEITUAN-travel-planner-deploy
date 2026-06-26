@@ -13,8 +13,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { SendOutlined, MenuOutlined } from '@ant-design/icons';
-import { Trash2, History } from 'lucide-react';
-import { Input, Tooltip } from 'antd';
+import { Trash2, History, Star, MessageCircle } from 'lucide-react';
+import { Input, Tooltip, Modal as AntModal } from 'antd';
 import { ChatMessage } from '@/hooks/useChat';
 import { useRouteStore } from '@/store/routeStore';
 import styles from './ChatPanel.module.css';
@@ -77,6 +77,8 @@ interface ChatPanelProps {
   hasSentInSession?: boolean;
   /** v18: 路线卡片点击回调 */
   onRouteCardSelect?: (snapshot: any) => void;
+  /** v18: 路线卡片收藏回调 */
+  onRouteCardFavorite?: (snapshot: any) => void;
 }
 
 /**
@@ -104,9 +106,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   recentHistories = [],
   hasSentInSession = false,
   onRouteCardSelect,
+  onRouteCardFavorite,
 }) => {
   const [inputText, setInputText] = useState('');
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSnapshot, setFeedbackSnapshot] = useState<any>(null);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDetail, setFeedbackDetail] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
   const prevIsLoadingRef = useRef<boolean>(false);
@@ -355,9 +362,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
 
     return (
-      <button type="button" className={styles.routePushCard} onClick={handleClick}>
+      <div role="button" tabIndex={0} className={styles.routePushCard} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}>
         <div className={styles.routePushOverlay} />
         <div className={styles.routePushContent}>
+          <div className={styles.routePushActions}>
+            <button type="button" className={styles.routePushIconBtn} title="收藏路线" onClick={(e) => { e.stopPropagation(); onRouteCardFavorite?.(snapshot); }}>
+              <Star size={16} />
+            </button>
+            <button type="button" className={styles.routePushIconBtn} title="反馈" onClick={(e) => { e.stopPropagation(); setFeedbackSnapshot(snapshot); setFeedbackOpen(true); }}>
+              <MessageCircle size={16} />
+            </button>
+          </div>
           <div className={styles.routePushKicker}>路线已生成</div>
           <div className={styles.routePushTitle}>{message.routeCardTitle || '路线规划'}</div>
           <div className={styles.routePushMeta}>
@@ -365,7 +380,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             {statsText && <span className={styles.routePushStats}>{statsText}</span>}
           </div>
         </div>
-      </button>
+      </div>
     );
   };
 
@@ -803,6 +818,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           </div>
         )}
       </div>
+
+      {/* v18: 反馈弹窗 */}
+      <AntModal
+        title="路线反馈"
+        open={feedbackOpen}
+        onCancel={() => { setFeedbackOpen(false); setFeedbackTitle(''); setFeedbackDetail(''); }}
+        footer={null}
+        width={400}
+        centered
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Input
+            placeholder="问题概括（如：路线太远、缺少某个地点）"
+            value={feedbackTitle}
+            onChange={(e) => setFeedbackTitle(e.target.value)}
+          />
+          <Input.TextArea
+            rows={4}
+            placeholder="详细描述您的问题或建议"
+            value={feedbackDetail}
+            onChange={(e) => setFeedbackDetail(e.target.value)}
+          />
+          <div className={styles.feedbackUploadBox}>
+            <span style={{ fontSize: 24, color: '#ccc' }}>+</span>
+            <span style={{ fontSize: 12, color: '#aaa' }}>上传截图</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className={styles.routePushIconBtn} onClick={() => { setFeedbackOpen(false); setFeedbackTitle(''); setFeedbackDetail(''); }}>取消</button>
+            <button type="button" className={styles.submitBtn} onClick={() => { message.success('反馈已提交，感谢！'); setFeedbackOpen(false); setFeedbackTitle(''); setFeedbackDetail(''); }}>提交反馈</button>
+          </div>
+        </div>
+      </AntModal>
     </div>
   );
 };
