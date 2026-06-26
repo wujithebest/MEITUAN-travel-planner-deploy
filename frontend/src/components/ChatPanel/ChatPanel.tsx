@@ -75,6 +75,8 @@ interface ChatPanelProps {
   recentHistories?: any[];
   /** 是否已发送过消息 */
   hasSentInSession?: boolean;
+  /** v18: 路线卡片点击回调 */
+  onRouteCardSelect?: (snapshot: any) => void;
 }
 
 /**
@@ -101,6 +103,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onSend,
   recentHistories = [],
   hasSentInSession = false,
+  onRouteCardSelect,
 }) => {
   const [inputText, setInputText] = useState('');
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -332,6 +335,37 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   /**
    * 从 routeStore.currentPlan 中提取推荐理由
    */
+  /** v18: 路线卡片推送 — 替代推荐理由长文本 */
+  const renderRoutePushCard = (message: ChatMessage) => {
+    const snapshot = message.routeSnapshot;
+    const mapData = snapshot?.map_route_data || message.routeData;
+    const markers = Array.isArray(mapData?.markers) ? mapData.markers : [];
+    const poiCount =
+      snapshot?.summary?.poi_count
+      || markers.filter((m: any) => m.type !== 'candidate' && m.kind !== 'hint').length;
+
+    const handleClick = () => {
+      if (snapshot) {
+        onRouteCardSelect?.(snapshot);
+      } else if (message.routeData) {
+        onRouteChange?.(message.routeData);
+      }
+    };
+
+    return (
+      <button type="button" className={styles.routePushCard} onClick={handleClick}>
+        <div className={styles.routePushOverlay} />
+        <div className={styles.routePushContent}>
+          <div className={styles.routePushKicker}>路线已生成</div>
+          <div className={styles.routePushTitle}>{message.routeCardTitle || '路线规划'}</div>
+          <div className={styles.routePushMeta}>
+            {poiCount > 0 ? `${poiCount} 个地点` : '点击查看路线'}
+          </div>
+        </div>
+      </button>
+    );
+  };
+
   const renderRecommendReasons = (message: ChatMessage) => {
     if (message.role !== 'assistant') return null;
 
@@ -434,9 +468,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const renderMessageContent = (message: ChatMessage) => {
-    // 推荐理由消息：只渲染推荐理由组件，不显示 __RECOMMEND_REASONS__
+    // v18: 推荐理由消息 → 渲染路线卡片
     if (message.role === 'assistant' && message.displayType === 'recommendReasons') {
-      return renderRecommendReasons(message);
+      return renderRoutePushCard(message);
     }
 
     const content = message.content;

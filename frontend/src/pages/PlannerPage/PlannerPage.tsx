@@ -361,6 +361,24 @@ const PlannerPage: React.FC = () => {
     itinerary.openSidebar();
   }, [chat, itinerary]);
 
+  /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
+  const handleRouteCardSelect = useCallback((snapshot: any) => {
+    if (!snapshot) return;
+    setLocalMapRouteData(null);
+    setSelectedRouteSegment(null);
+    useRouteStore.getState().loadHistoryRoute({
+      title: snapshot.title || '路线规划',
+      complete_plan: snapshot.complete_plan,
+      route_data: snapshot.route_data,
+      panel_days: snapshot.panel_days || [],
+      map_route_data: snapshot.map_route_data,
+      poi_details: snapshot.poi_details || {},
+      summary: snapshot.summary || {},
+    });
+    setRouteVersion(v => v + 1);
+    itinerary.openSidebar();
+  }, [itinerary]);
+
   // 处理从收藏加载路线（唯一入口，ProfileModal 不直接调 store）
   const handleLoadFavorite = useCallback((favorite: any) => {
     // 清除本地路线数据，让 store.mapRouteData 生效
@@ -624,6 +642,7 @@ const PlannerPage: React.FC = () => {
             onLoadHistory={handleLoadHistory}
             onDeleteHistory={handleDeleteHistory}
             onSend={() => setHasSentInSession(true)}
+            onRouteCardSelect={handleRouteCardSelect}
             recentHistories={recentHistories}
             hasSentInSession={hasSentCurrentMode}
           />

@@ -926,3 +926,94 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   }
 }
+
+/* ── v18: 路线推送卡片 ── */
+
+.routePushCard {
+  position: relative;
+  width: 100%;
+  min-height: 104px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  background: #1f1f1f;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+  font-family: inherit;
+  margin: 6px 0;
+}
+
+.routePushCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/shanghai.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.42;
+  transform: scale(1.02);
+}
+
+.routePushOverlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.46) 48%, rgba(255, 209, 0, 0.32) 100%);
+}
+
+.routePushContent {
+  position: relative;
+  z-index: 1;
+  min-height: 104px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.routePushKicker {
+  align-self: flex-start;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 209, 0, 0.92);
+  color: #1f1f1f;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.routePushTitle {
+  margin-top: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.routePushMeta {
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.routePushCard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.routePushCard:active {
+  transform: translateY(0);
+}
+
+.routePushCard:focus-visible {
+  outline: 2px solid #FFD100;
+  outline-offset: 2px;
+}

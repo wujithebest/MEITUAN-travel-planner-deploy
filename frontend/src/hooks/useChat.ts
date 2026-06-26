@@ -55,6 +55,18 @@ export interface ChatMessage {
   recommendReasons?: Array<{ name: string; reason: string }>;
   /** 结构化推荐理由（新格式，按 slot 组织） */
   slotReasons?: SlotStructuredReasons[];
+  /** v18: 路线卡片推送 */
+  routeCardTitle?: string;
+  routeCardSubtitle?: string;
+  routeSnapshot?: {
+    title: string;
+    complete_plan: any;
+    route_data: any;
+    panel_days: any[];
+    map_route_data: any;
+    poi_details?: Record<string, any>;
+    summary?: { poi_count: number; distance: number; duration: number };
+  };
 }
 
 /**
@@ -170,6 +182,64 @@ function generateId(): string {
 /**
  * 按规划模式生成欢迎语
  */
+/** v18: 从用户 query 和后端数据生成路线卡片标题 */
+function buildRouteCardTitle(query: string, planData: any, backendRouteData: any): string {
+  const text = query || '';
+
+  const scope = /附近|周边|身边|附近逛|周围/.test(text)
+    ? '附近'
+    : ((text.match(/(上海|北京|广州|深圳|杭州|苏州|南京|成都|重庆|武汉|西安|长沙|厦门|青岛|天津|宁波|无锡|佛山|东莞|珠海|大连|沈阳|昆明|三亚)(市)?/)?.[1])
+      || planData?.city
+      || backendRouteData?.city
+      || '上海');
+
+  const parsedIntent =
+    backendRouteData?.planning_state?.parsed_intent
+    || backendRouteData?.parsed_intent
+    || planData?.parsed_intent
+    || {};
+
+  const queryTerms: string[] = [];
+  const fixedPoiNames = (parsedIntent.fixed_pois || [])
+    .map((p: any) => typeof p === 'string' ? p : p?.name)
+    .filter(Boolean);
+
+  const rawTerms = [
+    ...(parsedIntent.raw_keywords || []),
+    parsedIntent.theme_label,
+    ...(parsedIntent.theme_keywords || []),
+    ...(parsedIntent.micro_poi_keywords || []),
+    ...fixedPoiNames,
+  ].filter(Boolean);
+
+  const commonTerms = [
+    '外滩', '陆家嘴', '南京路', '武康路', '豫园', '人民广场',
+    '文艺', '历史文化', '历史', '文史', '美食', '逛吃', '夜游', '夜景',
+    '亲子', '溜娃', '遛娃', '自然', '赏花', '骑行', '养生', '雅致',
+    '购物', '摄影', '户外', '城市漫游', '市井',
+  ];
+
+  for (const term of [...rawTerms, ...commonTerms]) {
+    const clean = String(term).trim();
+    if (clean && text.includes(clean) && !queryTerms.includes(clean)) {
+      queryTerms.push(clean);
+    }
+  }
+
+  const timeParts: string[] = [];
+  const datePart = text.match(/今天|明天|后天|今晚|周末|本周末|下周末/)?.[0];
+  if (datePart) timeParts.push(datePart);
+
+  const durationPart = text.match(/一整天|全天|整天|半天|上午|下午|晚上|夜里|夜间|夜游|两天|2天|三天|3天/)?.[0];
+  if (durationPart && !timeParts.includes(durationPart)) timeParts.push(durationPart);
+
+  const title = [scope, queryTerms.slice(0, 3).join(''), timeParts.join('')]
+    .filter(Boolean)
+    .join('');
+
+  return `${title || scope}路线规划`;
+}
+
 function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
   // v18: 统一欢迎语，不再区分模式
   const content = '朋友聚会、家人来访、周末出游、下班顺路……不知道怎么安排？交给我来帮你规划吧！';
@@ -1365,10 +1435,43 @@ export function useChat(): UseChatReturn {
 
               const currentRequestId = activeRequestIdRef.current;
               const currentUserMessage = userMsg.content || '';
+              // v18: build poiDetails BEFORE setMessages so routeSnapshot can include it
+              const mapDataForPoi = useRouteStore.getState().mapRouteData || {};
+              const poiDetails: Record<string, any> = {};
+              for (const day of (panelDays || [])) {
+                for (const slot of (day.slots || [])) {
+                  for (const poi of (slot.pois || [])) {
+                    const key = poi.name || '';
+                    if (key && !poiDetails[key]) {
+                      poiDetails[key] = {
+                        poi_id: poi.poi_id || '', gaode_poi_id: poi.gaode_poi_id || '',
+                        name: poi.name, location: poi.location || '',
+                        address: poi.address || '', rating: poi.rating ?? null,
+                        avg_cost: poi.avg_cost ?? null,
+                        photo_url: poi.photo_url || '', photo_source: poi.photo_source || '',
+                        category: poi.category || '', typecode: poi.typecode || '',
+                      };
+                    }
+                  }
+                }
+              }
+
+              // v18: build route card data
+              const routeCardTitle = buildRouteCardTitle(currentUserMessage, completePlanForReasons, backendRouteData);
+              const routeSnapshot = {
+                title: routeCardTitle,
+                complete_plan: completePlanForReasons,
+                route_data: backendRouteData,
+                panel_days: panelDays,
+                map_route_data: mapDataForPoi,
+                poi_details: poiDetails,
+                summary: { poi_count: Object.keys(poiDetails).length, distance: 0, duration: 0 },
+              };
+
               // Capture snapshot for history saving (to be used after setMessages)
               const historySnap = {
                 routeData: backendRouteData,
-                mapRouteData: useRouteStore.getState().mapRouteData,
+                mapRouteData: mapDataForPoi,
                 panelDaysSnap: panelDays,
                 completePlanSnap: completePlanForReasons,
                 userMsgSnap: userMsg,
@@ -1398,6 +1501,9 @@ export function useChat(): UseChatReturn {
                   recommendReasons: reasonsSnapshot.length > 0 ? reasonsSnapshot : undefined,
                   slotReasons: slotReasons.length > 0 ? slotReasons : undefined,
                   statsText: statsTextRef.current || undefined,
+                  routeCardTitle,
+                  routeCardSubtitle: statsTextRef.current || undefined,
+                  routeSnapshot,
                 };
 
                 if (existingIdx >= 0) {
@@ -1413,24 +1519,7 @@ export function useChat(): UseChatReturn {
                 try {
                   const { isGuest } = useUserStore.getState();
                   const mapData = historySnap.mapRouteData || {};
-                  const poiDetails: Record<string, any> = {};
-                  for (const day of (historySnap.panelDaysSnap || [])) {
-                    for (const slot of (day.slots || [])) {
-                      for (const poi of (slot.pois || [])) {
-                        const key = poi.name || '';
-                        if (key && !poiDetails[key]) {
-                          poiDetails[key] = {
-                            poi_id: poi.poi_id || '', gaode_poi_id: poi.gaode_poi_id || '',
-                            name: poi.name, location: poi.location || '',
-                            address: poi.address || '', rating: poi.rating ?? null,
-                            avg_cost: poi.avg_cost ?? null,
-                            photo_url: poi.photo_url || '', photo_source: poi.photo_source || '',
-                            category: poi.category || '', typecode: poi.typecode || '',
-                          };
-                        }
-                      }
-                    }
-                  }
+                  // poiDetails already built above, reuse
                   // Use static import at module level instead of dynamic import
                   import('@/services/routeHistory').then(({ routeHistoryService }) => {
                     routeHistoryService.saveHistory(isGuest, {
@@ -1447,6 +1536,9 @@ export function useChat(): UseChatReturn {
                         timestamp: Date.now(),
                         recommendReasons: reasonsSnapshot.length > 0 ? reasonsSnapshot : undefined,
                         slotReasons: slotReasons.length > 0 ? slotReasons : undefined,
+                        routeCardTitle,
+                        routeCardSubtitle: statsTextRef.current || undefined,
+                        routeSnapshot,
                       }],
                       complete_plan: historySnap.completePlanSnap,
                       route_data: historySnap.routeData,
