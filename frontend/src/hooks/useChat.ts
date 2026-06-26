@@ -1344,55 +1344,7 @@ export function useChat(): UseChatReturn {
                       };
                     });
                   
-                  // 转换 candidate_points 为蓝色候选 markers
-                  const candidateMarkers = (routeData.candidate_points || []).map((cp: any) => {
-                    let cpLng: number, cpLat: number;
-                    if (typeof cp.location === 'object') {
-                      cpLng = Number(cp.location?.lng || 0);
-                      cpLat = Number(cp.location?.lat || 0);
-                    } else if (typeof cp.location === 'string') {
-                      const parts = cp.location.split(',').map(Number);
-                      cpLng = parts[0];
-                      cpLat = parts[1];
-                    } else {
-                      return null;
-                    }
-                    if (isNaN(cpLng) || isNaN(cpLat)) return null;
-                    return {
-                      poi_id: cp.poi_id || cp.gaode_poi_id || '',
-                      gaode_poi_id: cp.gaode_poi_id || cp.poi_id || '',
-                      name: cp.name || '',
-                      location: `${cpLng},${cpLat}`,
-                      type: 'candidate',
-                      day_index: cp.day || 1,
-                      index: undefined,
-                      display_order: undefined,
-                      is_display_poi: false,
-                      is_waypoint: false,
-                      kind: 'candidate',
-                      is_candidate: true,
-                      candidate_source: cp.candidate_source || 'micro_pool',
-                      theme: 'blue',
-                      typecode: cp.typecode || '',
-                      category: cp.category || '',
-                      address: cp.address || '',
-                      rating: cp.rating ?? cp.gaode_rating ?? null,
-                      gaode_rating: cp.gaode_rating ?? cp.rating ?? null,
-                      avg_cost: cp.avg_cost ?? null,
-                      photo_url: cp.photo_url || '',
-                      photo_source: cp.photo_source || '',
-                      recommend_reason: cp.recommend_reason || '',
-                      parent_anchor: cp.parent_anchor || '',
-                      sub_anchor_name: cp.sub_anchor_name || '',
-                      candidate_score: cp.candidate_score ?? null,
-                    };
-                  }).filter(Boolean);
-
-                  // 将所有候选 markers 合并到 markers 数组
-                  console.log('[useChat] candidateMarkers.length:', candidateMarkers.length, 'sample:', candidateMarkers.slice(0, 3).map((m: any) => m.name));
-                  if (candidateMarkers.length > 0) {
-                    markers.push(...candidateMarkers);
-                  }
+                  // v18: candidate_points 默认不显示在地图上，仅保留在 rawRouteData 供右侧面板备选
 
                   // 计算中心点
                   let center: [number, number] | null = null;

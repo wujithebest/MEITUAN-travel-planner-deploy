@@ -61,11 +61,18 @@ export interface MutationReplaceRoutePoi {
   newPoi: PanelPoi;
 }
 
+export interface MutationAddCandidateAfterPoi {
+  action: 'addCandidateAfterPoi';
+  afterPoiKey: string;
+  candidate: PanelPoi & { display_slot?: string; parent_anchor?: string; sub_anchor_name?: string; candidate_score?: number };
+}
+
 export type PanelMutation =
   | MutationAddCandidate
   | MutationReplaceWithCandidate
   | MutationDeleteRoutePoi
-  | MutationReplaceRoutePoi;
+  | MutationReplaceRoutePoi
+  | MutationAddCandidateAfterPoi;
 
 const SLOT_ORDER: Record<string, number> = {
   half_day: 1, morning: 1, lunch: 2, afternoon: 3, dinner: 4, evening: 5,
@@ -241,6 +248,47 @@ export function applyPanelPoiMutation(
           kind: mutation.candidate.kind || 'anchor_internal',
         } as PanelPoi;
         insertInfo.slot.pois.push(newPoi);
+      }
+      break;
+    }
+
+    case 'addCandidateAfterPoi': {
+      let inserted = false;
+      for (const day of cloned) {
+        for (const slot of day.slots) {
+          const idx = slot.pois.findIndex(p => poiKey(p) === mutation.afterPoiKey);
+          if (idx >= 0) {
+            const newPoi = {
+              ...mutation.candidate,
+              order: 0,
+              day_index: day.day_index,
+              slot: slot.type,
+              is_start: false,
+              transport_text: '',
+              kind: mutation.candidate.kind || 'anchor_internal',
+            } as PanelPoi;
+            slot.pois.splice(idx + 1, 0, newPoi);
+            inserted = true;
+            break;
+          }
+        }
+        if (inserted) break;
+      }
+      if (!inserted) {
+        // fallback to old addCandidate behavior
+        const insertInfo = findInsertSlot(cloned, mutation.candidate);
+        if (insertInfo) {
+          const newPoi = {
+            ...mutation.candidate,
+            order: 0,
+            day_index: insertInfo.day.day_index,
+            slot: insertInfo.slot.type,
+            is_start: false,
+            transport_text: '',
+            kind: mutation.candidate.kind || 'anchor_internal',
+          } as PanelPoi;
+          insertInfo.slot.pois.push(newPoi);
+        }
       }
       break;
     }

@@ -968,6 +968,9 @@ class PipelineReplanOperation(BaseModel):
     poi_name: Optional[str] = Field(None, description="POI 名称（辅助匹配）")
     poi_location: Optional[str] = Field(None, description="POI 坐标 'lng,lat'（辅助匹配）")
     poi: Optional[dict] = Field(None, description="替换 POI 数据（replace 时必填）")
+    after_poi_id: Optional[str] = Field(None, description="插入位置参考 POI ID（add 时可选）")
+    after_poi_name: Optional[str] = Field(None, description="插入位置参考 POI 名称（add 时可选）")
+    after_poi_location: Optional[str] = Field(None, description="插入位置参考坐标 'lng,lat'（add 时可选）")
 
 
 class PipelineReplanRequest(BaseModel):

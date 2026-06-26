@@ -453,10 +453,10 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                         <button
                           type="button"
                           className={styles.taxiBtn}
-                          onClick={(e) => { e.stopPropagation(); message.success('已模拟发起叫车'); }}
+                          onClick={(e) => { e.stopPropagation(); message.success('已模拟发起打车'); }}
                         >
                           <Navigation size={14} />
-                          <span>一键叫车 ¥{seg.transport_options.find((o: any) => o.estimated_fare_yuan)?.estimated_fare_yuan}</span>
+                          <span>一键打车 ¥{seg.transport_options.find((o: any) => o.estimated_fare_yuan)?.estimated_fare_yuan}</span>
                         </button>
                       )}
                     </div>

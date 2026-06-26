@@ -472,55 +472,8 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
     });
   }
 
-  // 转换 candidate_points 为蓝色候选 markers
-  for (const cp of (data as any).candidate_points || []) {
-    let lng: number, lat: number;
-    if (typeof cp.location === 'string') {
-      const parts = cp.location.split(',').map(Number);
-      lng = parts[0];
-      lat = parts[1];
-    } else if (cp.location && typeof cp.location === 'object') {
-      lng = Number((cp.location as any).lng || 0);
-      lat = Number((cp.location as any).lat || 0);
-    } else {
-      continue;
-    }
-
-    if (isNaN(lng) || isNaN(lat)) continue;
-
-    if (!center) {
-      center = [lng, lat];
-    }
-
-    markers.push({
-      poi_id: cp.poi_id || cp.gaode_poi_id || '',
-      gaode_poi_id: cp.gaode_poi_id || cp.poi_id || '',
-      name: cp.name || '',
-      location: `${lng},${lat}`,
-      type: 'candidate' as any,
-      day_index: cp.day || 1,
-      index: undefined,
-      display_order: undefined,
-      is_display_poi: false,
-      is_waypoint: false,
-      kind: 'candidate',
-      is_candidate: true,
-      candidate_source: cp.candidate_source || 'micro_pool',
-      theme: 'blue' as const,
-      typecode: cp.typecode || '',
-      category: cp.category || '',
-      address: cp.address || '',
-      rating: cp.rating ?? cp.gaode_rating ?? null,
-      gaode_rating: cp.gaode_rating ?? cp.rating ?? null,
-      avg_cost: cp.avg_cost ?? null,
-      photo_url: cp.photo_url || '',
-      photo_source: cp.photo_source || '',
-      recommend_reason: cp.recommend_reason || '',
-      parent_anchor: cp.parent_anchor || '',
-      sub_anchor_name: cp.sub_anchor_name || '',
-      candidate_score: cp.candidate_score ?? null,
-    });
-  }
+  // v18: candidate_points 默认不显示在地图上，仅保留在 rawRouteData 供右侧面板备选
+  // 转换 candidate_points 为蓝色候选 markers（已禁用）
 
   return { polylines, markers, center };
 }
