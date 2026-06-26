@@ -366,11 +366,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <div className={styles.routePushOverlay} />
         <div className={styles.routePushContent}>
           <div className={styles.routePushActions}>
-            <button type="button" className={styles.routePushIconBtn} title="收藏路线" onClick={(e) => { e.stopPropagation(); onRouteCardFavorite?.(snapshot); }}>
-              <Star size={16} />
-            </button>
             <button type="button" className={styles.routePushIconBtn} title="反馈" onClick={(e) => { e.stopPropagation(); setFeedbackSnapshot(snapshot); setFeedbackOpen(true); }}>
               <MessageCircle size={16} />
+            </button>
+            <button type="button" className={styles.routePushIconBtn} title="收藏路线" onClick={(e) => { e.stopPropagation(); onRouteCardFavorite?.(snapshot); }}>
+              <Star size={16} />
             </button>
           </div>
           <div className={styles.routePushKicker}>路线已生成</div>

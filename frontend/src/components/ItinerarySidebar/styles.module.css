@@ -1291,8 +1291,8 @@
 }
 
 .routePlaceThumb {
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 108px;
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
@@ -1443,6 +1443,7 @@
 }
 
 .routePlaceBody {
+  /* kept for candidate card backwards compat; new layout uses .routePlaceContent */
   flex: 1;
   display: flex;
   gap: 10px;
@@ -1455,30 +1456,80 @@
   min-width: 0;
 }
 
-.routePlaceActions {
+/* ── v18: new POI card layout ── */
+
+.routePlaceContent {
   display: flex;
-  gap: 2px;
-  padding: 4px 8px 8px 46px;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+.routePlaceMedia {
+  width: 96px;
+  flex: 0 0 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.routePlaceInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.routePlaceThumbButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+}
+
+.routePlaceTextButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  flex: 1;
+}
+
+.routePlaceActions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  gap: 0;
+  padding: 8px 0 0;
+  margin-top: auto;
   border-top: 1px solid #f5f5f5;
 }
 
 .poiActionBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 28px;
+  justify-self: center;
+  width: 32px;
+  height: 30px;
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #bbb;
+  color: #f5b400;
   cursor: pointer;
-  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poiActionBtn svg {
+  stroke: currentColor;
 }
 
 .poiActionBtn:hover {
-  background: #fff9e6;
-  color: #f5b400;
+  background: #fff7d6;
+  color: #d99a00;
 }
 
 .candidateHeader {
@@ -1573,21 +1624,19 @@
 
 .poiCommerceBtn {
   width: 100%;
-  padding: 5px 0;
-  margin-top: 4px;
-  border: 1px solid #FFD100;
-  border-radius: 6px;
-  background: #FFD100;
-  color: #333;
-  font-size: 12px;
-  font-weight: 600;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: #ffd100;
+  color: #222;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
   text-align: center;
 }
 
 .poiCommerceBtn:hover {
-  background: #FFE033;
+  background: #ffe033;
 }
 
 .mapPoiBadge {

@@ -746,9 +746,12 @@ export default function MapContainer({
       const photoUrl = (marker as any).photo_url || (marker as any).firstPhotoUrl || '';
       const isPreview = marker.type === 'preview' || marker.type === 'candidate_preview';
 
+      const previewClass = isPreview ? ' mapPoiPreview' : '';
+      const indexLabel = isPreview ? '?' : String(markerIndex || '');
+
       const thumbHtml = photoUrl
-        ? `<img class="mapPoiThumb" src="${photoUrl}" alt="${escapedName}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:2px solid ${isPreview ? '#3B82F6' : '#fff'};box-shadow:0 2px 6px rgba(0,0,0,0.15);" />`
-        : `<div class="mapPoiBadge" style="width:40px;height:40px;border-radius:6px;background:${isPreview ? '#DBEAFE' : '#FFD100'};color:#333;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid ${isPreview ? '#3B82F6' : '#fff'};box-shadow:0 2px 6px rgba(0,0,0,0.15);">${isPreview ? '?' : (markerIndex || '')}</div>`;
+        ? `<img class="mapPoiThumb" src="${photoUrl}" alt="${escapedName}" />`
+        : '';
 
       const htmlContent = isCandidate
         ? `<div style="width:12px;height:12px;background:#3B82F6;border-radius:50%;border:2px solid white;"></div>`
@@ -758,17 +761,24 @@ export default function MapContainer({
             <span style="font-size:11px;color:#333;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px #fff;background:rgba(255,255,255,0.85);padding:1px 4px;border-radius:3px;">${marker.name}</span>
           </div>`
         : isDisplayPoi || isPreview
-        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            ${thumbHtml}
-            <span style="font-size:11px;color:#333;font-weight:600;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 2px #fff;background:rgba(255,255,255,0.85);padding:1px 4px;border-radius:3px;">${escapedName}</span>
+        ? `<div class="mapPoiMarker${previewClass}">
+            <div class="mapPoiLabelWrap">
+              ${thumbHtml}
+              <span class="mapPoiName">${escapedName}</span>
+            </div>
+            <div class="mapPoiIndexDot">${indexLabel}</div>
           </div>`
         : `<div style="width:10px;height:10px;background:#999;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.2);border:1px solid white;"></div>`;
 
       try {
+        const markerOffset = (isDisplayPoi || isPreview || isStart)
+          ? new window.AMap.Pixel(-18, -18)
+          : new window.AMap.Pixel(0, 0);
+
         const markerObj = new window.AMap.Marker({
           position: [lng, lat],
           content: htmlContent,
-          offset: new window.AMap.Pixel(0, 0),
+          offset: markerOffset,
           title: marker.name,
           extData: marker
         });

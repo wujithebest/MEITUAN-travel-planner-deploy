@@ -368,69 +368,73 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                   <div className={styles.routePlaceRow}>
                     <div className={styles.routePlaceIndex}>{idx}</div>
                     <div className={styles.routePlaceCardWrap}>
-                      <button
-                        type="button"
-                        className={styles.routePlaceBody}
-                        onClick={() => onPOIClick(poi.name)}
-                      >
-                        <div className={styles.routePlaceThumb}>
-                          {poi.photo_url ? (
-                            <img src={poi.photo_url} alt={poi.name} />
-                          ) : (
-                            <div className={styles.routePlaceThumbPlaceholder}>
-                              <MapPin size={22} color="#ccc" />
+                      <div className={styles.routePlaceContent}>
+                        <div className={styles.routePlaceMedia}>
+                          <button type="button" className={styles.routePlaceThumbButton} onClick={() => onPOIClick(poi.name)}>
+                            <div className={styles.routePlaceThumb}>
+                              {poi.photo_url ? (
+                                <img src={poi.photo_url} alt={poi.name} />
+                              ) : (
+                                <div className={styles.routePlaceThumbPlaceholder}>
+                                  <MapPin size={22} color="#ccc" />
+                                </div>
+                              )}
                             </div>
+                          </button>
+                          {/* Commerce CTA — below thumbnail */}
+                          {(String(poi.typecode||'').startsWith('05') || categoryLabel(poi.kind, poi.typecode) === '餐饮') && (
+                            <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
+                              团购优惠
+                            </button>
+                          )}
+                          {(String(poi.typecode||'').startsWith('11') || String(poi.typecode||'').startsWith('14') || /景区|博物馆|展览/.test(poi.name||'') || /景区|博物馆|展览/.test(poi.category||'')) && (
+                            <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
+                              点击购票
+                            </button>
                           )}
                         </div>
-                        <div className={styles.routePlaceMain}>
-                          <div className={styles.routePlaceTitleRow}>
-                            <span className={styles.routePlaceName}>{poi.name}</span>
-                            {distKm != null && (
-                              <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
-                            )}
-                          </div>
-                          <div className={styles.routePlaceMeta}>
-                            <span className={styles.routePlaceRating}>
-                              {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
-                            </span>
-                            <span className={styles.routePlaceType}>
-                              {categoryLabel(poi.kind, poi.typecode)}
-                            </span>
-                            {poi.address && (
-                              <span className={styles.routePlaceAddress}>{poi.address}</span>
-                            )}
-                          </div>
-                          <div className={styles.routePlaceReason}>
-                            {poi.recommend_reason || poi.address || '符合本次路线偏好'}
+                        <div className={styles.routePlaceInfo}>
+                          <button type="button" className={styles.routePlaceTextButton} onClick={() => onPOIClick(poi.name)}>
+                            <div className={styles.routePlaceMain}>
+                              <div className={styles.routePlaceTitleRow}>
+                                <span className={styles.routePlaceName}>{poi.name}</span>
+                                {distKm != null && (
+                                  <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
+                                )}
+                              </div>
+                              <div className={styles.routePlaceMeta}>
+                                <span className={styles.routePlaceRating}>
+                                  {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
+                                </span>
+                                <span className={styles.routePlaceType}>
+                                  {categoryLabel(poi.kind, poi.typecode)}
+                                </span>
+                                {poi.address && (
+                                  <span className={styles.routePlaceAddress}>{poi.address}</span>
+                                )}
+                              </div>
+                              <div className={styles.routePlaceReason}>
+                                {poi.recommend_reason || poi.address || '符合本次路线偏好'}
+                              </div>
+                            </div>
+                          </button>
+                          {/* Action buttons — inside info column below text */}
+                          <div className={styles.routePlaceActions}>
+                            <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
+                              <Heart size={15} />
+                            </button>
+                            <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
+                              <ArrowLeftRight size={15} />
+                            </button>
+                            <button type="button" className={styles.poiActionBtn} title="增加" onClick={() => handlePoiActionClick(poi, 'add')}>
+                              <Plus size={15} />
+                            </button>
+                            <button type="button" className={styles.poiActionBtn} title="删除" onClick={() => handlePoiActionClick(poi, 'delete')}>
+                              <Trash2 size={15} />
+                            </button>
                           </div>
                         </div>
-                      </button>
-                      {/* Action buttons */}
-                      <div className={styles.routePlaceActions}>
-                        <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
-                          <Heart size={15} />
-                        </button>
-                        <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
-                          <ArrowLeftRight size={15} />
-                        </button>
-                        <button type="button" className={styles.poiActionBtn} title="增加" onClick={() => handlePoiActionClick(poi, 'add')}>
-                          <Plus size={15} />
-                        </button>
-                        <button type="button" className={styles.poiActionBtn} title="删除" onClick={() => handlePoiActionClick(poi, 'delete')}>
-                          <Trash2 size={15} />
-                        </button>
                       </div>
-                      {/* Commerce CTA */}
-                      {(String(poi.typecode||'').startsWith('05') || categoryLabel(poi.kind, poi.typecode) === '餐饮') && (
-                        <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
-                          团购优惠
-                        </button>
-                      )}
-                      {(String(poi.typecode||'').startsWith('11') || String(poi.typecode||'').startsWith('14') || /景区|博物馆|展览/.test(poi.name||'') || /景区|博物馆|展览/.test(poi.category||'')) && (
-                        <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
-                          点击购票
-                        </button>
-                      )}
                     </div>
                   </div>
                 )}
