@@ -17,6 +17,12 @@
   color: #fff;
 }
 
+.locateTooltipText {
+  color: #fff !important;
+  opacity: 1 !important;
+  font-weight: 500;
+}
+
 .modal :global(.ant-modal-title) {
   font-size: 18px;
   font-weight: 600;

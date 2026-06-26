@@ -525,7 +525,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   }}
                 />
               </Form.Item>
-              <Tooltip title={geoLoading ? '定位中...' : '获取当前设备位置'}>
+              <Tooltip
+                title={
+                  <span className={styles.locateTooltipText}>
+                    {geoLoading ? '定位中...' : '获取当前设备位置'}
+                  </span>
+                }
+              >
                 <button
                   type="button"
                   className={styles.locateIconButton}
