@@ -182,10 +182,48 @@ function generateId(): string {
 /**
  * 按规划模式生成欢迎语
  */
-/** v18: 从用户 query 和后端数据生成路线卡片标题 */
+/** v18: 从用户 query 生成路线卡片标题 */
+
+// ── title helpers ──
+
+/** 不允许进入标题的脏词：动作/时间/指令/泛化游览词 */
+const TITLE_DIRTY_WORDS = new Set([
+  '路线', '规划', '推荐', '攻略', '帮我', '想去', '想逛', '想玩', '想去玩',
+  '玩', '游', '逛', '走', '走走', '玩玩', '逛逛', '帮我规划', '请', '安排',
+]);
+
+/** 白名单主题词（可包含"游/逛"等字仍允许） */
+const TITLE_THEME_WHITELIST = new Set([
+  '文艺', '历史文化', '历史', '文史', '美食', '逛吃', '夜游', '夜景',
+  '亲子', '溜娃', '遛娃', '自然', '赏花', '骑行', '养生', '雅致',
+  '购物', '摄影', '户外', '城市漫游', '市井', '热闹',
+]);
+
+/** 白名单地点词 */
+const TITLE_LOCATION_WHITELIST = new Set([
+  '外滩', '陆家嘴', '南京路', '武康路', '豫园', '人民广场',
+  '五角场', '徐家汇', '新天地', '田子坊', '淮海路', '北外滩',
+  '苏州河', '杨浦滨江',
+]);
+
+/** 日期词 */
+const TITLE_DATE_WORDS = ['今天', '明天', '后天', '今晚', '周末', '本周末', '下周末'];
+/** 时段/时长词（含夜游因为它也是时段信号） */
+const TITLE_DURATION_WORDS = ['一整天', '全天', '整天', '半天', '上午', '下午', '晚上', '夜里', '夜间', '夜游', '两天', '2天', '三天', '3天'];
+
+function _titleTokenIsClean(token: string): boolean {
+  if (!token || token.length > 8) return false;
+  if (TITLE_THEME_WHITELIST.has(token)) return true;
+  if (TITLE_DIRTY_WORDS.has(token)) return false;
+  // 包含时间词的也排除
+  if (TITLE_DATE_WORDS.includes(token) || TITLE_DURATION_WORDS.includes(token)) return false;
+  return true;
+}
+
 function buildRouteCardTitle(query: string, planData: any, backendRouteData: any): string {
   const text = query || '';
 
+  // 1. scope
   const scope = /附近|周边|身边|附近逛|周围/.test(text)
     ? '附近'
     : ((text.match(/(上海|北京|广州|深圳|杭州|苏州|南京|成都|重庆|武汉|西安|长沙|厦门|青岛|天津|宁波|无锡|佛山|东莞|珠海|大连|沈阳|昆明|三亚)(市)?/)?.[1])
@@ -193,51 +231,61 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
       || backendRouteData?.city
       || '上海');
 
+  // 2. 从 query 匹配候选词（白名单地点 + 白名单主题 + parsedIntent 辅助字段）
   const parsedIntent =
     backendRouteData?.planning_state?.parsed_intent
     || backendRouteData?.parsed_intent
     || planData?.parsed_intent
     || {};
 
-  const queryTerms: string[] = [];
   const fixedPoiNames = (parsedIntent.fixed_pois || [])
     .map((p: any) => typeof p === 'string' ? p : p?.name)
     .filter(Boolean);
 
-  const rawTerms = [
-    ...(parsedIntent.raw_keywords || []),
+  // 从 parsedIntent 辅助字段收集候选词，只在 query 中出现过才保留
+  const auxTerms = [
     parsedIntent.theme_label,
+    ...(parsedIntent.raw_keywords || []),
     ...(parsedIntent.theme_keywords || []),
     ...(parsedIntent.micro_poi_keywords || []),
     ...fixedPoiNames,
-  ].filter(Boolean);
+  ].filter(Boolean).map(t => String(t).trim());
 
-  const commonTerms = [
-    '外滩', '陆家嘴', '南京路', '武康路', '豫园', '人民广场',
-    '文艺', '历史文化', '历史', '文史', '美食', '逛吃', '夜游', '夜景',
-    '亲子', '溜娃', '遛娃', '自然', '赏花', '骑行', '养生', '雅致',
-    '购物', '摄影', '户外', '城市漫游', '市井',
-  ];
+  // 候选词池：query 中匹配到的白名单词 + 辅助字段中在 query 中出现过的干净词
+  const matched: string[] = [];
+  const seen = new Set<string>();
 
-  for (const term of [...rawTerms, ...commonTerms]) {
-    const clean = String(term).trim();
-    if (clean && text.includes(clean) && !queryTerms.includes(clean)) {
-      queryTerms.push(clean);
-    }
+  const tryPush = (term: string) => {
+    const t = term.trim();
+    if (!t || seen.has(t)) return;
+    if (!text.includes(t)) return;
+    if (!_titleTokenIsClean(t)) return;
+    seen.add(t);
+    matched.push(t);
+  };
+
+  // 优先：白名单地点词（query 中出现）
+  for (const loc of TITLE_LOCATION_WHITELIST) tryPush(loc);
+  // 其次：白名单主题词（query 中出现）
+  for (const theme of TITLE_THEME_WHITELIST) tryPush(theme);
+  // 最后：辅助字段中出现在 query 的干净词
+  for (const aux of auxTerms) tryPush(aux);
+
+  // 最多取 2 个词
+  const titleTerms = matched.slice(0, 2);
+
+  // 3. 时间词
+  const timeParts: string[] = [];
+  for (const t of TITLE_DATE_WORDS) {
+    if (text.includes(t)) { timeParts.push(t); break; }
+  }
+  for (const t of TITLE_DURATION_WORDS) {
+    if (text.includes(t) && !timeParts.includes(t)) { timeParts.push(t); break; }
   }
 
-  const timeParts: string[] = [];
-  const datePart = text.match(/今天|明天|后天|今晚|周末|本周末|下周末/)?.[0];
-  if (datePart) timeParts.push(datePart);
-
-  const durationPart = text.match(/一整天|全天|整天|半天|上午|下午|晚上|夜里|夜间|夜游|两天|2天|三天|3天/)?.[0];
-  if (durationPart && !timeParts.includes(durationPart)) timeParts.push(durationPart);
-
-  const title = [scope, queryTerms.slice(0, 3).join(''), timeParts.join('')]
-    .filter(Boolean)
-    .join('');
-
-  return `${title || scope}路线规划`;
+  // 4. 拼装
+  const parts = [scope, ...titleTerms, ...timeParts].filter(Boolean);
+  return `${parts.join('')}路线规划`;
 }
 
 function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
