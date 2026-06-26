@@ -27,6 +27,7 @@ coverage/
 .vite/
 .idea/
 .claude/
+CLAUDE.md
 frontend-chatpanel-*.png
 cookie_test_report.json
 
