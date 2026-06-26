@@ -58,6 +58,8 @@ export interface ChatMessage {
   /** v18: 路线卡片推送 */
   routeCardTitle?: string;
   routeCardSubtitle?: string;
+  /** 统计信息文本（如 耗时 / Token） */
+  statsText?: string;
   routeSnapshot?: {
     title: string;
     complete_plan: any;
@@ -187,7 +189,7 @@ function generateId(): string {
 // ── title helpers ──
 
 /** 不允许进入标题的脏词：动作/时间/指令/泛化游览词 */
-const TITLE_DIRTY_WORDS = new Set([
+const TITLE_DIRTY_WORDS_SET = new Set([
   '路线', '规划', '推荐', '攻略', '帮我', '想去', '想逛', '想玩', '想去玩',
   '玩', '游', '逛', '走', '走走', '玩玩', '逛逛', '帮我规划', '请', '安排',
 ]);
@@ -211,13 +213,17 @@ const TITLE_DATE_WORDS = ['今天', '明天', '后天', '今晚', '周末', '本
 /** 时段/时长词（含夜游因为它也是时段信号） */
 const TITLE_DURATION_WORDS = ['一整天', '全天', '整天', '半天', '上午', '下午', '晚上', '夜里', '夜间', '夜游', '两天', '2天', '三天', '3天'];
 
+/** 所有脏词合并（包含式过滤用） */
+const _TITLE_ALL_DIRTY = [...TITLE_DIRTY_WORDS_SET, ...TITLE_DATE_WORDS, ...TITLE_DURATION_WORDS];
+
 function _titleTokenIsClean(token: string): boolean {
-  if (!token || token.length > 8) return false;
-  if (TITLE_THEME_WHITELIST.has(token)) return true;
-  if (TITLE_DIRTY_WORDS.has(token)) return false;
-  // 包含时间词的也排除
-  if (TITLE_DATE_WORDS.includes(token) || TITLE_DURATION_WORDS.includes(token)) return false;
-  return true;
+  const t = String(token || '').trim();
+  if (!t || t.length > 8) return false;
+  // 白名单直接放行
+  if (TITLE_THEME_WHITELIST.has(t)) return true;
+  if (TITLE_LOCATION_WHITELIST.has(t)) return true;
+  // 包含任意脏词/时间词则拒绝
+  return !_TITLE_ALL_DIRTY.some(word => word && t.includes(word));
 }
 
 function buildRouteCardTitle(query: string, planData: any, backendRouteData: any): string {
@@ -231,7 +237,7 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
       || backendRouteData?.city
       || '上海');
 
-  // 2. 从 query 匹配候选词（白名单地点 + 白名单主题 + parsedIntent 辅助字段）
+  // 2. 从 query 匹配候选词
   const parsedIntent =
     backendRouteData?.planning_state?.parsed_intent
     || backendRouteData?.parsed_intent
@@ -242,7 +248,6 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
     .map((p: any) => typeof p === 'string' ? p : p?.name)
     .filter(Boolean);
 
-  // 从 parsedIntent 辅助字段收集候选词，只在 query 中出现过才保留
   const auxTerms = [
     parsedIntent.theme_label,
     ...(parsedIntent.raw_keywords || []),
@@ -251,27 +256,36 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
     ...fixedPoiNames,
   ].filter(Boolean).map(t => String(t).trim());
 
-  // 候选词池：query 中匹配到的白名单词 + 辅助字段中在 query 中出现过的干净词
   const matched: string[] = [];
   const seen = new Set<string>();
 
   const tryPush = (term: string) => {
-    const t = term.trim();
+    const t = String(term || '').trim();
     if (!t || seen.has(t)) return;
     if (!text.includes(t)) return;
     if (!_titleTokenIsClean(t)) return;
+
+    // 包含去重：已有更长词，跳过；新词更长则替换
+    const existingIdx = matched.findIndex(existing =>
+      existing.includes(t) || t.includes(existing)
+    );
+    if (existingIdx >= 0) {
+      if (t.length > matched[existingIdx].length) {
+        matched[existingIdx] = t;
+        seen.add(t);
+      }
+      return;
+    }
+
     seen.add(t);
     matched.push(t);
   };
 
-  // 优先：白名单地点词（query 中出现）
-  for (const loc of TITLE_LOCATION_WHITELIST) tryPush(loc);
-  // 其次：白名单主题词（query 中出现）
-  for (const theme of TITLE_THEME_WHITELIST) tryPush(theme);
-  // 最后：辅助字段中出现在 query 的干净词
+  // 按长度从长到短匹配，避免短词抢占
+  for (const loc of [...TITLE_LOCATION_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(loc);
+  for (const theme of [...TITLE_THEME_WHITELIST].sort((a, b) => b.length - a.length)) tryPush(theme);
   for (const aux of auxTerms) tryPush(aux);
 
-  // 最多取 2 个词
   const titleTerms = matched.slice(0, 2);
 
   // 3. 时间词

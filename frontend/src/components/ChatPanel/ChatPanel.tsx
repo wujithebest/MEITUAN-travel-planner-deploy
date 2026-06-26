@@ -344,6 +344,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       snapshot?.summary?.poi_count
       || markers.filter((m: any) => m.type !== 'candidate' && m.kind !== 'hint').length;
 
+    const statsText = message.routeCardSubtitle || (message as any).statsText || '';
+
     const handleClick = () => {
       if (snapshot) {
         onRouteCardSelect?.(snapshot);
@@ -359,7 +361,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           <div className={styles.routePushKicker}>路线已生成</div>
           <div className={styles.routePushTitle}>{message.routeCardTitle || '路线规划'}</div>
           <div className={styles.routePushMeta}>
-            {poiCount > 0 ? `${poiCount} 个地点` : '点击查看路线'}
+            <span>{poiCount > 0 ? `${poiCount} 个地点` : '点击查看路线'}</span>
+            {statsText && <span className={styles.routePushStats}>{statsText}</span>}
           </div>
         </div>
       </button>
