@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Form, Input, Select, Button, message, Divider, AutoComplete, InputNumber, Tooltip } from 'antd';
-import { User, MapPin, Heart, Save, Navigation } from 'lucide-react';
+import { User, MapPin, Heart, Save, Navigation, ChefHat } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { userApi } from '../../api/user';
 import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION, makeDeviceHomeAddress, makeLocationPayload } from '@/utils/locationDefaults';
@@ -23,18 +23,18 @@ const TRAVEL_PREFERENCES = [
 ];
 
 const TASTE_OPTIONS = [
-  { value: '百味皆爱', label: '百味皆爱' },
-  { value: '川菜', label: '川菜' },
-  { value: '粤菜', label: '粤菜' },
-  { value: '湘菜', label: '湘菜' },
-  { value: '鲁菜', label: '鲁菜' },
-  { value: '苏浙菜', label: '苏浙菜' },
-  { value: '日料', label: '日料' },
-  { value: '韩餐', label: '韩餐' },
-  { value: '西餐', label: '西餐' },
-  { value: '东南亚菜', label: '东南亚菜' },
-  { value: '烧烤火锅', label: '烧烤火锅' },
-  { value: '小吃快餐', label: '小吃快餐' },
+  { value: '百味皆爱', label: '百味皆爱', color: '#8B4513' },
+  { value: '川菜', label: '川菜', color: '#DC2626' },
+  { value: '粤菜', label: '粤菜', color: '#D97706' },
+  { value: '湘菜', label: '湘菜', color: '#EA580C' },
+  { value: '鲁菜', label: '鲁菜', color: '#CA8A04' },
+  { value: '苏浙菜', label: '苏浙菜', color: '#059669' },
+  { value: '日料', label: '日料', color: '#7C3AED' },
+  { value: '韩餐', label: '韩餐', color: '#DB2777' },
+  { value: '西餐', label: '西餐', color: '#2563EB' },
+  { value: '东南亚菜', label: '东南亚菜', color: '#0891B2' },
+  { value: '烧烤火锅', label: '烧烤火锅', color: '#E11D48' },
+  { value: '小吃快餐', label: '小吃快餐', color: '#F59E0B' },
 ];
 
 // ── 接口 ──
@@ -60,11 +60,8 @@ interface HomeAddress {
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  /** v18: 'settings' = 普通设置, 'onboarding' = 首次游客身份定制（不可跳过） */
   mode?: 'settings' | 'onboarding';
-  /** v18: 是否允许关闭（onboarding 模式默认 false） */
   closable?: boolean;
-  /** v18: 保存成功后的回调 */
   onSaved?: () => void;
 }
 
@@ -121,11 +118,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const formRef = useRef(form);
   formRef.current = form;
 
-  // v18: 旅行偏好卡片式选择（onboarding 模式使用，settings 模式也用）
+  // 旅行偏好 & 口味偏好（统一用 chip 状态，不依赖 Form 字段）
   const [travelPrefs, setTravelPrefs] = useState<string[]>([]);
   const [tastePref, setTastePref] = useState<string>('百味皆爱');
 
-  // v18: 地理定位状态
+  // 地理定位状态
   const [geoLocated, setGeoLocated] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [userEditedAddress, setUserEditedAddress] = useState(false);
@@ -138,13 +135,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const normalizedHomeAddress = normalizeHomeAddress(user);
       form.setFieldsValue({
         username: user.username || '',
-        email: user.email || '',
         gender: user.gender || '男',
         age: user.age || 30,
         district: user.location?.district || '杨浦区',
         budget_per_capita: user.budget_per_capita || 100,
-        food_preferences: user.food_preferences || [],
-        preferences: user.preferences || [],
         homeAddress: normalizedHomeAddress?.name || normalizedHomeAddress?.full_address || '',
       });
       setSelectedAddress(normalizedHomeAddress);
@@ -159,7 +153,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [open, user, form]);
 
-  // v18: onboarding 首次打开自动获取设备位置
+  // ── onboarding 首次打开自动获取设备位置 ──
   useEffect(() => {
     if (open && isOnboarding && !geoLocated && !userEditedAddress) {
       setGeoLoading(true);
@@ -173,7 +167,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             const homeAddr: HomeAddress = { name, full_address: name, lng, lat };
             setSelectedAddress(homeAddr);
             form.setFieldsValue({ homeAddress: name });
-            // 同步写入 store
             const { user: curUser, updateGuestProfile: ugp } = useUserStore.getState();
             if (isGuest && curUser) {
               ugp({
@@ -188,7 +181,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               });
             }
           } catch {
-            // reverse geocode failed, use raw coords
             const homeAddr = makeDeviceHomeAddress(lat, lng);
             setSelectedAddress(homeAddr);
             form.setFieldsValue({ homeAddress: homeAddr.name });
@@ -197,7 +189,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           setGeoLoading(false);
         },
         () => {
-          // geolocation denied or failed, use fallback
           setSelectedAddress(FALLBACK_HOME_ADDRESS);
           form.setFieldsValue({ homeAddress: FALLBACK_HOME_ADDRESS.name });
           setGeoLocated(true);
@@ -278,8 +269,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (addressOptions.length > 0) setDropdownOpen(true);
   }, [addressOptions.length]);
 
-  // v18: 手动定位
-  const handleLocate = useCallback(() => {
+  // 手动定位
+  const handleLocate = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -308,11 +300,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     );
   }, [form]);
 
-  // v18: 旅行偏好切换
+  // ── 偏好切换 ──
   const toggleTravelPref = (id: string) => {
     setTravelPrefs(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id].slice(0, 5)
     );
+  };
+
+  const toggleTastePref = (value: string) => {
+    setTastePref(prev => (prev === value ? '百味皆爱' : value));
   };
 
   // ── 保存 ──
@@ -321,11 +317,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      // 合并偏好
-      const finalPrefs = isOnboarding ? travelPrefs : (values.preferences || []);
-      const finalTaste = isOnboarding
-        ? (tastePref !== '百味皆爱' ? [tastePref] : [])
-        : (values.food_preferences || []);
+      // 统一使用 chip 状态，不依赖 Form 字段
+      const finalPrefs = travelPrefs;
+      const finalTaste = tastePref && tastePref !== '百味皆爱' ? [tastePref] : [];
 
       if (isGuest) {
         const updatedLocation = { ...user?.location };
@@ -344,7 +338,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             }
           : FALLBACK_HOME_LOCATION;
 
-        // v18: 游客模式写入完整字段
         updateGuestProfile({
           username: values.username,
           gender: values.gender,
@@ -412,7 +405,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       open={open}
       onCancel={closable ? onClose : undefined}
       footer={null}
-      width={560}
+      width={680}
       centered
       closable={closable}
       maskClosable={closable}
@@ -420,76 +413,80 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       className={styles.modal}
     >
       <Form form={form} layout="vertical" className={styles.form}>
-        {/* 基本信息 */}
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <User size={16} />
-            <span>基本信息</span>
-          </div>
+        {/* ── 滚动区域 ── */}
+        <div className={styles.scrollBody}>
+          {/* 基本信息 */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <User size={16} />
+              <span>基本信息</span>
+            </div>
 
-          <Form.Item
-            name="username"
-            label="昵称"
-            rules={[
-              { required: true, message: '请输入昵称' },
-              { min: 2, message: '至少2个字符' },
-              { max: 20, message: '最多20个字符' },
-            ]}
-          >
-            <Input placeholder="请输入昵称" prefix={<User size={14} color="#999" />} />
-          </Form.Item>
+            <Form.Item
+              name="username"
+              label="昵称"
+              rules={[
+                { required: true, message: '请输入昵称' },
+                { min: 2, message: '至少2个字符' },
+                { max: 20, message: '最多20个字符' },
+              ]}
+            >
+              <Input placeholder="请输入昵称" prefix={<User size={14} color="#999" />} />
+            </Form.Item>
 
-          {isGuest && (
-            <>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <Form.Item name="gender" label="性别" style={{ flex: 1 }}>
-                  <Select
-                    placeholder="选择性别"
-                    options={[
-                      { value: '男', label: '男' },
-                      { value: '女', label: '女' },
-                      { value: '其他', label: '其他' },
-                    ]}
+            {isGuest && (
+              <>
+                <div className={styles.inlineRow}>
+                  <Form.Item name="gender" label="性别" className={styles.inlineItem}>
+                    <Select
+                      placeholder="选择性别"
+                      options={[
+                        { value: '男', label: '男' },
+                        { value: '女', label: '女' },
+                        { value: '其他', label: '其他' },
+                      ]}
+                    />
+                  </Form.Item>
+                  <Form.Item name="age" label="年龄" className={styles.inlineItem}>
+                    <InputNumber min={1} max={120} placeholder="年龄" style={{ width: '100%' }} />
+                  </Form.Item>
+                </div>
+
+                <Form.Item name="district" label="所在区县">
+                  <Input placeholder="如：杨浦区" />
+                </Form.Item>
+
+                <Form.Item name="budget_per_capita" label="人均预算（元）" tooltip="用于筛选餐厅和消费场所">
+                  <InputNumber
+                    min={0} max={10000} step={10}
+                    placeholder="人均消费预算"
+                    style={{ width: '100%' }}
+                    addonAfter="元"
                   />
                 </Form.Item>
-                <Form.Item name="age" label="年龄" style={{ flex: 1 }}>
-                  <InputNumber min={1} max={120} placeholder="年龄" style={{ width: '100%' }} />
-                </Form.Item>
-              </div>
-
-              <Form.Item name="district" label="所在区县">
-                <Input placeholder="如：杨浦区" />
-              </Form.Item>
-
-              <Form.Item name="budget_per_capita" label="人均预算（元）" tooltip="用于筛选餐厅和消费场所">
-                <InputNumber
-                  min={0} max={10000} step={10}
-                  placeholder="人均消费预算"
-                  style={{ width: '100%' }}
-                  addonAfter="元"
-                />
-              </Form.Item>
-            </>
-          )}
-        </div>
-
-        <Divider />
-
-        {/* 常驻地址 */}
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <MapPin size={16} />
-            <span>常驻地址（路线出发地）</span>
+              </>
+            )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
+          <Divider />
+
+          {/* 常驻地址 */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <MapPin size={16} />
+              <span>常驻地址（路线出发地）</span>
+            </div>
+            <p className={styles.sectionHint}>可定位获取设备位置 或 手动搜索选择地址</p>
+
+            <div className={styles.addressInputWrap}>
               <Form.Item
                 name="homeAddress"
                 label=""
                 tooltip="输入2个字后开始搜索"
+                style={{ marginBottom: 0 }}
               >
                 <AutoComplete
+                  className={styles.addressAutoComplete}
                   placeholder="请输入您的常驻地址（如：陆家嘴、徐家汇）"
                   options={addressOptions}
                   onSelect={handleAddressSelect}
@@ -509,83 +506,89 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   }}
                 />
               </Form.Item>
-            </div>
-            <Tooltip title={geoLoading ? '定位中...' : '获取当前设备位置'}>
-              <Button
-                icon={<Navigation size={16} />}
-                onClick={handleLocate}
-                loading={geoLoading}
-                style={{ marginTop: 28 }}
-              />
-            </Tooltip>
-          </div>
-
-          {selectedAddress && (
-            <div className={styles.selectedAddress}>
-              <MapPin size={14} color="#1890ff" />
-              <span className={styles.selectedAddressText}>{selectedAddress.full_address}</span>
-            </div>
-          )}
-        </div>
-
-        <Divider />
-
-        {/* 口味偏好 */}
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <span>😋</span>
-            <span>口味偏好</span>
-          </div>
-          <Form.Item name="food_preferences" label="选择您喜欢的口味" style={{ marginBottom: 0 }}>
-            <Select
-              mode="multiple"
-              placeholder="选择口味偏好（可多选）"
-              options={TASTE_OPTIONS.map(o => ({ value: o.value, label: `${o.label}` }))}
-              maxTagCount={6}
-            />
-          </Form.Item>
-        </div>
-
-        <Divider />
-
-        {/* 旅行偏好 — 卡片式 */}
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <Heart size={16} />
-            <span>旅行偏好（可多选，最多5项）</span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-            {TRAVEL_PREFERENCES.map(pref => {
-              const active = travelPrefs.includes(pref.id);
-              return (
+              <Tooltip title={geoLoading ? '定位中...' : '获取当前设备位置'}>
                 <button
-                  key={pref.id}
                   type="button"
-                  onClick={() => toggleTravelPref(pref.id)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '6px 14px', borderRadius: 20, border: `2px solid ${active ? pref.color : '#e8e8e8'}`,
-                    background: active ? `${pref.color}15` : '#fff',
-                    cursor: 'pointer', fontSize: 13, fontWeight: active ? 600 : 400,
-                    color: active ? pref.color : '#666',
-                    transition: 'all 0.2s', outline: 'none',
-                  }}
+                  className={styles.locateIconButton}
+                  onClick={handleLocate}
+                  disabled={geoLoading}
                 >
-                  <span>{pref.icon}</span>
-                  <span>{pref.label}</span>
+                  <Navigation size={18} />
                 </button>
-              );
-            })}
+              </Tooltip>
+            </div>
+
+            {selectedAddress && (
+              <div className={styles.selectedAddress}>
+                <MapPin size={14} color="#1890ff" />
+                <span className={styles.selectedAddressText}>{selectedAddress.full_address}</span>
+              </div>
+            )}
           </div>
-          {/* 隐藏的 Form.Item 用于兼容 settings 模式的 preferences Select */}
-          {!isOnboarding && (
-            <Form.Item name="preferences" style={{ display: 'none' }}>
-              <Select mode="multiple" />
-            </Form.Item>
-          )}
+
+          <Divider />
+
+          {/* 口味偏好 — chip 单选 */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <ChefHat size={16} />
+              <span>口味偏好</span>
+            </div>
+            <p className={styles.sectionHint}>选择您喜欢的口味（单选，可取消）</p>
+            <div className={styles.chipGrid}>
+              {TASTE_OPTIONS.map(opt => {
+                const active = tastePref === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleTastePref(opt.value)}
+                    className={`${styles.choiceChip} ${active ? styles.choiceChipActive : ''}`}
+                    style={{
+                      ['--chip-color' as any]: opt.color,
+                      ['--chip-bg' as any]: `${opt.color}15`,
+                    }}
+                  >
+                    {opt.label}
+                    {active && <span className={styles.choiceChipX}>×</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <Divider />
+
+          {/* 旅行偏好 — chip 多选 */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <Heart size={16} />
+              <span>旅行偏好（可多选，最多5项）</span>
+            </div>
+            <div className={styles.chipGrid}>
+              {TRAVEL_PREFERENCES.map(pref => {
+                const active = travelPrefs.includes(pref.id);
+                return (
+                  <button
+                    key={pref.id}
+                    type="button"
+                    onClick={() => toggleTravelPref(pref.id)}
+                    className={`${styles.choiceChip} ${active ? styles.choiceChipActive : ''}`}
+                    style={{
+                      ['--chip-color' as any]: pref.color,
+                      ['--chip-bg' as any]: `${pref.color}15`,
+                    }}
+                  >
+                    <span>{pref.icon}</span>
+                    <span>{pref.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* 提交按钮 */}
+        {/* ── 固定在底部的操作按钮 ── */}
         <div className={styles.actions}>
           {closable && <Button onClick={onClose}>取消</Button>}
           <Button

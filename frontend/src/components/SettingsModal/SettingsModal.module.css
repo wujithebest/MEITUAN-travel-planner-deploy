@@ -1,6 +1,16 @@
+/* ── 弹窗整体 ── */
+
+.modal :global(.ant-modal-content) {
+  max-height: min(86vh, 860px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .modal :global(.ant-modal-header) {
   border-bottom: 1px solid #f0f0f0;
   padding: 16px 24px;
+  flex-shrink: 0;
 }
 
 .modal :global(.ant-tooltip-inner) {
@@ -13,9 +23,36 @@
   color: #333;
 }
 
-.form {
-  padding-top: 8px;
+/* modal body 设为 flex 容器，禁止自身溢出 */
+.modal :global(.ant-modal-body) {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+/* ── 表单 ── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── 滚动区域 ── */
+
+.scrollBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 28px 12px;
+  scrollbar-gutter: stable;
+}
+
+/* ── section ── */
 
 .section {
   margin-bottom: 8px;
@@ -28,49 +65,95 @@
   font-size: 15px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
 .sectionHeader svg {
   color: #FFD100;
 }
 
-.actions {
+.sectionHint {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+  margin: -2px 0 14px;
+}
+
+/* ── 内联行（性别 + 年龄） ── */
+
+.inlineRow {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  gap: 16px;
 }
 
-.submitBtn {
-  background: #FFD100;
-  border-color: #FFD100;
-  color: #333;
-  font-weight: 500;
-  min-width: 100px;
+.inlineItem {
+  flex: 1;
 }
 
-.submitBtn:hover {
-  background: #FFE033;
-  border-color: #FFE033;
-  color: #333;
+/* ── 地址输入包装 ── */
+
+.addressInputWrap {
+  position: relative;
 }
 
-/* 表单标签样式 */
-.form :global(.ant-form-item-label > label) {
-  font-weight: 500;
-  color: #333;
+.addressAutoComplete :global(.ant-select-selector) {
+  padding-right: 46px !important;
 }
 
-/* 禁用输入框样式 */
-.form :global(.ant-input-disabled) {
-  background: #fafafa;
-  color: #999;
+.locateIconButton {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #8c8c8c;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 2;
 }
 
-/* 地址选项样式 */
+.locateIconButton:hover {
+  background: #f5f5f5;
+  color: #1677ff;
+}
+
+.locateIconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 已选地址显示 */
+.selectedAddress {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  padding: 8px 12px;
+  background: #f0f7ff;
+  border-radius: 4px;
+  border: 1px solid #d6e4ff;
+}
+
+.selectedAddress svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.selectedAddressText {
+  font-size: 13px;
+  color: #1890ff;
+  line-height: 1.5;
+}
+
+/* ── 地址选项下拉 ── */
+
 .addressOption {
   padding: 4px 0;
 }
@@ -90,31 +173,91 @@
   white-space: nowrap;
 }
 
-/* 已选地址显示 */
-.selectedAddress {
+/* ── 偏好 chip 网格 ── */
+
+.chipGrid {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-top: -8px;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: #f0f7ff;
-  border-radius: 4px;
-  border: 1px solid #d6e4ff;
+  margin-bottom: 12px;
 }
 
-.selectedAddress svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.selectedAddressText {
+.choiceChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 2px solid #e8e8e8;
+  background: #fff;
+  cursor: pointer;
   font-size: 13px;
-  color: #1890ff;
-  line-height: 1.5;
+  font-weight: 400;
+  color: #666;
+  transition: all 0.2s;
+  outline: none;
+  font-family: inherit;
 }
 
-/* AutoComplete 下拉框样式 */
+.choiceChip:hover {
+  border-color: #bbb;
+}
+
+.choiceChipActive {
+  border-color: var(--chip-color, #FFD100);
+  background: var(--chip-bg, #FFF9E6);
+  color: var(--chip-color, #333);
+  font-weight: 600;
+}
+
+.choiceChipX {
+  margin-left: 2px;
+  font-size: 15px;
+  font-weight: 400;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+/* ── 底部操作按钮（sticky） ── */
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 28px 18px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+}
+
+.submitBtn {
+  background: #FFD100;
+  border-color: #FFD100;
+  color: #333;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.submitBtn:hover {
+  background: #FFE033;
+  border-color: #FFE033;
+  color: #333;
+}
+
+/* ── 表单标签 ── */
+
+.form :global(.ant-form-item-label > label) {
+  font-weight: 500;
+  color: #333;
+}
+
+.form :global(.ant-input-disabled) {
+  background: #fafafa;
+  color: #999;
+}
+
+/* ── AutoComplete 下拉 ── */
+
 :global(.ant-select-dropdown .ant-select-item) {
   padding: 8px 12px;
 }
