@@ -474,6 +474,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       maskClosable={closable}
       keyboard={closable}
       className={styles.modal}
+      styles={{
+        mask: {
+          backgroundColor: 'rgba(0, 0, 0, 0.12)',
+          backdropFilter: 'none',
+        },
+      }}
     >
       <Form form={form} layout="vertical" className={styles.form}>
         {/* ── 滚动区域 ── */}

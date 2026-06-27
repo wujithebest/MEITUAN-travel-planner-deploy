@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(42, 45, 50, 0.72);
+  background: transparent;
   overflow: hidden;
 }
 

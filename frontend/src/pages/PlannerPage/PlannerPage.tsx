@@ -841,7 +841,7 @@ const PlannerPage: React.FC = () => {
       {/* v18: 游客首次身份定制（不可关闭/跳过） */}
       <SettingsModal
         mode="onboarding"
-        open={guestOnboardingOpen}
+        open={guestOnboardingOpen && !guideOpen}
         closable={false}
         onClose={() => setGuestOnboardingOpen(false)}
         onSaved={() => {
