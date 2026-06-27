@@ -170,6 +170,9 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
         "lng": resolved_lng,
         "label": resolved_label,
     }
+    for key in ("city", "cityname", "adcode", "district", "province"):
+        if home_loc.get(key) not in (None, ""):
+            resolved_home[key] = home_loc[key]
 
     return UserProfile(
         nickname=guest.get("nickname", "游客"),

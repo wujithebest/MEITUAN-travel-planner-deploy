@@ -1060,8 +1060,10 @@ MICRO_EXPLICIT_SPORT_TERMS = (
 # v14: 使用主题画像系统
 try:
     from .theme_profiles import build_effective_theme_profile
+    from .theme_profile_matcher import poi_has_competing_theme
 except ImportError:
     from services.theme_profiles import build_effective_theme_profile
+    from services.theme_profile_matcher import poi_has_competing_theme
 
 
 def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
@@ -1076,6 +1078,9 @@ def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
     if explicit_sport:
         excluded_terms = {t for t in excluded_terms if t not in MICRO_SPORT_TERMS}
 
+    time_budget = float(getattr(parsed_intent, "time_budget", 0.25) or 0.25)
+    minimum_themed_pois = 3 if time_budget >= 1.0 else (2 if time_budget >= 0.5 else 1)
+
     return {
         "active": True,
         "profile_id": profile.get("id", ""),
@@ -1084,11 +1089,13 @@ def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
         "preferred_name_terms": tuple(profile.get("required_terms", []) or []),
         "micro_keywords": tuple(profile.get("micro_keywords", []) or []),
         "excluded_terms": tuple(excluded_terms),
+        "generic_penalty_terms": tuple(profile.get("generic_penalty_terms", []) or []),
         "preferred_type_prefixes": set(profile.get("typecode_prefixes", []) or []),
         "excluded_typecode_prefixes": set(profile.get("excluded_typecode_prefixes", []) or []),
         "diversity_hint": tuple(profile.get("diversity_hint", []) or []),
         "reject_unrequested_sports": not explicit_sport,
-        "minimum_themed_pois": 1,
+        "minimum_themed_pois": minimum_themed_pois,
+        "max_compatible_extras": 2,
     }
 
 
@@ -1119,6 +1126,12 @@ def _micro_poi_theme_score(poi: dict[str, Any], policy: dict[str, Any]) -> float
         score += 5.0
     if any(term and term.lower() in text for term in policy.get("excluded_terms", ())):
         score -= 100.0
+    generic_hits = sum(
+        1
+        for term in policy.get("generic_penalty_terms", ())
+        if term and term.lower() in text
+    )
+    score -= generic_hits * 12.0
     return score
 
 
@@ -1132,6 +1145,11 @@ def _is_micro_poi_compatible(poi: dict[str, Any], policy: dict[str, Any]) -> boo
     if any(term and term.lower() in text for term in policy.get("excluded_terms", ())):
         return False
     if policy.get("reject_unrequested_sports") and _is_unrequested_sport_poi(poi):
+        return False
+    if _micro_poi_theme_score(poi, policy) <= 0 and poi_has_competing_theme(
+        poi,
+        str(policy.get("profile_id") or ""),
+    ):
         return False
     return True
 
@@ -1165,7 +1183,8 @@ def _filter_and_sort_internal_pois(
     if len(valid) < 3 and subordinate_buffer:
         valid.extend(subordinate_buffer)
 
-    # v13: 主题策略过滤 — 在空间排序前执行
+    theme_trim_hint: str | None = None
+    # 主题策略过滤 — 在空间排序前执行
     if policy.get("active"):
         compatible = [
             poi
@@ -1175,29 +1194,40 @@ def _filter_and_sort_internal_pois(
         if not compatible:
             return [], "该区域未检索到符合当前主题的可游览地点，已保留核心目的地供自由探索"
 
-        themed = [
-            poi
-            for poi in compatible
-            if _micro_poi_theme_score(poi, policy) > 0
-        ]
+        themed = sorted(
+            [poi for poi in compatible if _micro_poi_theme_score(poi, policy) > 0],
+            key=lambda poi: _micro_poi_theme_score(poi, policy),
+            reverse=True,
+        )
         if len(themed) >= policy.get("minimum_themed_pois", 1):
-            # v18: 主题命中足够时，themed 优先排序，但保留 compatible 作密度兜底
+            # Theme points dominate. Neutral compatible points are a small
+            # connective supplement, never a way to fill an unrelated route.
             themed_names = {p.get("name") for p in themed}
             extras = [p for p in compatible if p.get("name") not in themed_names]
-            max_keep = max(12, len(themed) + 4)
-            valid = themed + extras[:max(0, max_keep - len(themed))]
+            max_extras = int(policy.get("max_compatible_extras", 2) or 0)
+            valid = themed + extras[:max_extras]
             print(
-                f"[DEBUG step3] theme_policy kept compatible fallback "
-                f"raw={len(valid)} themed={len(themed)} compatible={len(compatible)} final={len(valid)}"
+                f"[DEBUG step3] theme_policy constrained compatible fallback "
+                f"themed={len(themed)} compatible={len(compatible)} "
+                f"extras={min(len(extras), max_extras)} final={len(valid)}"
             )
         else:
-            valid = compatible
+            valid = themed
+            theme_trim_hint = (
+                "该区域符合当前主题的地点不足，已仅保留主题相关地点，"
+                "不再使用普通景点补齐路线"
+            )
+            print(
+                f"[DEBUG step3] theme_policy insufficient themed pois: "
+                f"required={policy.get('minimum_themed_pois', 1)} "
+                f"themed={len(themed)} compatible={len(compatible)}"
+            )
 
     if not valid:
-        return [], None
+        return [], theme_trim_hint
 
     # 大面积场景：估算容量，top-N 截断后再空间排序
-    trim_hint: str | None = None
+    trim_hint: str | None = theme_trim_hint
     prefilt = valid
     if is_large_area and len(prefilt) > 8:
         avg_visit = config.DEFAULT_VISIT_DURATION_MIN

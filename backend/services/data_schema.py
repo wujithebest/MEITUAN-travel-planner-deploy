@@ -320,6 +320,7 @@ class ParsedIntent(BaseModel):
 
     # 出发地
     original_location_label: Optional[str] = None  # v18: 可空。用户明确说的出发地名。未指定时统一由 user_profile.home_location 注入；permanent_city_coord 仅兼容兜底；current_device_location 不再参与出发地决策
+    resolved_city: Optional[str] = None  # 由后端根据路线出发地/行政区解析并写入；LLM 不得生成
 
     # 餐饮偏好
     food_pref_keywords: list[str] = []  # 可空。LLM从原话提取的口味/餐饮偏好，如["本帮菜","日料"]。空→代码注入UserProfile.food_pref_tag

@@ -57,6 +57,29 @@ class ThemeDecision:
     candidates: tuple[ThemeCandidate, ...]
 
 
+@dataclass(frozen=True)
+class ThemePoiEvidence:
+    score: float
+    accepted: bool
+    positive_hits: tuple[str, ...]
+    generic_penalty_hits: tuple[str, ...]
+    excluded_hits: tuple[str, ...]
+    source_hits: tuple[str, ...]
+
+
+DIRECT_MUNICIPALITIES = {
+    "北京": "北京市",
+    "北京市": "北京市",
+    "上海": "上海市",
+    "上海市": "上海市",
+    "天津": "天津市",
+    "天津市": "天津市",
+    "重庆": "重庆市",
+    "重庆市": "重庆市",
+}
+_CITY_PREFIX_WITH_SUFFIX = re.compile(r"^\s*[一-龥]{2,12}市\s*")
+
+
 # ── 基础工具 ──────────────────────────────────────────
 def _norm_text(value: Any) -> str:
     return str(value or "").strip().lower()
@@ -73,6 +96,163 @@ def _unique(values: list[str], limit: int | None = None) -> list[str]:
         if limit is not None and len(result) >= limit:
             break
     return result
+
+
+def normalize_city_name(value: Any) -> str:
+    """Normalize an authoritative administrative city label."""
+    if isinstance(value, list):
+        value = value[0] if value else ""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text in DIRECT_MUNICIPALITIES:
+        return DIRECT_MUNICIPALITIES[text]
+    match = re.search(r"([一-龥]{2,12}市)", text)
+    if match:
+        return match.group(1)
+    return f"{text}市" if len(text) >= 2 else text
+
+
+def city_short_name(city: str) -> str:
+    normalized = normalize_city_name(city)
+    return normalized[:-1] if normalized.endswith("市") else normalized
+
+
+def strip_search_city_prefix(keyword: str, resolved_city: str) -> str:
+    """Remove a city prefix from an LLM keyword before backend canonicalization.
+
+    The LLM is asked to return keyword bodies, but this keeps old or malformed
+    outputs safe. We only strip an authoritative current-city prefix, a direct
+    municipality, or a token explicitly ending in 市; arbitrary first words are
+    never removed.
+    """
+    body = re.sub(r"\s+", " ", str(keyword or "").strip())
+    if not body:
+        return ""
+    normalized = normalize_city_name(resolved_city)
+    short = city_short_name(normalized)
+    prefixes = sorted(
+        {normalized, short, *DIRECT_MUNICIPALITIES.keys()},
+        key=len,
+        reverse=True,
+    )
+    for prefix in prefixes:
+        if prefix and (body == prefix or body.startswith(f"{prefix} ")):
+            body = body[len(prefix):].strip()
+            break
+    body = _CITY_PREFIX_WITH_SUFFIX.sub("", body).strip()
+    return body
+
+
+def canonicalize_search_keywords(
+    keywords: list[str],
+    resolved_city: str,
+    *,
+    limit: int = 8,
+) -> list[str]:
+    """Build every search keyword from one authoritative city label."""
+    city = city_short_name(resolved_city)
+    if not city:
+        return _unique([str(item).strip() for item in keywords], limit)
+    bodies = _unique(
+        [strip_search_city_prefix(item, resolved_city) for item in keywords],
+        limit,
+    )
+    return [f"{city} {body}" for body in bodies if body][:limit]
+
+
+def _profile_terms(profile: dict[str, Any], field_name: str) -> list[str]:
+    values = profile.get(field_name, []) or []
+    if isinstance(values, dict):
+        return _unique([term for items in values.values() for term in (items or [])])
+    return _unique(list(values))
+
+
+def _poi_field(poi: Any, field_name: str) -> Any:
+    if isinstance(poi, dict):
+        return poi.get(field_name)
+    return getattr(poi, field_name, None)
+
+
+def score_poi_against_theme(
+    poi: Any,
+    profile: dict[str, Any],
+    source_text: str = "",
+) -> ThemePoiEvidence:
+    """Score a POI using its own identity; web text is only weak evidence.
+
+    A POI must contain at least one positive theme term in its own name,
+    address, type or category. This prevents an article that happens to mention
+    a zoo or park from turning that place into an art/culture destination.
+    """
+    own_text = " ".join(
+        str(_poi_field(poi, field_name) or "")
+        for field_name in ("name", "address", "type", "typecode", "category")
+    ).lower()
+    source_l = str(source_text or "").lower()
+
+    excluded_hits = _unique([
+        term for term in _profile_terms(profile, "excluded_terms")
+        if term and term.lower() in own_text
+    ])
+    if excluded_hits:
+        return ThemePoiEvidence(
+            score=-100.0,
+            accepted=False,
+            positive_hits=(),
+            generic_penalty_hits=(),
+            excluded_hits=tuple(excluded_hits),
+            source_hits=(),
+        )
+
+    weighted_fields = {
+        "destination_anchor_terms": 16.0,
+        "micro_poi_keywords": 8.0,
+        "required_terms": 6.0,
+        "subclusters": 4.0,
+    }
+    positive_weights: dict[str, float] = {}
+    source_hits: list[str] = []
+    for field_name, weight in weighted_fields.items():
+        for term in _profile_terms(profile, field_name):
+            term_l = term.lower()
+            if term_l and term_l in own_text:
+                positive_weights[term] = max(weight, positive_weights.get(term, 0.0))
+            elif term_l and term_l in source_l:
+                source_hits.append(term)
+
+    generic_hits = _unique([
+        term for term in _profile_terms(profile, "generic_penalty_terms")
+        if term and term.lower() in own_text
+    ])
+    positive_hits = _unique(list(positive_weights))
+    # Source snippets may break ties only after the POI proves its own relevance.
+    source_bonus = min(4.0, len(_unique(source_hits)) * 0.5) if positive_hits else 0.0
+    score = sum(positive_weights.values()) + source_bonus - len(generic_hits) * 12.0
+    return ThemePoiEvidence(
+        score=round(score, 2),
+        accepted=bool(positive_hits) and score > 0,
+        positive_hits=tuple(positive_hits),
+        generic_penalty_hits=tuple(generic_hits),
+        excluded_hits=(),
+        source_hits=tuple(_unique(source_hits, 12)),
+    )
+
+
+def poi_has_competing_theme(
+    poi: Any,
+    current_profile_id: str,
+    *,
+    min_score: float = 16.0,
+) -> bool:
+    """Return True when a neutral POI strongly belongs to another theme."""
+    for profile_id, profile in get_all_theme_profiles().items():
+        if profile_id == current_profile_id:
+            continue
+        evidence = score_poi_against_theme(poi, profile)
+        if evidence.accepted and evidence.score >= min_score:
+            return True
+    return False
 
 
 # ── 加载 ──────────────────────────────────────────────
@@ -526,22 +706,24 @@ def build_effective_theme_profile_from_library(parsed_intent: Any) -> dict[str, 
 def build_theme_recall_queries(profile: dict[str, Any], city: str, limit: int = 4) -> list[str]:
     if not profile or not profile.get("active", True):
         return []
-    city_short = city[:-1] if city.endswith("市") else city
+    city_short = city_short_name(city)
     macro = _unique(profile.get("macro_search_terms", []), 10)
-    anchors = _unique(profile.get("destination_anchor_terms", []), 24)
     micro = _unique(profile.get("micro_poi_keywords", []), 12)
+    required = _unique(profile.get("required_terms", []), 12)
 
     queries: list[str] = []
-    if macro or anchors:
-        queries.append(f"{city_short} {' '.join(macro[:4])} {' '.join(anchors[:8])}")
-    if anchors:
-        queries.append(f"{city_short} 主题路线 推荐 {' '.join(anchors[8:18] or anchors[:10])}")
+    if macro:
+        queries.append(f"{city_short} {' '.join(macro[:4])} 推荐")
+    if len(macro) > 4:
+        queries.append(f"{city_short} {' '.join(macro[4:8])} 推荐")
     if micro:
-        queries.append(f"{city_short} 小众 高质量 {' '.join(micro[:10])}")
+        queries.append(f"{city_short} 小众 高质量 {' '.join(micro[:8])}")
+    elif required:
+        queries.append(f"{city_short} 主题路线 {' '.join(required[:8])}")
     for key, values in (profile.get("subclusters", {}) or {}).items():
         vals = _unique(values, 8)
         if vals:
-            queries.append(f"{city_short} {profile.get('label', '')} {key} {' '.join(vals)}")
+            queries.append(f"{city_short} {' '.join(vals)} 推荐")
         if len(queries) >= limit:
             break
     return _unique(queries, limit)

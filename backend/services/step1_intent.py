@@ -11,12 +11,13 @@ from .api_client import call_llm, gaode_geocode, gaode_text_search, gaode_weathe
 from .data_schema import FixedPoi, ParsedIntent, PlannedWaypoint, PlanSegment, UserProfile
 from .day_slots import DURATION_TO_BUDGET, compute_meal_needs, compute_reject_capacities, infer_capacity_from_typecode
 from .utils import PipelineLogger, ZeroOutputError, emit_status, haversine_km
+from .city_context import apply_resolved_city, resolve_departure_city
 from .theme_profile_matcher import (
+    canonicalize_search_keywords,
     rank_theme_profiles,
     resolve_theme_profile,
     get_all_theme_profiles,
 )
-from .theme_profiles import OFFICIAL_THEME_PROFILES, normalize_theme_profile
 
 
 INCOMPLETE_REQUEST_TEXT = "消息似乎不全面，可以再说得详细一点吗~"
@@ -1267,7 +1268,7 @@ async def _llm_parse(
             'is_route_planning_request: true\n'
             'raw_keywords: ["日料", "下班", "回家"]\n'
             'food_pref_keywords: ["日料"]\n'
-            'search_keywords: ["上海 日料", "上海 日本料理", "上海 寿司"]\n'
+            'search_keywords: ["日料", "日本料理", "寿司"]\n'
             'planned_waypoints: [{"type":"placeholder","search_keyword":"日料","category":"meal","stay_minutes":60,"search_keywords":["日料","日本料理","寿司"],"required_terms":["日料","日本料理","寿司","刺身","居酒屋"],"excluded_terms":["咖啡","奶茶","甜品"]},{"type":"fixed","name":"家","category":"home","stay_minutes":0}]\n'
             '说明："下班/附近"是路线和位置上下文，不作为独立途经点；"日料"是placeholder meal；"回家"是fixed home。\n'
             "\n"
@@ -1278,14 +1279,14 @@ async def _llm_parse(
             'raw_keywords: ["水果", "晚饭"]\n'
             'food_pref_keywords: []\n'
             'meal_search_keywords: ["餐厅","小吃","面馆","快餐"]\n'
-            'search_keywords: ["上海 水果店", "上海 生鲜超市", "上海 餐厅", "上海 小吃", "上海 面馆"]\n'
+            'search_keywords: ["水果店", "生鲜超市", "餐厅", "小吃", "面馆"]\n'
             'planned_waypoints: [{"type":"placeholder","search_keyword":"水果店","category":"purchase","stay_minutes":20,"search_keywords":["水果店","生鲜超市","超市"],"required_terms":["水果","鲜果","生鲜","超市"],"excluded_terms":["快印","打印","数码","摄影","复印"]},{"type":"placeholder","search_keyword":"餐厅","category":"meal","stay_minutes":40,"search_keywords":["餐厅","小吃","面馆","快餐"],"required_terms":["餐厅","饭店","小吃","面馆","快餐"],"excluded_terms":["咖啡","奶茶","茶饮","甜品","面包"]}]\n'
             '说明："买点水果"和"简单吃晚饭"是两个独立途经点；不要把咖啡茶饮当作正餐，不要把快印数码店当作水果采购。\n'
             "\n"
             "【示例7 — planned 生活服务+短休】\n"
             '输入："回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿"\n'
             'raw_keywords: ["理发", "咖啡"]\n'
-            'search_keywords: ["上海 理发店", "上海 美发店", "上海 咖啡店"]\n'
+            'search_keywords: ["理发店", "美发店", "咖啡店"]\n'
             'planned_waypoints: [{"type":"placeholder","search_keyword":"理发店","category":"service","stay_minutes":45,"search_keywords":["理发店","美发店","发廊","剪发","发型设计"],"required_terms":["理发","美发","美容美发","发廊","剪发","造型","发型","洗剪吹"],"excluded_terms":["宠物","培训","学校","收发室","收发","快递","驿站","菜鸟","丰巢","快递柜","代收","自提","包裹","物流","货运","配送","派送","邮政","邮局","打印","快印","复印","图文","维修","开锁","搬家","洗衣","房产","中介","通讯","营业厅"]},{"type":"placeholder","search_keyword":"咖啡","category":"cafe","stay_minutes":25,"search_keywords":["咖啡店","咖啡"],"required_terms":["咖啡","Coffee","星巴克","瑞幸","Manner"],"excluded_terms":["奶茶","茶饮"]}]\n'
             '说明："回家前/附近"是路线语境，不要提取成"家"；真实需求是理发店和咖啡店。\n'
             "\n"
@@ -1330,7 +1331,7 @@ async def _llm_parse(
                 "<critical_rules>\n"
                 "1. 严禁推断、联想或补全用户未明确表达的内容。用户没说吃的，raw_keywords/food_pref_keywords/meal_search_keywords 必须为空。\n"
                 "2. duration 严格遵守枚举值映射：用户说\"一天/1天/一日/玩一天\"→\"a full day\"，说\"两天/周末\"→\"two days\"。不允许根据\"晚上\"推断多天。\n"
-                "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别。\n"
+                "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别；只返回关键词主体，不添加城市名，城市由后端统一拼接。\n"
                 "4. 排除项提取：当用户明确说\"不去XX\"\"不要有XX\"\"排除XX\"\"XX去过了/别再安排\"\"XX不用了\"\"跳过XX\"\"把XX去掉\"\"XX别安排了\"等否定表达时，必须把被排除的地点/景区/餐厅名提取到 delete_list 中。这是强约束——如果漏提 exclude 项，后续路线规划会错误地包含用户明确拒绝的地点。\n"
                 "5. \"文艺\"\"有氛围\"\"精神漫游\"\"城市漫游\"\"松弛感\"\"放空\"等风格或氛围表达属于用户明确意图，必须保留到 raw_keywords，不能丢弃。\n"
                 "6. 对这类风格词只能展开为受控的地点类型或体验词，如文艺街区、历史街区、创意园、独立书店、艺术展览、文化空间、城市慢行；不得编造具体 POI 名称。\n"
@@ -1369,7 +1370,7 @@ async def _llm_parse(
                 '   如果用户只说景点/拍照，raw_keywords中不要出现餐饮类词汇。\n'
                 "\n"
                 "4. search_keywords (string[]) — 地图POI检索词 ⚠️ 见下方&lt;examples&gt;\n"
-                '   把出行意图转成"城市+类目/场景"格式的可检索关键词。\n'
+                '   只输出"类目/场景"关键词主体，不要添加北京、上海等城市前缀；后端会根据路线出发地统一添加城市。\n'
                 "   使用具体地点类型、商圈、活动场景，不用抽象词，不编造具体POI名称。\n"
                 "\n"
                 "5. fixed_pois (object[]) — 用户明确指定的必去地点，含时间预算 ⚠️ v3新增user_time_budget\n"
@@ -1455,23 +1456,23 @@ async def _llm_parse(
                 "</field_definitions>\n"
                 "\n"
                 "<examples>\n"
-                "以下展示 search_keywords 的生成规则——把出行意图转成具体可检索的\"城市+类目/场景\"：\n"
+                "以下展示 search_keywords 的生成规则——把出行意图转成具体可检索的\"类目/场景\"，不要输出城市：\n"
                 "\n"
                 "【示例1】\n"
                 '输入："周末想去上海逛古镇"\n'
-                'search_keywords: ["上海 古镇 推荐", "上海 古镇 攻略", "上海 水乡", "上海 老街"]\n'
+                'search_keywords: ["古镇 推荐", "古镇 攻略", "水乡", "老街"]\n'
                 'micro_keywords: ["古镇 手工艺品", "老街 小吃", "古镇 拍照打卡"]\n'
                 '说明：古镇→展开为"古镇推荐/攻略/水乡/老街/手工艺品/小吃/拍照打卡"\n'
                 "\n"
                 "【示例2】\n"
                 '输入："想去商场购物逛街买东西"\n'
-                'search_keywords: ["上海 购物中心", "上海 商场", "上海 商圈", "上海 商业广场"]\n'
+                'search_keywords: ["购物中心", "商场", "商圈", "商业广场"]\n'
                 'micro_keywords: ["商场 逛街", "购物中心 打卡"]\n'
                 '说明：购物→"购物中心/商场/商圈/商业广场"，只用购物类词，不混入餐饮\n'
                 "\n"
                 "【示例3】\n"
                 '输入："找好吃的餐厅，顺便逛逛拍照打卡的地方"\n'
-                'search_keywords: ["上海 美食", "上海 餐饮", "上海 拍照 打卡", "上海 网红打卡"]\n'
+                'search_keywords: ["美食", "餐饮", "拍照 打卡", "网红打卡"]\n'
                 'micro_keywords: ["美食 探店", "网红打卡 拍照"]\n'
                 "说明：吃喝+拍照→餐饮类+\"拍照打卡/网红打卡\"，两类意图分别生成\n"
                 "\n"
@@ -1480,7 +1481,7 @@ async def _llm_parse(
                 'duration: "a full day"  ← 注意：晚上是同一天的晚间，不是第二天！\n'
                 'evening_requested: true\n'
                 'raw_keywords: ["外滩", "夜景"]  ← 用户没提餐饮，不出现"本帮菜""美食"等\n'
-                'search_keywords: ["上海 外滩 攻略", "上海 夜景 拍照", "上海 黄浦江 观景"]\n'
+                'search_keywords: ["外滩 攻略", "夜景 拍照", "黄浦江 观景"]\n'
                 'food_pref_keywords: []  ← 没提吃的！\n'
                 'meal_search_keywords: []  ← 没提吃的！\n'
                 '说明：\"玩一天+晚上\"是单日行程含晚间，duration仍是"a full day"；用户没说吃的，餐饮字段全空。\n'
@@ -1492,7 +1493,7 @@ async def _llm_parse(
                 'is_route_planning_request: true\n'
                 'delete_list: ["外滩"]\n'
                 'raw_keywords: ["上海", "游玩", "两天"]\n'
-                'search_keywords: ["上海 旅游 攻略", "上海 景点 推荐", "上海 打卡", "上海 美食"]\n'
+                'search_keywords: ["旅游 攻略", "景点 推荐", "打卡", "美食"]\n'
                 "说明：用户明确排除外滩——已去过+不要包含→delete_list=[\"外滩\"]。duration=两天周末。\n"
                 "\n"
                 "【示例6 — 多排除项+餐饮偏好】\n"
@@ -1502,7 +1503,7 @@ async def _llm_parse(
                 'delete_list: ["迪士尼","东方明珠","城隍庙"]\n'
                 'food_pref_keywords: ["本帮菜"]\n'
                 'raw_keywords: ["上海","深度游","本帮菜","没去过的地方"]\n'
-                'search_keywords: ["上海 深度游 攻略","上海 小众景点","上海 本帮菜 餐厅","上海 老街 弄堂","上海 博物馆"]\n'
+                'search_keywords: ["深度游 攻略","小众景点","本帮菜 餐厅","老街 弄堂","博物馆"]\n'
                 "说明：三个地点明确排除；餐饮偏好提取本帮菜；\"没去过的地方\"→search_keywords偏小众/深度。\n"
                 "\n"
                 "规则总结：\n"
@@ -1578,7 +1579,9 @@ async def _detect_destination_from_keywords(search_keywords: list[str], origin: 
 
 
 async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
-    city = user_profile.permanent_city[0] if user_profile.permanent_city else "上海市"
+    city = await resolve_departure_city(user_profile)
+    apply_resolved_city(user_profile, city)
+    parsed.resolved_city = city
     looks_like_route = _looks_like_route_request(user_request)
     if not parsed.is_route_planning_request and not looks_like_route:
         raise ZeroOutputError(INCOMPLETE_REQUEST_TEXT)
@@ -1709,9 +1712,11 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             macro_terms = profile.get("macro_search_terms", []) or []
             parsed.search_keywords = _append_unique(
                 parsed.search_keywords,
-                [f"{city[:-1] if city.endswith('市') else city} {kw}" for kw in macro_terms],
+                list(macro_terms),
                 limit=8,
             )
+
+    parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=8)
 
     # v18: 父母/长辈/老人不应触发儿童亲子主题
     parsed = _apply_parent_elder_theme_guard(parsed, user_request, city)
@@ -1765,18 +1770,17 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
 
     if not parsed.search_keywords:
         if parsed.raw_keywords:
-            parsed.search_keywords = [f"{city} {kw}" for kw in parsed.raw_keywords]
+            parsed.search_keywords = list(parsed.raw_keywords)
         elif user_profile.activity_pref_tag:
-            parsed.search_keywords = [f"{city} {tag}" for tag in user_profile.activity_pref_tag]
+            parsed.search_keywords = list(user_profile.activity_pref_tag)
         else:
-            parsed.search_keywords = [f"{city} 景点 推荐", f"{city} 好玩的地方", f"{city} 周末 去哪"]
+            parsed.search_keywords = ["景点 推荐", "好玩的地方", "周末 去哪"]
     if "室内优先" in parsed.other_constraints:
-        city_short = city[:-1] if city.endswith("市") else city
         indoor_search = [
-            f"{city_short} 室内 景点",
-            f"{city_short} 博物馆 展览",
-            f"{city_short} 美术馆 书店",
-            f"{city_short} 商场 室内",
+            "室内 景点",
+            "博物馆 展览",
+            "美术馆 书店",
+            "商场 室内",
         ]
         indoor_micro = ["室内 打卡", "博物馆 展览", "美术馆 书店", "商场 逛街"]
         parsed.search_keywords = _append_unique(indoor_search, parsed.search_keywords, limit=8)
@@ -1824,6 +1828,10 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.transport_hint = "公共交通"
     if not parsed.crowd_type:
         parsed.crowd_type = "单人"
+
+    # LLM and all rule branches produce keyword bodies; the backend is the
+    # single authority that adds the departure city's administrative label.
+    parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=8)
 
     # [DEBUG-雨天半天] 临时调试日志，确认雨天/半日识别
     print(f"[DEBUG step1] duration={parsed.duration} time_budget={parsed.time_budget}")

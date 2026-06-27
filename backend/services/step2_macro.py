@@ -18,7 +18,6 @@ from .api_client import (
     bocha_search_batch,
     gaode_around_search_batch,
     gaode_driving_route,
-    gaode_reverse_geocode,
     gaode_text_search,
     gaode_transit_route,
     gaode_walking_route,
@@ -29,11 +28,20 @@ from .day_slots import DURATION_TO_BUDGET, MEAL_WINDOWS, WEATHER_PENALTY, infer_
 from .poi_feedback_service import calculate_feedback_score, get_profile_feedback_records
 from .route_backbone import is_valid_route_poi
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
+from .city_context import apply_resolved_city, resolve_departure_city
 from .theme_profiles import OFFICIAL_THEME_PROFILES
 try:
-    from .theme_profile_matcher import build_theme_recall_queries
+    from .theme_profile_matcher import (
+        build_theme_recall_queries,
+        canonicalize_search_keywords,
+        score_poi_against_theme,
+    )
 except ImportError:
-    from services.theme_profile_matcher import build_theme_recall_queries
+    from services.theme_profile_matcher import (
+        build_theme_recall_queries,
+        canonicalize_search_keywords,
+        score_poi_against_theme,
+    )
 
 
 ANCHOR_LEVEL_TYPECODES = ["110000", "110100", "110200", "080500", "080600", "140100", "140200", "190100"]
@@ -70,27 +78,6 @@ def _city_short(city: str) -> str:
     return city[:-1] if city.endswith("市") else city
 
 
-def _city_from_text(text: Any) -> str:
-    raw = str(text or "").strip()
-    if not raw:
-        return ""
-    for name in DIRECT_MUNICIPALITIES:
-        if name and name in raw:
-            return _normalize_city_name(name)
-    match = CITY_NAME_RE.search(raw)
-    return _normalize_city_name(match.group(1)) if match else ""
-
-
-def _location_to_lnglat(location: dict | None) -> str:
-    if not isinstance(location, dict):
-        return ""
-    lat = location.get("lat")
-    lng = location.get("lng")
-    if lat is None or lng is None:
-        return ""
-    return f"{lng},{lat}"
-
-
 def _in_city_bounds(city: str, location: dict | None) -> bool:
     short = _city_short(city)
     bounds = CITY_BOUNDS.get(short)
@@ -105,47 +92,11 @@ def _in_city_bounds(city: str, location: dict | None) -> bool:
 
 
 async def _resolve_city_from_profile(user_profile: UserProfile) -> str:
-    """v18: 只基于 home_location 解析城市，不再 fallback 到 current_device_location。"""
-    home_loc = getattr(user_profile, "home_location", None) or {}
-
-    # text label match
-    if isinstance(home_loc, dict) and home_loc.get("label"):
-        city = _city_from_text(str(home_loc["label"]))
-        if city:
-            return city
-
-    # reverse geocode home_location
-    loc_str = _location_to_lnglat(home_loc if isinstance(home_loc, dict) else None)
-    if loc_str:
-        try:
-            addr = await gaode_reverse_geocode(loc_str)
-        except Exception as exc:
-            print(f"[WARN step2] resolve city reverse geocode failed: {exc}")
-            addr = None
-        if addr:
-            city_value = addr.get("city")
-            if isinstance(city_value, list):
-                city_value = city_value[0] if city_value else ""
-            city = _normalize_city_name(city_value or addr.get("province") or "")
-            if city:
-                return city
-
-    old_city = ""
-    if getattr(user_profile, "permanent_city", None):
-        old_city = user_profile.permanent_city[0] or ""
-    return _normalize_city_name(old_city) or "上海市"
+    return await resolve_departure_city(user_profile)
 
 
 def _apply_resolved_city(user_profile: UserProfile, city: str) -> None:
-    city = _normalize_city_name(city)
-    if not city:
-        return
-    old = list(getattr(user_profile, "permanent_city", []) or [])
-    district = old[1] if len(old) > 1 else ""
-    try:
-        user_profile.permanent_city = [city, district] if district else [city]
-    except Exception:
-        object.__setattr__(user_profile, "permanent_city", [city, district] if district else [city])
+    apply_resolved_city(user_profile, city)
 
 # 050500(餐饮) 已从基础白名单移除，仅在餐饮意图时通过 EATING_ANCHOR_TYPECODES 放行
 ANIME_ANCHOR_TYPECODES = [
@@ -495,7 +446,9 @@ def _preference_match(place: ExtractedPlace, parsed_intent: ParsedIntent) -> tup
         targets.append("美食")
     if not targets:
         return 0, 1, []
-    text = f"{place.name} {place.enrichment_text}"
+    # Hard preference matching must use the POI's own identity. A web article
+    # mentioning art near an unrelated POI must not make that POI "文艺".
+    text = f"{place.name} {place.address} {place.typecode}"
     synonyms = {
         "古镇": ["老街", "水乡", "古街"],
         "古街": ["老街", "水乡", "古镇", "历史街区"],
@@ -689,23 +642,21 @@ def _score_place(
     preference_score = (matched / total) * config.PREFERENCE_SCORE_WEIGHT
     enrichment_score = event_score + heat_score + preference_score
 
-    # v15: 主题召回与角色加成
+    # Theme relevance is calculated once from the POI's own identity. Do not
+    # stack source + role + a fixed theme score for regex-extracted names.
     recall_source = getattr(place, "recall_source", "") or ""
     theme_recall_score = float(getattr(place, "theme_recall_score", 0.0) or 0.0)
-    if recall_source == "bocha_theme_recall":
-        enrichment_score += 18
-    if poi_role == "destination_anchor":
-        enrichment_score += 12
-    if theme_recall_score:
-        enrichment_score += theme_recall_score
-    # 泛文化点降权
     theme_id = getattr(parsed_intent, "theme_profile", "") or ""
-    if theme_id == "art_culture_lifestyle":
-        text = f"{place.name} {place.address} {place.typecode} {place.enrichment_text}"
-        high_value = ["M50", "武康路", "衡复", "西岸", "上生新所", "田子坊", "思南公馆", "美术馆", "书店", "电影", "影院", "咖啡", "买手店", "中古", "Vintage", "市集", "画廊", "文创"]
-        generic = ["文化广场", "活动中心", "办公室", "多功能厅", "中心", "广场"]
-        if not any(t in text for t in high_value) and any(t in text for t in generic):
-            enrichment_score -= 18.0
+    theme_profile = OFFICIAL_THEME_PROFILES.get(theme_id, {})
+    theme_evidence = score_poi_against_theme(place, theme_profile) if theme_profile else None
+    if recall_source == "bocha_theme_recall":
+        enrichment_score += min(max(theme_recall_score, 0.0), 30.0)
+    elif theme_evidence and theme_evidence.accepted:
+        enrichment_score += min(theme_evidence.score, 20.0)
+    if poi_role == "destination_anchor" and recall_source != "bocha_theme_recall":
+        enrichment_score += 12
+    if theme_evidence and theme_evidence.generic_penalty_hits:
+        enrichment_score -= 12.0 * len(theme_evidence.generic_penalty_hits)
     if "二次元" in parsed_intent.raw_keywords:
         name_text = place.name.lower()
         full_text = f"{place.name} {place.enrichment_text}".lower()
@@ -1156,16 +1107,15 @@ async def _theme_recall_places(
     if not theme_id or theme_id not in OFFICIAL_THEME_PROFILES:
         return []
     profile = OFFICIAL_THEME_PROFILES[theme_id]
-    recall_queries = list(profile.get("recall_queries", []) or [])
-    if not recall_queries:
-        recall_queries = build_theme_recall_queries(profile, city, limit=3)
+    # Always build city-scoped queries from generic profile terms. Legacy
+    # recall_queries may contain concrete POIs from a different city.
+    recall_queries = build_theme_recall_queries(profile, city, limit=3)
     if not recall_queries:
         return []
 
     city = _normalize_city_name(city) or await _resolve_city_from_profile(user_profile)
     city_short = _city_short(city)
-    dest_terms = set(profile.get("destination_anchor_terms", []))
-    high_value_terms = set(profile.get("high_value_micro_terms", []))
+    dest_terms = list(dict.fromkeys(profile.get("destination_anchor_terms", []) or []))
 
     def _place_matches_city(raw: dict, place) -> bool:
         if not city_short:
@@ -1238,21 +1188,26 @@ async def _theme_recall_places(
                         f"name={place.name} city={raw.get('cityname')} province={raw.get('pname')} target={city}"
                     )
                     continue
-                # v15: 使用Pydantic字段直接赋值
-                place.recall_source = "bocha_theme_recall"
-                place.poi_role = "destination_anchor"
-                theme_score = 20.0
-                if name in dest_terms:
-                    theme_score = 30.0
-                elif name in high_value_terms:
-                    theme_score = 25.0
-                place.theme_recall_score = theme_score
                 # enrichment
                 snippets = " ".join(
                     f"{item.get('name', '')} {item.get('snippet', '')}"
                     for item in all_web_items[:10]
                     if name[:3] in (item.get("snippet", "") + item.get("name", ""))
                 )
+                evidence = score_poi_against_theme(place, profile, snippets)
+                if not evidence.accepted:
+                    print(
+                        "[DEBUG step2] drop theme recall for low relevance: "
+                        f"name={place.name} score={evidence.score} "
+                        f"positive={list(evidence.positive_hits)} "
+                        f"generic={list(evidence.generic_penalty_hits)} "
+                        f"excluded={list(evidence.excluded_hits)}"
+                    )
+                    continue
+
+                place.recall_source = "bocha_theme_recall"
+                place.poi_role = "destination_anchor" if evidence.score >= 16.0 else "route_waypoint"
+                place.theme_recall_score = min(30.0, evidence.score)
                 if snippets:
                     place.enrichment_text = (place.enrichment_text or "") + snippets[:300]
                 # bocha keywords
@@ -2012,7 +1967,17 @@ def _assemble_plan(
 async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logger: PipelineLogger) -> CompletePlan:
     resolved_city = await _resolve_city_from_profile(user_profile)
     _apply_resolved_city(user_profile, resolved_city)
-    print(f"[DEBUG step2] resolved_city_from_home={resolved_city} permanent_city={getattr(user_profile, 'permanent_city', [])}")
+    parsed_intent.resolved_city = resolved_city
+    parsed_intent.search_keywords = canonicalize_search_keywords(
+        list(parsed_intent.search_keywords or []),
+        resolved_city,
+        limit=8,
+    )
+    print(
+        f"[DEBUG step2] resolved_city_from_home={resolved_city} "
+        f"permanent_city={getattr(user_profile, 'permanent_city', [])} "
+        f"search_keywords={parsed_intent.search_keywords}"
+    )
 
     # v6: planned 模式跳过宏观搜索，直接返回轻量 CompletePlan
     if getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned' and getattr(parsed_intent, 'planned_waypoints', []):
