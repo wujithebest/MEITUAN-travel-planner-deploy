@@ -96,7 +96,7 @@ const PlannerPage: React.FC = () => {
   const [hasSentInSession, setHasSentInSession] = useState(false);
 
   // v18: 游客初始化标记 — 首次使用时自动弹出身份定制页
-  const GUEST_INIT_KEY = 'guest-profile-initialized-v1';
+  const GUEST_INIT_KEY = 'guest-profile-initialized-v2';
   const [guestOnboardingOpen, setGuestOnboardingOpen] = useState(false);
 
   // v18: 页面挂载时保障游客会话
@@ -105,7 +105,7 @@ const PlannerPage: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 功能指引 → 游客偏好弹窗 顺序状态机 ──
-  const GUIDE_STORAGE_KEY = 'local-life-route-feature-guide-seen-v1';
+  const GUIDE_STORAGE_KEY = 'local-life-route-feature-guide-seen-v2';
   const GUIDE_DELAY_MS = 600;
   const ONBOARDING_AFTER_GUIDE_DELAY_MS = 300;
 
@@ -137,6 +137,12 @@ const PlannerPage: React.FC = () => {
   const closeFeatureGuide = useCallback(() => {
     localStorage.setItem(GUIDE_STORAGE_KEY, '1');
     setGuidePhase('done');
+  }, []);
+
+  // 手动打开 FeatureGuide：关闭 onboarding，强制进入 showing 阶段
+  const openFeatureGuide = useCallback(() => {
+    setGuestOnboardingOpen(false);
+    setGuidePhase('showing');
   }, []);
 
   const [recentHistories, setRecentHistories] = useState<RouteHistory[]>([]);
@@ -583,7 +589,7 @@ const PlannerPage: React.FC = () => {
           <button
             className={styles.guideBtn}
             type="button"
-            onClick={() => setGuideOpen(true)}
+            onClick={openFeatureGuide}
             title="查看功能指引"
           >
             <HelpCircle size={16} />
