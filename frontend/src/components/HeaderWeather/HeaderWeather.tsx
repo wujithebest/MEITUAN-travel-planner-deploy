@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MapPin, Cloud, Sun, CloudRain, Loader, Droplets, Wind } from 'lucide-react';
 import { buildApiUrl } from '@/config/api.config';
 import styles from './HeaderWeather.module.css';
@@ -34,14 +34,21 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
   const [isLocated, setIsLocated] = useState(false);
   const [error, setError] = useState(false);
 
+  // Ref: 设备天气是否已成功并设为了当前显示
+  const deviceWeatherWonRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
-    const fetchWeatherByCoords = async (lat: number, lng: number) => {
+    // ── 请求：设备坐标天气 ──
+    const fetchDeviceWeather = async (lat: number, lng: number) => {
       try {
         const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
         const result = await response.json();
-        if (result.success && result.data && !cancelled) {
+        if (cancelled) return;
+
+        if (result.success && result.data) {
+          // 设备天气成功 → 覆盖天气 + 标记 isLocated
           setWeather({
             city: result.data.city,
             temperature: result.data.temperature,
@@ -51,25 +58,29 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
             windpower: result.data.windpower,
             reporttime: result.data.reporttime,
           });
+          setIsLocated(true);
           setError(false);
-        } else if (!cancelled) {
-          setError(true);
+          setLoading(false);
+          deviceWeatherWonRef.current = true;
         }
+        // 设备天气失败 → 什么都不做，保留已有天气
       } catch (err) {
-        console.error('定位天气获取失败:', err);
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
+        console.error('设备天气获取失败:', err);
+        // 失败不覆盖已有天气
       }
     };
 
-    const fetchShanghaiFallback = async () => {
+    // ── 请求：默认上海天气（兜底） ──
+    const fetchDefaultCityWeather = async () => {
       try {
         const { lat, lng } = DEFAULT_WEATHER_LOCATION;
         const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
         const result = await response.json();
+        if (cancelled) return;
 
-        if (result.success && result.data && !cancelled) {
+        if (result.success && result.data) {
+          // 如果设备天气已经成功，默认天气不再覆盖
+          if (deviceWeatherWonRef.current) return;
           setWeather({
             city: result.data.city || '上海',
             temperature: result.data.temperature ?? 25,
@@ -84,20 +95,19 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
           setLoading(false);
           return;
         }
+        // 默认请求 success=false — 不覆盖
       } catch (err) {
         console.error('默认天气获取失败:', err);
-      }
-
-      if (!cancelled) {
-        setWeather({ city: '上海', temperature: '', condition: '' });
-        setError(true);
-        setLoading(false);
+        // 不覆盖已有天气
       }
     };
 
     setLoading(true);
 
-    // 尝试浏览器定位（高精度；天气仅展示，不写入路线规划 state）
+    // 立即发起默认城市天气（可靠兜底）
+    fetchDefaultCityWeather();
+
+    // 同时尝试设备定位 → 成功后发起设备天气
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -106,26 +116,25 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
           if (accuracy && accuracy > 300) {
             console.warn(`[LocationDebug] HeaderWeather geolocation accuracy is low: ${accuracy}m`);
           }
-          setIsLocated(true);
-          fetchWeatherByCoords(latitude, longitude);
+          // 收到坐标 ≠ 天气成功；不在这里设置 isLocated 或 geoResolved
+          fetchDeviceWeather(latitude, longitude);
         },
         (err) => {
-          console.warn('定位失败，降级到上海天气:', err.message);
-          if (!cancelled) fetchShanghaiFallback();
+          console.warn('定位失败，使用默认城市天气:', err.message);
+          // 默认城市天气请求已并行发起，无需额外操作
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
       );
-    } else {
-      if (!cancelled) fetchShanghaiFallback();
     }
 
-    // 每 30 分钟刷新（天气定位不写入路线状态，仅用于展示）
+    // ── 每 30 分钟刷新 ──
     const interval = setInterval(() => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          (pos) => fetchWeatherByCoords(pos.coords.latitude, pos.coords.longitude),
-          () => fetchShanghaiFallback(),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+          (pos) => fetchDeviceWeather(pos.coords.latitude, pos.coords.longitude),
+          // 刷新定位失败：请求一次默认城市天气
+          () => fetchDefaultCityWeather(),
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
         );
       }
     }, 30 * 60 * 1000);
@@ -154,7 +163,7 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
     const hasHumidity = weather.humidity !== '' && weather.humidity != null;
     const hasWind = (weather.winddirection || weather.windpower);
 
-    // 如果连温度和天气都没有，显示不可用
+    // 如果连温度和天气描述都没有，显示不可用
     if (!hasTemp && !hasCond && !hasHumidity && !hasWind) {
       return (
         <div className={`${styles.container} ${styles.noLocation}`}>

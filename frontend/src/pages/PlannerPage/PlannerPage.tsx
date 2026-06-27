@@ -104,34 +104,42 @@ const PlannerPage: React.FC = () => {
     ensureGuestSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // v18: 首次游客使用，自动弹出身份定制页（等 FeatureGuide 之后）
-  useEffect(() => {
-    if (isGuest && !localStorage.getItem(GUEST_INIT_KEY)) {
-      // 延迟弹窗，避免与 FeatureGuide 抢焦
-      const timer = setTimeout(() => {
-        setGuestOnboardingOpen(true);
-      }, 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [isGuest]);
-  const [recentHistories, setRecentHistories] = useState<RouteHistory[]>([]);
-
-  // 功能指引
+  // ── 功能指引 → 游客偏好弹窗 顺序状态机 ──
   const GUIDE_STORAGE_KEY = 'local-life-route-feature-guide-seen-v1';
-  const [guideOpen, setGuideOpen] = useState(false);
+  const GUIDE_DELAY_MS = 600;
+  const ONBOARDING_AFTER_GUIDE_DELAY_MS = 300;
 
+  // Phase: 'checking' | 'showing' | 'done'
+  const [guidePhase, setGuidePhase] = useState<'checking' | 'showing' | 'done'>(() =>
+    localStorage.getItem(GUIDE_STORAGE_KEY) ? 'done' : 'checking'
+  );
+
+  // Phase → guideOpen 映射
+  const guideOpen = guidePhase === 'showing';
+
+  // Phase 1: checking → 延迟后 showing
+  // Phase 2: done → 游客未初始化时弹出 onboarding
   useEffect(() => {
-    const seen = localStorage.getItem(GUIDE_STORAGE_KEY);
-    if (!seen) {
-      const timer = window.setTimeout(() => setGuideOpen(true), 600);
+    if (guidePhase === 'checking') {
+      const timer = window.setTimeout(() => setGuidePhase('showing'), GUIDE_DELAY_MS);
       return () => window.clearTimeout(timer);
     }
-  }, []);
+    if (guidePhase === 'done' && isGuest && !localStorage.getItem(GUEST_INIT_KEY)) {
+      const timer = window.setTimeout(
+        () => setGuestOnboardingOpen(true),
+        ONBOARDING_AFTER_GUIDE_DELAY_MS
+      );
+      return () => window.clearTimeout(timer);
+    }
+  }, [guidePhase, isGuest]);
 
+  // FeatureGuide 关闭：标记 seen → done → 自动触发 onboarding
   const closeFeatureGuide = useCallback(() => {
     localStorage.setItem(GUIDE_STORAGE_KEY, '1');
-    setGuideOpen(false);
+    setGuidePhase('done');
   }, []);
+
+  const [recentHistories, setRecentHistories] = useState<RouteHistory[]>([]);
 
   // 行程侧边栏状态管理
   const itinerary = useItinerary();
