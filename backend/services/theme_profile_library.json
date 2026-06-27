@@ -4,6 +4,7 @@
   "locale": "zh-CN",
   "purpose": "自然语言出行主题 profile 库，用于把模糊需求转译为可执行的宏观召回、微观 POI 选点、过滤和排序约束。当前文件先作为独立知识库沉淀，暂未接入线上 pipeline。",
   "schema": {
+    "exact_activity_terms": "能唯一确定主题的高辨识度活动词。命中后直接锁定主题，不参与普通计分。禁止放入泛词。",
     "seed_keywords": "用户自然语言中可能出现的触发词或需求短语，要求保留原词。",
     "macro_search_terms": "用于片区、目的地、路线级召回的搜索词。",
     "destination_anchor_terms": "适合作为路线主锚点或强召回 POI/片区的词。",
@@ -781,6 +782,15 @@
     },
     "sports_recreation": {
       "label": "运动娱乐 / 竞技体验 / 体旅融合",
+      "exact_activity_terms": [
+        "剧本杀",
+        "剧本杀店",
+        "桌游店",
+        "密室逃脱",
+        "卡丁车",
+        "攀岩馆",
+        "蹦床馆"
+      ],
       "seed_keywords": [
         "嗨玩",
         "娱乐嗨玩",
@@ -1355,6 +1365,13 @@
     },
     "film_location_media": {
       "label": "影视取景 / 观影文化 / 影像记忆",
+      "exact_activity_terms": [
+        "影视取景地",
+        "老电影院",
+        "电影资料馆",
+        "艺术影院",
+        "胶片冲洗店"
+      ],
       "seed_keywords": [
         "影视取景地",
         "老电影院",

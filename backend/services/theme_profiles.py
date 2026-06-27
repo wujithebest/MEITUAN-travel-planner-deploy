@@ -6,6 +6,7 @@ from .theme_profile_matcher import (
     get_all_theme_profiles,
     normalize_theme_profile_id,
     build_effective_theme_profile_from_library,
+    resolve_theme_profile,
 )
 
 
@@ -146,51 +147,25 @@ except Exception as exc:
 
 
 def normalize_theme_profile(value: str | None, text: str = "") -> str | None:
-    matched = normalize_theme_profile_id(value, text)
-    if matched:
-        return matched
-    raw = (value or "").strip()
-    if raw in OFFICIAL_THEME_PROFILES:
-        return raw
-    if raw in THEME_ALIASES:
-        return THEME_ALIASES[raw]
-    merged = text or raw
-    for key, profile in OFFICIAL_THEME_PROFILES.items():
-        if any(t and t in merged for t in profile.get("triggers", [])):
-            return key
-        if any(t and t in merged for t in profile.get("seed_keywords", [])):
-            return key
-    return None
-    raw = (value or "").strip()
-    if raw in OFFICIAL_THEME_PROFILES:
-        return raw
-    if raw in THEME_ALIASES:
-        return THEME_ALIASES[raw]
-    merged = text or raw
-    for key, profile in OFFICIAL_THEME_PROFILES.items():
-        if any(t and t in merged for t in profile.get("triggers", [])):
-            return key
-    return None
+    """兼容包装：只做 ID/别名规范化，不再从 text 关键词自行推断主题。
+    最终主题决策统一由 resolve_theme_profile 完成。"""
+    return normalize_theme_profile_id(value, text)
 
 
 def build_effective_theme_profile(parsed_intent: Any) -> dict[str, Any]:
-    # v16: 优先使用 theme_profile_library.json 的完整 profile
+    # v19: 优先使用 theme_profile_library.json 的完整 profile
     lib_profile = build_effective_theme_profile_from_library(parsed_intent)
     if lib_profile.get("active"):
         return lib_profile
 
-    text = " ".join([
-        str(getattr(parsed_intent, "theme_label", "") or ""),
-        " ".join(getattr(parsed_intent, "raw_keywords", []) or []),
-        " ".join(getattr(parsed_intent, "search_keywords", []) or []),
-        " ".join(getattr(parsed_intent, "micro_keywords", []) or []),
-        " ".join(getattr(parsed_intent, "other_constraints", []) or []),
-        " ".join(getattr(parsed_intent, "micro_poi_keywords", []) or []),
-    ])
+    # theme_profile=None 时不利用扩展词重新强行推断主题
+    profile_id = getattr(parsed_intent, "theme_profile", None)
+    if not profile_id:
+        return {"active": False}
 
-    profile_id = normalize_theme_profile(getattr(parsed_intent, "theme_profile", None), text)
+    # 如果有 profile_id（旧数据兼容），查 OFFICIAL_THEME_PROFILES
     base: dict[str, Any] = {}
-    if profile_id:
+    if profile_id in OFFICIAL_THEME_PROFILES:
         base = dict(OFFICIAL_THEME_PROFILES[profile_id])
         base["id"] = profile_id
         base["official"] = True

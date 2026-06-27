@@ -11,6 +11,11 @@ from .api_client import call_llm, gaode_geocode, gaode_text_search, gaode_weathe
 from .data_schema import FixedPoi, ParsedIntent, PlannedWaypoint, PlanSegment, UserProfile
 from .day_slots import DURATION_TO_BUDGET, compute_meal_needs, compute_reject_capacities, infer_capacity_from_typecode
 from .utils import PipelineLogger, ZeroOutputError, emit_status, haversine_km
+from .theme_profile_matcher import (
+    rank_theme_profiles,
+    resolve_theme_profile,
+    get_all_theme_profiles,
+)
 from .theme_profiles import OFFICIAL_THEME_PROFILES, normalize_theme_profile
 
 
@@ -1290,6 +1295,28 @@ async def _llm_parse(
             'planned_waypoints: [{"type":"placeholder","search_keyword":"药店","category":"purchase","stay_minutes":15,"search_keywords":["药店","大药房"],"required_terms":["药店","大药房","医药"],"excluded_terms":["宠物","诊所"]},{"type":"placeholder","search_keyword":"花店","category":"purchase","stay_minutes":15,"search_keywords":["花店","鲜花店"],"required_terms":["花店","鲜花","花艺"],"excluded_terms":["花鸟市场"]},{"type":"fixed","name":"家","category":"home","stay_minutes":0}]\n'
         )
 
+    # v19: 初步主题排名，注入 LLM 提示词
+    preliminary_candidates = rank_theme_profiles(
+        raw_text=user_request,
+        auxiliary_text="",
+        top_k=3,
+    )
+    theme_candidates_text = ""
+    if preliminary_candidates:
+        theme_candidates_text = (
+            "<theme_candidates>\n"
+            + json.dumps([
+                {
+                    "id": c.profile_id,
+                    "label": c.label,
+                    "matched_terms": list(c.matched_terms),
+                    "score": c.score,
+                }
+                for c in preliminary_candidates
+            ], ensure_ascii=False) +
+            "\n</theme_candidates>\n"
+        )
+
     messages = [
         {
             "role": "system",
@@ -1415,6 +1442,15 @@ async def _llm_parse(
                     '    "exploratory"：用户只给出了主题/氛围/区域/泛游玩需求，没有明确的时间顺序\n'
                     '    若为 "planned"，必须同时填充 planned_waypoints；若为 "exploratory"，planned_waypoints 留空。\n'
                     if plan_mode == "auto" else ""
+                ) +
+                + (
+                    "\n"
+                    "16. theme_profile (string|null) — 主题画像ID\n"
+                    "    规则引擎已根据用户输入匹配到以下候选主题，你可以结合语义从候选列表中挑选最合适的一个。\n"
+                    "    候选为空或不确定时返回 null。只能从 theme_candidates 中选择ID，禁止编造。\n"
+                    "    theme_label、theme_confidence 不要自行填写，由后处理计算。\n"
+                    + theme_candidates_text
+                    if theme_candidates_text else ""
                 ) +
                 "</field_definitions>\n"
                 "\n"
@@ -1617,43 +1653,65 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed = _append_fixed_poi_from_request(parsed, user_request)
     parsed = _exclude_pois_from_request(parsed, user_request)
 
-    # v15: 主题归一化 — LLM没有输出theme_profile时，从用户文本后处理匹配
-    theme_text = " ".join([
-        user_request,
+    # v19: 主题决策 — 使用 resolve_theme_profile 替代旧版拼接匹配
+    raw_theme_text = user_request
+    auxiliary_theme_text = " ".join([
         " ".join(parsed.raw_keywords or []),
         " ".join(parsed.search_keywords or []),
         " ".join(parsed.micro_keywords or []),
         " ".join(parsed.other_constraints or []),
         " ".join(getattr(parsed, "micro_poi_keywords", []) or []),
     ])
-    profile_id = normalize_theme_profile(getattr(parsed, "theme_profile", None), theme_text)
-    if profile_id:
-        parsed.theme_profile = profile_id
-        profile = OFFICIAL_THEME_PROFILES[profile_id]
-        parsed.theme_label = parsed.theme_label or profile.get("label", "")
-        parsed.theme_confidence = max(float(parsed.theme_confidence or 0.0), 0.85)
-        parsed.micro_poi_keywords = _append_unique(
-            getattr(parsed, "micro_poi_keywords", []) or [],
-            profile.get("micro_keywords", []) or [],
-            limit=14,
-        )
-        parsed.micro_required_terms = _append_unique(
-            getattr(parsed, "micro_required_terms", []) or [],
-            profile.get("required_terms", []) or [],
-            limit=18,
-        )
-        parsed.micro_excluded_terms = _append_unique(
-            getattr(parsed, "micro_excluded_terms", []) or [],
-            profile.get("excluded_terms", []) or [],
-            limit=18,
-        )
-        parsed.search_keywords = _append_unique(
-            parsed.search_keywords,
-            [f"{city[:-1] if city.endswith('市') else city} {kw}" for kw in (profile.get("search_terms", []) or [])],
-            limit=8,
-        )
-    print(f"[DEBUG step1] theme_profile={getattr(parsed, 'theme_profile', None)} theme_label={getattr(parsed, 'theme_label', None)}")
-    print(f"[DEBUG step1] micro_poi_keywords={getattr(parsed, 'micro_poi_keywords', [])}")
+
+    llm_profile = getattr(parsed, "theme_profile", None)
+    decision = resolve_theme_profile(
+        llm_profile=llm_profile,
+        raw_text=raw_theme_text,
+        auxiliary_text=auxiliary_theme_text,
+    )
+
+    candidate_summary = [
+        {"id": c.profile_id, "score": c.score, "raw": c.raw_score}
+        for c in decision.candidates[:3]
+    ]
+    print(
+        "[ThemeMatch] "
+        f"raw_text={user_request!r} "
+        f"llm_profile={llm_profile!r} "
+        f"candidates={candidate_summary!r} "
+        f"final_profile={decision.profile_id!r} "
+        f"source={decision.source} "
+        f"reason={decision.reason}"
+    )
+
+    parsed.theme_profile = decision.profile_id
+    parsed.theme_label = decision.label
+    parsed.theme_confidence = decision.confidence
+
+    if decision.profile_id:
+        profile = get_all_theme_profiles().get(decision.profile_id, {})
+        if profile:
+            parsed.micro_poi_keywords = _append_unique(
+                getattr(parsed, "micro_poi_keywords", []) or [],
+                profile.get("micro_poi_keywords", []) or [],
+                limit=14,
+            )
+            parsed.micro_required_terms = _append_unique(
+                getattr(parsed, "micro_required_terms", []) or [],
+                profile.get("required_terms", []) or [],
+                limit=18,
+            )
+            parsed.micro_excluded_terms = _append_unique(
+                getattr(parsed, "micro_excluded_terms", []) or [],
+                profile.get("excluded_terms", []) or [],
+                limit=18,
+            )
+            macro_terms = profile.get("macro_search_terms", []) or []
+            parsed.search_keywords = _append_unique(
+                parsed.search_keywords,
+                [f"{city[:-1] if city.endswith('市') else city} {kw}" for kw in macro_terms],
+                limit=8,
+            )
 
     # v18: 父母/长辈/老人不应触发儿童亲子主题
     parsed = _apply_parent_elder_theme_guard(parsed, user_request, city)
