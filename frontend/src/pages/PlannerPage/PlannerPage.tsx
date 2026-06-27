@@ -308,6 +308,16 @@ const PlannerPage: React.FC = () => {
     return [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat];
   }, [user]);
 
+  // 路线出发地 label：供 HeaderWeather 显示
+  const savedDepartureLabel = useMemo(() => {
+    return (
+      user?.home_location?.label ||
+      user?.location?.home_address?.name ||
+      user?.location?.home_address?.full_address ||
+      '路线出发地'
+    );
+  }, [user]);
+
   // 计算地图中心点：路线数据优先 -> 保存的路线出发地 -> 兜底地址
   const mapCenter = useMemo<[number, number]>(() => {
     if (mapRouteData?.center) {
@@ -532,7 +542,14 @@ const PlannerPage: React.FC = () => {
         </div>
 
         <div className={styles.headerCenter}>
-          <HeaderWeather onSetLocationClick={handleSetLocation} />
+          <HeaderWeather
+            location={{
+              lng: savedDepartureLocation[0],
+              lat: savedDepartureLocation[1],
+              label: savedDepartureLabel,
+            }}
+            onSetLocationClick={handleSetLocation}
+          />
         </div>
 
         <div className={styles.headerActions}>

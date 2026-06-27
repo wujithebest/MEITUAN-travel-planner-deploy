@@ -3,11 +3,6 @@ import { MapPin, Cloud, Sun, CloudRain, Loader, Droplets, Wind } from 'lucide-re
 import { buildApiUrl } from '@/config/api.config';
 import styles from './HeaderWeather.module.css';
 
-const DEFAULT_WEATHER_LOCATION = {
-  lat: 31.2304,
-  lng: 121.4737,
-};
-
 interface WeatherData {
   city: string;
   temperature: number | string;
@@ -25,32 +20,99 @@ function WeatherIcon({ condition }: { condition: string }) {
 }
 
 interface HeaderWeatherProps {
+  /** 路线出发地坐标（来自 PlannerPage savedDepartureLocation） */
+  location: {
+    lat: number;
+    lng: number;
+    label?: string;
+  };
   onSetLocationClick?: () => void;
 }
 
-const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSetLocationClick }) => {
+const HeaderWeather: React.FC<HeaderWeatherProps> = ({ location, onSetLocationClick: _onSetLocationClick }) => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isLocated, setIsLocated] = useState(false);
   const [error, setError] = useState(false);
 
-  // Ref: 设备天气是否已成功并设为了当前显示
-  const deviceWeatherWonRef = useRef(false);
+  // Ref to track latest request for abort/ignore logic
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
+    const label = location.label || '路线出发地';
 
-    // ── 请求：设备坐标天气 ──
-    const fetchDeviceWeather = async (lat: number, lng: number) => {
+    const loadWeather = async () => {
+      // Not the initial load of this effect invocation — keep existing weather until new data arrives
+      const isRefresh = requestIdRef.current > requestId;
+
+      setLoading(true);
+      setError(false);
+      if (isRefresh) {
+        // Don't clear weather on refresh; keep showing current weather while loading
+      } else {
+        setWeather(null);
+      }
+
       try {
-        const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
-        const result = await response.json();
-        if (cancelled) return;
+        const response = await fetch(
+          buildApiUrl(`/weather/location?lat=${location.lat}&lng=${location.lng}`),
+          { signal: controller.signal }
+        );
 
-        if (result.success && result.data) {
-          // 设备天气成功 → 覆盖天气 + 标记 isLocated
+        // Ignore if this request was superseded
+        if (requestIdRef.current !== requestId) return;
+
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+          throw new Error(result.message || '天气数据为空');
+        }
+
+        setWeather({
+          city: result.data.city || label,
+          temperature: result.data.temperature,
+          condition: result.data.weather,
+          humidity: result.data.humidity,
+          winddirection: result.data.winddirection,
+          windpower: result.data.windpower,
+          reporttime: result.data.reporttime,
+        });
+        setError(false);
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        // Ignore stale
+        if (requestIdRef.current !== requestId) return;
+        setError(true);
+        setWeather(null);
+      } finally {
+        if (requestIdRef.current === requestId && !controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadWeather();
+
+    // Refresh every 30 minutes for the same departure location
+    const timer = window.setInterval(() => {
+      const refreshId = ++requestIdRef.current;
+      const refreshController = new AbortController();
+      const refreshLabel = location.label || '路线出发地';
+
+      (async () => {
+        try {
+          const response = await fetch(
+            buildApiUrl(`/weather/location?lat=${location.lat}&lng=${location.lng}`),
+            { signal: refreshController.signal }
+          );
+          if (requestIdRef.current !== refreshId) return;
+
+          const result = await response.json();
+          if (!result.success || !result.data) return;
+
           setWeather({
-            city: result.data.city,
+            city: result.data.city || refreshLabel,
             temperature: result.data.temperature,
             condition: result.data.weather,
             humidity: result.data.humidity,
@@ -58,117 +120,44 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
             windpower: result.data.windpower,
             reporttime: result.data.reporttime,
           });
-          setIsLocated(true);
           setError(false);
-          setLoading(false);
-          deviceWeatherWonRef.current = true;
+        } catch {
+          // Refresh failure: keep last valid weather
         }
-        // 设备天气失败 → 什么都不做，保留已有天气
-      } catch (err) {
-        console.error('设备天气获取失败:', err);
-        // 失败不覆盖已有天气
-      }
-    };
-
-    // ── 请求：默认上海天气（兜底） ──
-    const fetchDefaultCityWeather = async () => {
-      try {
-        const { lat, lng } = DEFAULT_WEATHER_LOCATION;
-        const response = await fetch(buildApiUrl(`/weather/location?lat=${lat}&lng=${lng}`));
-        const result = await response.json();
-        if (cancelled) return;
-
-        if (result.success && result.data) {
-          // 如果设备天气已经成功，默认天气不再覆盖
-          if (deviceWeatherWonRef.current) return;
-          setWeather({
-            city: result.data.city || '上海',
-            temperature: result.data.temperature ?? 25,
-            condition: result.data.weather ?? '晴',
-            humidity: result.data.humidity,
-            winddirection: result.data.winddirection,
-            windpower: result.data.windpower,
-            reporttime: result.data.reporttime,
-          });
-          setIsLocated(false);
-          setError(false);
-          setLoading(false);
-          return;
-        }
-        // 默认请求 success=false — 不覆盖
-      } catch (err) {
-        console.error('默认天气获取失败:', err);
-        // 不覆盖已有天气
-      }
-    };
-
-    setLoading(true);
-
-    // 立即发起默认城市天气（可靠兜底）
-    fetchDefaultCityWeather();
-
-    // 同时尝试设备定位 → 成功后发起设备天气
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (cancelled) return;
-          const { latitude, longitude, accuracy } = position.coords;
-          if (accuracy && accuracy > 300) {
-            console.warn(`[LocationDebug] HeaderWeather geolocation accuracy is low: ${accuracy}m`);
-          }
-          // 收到坐标 ≠ 天气成功；不在这里设置 isLocated 或 geoResolved
-          fetchDeviceWeather(latitude, longitude);
-        },
-        (err) => {
-          console.warn('定位失败，使用默认城市天气:', err.message);
-          // 默认城市天气请求已并行发起，无需额外操作
-        },
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-      );
-    }
-
-    // ── 每 30 分钟刷新 ──
-    const interval = setInterval(() => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => fetchDeviceWeather(pos.coords.latitude, pos.coords.longitude),
-          // 刷新定位失败：请求一次默认城市天气
-          () => fetchDefaultCityWeather(),
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
-        );
-      }
+      })();
     }, 30 * 60 * 1000);
 
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      controller.abort();
+      window.clearInterval(timer);
     };
-  }, []);
+  }, [location.lat, location.lng, location.label]);
 
-  // 加载中
+  const displayLabel = location.label || '路线出发地';
+
+  // 加载中（无旧数据）
   if (loading && !weather) {
     return (
       <div className={`${styles.container} ${styles.loading}`}>
         <Loader size={16} className={styles.spinner} />
-        <span>加载中...</span>
+        <span>天气加载中...</span>
       </div>
     );
   }
 
   // 天气数据显示
   if (weather) {
-    const prefix = isLocated ? '当前位置' : weather.city;
+    const prefix = weather.city || displayLabel;
     const hasTemp = weather.temperature !== '' && weather.temperature != null;
     const hasCond = weather.condition && weather.condition !== '';
     const hasHumidity = weather.humidity !== '' && weather.humidity != null;
     const hasWind = (weather.winddirection || weather.windpower);
 
-    // 如果连温度和天气描述都没有，显示不可用
     if (!hasTemp && !hasCond && !hasHumidity && !hasWind) {
       return (
         <div className={`${styles.container} ${styles.noLocation}`}>
           <MapPin size={14} className={styles.cityIcon} />
-          <span className={styles.setText}>{prefix} 天气暂不可用</span>
+          <span className={styles.setText}>{displayLabel} 天气暂不可用</span>
         </div>
       );
     }
@@ -210,7 +199,7 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ onSetLocationClick: _onSe
     return (
       <div className={`${styles.container} ${styles.noLocation}`}>
         <MapPin size={14} className={styles.cityIcon} />
-        <span className={styles.setText}>天气暂不可用</span>
+        <span className={styles.setText}>{displayLabel} 天气暂不可用</span>
       </div>
     );
   }
