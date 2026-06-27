@@ -281,89 +281,40 @@ const PlannerPage: React.FC = () => {
     return [];
   }, [mapRouteData]);
 
-  // v6: 设备当前位置（初始时地图居中于此，路线加载后使用路线中心）
-  const [deviceLocation, setDeviceLocation] = useState<[number, number] | null>(null);
+  // v18: 从"我的设置 → 路线出发地"获取保存坐标作为初始地图中心
+  const savedDepartureLocation = useMemo<[number, number]>(() => {
+    const candidates = [
+      { lng: user?.home_location?.lng, lat: user?.home_location?.lat },
+      { lng: user?.location?.home_address?.lng, lat: user?.location?.home_address?.lat },
+      { lng: user?.location?.longitude, lat: user?.location?.latitude },
+    ];
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude, accuracy } = pos.coords;
-          const loc: [number, number] = [longitude, latitude];
-          console.log('[PlannerPage] 设备定位成功:', loc);
-          setDeviceLocation(loc);
+    for (const candidate of candidates) {
+      const lng = Number(candidate.lng);
+      const lat = Number(candidate.lat);
 
-          // v6: log warning if accuracy is low (never apply manual correction)
-          if (accuracy && accuracy > 300) {
-            console.warn(`[LocationDebug] browser geolocation accuracy is low: ${accuracy}m`);
-          }
-
-          // 游客模式：同步设备位置到 userStore。
-          // 使用 position.coords 的真实坐标，reverse geocode 只用于展示 label。
-          const { user, isGuest, updateGuestProfile } = useUserStore.getState();
-          if (isGuest && user) {
-            const hasManualAddress = !!user.location?.home_address?.name &&
-              user.location.home_address.name !== '当前设备位置' &&
-              user.location.home_address.name !== '家';
-            const isStillFallback =
-              Math.abs((user.location?.latitude ?? 0) - FALLBACK_HOME_LOCATION.lat) < 0.0001 &&
-              Math.abs((user.location?.longitude ?? 0) - FALLBACK_HOME_LOCATION.lng) < 0.0001;
-
-            if (!hasManualAddress || isStillFallback) {
-              // 逆地理编码获取真实地址名（只改 label，不改坐标）
-              let addressName = '设备当前位置';
-              try {
-                const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${longitude}&lat=${latitude}`));
-                if (res.data?.data?.address) {
-                  addressName = res.data.data.address;
-                }
-              } catch { /* 降级使用默认名 */ }
-
-              updateGuestProfile({
-                location: {
-                  ...user.location,
-                  latitude,
-                  longitude,
-                  home_address: { name: addressName, full_address: addressName, lng: longitude, lat: latitude },
-                },
-                home_location: { lat: latitude, lng: longitude, label: '常住地址' },
-              });
-            }
-          }
-        },
-        (err) => {
-          console.warn('[PlannerPage] 设备定位失败:', err.message);
-          setDeviceLocation([FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat]);
-
-          // 定位失败时，若尚无有效地址则写入兜底
-          const { user, isGuest, updateGuestProfile } = useUserStore.getState();
-          if (isGuest && user && !user.location?.home_address && !user.home_location) {
-            updateGuestProfile({
-              location: {
-                ...user.location,
-                latitude: FALLBACK_HOME_LOCATION.lat,
-                longitude: FALLBACK_HOME_LOCATION.lng,
-                home_address: FALLBACK_HOME_ADDRESS,
-              },
-              home_location: FALLBACK_HOME_LOCATION,
-            });
-          }
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-      );
+      // 中国陆地范围校验（含上海、北京）
+      if (
+        Number.isFinite(lng) && Number.isFinite(lat) &&
+        lng >= 73 && lng <= 136 &&
+        lat >= 18 && lat <= 54
+      ) {
+        console.log('[PlannerPage] 初始地图中心使用路线出发地:', [lng, lat]);
+        return [lng, lat];
+      }
     }
-  }, []);
 
-  // 计算地图中心点：路线数据优先 -> 设备位置 -> 兜底地址
-  const mapCenter = useMemo((): [number, number] => {
+    console.log('[PlannerPage] 无有效保存坐标，使用兜底:', [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat]);
+    return [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat];
+  }, [user]);
+
+  // 计算地图中心点：路线数据优先 -> 保存的路线出发地 -> 兜底地址
+  const mapCenter = useMemo<[number, number]>(() => {
     if (mapRouteData?.center) {
       return mapRouteData.center;
     }
-    if (deviceLocation) {
-      return deviceLocation;
-    }
-    return [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat];
-  }, [mapRouteData, deviceLocation]);
+    return savedDepartureLocation;
+  }, [mapRouteData?.center, savedDepartureLocation]);
 
   // 处理 ChatPanel 路线数据变化
   const handleRouteChange = useCallback((routeData: {
@@ -770,7 +721,7 @@ const PlannerPage: React.FC = () => {
           <MapContainer
             containerId="gaode-map"
             center={mapCenter}
-            zoom={mapRouteData?.center ? 12 : deviceLocation ? 15 : 12}
+            zoom={mapRouteData?.center ? 12 : 15}
             dailyPolylines={mapPolylines}
             markers={mapMarkers}
             previewCandidateMarker={previewCandidateMarker}
