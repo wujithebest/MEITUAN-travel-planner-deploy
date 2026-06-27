@@ -1443,7 +1443,7 @@ async def _llm_parse(
                     '    若为 "planned"，必须同时填充 planned_waypoints；若为 "exploratory"，planned_waypoints 留空。\n'
                     if plan_mode == "auto" else ""
                 ) +
-                + (
+                (
                     "\n"
                     "16. theme_profile (string|null) — 主题画像ID\n"
                     "    规则引擎已根据用户输入匹配到以下候选主题，你可以结合语义从候选列表中挑选最合适的一个。\n"
