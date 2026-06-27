@@ -12,6 +12,9 @@ import styles from './SettingsModal.module.css';
 
 const MAX_ACTIVITY_PREFS = 3;
 
+/** 路线出发地支持的搜索城市 */
+const SUPPORTED_DEPARTURE_CITIES = ['上海', '北京'] as const;
+
 const ACTIVITY_PREFERENCES = [
   { id: 'history', label: '历史文化', tag: '历史文化', icon: '🏛️', color: '#8B4513' },
   { id: 'food', label: '美食探店', tag: '美食', icon: '🍜', color: '#FF6B35' },
@@ -223,7 +226,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     };
   }, []);
 
-  // ── 地址搜索 ──
+  // ── 地址搜索（上海 + 北京双城并发，Promise.allSettled 防单城失败）──
   const doSearch = useCallback(async (keyword: string) => {
     if (!keyword || keyword.length < 2) {
       setAddressOptions([]);
@@ -233,24 +236,61 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     setSearchingAddress(true);
     setDropdownOpen(true);
     try {
-      const res = await axios.get(buildApiUrl(`/address/search?keyword=${encodeURIComponent(keyword)}&city=上海`));
-      const data = res.data?.data || res.data || [];
-      const items = Array.isArray(data) ? data : [];
-      const options: AddressOption[] = items.map((item: any) => ({
-        value: item.name || item.address || '',
-        label: (
-          <div className={styles.addressOption}>
-            <div className={styles.addressName}>{item.name || item.address}</div>
-            <div className={styles.addressDetail}>{item.address || item.district || ''}</div>
-          </div>
-        ),
-        address: {
-          name: item.name || item.address || '',
-          full_address: item.address || item.name || '',
-          lng: item.lng ?? item.location?.lng ?? null,
-          lat: item.lat ?? item.location?.lat ?? null,
-        },
-      }));
+      const results = await Promise.allSettled(
+        SUPPORTED_DEPARTURE_CITIES.map(city =>
+          axios.get(buildApiUrl(`/address/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(city)}`))
+        )
+      );
+
+      // 合并两个城市的结果，标记来源城市
+      const allItems: (Record<string, any> & { _city: string })[] = [];
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          const data = result.value.data?.data || result.value.data || [];
+          const items = Array.isArray(data) ? data : [];
+          const city = SUPPORTED_DEPARTURE_CITIES[i];
+          items.forEach((item: any) => {
+            allItems.push({ ...item, _city: city });
+          });
+        }
+      });
+
+      // 按「名称 + 经纬度」去重
+      const seen = new Set<string>();
+      const uniqueItems = allItems.filter(item => {
+        const key = [
+          item.name || item.address || '',
+          item.lng ?? item.location?.lng ?? '',
+          item.lat ?? item.location?.lat ?? '',
+        ].join('|');
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const options: AddressOption[] = uniqueItems.map((item: any) => {
+        const city = item._city;
+        const district = item.district || '';
+        const poiName = item.name || item.address || '';
+        const cityDistrict = [city, district].filter(Boolean).join(' · ');
+        return {
+          value: poiName,
+          label: (
+            <div className={styles.addressOption}>
+              <div className={styles.addressName}>
+                {city} · {district} · {poiName}
+              </div>
+              <div className={styles.addressDetail}>{item.address || item.district || ''}</div>
+            </div>
+          ),
+          address: {
+            name: poiName,
+            full_address: `${cityDistrict} · ${poiName}`,
+            lng: item.lng ?? item.location?.lng ?? null,
+            lat: item.lat ?? item.location?.lat ?? null,
+          },
+        };
+      });
       setAddressOptions(options);
       setDropdownOpen(options.length > 0);
     } catch (err) {
@@ -506,7 +546,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 <AutoComplete
                   className={styles.addressAutoComplete}
-                  placeholder="请输入您的常驻地址（如：陆家嘴、徐家汇）"
+                  placeholder="请输入路线出发地（如：上海陆家嘴、北京国贸）"
                   options={addressOptions}
                   onSelect={handleAddressSelect}
                   onSearch={handleAddressSearch}
