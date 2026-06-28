@@ -78,3 +78,35 @@ def test_step1_auxiliary_no_exact():
         auxiliary_text="影视取景地 老电影院 艺术影院",
     )
     assert decision.source != "rule_exact"
+
+
+# ── v20: Destination detection tests ──
+
+
+def test_category_token_in_set():
+    """Category tokens like 古玩市场 should be recognized as category not destination."""
+    from services.step1_intent import CATEGORY_TOKENS, _CITY_CENTER_PATTERN
+    assert "古玩市场" in CATEGORY_TOKENS
+    assert "花鸟市场" in CATEGORY_TOKENS
+    assert "旧货市场" in CATEGORY_TOKENS
+
+
+def test_city_center_pattern_rejects_admin_regions():
+    """City/administrative geocode results must NOT become destinations."""
+    from services.step1_intent import _CITY_CENTER_PATTERN
+    assert _CITY_CENTER_PATTERN.match("北京市")
+    assert _CITY_CENTER_PATTERN.match("东城区")
+    assert _CITY_CENTER_PATTERN.match("朝阳区")
+    assert not _CITY_CENTER_PATTERN.match("故宫博物院")
+    assert not _CITY_CENTER_PATTERN.match("潘家园旧货市场")
+    assert not _CITY_CENTER_PATTERN.match("古玩市场")
+
+
+def test_city_name_not_in_city_variants():
+    """City name variants should be properly generated for filtering."""
+    city = "北京市"
+    normalized = city[:-1] if city.endswith("市") else city
+    variants = {city, normalized, f"{city}市", f"{normalized}市"}
+    # Should handle 北京市 → {北京市, 北京, 北京市市, 北京市}
+    assert "北京市" in variants
+    assert "北京" in variants

@@ -1546,13 +1546,31 @@ CATEGORY_TOKENS = {
     "商场", "商圈", "步行街", "古镇", "老街", "水乡", "夜景", "网红", "探店",
     "火锅", "日料", "本帮菜", "咖啡", "下午茶", "酒吧", "书店", "创意",
     "展览", "演出", "话剧", "音乐剧", "科技馆", "天文馆",
+    # v20: 类目/场所类型词 — 避免被 geocode 成具体地点
+    "古玩市场", "花鸟市场", "旧货市场", "跳蚤市场", "菜市场", "农贸市场",
+    "批发市场", "建材市场", "家具城", "灯饰城", "汽车城",
+    "夜市", "早市", "大排档", "美食街", "小吃街",
+    "花卉市场", "宠物市场", "二手市场", "收藏品市场",
+    "茶城", "文化市场", "书画市场", "工艺美术",
 }
+
+# v20: 城市名后缀 — geocode 结果如果是纯城市/区级行政区划，不能作为目的地
+_CITY_CENTER_PATTERN = re.compile(
+    r"^(北京市|上海市|天津市|重庆市|"
+    r".{2,8}(?:市|省|自治区|特别行政区|"
+    r"区|县|旗|自治州|地区|盟))$"
+)
 
 
 async def _detect_destination_from_keywords(search_keywords: list[str], origin: dict, city: str) -> list[str]:
-    """从search_keywords中检测地名前缀，geocode后若离origin够远则加入fixed_pois"""
+    """从search_keywords中检测具体地名，geocode后若离origin够远且不是城市中心则加入fixed_pois。
+
+    v20: 跳过类别词（古玩市场、花鸟市场等）和城市/行政区划名，避免把类别搜索退化为城市中心搜索。
+    """
     if not search_keywords or not origin:
         return []
+    normalized_city = city[:-1] if city.endswith("市") else city
+    city_variants = {city, normalized_city, f"{city}市", f"{normalized_city}市"}
     detected = []
     seen: set[str] = set()
     for kw in search_keywords[:8]:
@@ -1561,12 +1579,18 @@ async def _detect_destination_from_keywords(search_keywords: list[str], origin: 
             candidate = " ".join(tokens[:n])
             if candidate in CATEGORY_TOKENS:
                 continue
+            if candidate in city_variants:
+                continue
             if candidate in seen:
                 break
             seen.add(candidate)
             try:
                 loc = await gaode_geocode(candidate, city=city)
                 if loc:
+                    # v20: 检查 geocode 结果是否为城市/行政区划，而非具体地点
+                    addr = str(loc.get("address", "") or loc.get("name", ""))
+                    if _CITY_CENTER_PATTERN.match(addr.strip()):
+                        continue
                     dist = haversine_km(origin, loc)
                     if dist > 5.0:
                         detected.append(candidate)
