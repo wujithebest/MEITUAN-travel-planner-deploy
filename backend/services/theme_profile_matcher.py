@@ -77,7 +77,6 @@ DIRECT_MUNICIPALITIES = {
     "重庆": "重庆市",
     "重庆市": "重庆市",
 }
-_CITY_PREFIX_WITH_SUFFIX = re.compile(r"^\s*[一-龥]{2,12}市\s*")
 
 
 # ── 基础工具 ──────────────────────────────────────────
@@ -121,16 +120,17 @@ def city_short_name(city: str) -> str:
 def strip_search_city_prefix(keyword: str, resolved_city: str) -> str:
     """Remove a city prefix from an LLM keyword before backend canonicalization.
 
-    The LLM is asked to return keyword bodies, but this keeps old or malformed
-    outputs safe. We only strip an authoritative current-city prefix, a direct
-    municipality, or a token explicitly ending in 市; arbitrary first words are
-    never removed.
+    Only strips the resolved city name, its short form, or known
+    municipalities listed in DIRECT_MUNICIPALITIES.  Does NOT apply a
+    broad ``XX市`` regex — that would destroy ordinary words such as
+    ``古玩市场``, ``花鸟市场``, ``家具市场``, ``城市书房``, etc.
     """
     body = re.sub(r"\s+", " ", str(keyword or "").strip())
     if not body:
         return ""
     normalized = normalize_city_name(resolved_city)
     short = city_short_name(normalized)
+    # Build a safe prefix list: the resolved city + known municipalities
     prefixes = sorted(
         {normalized, short, *DIRECT_MUNICIPALITIES.keys()},
         key=len,
@@ -140,7 +140,6 @@ def strip_search_city_prefix(keyword: str, resolved_city: str) -> str:
         if prefix and (body == prefix or body.startswith(f"{prefix} ")):
             body = body[len(prefix):].strip()
             break
-    body = _CITY_PREFIX_WITH_SUFFIX.sub("", body).strip()
     return body
 
 

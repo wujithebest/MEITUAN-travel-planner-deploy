@@ -415,87 +415,130 @@ export default function MapContainer({
     document.head.appendChild(script);
   }, []);
 
-  // Step 2: 初始化地图实例
+  // Step 2: 初始化地图实例（含 ResizeObserver 重试）
   useEffect(() => {
     if (!scriptLoaded || !mapRef.current || mapInstanceRef.current) return;
 
     const container = mapRef.current;
+    let resizeObserver: ResizeObserver | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let initCalled = false;
 
-    // 确保容器有明确尺寸
-    const rect = container.getBoundingClientRect();
-    console.log('[Map] 容器尺寸检查:', {
-      width: rect.width,
-      height: rect.height,
-      offsetWidth: container.offsetWidth,
-      offsetHeight: container.offsetHeight
+    const tryInitMap = () => {
+      if (initCalled || !container || mapInstanceRef.current) return;
+
+      const rect = container.getBoundingClientRect();
+      console.log(
+        `[Map] 容器尺寸检查: width=${rect.width} height=${rect.height} ` +
+        `offsetWidth=${container.offsetWidth} offsetHeight=${container.offsetHeight} ` +
+        `parent=${container.parentElement?.className || 'none'}`,
+      );
+
+      if (rect.width === 0 || rect.height === 0) {
+        console.warn('[Map] 容器尺寸为0，通过 ResizeObserver 等待布局就绪...');
+        return false; // 尺寸还不可用，等 ResizeObserver
+      }
+
+      initCalled = true;
+      if (resizeObserver) { resizeObserver.disconnect(); resizeObserver = null; }
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+
+      try {
+        console.log('[Map] 开始初始化地图实例...');
+
+        mapInstanceRef.current = new window.AMap.Map(container, {
+          center,
+          zoom,
+          viewMode: '2D',
+          resizeEnable: true,
+          zooms: [3, 20],
+          features: ['bg', 'road', 'building', 'point'],
+          mapStyle: 'amap://styles/normal',
+        });
+
+        // 添加控件
+        mapInstanceRef.current.addControl(new window.AMap.Scale({
+          position: 'LB'
+        }));
+
+        // 监听地图加载完成
+        mapInstanceRef.current.on('complete', () => {
+          console.log('[Map] 地图加载完成事件触发');
+          setIsMapReady(true);
+          setError(null);
+          // 确保地图填满容器（防止初始化时容器布局未稳定）
+          setTimeout(() => {
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.resize();
+              console.log('[Map] resize() 已调用');
+            }
+          }, 100);
+        });
+
+        // 监听地图空白区域点击，关闭 POI 弹窗
+        mapInstanceRef.current.on('click', (e: any) => {
+          const clickedOnOverlay = e.target && typeof e.target.getExtData === 'function';
+          if (!clickedOnOverlay && infoWindowRef.current) {
+            console.log('[Map] 点击地图空白区域，关闭 POI 弹窗');
+            const iw = infoWindowRef.current;
+            infoWindowRef.current = null;
+            iw.close();
+            setPoiPopupVisible(false);
+            setPoiPopupData(null);
+            setPoiPopupPosition(null);
+          }
+        });
+
+        // 备用：3秒后强制设置就绪 + resize
+        setTimeout(() => {
+          if (mapInstanceRef.current && !isMapReady) {
+            console.log('[Map] 备用：强制设置地图就绪');
+            setIsMapReady(true);
+            mapInstanceRef.current.resize();
+          }
+        }, 3000);
+
+        console.log('[Map] 地图实例创建完成');
+
+      } catch (e) {
+        console.error('[Map] 地图初始化失败', e);
+        setError(`地图初始化失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      }
+      return true;
+    };
+
+    // 先尝试一次
+    if (tryInitMap()) return;
+
+    // 容器尺寸为 0 — 使用 ResizeObserver 等待
+    resizeObserver = new ResizeObserver(() => {
+      if (tryInitMap()) {
+        resizeObserver?.disconnect();
+        if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      }
     });
+    resizeObserver.observe(container);
 
-    if (rect.width === 0 || rect.height === 0) {
-      console.error('[Map] 容器尺寸为0，检查CSS设置');
-      setError('地图容器尺寸无效，请确保容器有明确的高度');
+    // 防御：Observer 挂载前尺寸可能已就绪（竞态），再试一次
+    if (tryInitMap()) {
+      resizeObserver.disconnect();
       return;
     }
 
-    try {
-      console.log('[Map] 开始初始化地图实例...');
-
-      mapInstanceRef.current = new window.AMap.Map(container, {
-        center,
-        zoom,
-        viewMode: '2D',
-        resizeEnable: true,
-        zooms: [3, 20],
-        features: ['bg', 'road', 'building', 'point'],
-        mapStyle: 'amap://styles/normal',
-      });
-
-      // 添加控件
-      mapInstanceRef.current.addControl(new window.AMap.Scale({
-        position: 'LB'
-      }));
-
-      // 监听地图加载完成
-      mapInstanceRef.current.on('complete', () => {
-        console.log('[Map] 地图加载完成事件触发');
-        setIsMapReady(true);
-        setError(null);
-      });
-
-      // 监听地图空白区域点击，关闭 POI 弹窗
-      mapInstanceRef.current.on('click', (e: any) => {
-        // 判断点击目标是地图本身还是覆盖物（Marker/Polyline 等）
-        // 覆盖物有 getExtData 方法，地图本身没有
-        const clickedOnOverlay = e.target && typeof e.target.getExtData === 'function';
-        if (!clickedOnOverlay && infoWindowRef.current) {
-          console.log('[Map] 点击地图空白区域，关闭 POI 弹窗');
-          const iw = infoWindowRef.current;
-          infoWindowRef.current = null;
-          iw.close();
-          setPoiPopupVisible(false);
-          setPoiPopupData(null);
-          setPoiPopupPosition(null);
-        }
-      });
-
-      // 备用：3秒后强制设置就绪
-      setTimeout(() => {
-        if (mapInstanceRef.current && !isMapReady) {
-          console.log('[Map] 备用：强制设置地图就绪');
-          setIsMapReady(true);
-        }
-      }, 3000);
-
-      console.log('[Map] 地图实例创建完成');
-
-    } catch (e) {
-      console.error('[Map] 地图初始化失败', e);
-      setError(`地图初始化失败: ${e instanceof Error ? e.message : '未知错误'}`);
-    }
+    // 15 秒兜底超时
+    retryTimer = setTimeout(() => {
+      if (!initCalled && !mapInstanceRef.current) {
+        resizeObserver?.disconnect();
+        console.error('[Map] 等待容器尺寸超时（15s），容器仍未获得有效尺寸');
+        setError('地图容器尺寸无效，请确保容器有明确的高度');
+      }
+    }, 15000);
 
     return () => {
+      if (resizeObserver) resizeObserver.disconnect();
+      if (retryTimer) clearTimeout(retryTimer);
       if (mapInstanceRef.current) {
         console.log('[Map] 销毁地图实例');
-        // Clean up React portal before destroying map
         if (popupRootRef.current) {
           popupRootRef.current.unmount();
           popupRootRef.current = null;
@@ -596,17 +639,17 @@ export default function MapContainer({
       return;
     }
 
-    if (!dailyPolylines || dailyPolylines.length === 0) {
-      console.log('[Map] 无 polyline 数据');
-      return;
-    }
-
     const map = mapInstanceRef.current;
 
-    // 清除旧 polyline
+    // 先清除旧 polyline，再判断是否有新数据
     const oldPolylines = map.getAllOverlays('polyline') || [];
     oldPolylines.forEach((p: any) => map.remove(p));
     console.log(`[Map] 清除旧 polyline: ${oldPolylines.length} 条`);
+
+    if (!dailyPolylines || dailyPolylines.length === 0) {
+      console.log('[Map] 无 polyline 数据，已清除旧路线');
+      return;
+    }
 
     const drawnPolylineOverlays: any[] = [];
     let drawnCount = 0;
@@ -697,17 +740,17 @@ export default function MapContainer({
       return;
     }
 
-    if (!effectiveMarkers || effectiveMarkers.length === 0) {
-      console.log('[Map] 无 marker 数据');
-      return;
-    }
-
     const map = mapInstanceRef.current;
 
-    // 清除旧 markers
+    // 先清除旧 markers，再判断是否有新数据
     const oldMarkers = map.getAllOverlays('marker') || [];
     oldMarkers.forEach((m: any) => map.remove(m));
     console.log(`[Map] 清除旧 markers: ${oldMarkers.length} 个`);
+
+    if (!effectiveMarkers || effectiveMarkers.length === 0) {
+      console.log('[Map] 无 marker 数据，已清除旧标记');
+      return;
+    }
 
     // v6: 清空并重建 marker refs
     const newMarkerObjects = new Map<string, any>();
