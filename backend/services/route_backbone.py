@@ -80,11 +80,22 @@ def _is_subordinate_poi(name: str) -> bool:
     
     return False
 
-def is_valid_route_poi(typecode: str, name: str = "", skip_subordinate_check: bool = False, bypass_filter: bool = False) -> bool:
-    """v5.2 r4: POI 是否允许进入游览路线。
-    核心原则：游览路线里不放任何餐饮POI（06开头全排除），餐饮归独立搜索流程。
+def is_valid_route_poi(
+    typecode: str,
+    name: str = "",
+    skip_subordinate_check: bool = False,
+    bypass_filter: bool = False,
+    # v20: intent-based filtering replaces blanket 05/06 rejection
+    explicit_meal_intent: bool = False,
+    poi_query_type: str = "",
+    allowed_shopping_prefixes: list[str] | None = None,
+) -> bool:
+    """v20: POI 是否允许进入游览路线。
 
-    检查顺序：名称黑名单 → 正餐名称兜底 → 06大类硬排除 → 精确白名单 → 通用黑名单 → 默认拒绝
+    按用户意图控制：
+    - 无明确餐饮意图时拒绝 05xxxx（餐饮服务）
+    - 直接购物/服务查询时允许符合目标品类的 06xxxx
+    - 游览主题路线时按白名单筛选
 
     skip_subordinate_check: 为True时跳过商场内子店铺过滤，用于POI不足时的补充放行。
     bypass_filter: 为True时绕过所有过滤（planned意图，用户明确指定的POI）。
@@ -108,13 +119,34 @@ def is_valid_route_poi(typecode: str, name: str = "", skip_subordinate_check: bo
             if kw in name:
                 return False
 
-    # ── 2. 05/06大类硬排除（v5.2 r4: 游览路线不放任何餐饮/购物POI）──
-    # 高德v3: 05=餐饮服务, 06=购物服务
-    # 高德v5: 05=购物服务, 06=餐饮服务
-    # 两版编码混用，05/06全砍最干净；餐饮归独立搜索流程，购物景点靠名称关键词兜底
+    # ── 2. Intent-based typecode filtering (v20: replaces blanket 05/06 block) ──
+    # 05xxxx = 餐饮服务 (Gaode v3) — only allow when user explicitly wants meals
+    # 06xxxx = 购物服务 (Gaode v3) — allow when user has direct shopping/service intent
+    from .poi_typecodes import matches_typecode
+
     prefix2 = (tc[:2] + "0000") if len(tc) >= 2 else ""
-    if prefix2 in ("050000", "060000"):
-        return False
+
+    # v20: 05xxxx — reject unless explicit_meal_intent
+    if matches_typecode(tc, ["05"]):
+        if not explicit_meal_intent:
+            return False
+
+    # v20: 06xxxx — only allow when user has shopping/service POI intent
+    if matches_typecode(tc, ["06"]):
+        shop_query_types = {"poi_category", "named_poi", "purchase"}
+        if poi_query_type in shop_query_types:
+            if allowed_shopping_prefixes and matches_typecode(tc, allowed_shopping_prefixes):
+                # Allowed shopping category — pass through to white/blacklist check
+                pass
+            elif not allowed_shopping_prefixes:
+                # No specific shopping prefixes defined — use general white/blacklist
+                pass
+            else:
+                # Has specific shopping prefixes but this POI doesn't match — reject
+                return False
+        else:
+            # Not a shopping intent — reject 06xxxx
+            return False
 
     # ── 3. 精确白名单（6位typecode精确匹配）──
     if tc in config.ROUTE_POI_ALLOWED_TYPES:

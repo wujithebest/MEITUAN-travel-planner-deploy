@@ -10,11 +10,24 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from .poi_typecodes import matches_typecode, split_typecodes
+
 # ── v20 品类族映射 — 数据驱动，不含具体城市/POI名称 ──
 # Each family defines identity terms, allowed typecode prefixes, and excluded prefixes.
 # Only searchable categories go here — concrete POIs NEVER appear.
 
 CATEGORY_FAMILIES: dict[str, dict[str, Any]] = {
+    "convenience_store": {
+        "label": "便利店",
+        "required_identity_terms": [
+            "便利店", "便利", "超市", "小卖部", "士多", "杂货",
+        ],
+        "allowed_typecode_prefixes": [
+            "060200", "060201",  # 便利店/小卖部
+        ],
+        "excluded_typecode_prefixes": ["05", "11"],
+        "synonyms": ["便利店", "小卖部"],
+    },
     "market_collectibles": {
         "label": "古玩/收藏品市场",
         "required_identity_terms": [
@@ -41,13 +54,52 @@ CATEGORY_FAMILIES: dict[str, dict[str, Any]] = {
         "excluded_typecode_prefixes": ["05"],
         "synonyms": ["花鸟市场", "宠物市场", "花卉市场"],
     },
+    "flower_market_direct": {
+        "label": "花艺/鲜花店",
+        "required_identity_terms": [
+            "花店", "花市", "花艺", "鲜花", "花卉", "花坊", "插花",
+            "盆栽",
+        ],
+        "allowed_typecode_prefixes": [
+            "061100", "0611",  # 花鸟鱼虫市场
+        ],
+        "excluded_typecode_prefixes": ["05", "11", "08"],
+        "synonyms": ["花艺市场", "花店", "花市"],
+    },
+    "handcraft_intangible": {
+        "label": "非遗手作/手工艺",
+        "required_identity_terms": [
+            "非遗", "手作", "手工", "工坊", "体验坊", "手工艺",
+            "传统工艺", "DIY", "陶艺", "扎染", "木版", "刺绣",
+        ],
+        "allowed_typecode_prefixes": [
+            "080500", "061202",  # 手工艺 / 工艺美术
+        ],
+        "excluded_typecode_prefixes": ["05", "11"],
+        "synonyms": ["非遗手作", "手作体验", "工坊"],
+    },
+    "wood_craft": {
+        "label": "木材工作坊/木艺",
+        "required_identity_terms": [
+            "木工坊", "木作", "木艺", "木工体验", "木工", "木器",
+            "木制品", "木艺工作室",
+        ],
+        "allowed_typecode_prefixes": [
+            "080500", "061200",
+        ],
+        "excluded_typecode_prefixes": ["05", "11"],
+        "synonyms": ["木材工作坊", "木工坊", "木作体验"],
+    },
     "retail_book_stationery": {
         "label": "书店/文具",
         "required_identity_terms": [
             "书店", "书局", "书城", "文具", "手账", "独立书店",
             "概念书店", "图书馆",
         ],
-        "allowed_typecode_prefixes": ["0604", "0609"],
+        "allowed_typecode_prefixes": [
+            "061205",  # v20 fix: actual bookstore code, NOT 060400
+            "0609",    # 文具/办公用品
+        ],
         "excluded_typecode_prefixes": ["05", "08"],
         "synonyms": ["书店", "城市书房"],
     },
@@ -194,13 +246,12 @@ def score_poi_against_intent(
             if _match_term(poi_id_text, str(term)):
                 competing_hits.append(str(term))
 
-    # ── Typecode check ──
+    # ── Typecode check (v20: use matches_typecode for compound code support) ──
     typecode_ok = True
     if excluded_typecodes:
-        for prefix in excluded_typecodes:
-            if poi_typecode.startswith(prefix):
-                typecode_ok = False
-                rejection_reasons.append(f"excluded_typecode_prefix={prefix}")
+        if matches_typecode(poi_typecode, excluded_typecodes):
+            typecode_ok = False
+            rejection_reasons.append(f"excluded_typecode_prefix={excluded_typecodes}")
 
     # ── Identity term check (primary_query + required_terms) ──
     query_tokens = _clean_keyword_tokens(primary_query) if primary_query else []
@@ -253,12 +304,10 @@ def score_poi_against_intent(
                             category_family_hits.append(str(term))
                     identity_hits.extend(category_family_hits)
 
-    # ── Allowed typecode bonus ──
+    # ── Allowed typecode bonus (v20: compound code support) ──
     if allowed_typecodes and poi_typecode:
-        for prefix in allowed_typecodes:
-            if poi_typecode.startswith(prefix):
-                typecode_ok = True
-                break
+        if matches_typecode(poi_typecode, allowed_typecodes):
+            typecode_ok = True
         else:
             # Not in allowed list — reduce score significantly
             if not identity_hits and not theme_hits:
@@ -267,8 +316,8 @@ def score_poi_against_intent(
                     f"typecode {poi_typecode[:4]} not in allowed {allowed_typecodes}"
                 )
 
-    # ── Restaurant detection for non-meal intents ──
-    is_restaurant = poi_typecode.startswith("05") or (
+    # ── Restaurant detection for non-meal intents (v20: compound code) ──
+    is_restaurant = matches_typecode(poi_typecode, ["05"]) or (
         any(t in (poi_category + poi_name).lower() for t in [
             "餐厅", "饭馆", "饭店", "美食", "小吃", "面馆", "火锅",
             "川菜", "粤菜", "日料", "韩餐", "西餐",

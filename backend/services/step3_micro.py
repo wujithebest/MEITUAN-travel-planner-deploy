@@ -23,6 +23,7 @@ from .api_client import (
     raw_to_place,
 )
 from .data_schema import AnchorPlan, CompletePlan, MicroPOI, ParsedIntent, PlannedWaypoint, RouteSegment, SubAnchor
+from .plan_reality_validator import validate_plan_reality, plan_reality_audit_log
 from .route_backbone import (
     get_visit_duration as v4_visit_duration,
     is_valid_route_poi,
@@ -2084,7 +2085,7 @@ MICRO_BAD_TERMS = [
 ]
 LIGHT_FOOD_MICRO_TERMS = ["蛋糕", "甜品", "茶歇", "奶茶", "小吃", "咖啡", "cafe", "coffee"]
 MEAL_POSITIVE_TERMS = ["本帮", "上海菜", "中餐", "餐厅", "饭店", "酒家", "小馆", "菜馆", "食府", "馆", "面馆", "馄饨", "烤鸭"]
-MEAL_LIGHT_TERMS = ["咖啡", "cafe", "coffee", "奶茶", "甜品", "蛋糕", "茶歇", "小吃", "便利店", "面包", "炸鸡"]
+MEAL_LIGHT_TERMS = ["咖啡", "cafe", "coffee", "奶茶", "甜品", "蛋糕", "茶歇", "小吃", "面包", "炸鸡"]
 MEAL_CHAIN_PENALTY_TERMS = ["老乡鸡", "肯德基", "麦当劳", "必胜客", "瑞幸", "星巴克", "CoCo", "库迪"]
 
 
@@ -4644,7 +4645,7 @@ def _interleave_stroll_eat_points(
         return points
 
     LIGHT_EAT_NAMES = {"小吃", "咖啡", "甜品", "蛋糕", "奶茶", "茶饮", "冰淇淋", "烘焙", "面包", "零食", "轻食", "简餐"}
-    LIGHT_EAT_TYPECODES = {"050100", "050200", "050300", "050301", "050302", "050900", "051000", "060400"}
+    LIGHT_EAT_TYPECODES = {"050100", "050200", "050300", "050301", "050302", "050900", "051000"}
 
     def _is_light_eat(p: dict[str, Any]) -> bool:
         kind = str(p.get("kind") or "").lower()
@@ -4652,9 +4653,11 @@ def _interleave_stroll_eat_points(
             return False
         name = str(p.get("name") or "")
         typecode = str(p.get("typecode") or "")
+        # v20: use per-code prefix matching instead of typecode[:6] on raw string
+        from .poi_typecodes import matches_typecode
         return (
             any(term in name for term in LIGHT_EAT_NAMES)
-            or typecode[:6] in LIGHT_EAT_TYPECODES
+            or matches_typecode(typecode, list(LIGHT_EAT_TYPECODES))
         )
 
     def _is_visit(p: dict[str, Any]) -> bool:
@@ -5080,6 +5083,70 @@ async def run_step3(
                             else "沿途经过"
                         )
                     break
+
+    # ── v20: Plan reality validation — before map rendering ──
+    # Ensure primary query POI is visible, not hidden, and route matches display POIs.
+    _reality = validate_plan_reality(
+        parsed_intent=parsed_intent,
+        route_points=points,
+        selected_anchors=[
+            {"name": a.name, "typecode": a.typecode, "location": a.location}
+            for day in complete_plan.day_plans
+            for a in day.anchors
+        ],
+        route_segments=[s.model_dump() if hasattr(s, "model_dump") else s for s in route_segments],
+    )
+    _reality_log = plan_reality_audit_log(_reality, getattr(parsed_intent, "primary_query", "") or "")
+    print(f"[DEBUG step3] {_reality_log}")
+
+    if not _reality.valid:
+        print(f"[WARN step3] Plan reality check failed: {_reality.violations}")
+        # For primary missing or meal takeover on direct POI query, re-trigger recall
+        _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+        if _poi_qtype in ("poi_category", "named_poi") and (
+            "no_primary_waypoint_found" in _reality.violations
+            or "meal_takeover" in _reality.violations
+            or "primary_target_marked_free_explore_or_hint" in _reality.violations
+        ):
+            raise ZeroOutputError(
+                f"路线验证失败：{'; '.join(_reality.violations)}。"
+                f"请调整搜索条件后重试。"
+            )
+
+    # Ensure primary query POIs are visible waypoints (not hidden/free_explore)
+    _primary_query = getattr(parsed_intent, "primary_query", "") or ""
+    if _primary_query and _poi_qtype in ("poi_category", "named_poi"):
+        for point in points:
+            name = str(point.get("name", "") or "")
+            kind = str(point.get("kind", "") or "")
+            # Primary target must be visible
+            if _primary_query.lower() in name.lower() and kind in ("free_explore", "hint"):
+                point["kind"] = "anchor_internal"
+                point["is_display_poi"] = True
+                point["display_order"] = point.get("display_order") or max(
+                    (p.get("display_order") or 0 for p in points if p.get("display_order")), default=0
+                ) + 1
+                print(f"[DEBUG step3] promoted hidden primary target to visible: {name}")
+
+    # ── v20: Route endpoint validation ──
+    # Route start/end must use final display POI coordinates, not restaurant or hidden POI.
+    _visible_routable = [
+        p for p in points
+        if p.get("is_display_poi") or p.get("display_order") is not None
+        if p.get("kind") not in ("hint", "free_explore", "route_only", "traffic")
+        if p.get("location") and "lat" in p.get("location", {})
+    ]
+    if _visible_routable and route_segments:
+        _first_name = _visible_routable[0].get("name", "")
+        _last_name = _visible_routable[-1].get("name", "")
+        for seg in route_segments:
+            seg_from = getattr(seg, "from_poi", "") if hasattr(seg, "from_poi") else seg.get("from_poi", "")
+            seg_to = getattr(seg, "to_poi", "") if hasattr(seg, "to_poi") else seg.get("to_poi", "")
+            # If segment start is a meal that's not the first display POI, warn
+            if "meal" in str(seg_from).lower() or "restaurant" in str(seg_from).lower():
+                print(f"[WARN step3] route segment starts from meal/restaurant: {seg_from}")
+            if "meal" in str(seg_to).lower() or "restaurant" in str(seg_to).lower():
+                print(f"[WARN step3] route segment ends at meal/restaurant: {seg_to}")
 
     # ── 3.7 地图渲染 ──
     # v6: 地图渲染失败不阻断路线输出

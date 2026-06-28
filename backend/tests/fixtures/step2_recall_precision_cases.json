@@ -1,5 +1,5 @@
 {
-  "description": "Step2 recall precision test fixtures — fixed mock POI candidates",
+  "description": "Step2 recall precision test fixtures — generic mock POI candidates, no real cities",
   "cases": [
     {
       "id": "antique_market",
@@ -8,78 +8,130 @@
       "primary_required_terms": ["古玩", "文玩", "收藏品", "旧货"],
       "primary_excluded_terms": ["餐厅", "饭馆"],
       "allowed_typecode_prefixes": ["0612", "1907"],
-      "excluded_typecode_prefixes": ["05"],
+      "excluded_typecode_prefixes": ["05", "11"],
       "explicit_meal_intent": false,
       "candidates": [
-        {"name": "老城古玩店", "typecode": "061201", "category": "古玩/旧货", "address": "朝阳区某某街"},
-        {"name": "文玩收藏店", "typecode": "061202", "category": "收藏品", "address": "东城区某某路"},
-        {"name": "龟鳖精舍", "typecode": "110000", "category": "风景名胜", "address": "海淀区"},
-        {"name": "川渝小馆", "typecode": "050100", "category": "餐饮", "address": "朝阳区"},
-        {"name": "紫竹院公园", "typecode": "110100", "category": "公园", "address": "海淀区"}
+        {"name": "老城古玩店", "typecode": "061201", "category": "古玩/旧货", "address": "城区某街"},
+        {"name": "文玩收藏店", "typecode": "061202", "category": "收藏品", "address": "城区某路"},
+        {"name": "龟鳖精舍", "typecode": "110000", "category": "风景名胜", "address": "风景区"},
+        {"name": "川渝小馆", "typecode": "050100", "category": "餐饮", "address": "城区"},
+        {"name": "市中心公园", "typecode": "110100", "category": "公园", "address": "城区"}
       ],
       "expected": {
         "accepted": ["老城古玩店", "文玩收藏店"],
-        "rejected": ["龟鳖精舍", "川渝小馆", "紫竹院公园"],
+        "rejected": ["龟鳖精舍", "川渝小馆", "市中心公园"],
         "precision_at_1": 1.0,
         "irrelevant_in_top3": 0
       }
     },
     {
-      "id": "art_route",
-      "primary_query": "文艺路线",
-      "poi_query_type": "theme_route",
-      "primary_required_terms": ["美术", "艺术", "展览", "画廊"],
+      "id": "antique_market_no_restaurant_takeover",
+      "primary_query": "古玩市场",
+      "poi_query_type": "poi_category",
+      "primary_required_terms": ["古玩", "文玩", "收藏品", "旧货"],
+      "excluded_typecode_prefixes": ["05"],
       "explicit_meal_intent": false,
       "candidates": [
-        {"name": "当代美术馆", "typecode": "140200", "category": "美术馆"},
-        {"name": "独立书店", "typecode": "060400", "category": "书店"},
-        {"name": "艺术空间", "typecode": "140400", "category": "画廊"},
-        {"name": "动物园", "typecode": "110200", "category": "动物园"},
-        {"name": "普通餐厅", "typecode": "050100", "category": "餐饮"}
+        {"name": "金鼎轩酒家", "typecode": "050100", "category": "餐饮"},
+        {"name": "香满楼餐厅", "typecode": "050200", "category": "餐饮"}
       ],
       "expected": {
-        "accepted": ["当代美术馆", "独立书店", "艺术空间"],
-        "rejected": ["动物园"],
-        "restaurant_rejected_unless_meal": ["普通餐厅"]
+        "accepted": [],
+        "rejected": ["金鼎轩酒家", "香满楼餐厅"],
+        "note": "no meal intent => all restaurants rejected"
       }
     },
     {
-      "id": "script_kill",
-      "primary_query": "剧本杀",
+      "id": "handcraft_intangible",
+      "primary_query": "非遗手作",
       "poi_query_type": "poi_category",
-      "primary_required_terms": ["剧本", "推理", "桌游", "密室"],
-      "allowed_typecode_prefixes": ["0804", "0805"],
+      "primary_required_terms": ["非遗", "手作", "手工", "工坊"],
+      "allowed_typecode_prefixes": ["0805", "0612"],
+      "excluded_typecode_prefixes": ["05", "11"],
       "explicit_meal_intent": false,
       "candidates": [
-        {"name": "剧本推理馆", "typecode": "080401", "category": "桌面游戏"},
-        {"name": "桌游推理社", "typecode": "080402", "category": "桌面游戏"},
-        {"name": "火车站广场", "typecode": "101000", "category": "交通设施"},
-        {"name": "故宫", "typecode": "110100", "category": "风景名胜"},
-        {"name": "普通餐厅", "typecode": "050100", "category": "餐饮"}
+        {"name": "非遗手作体验坊", "typecode": "080501", "category": "手工艺"},
+        {"name": "陶艺工坊", "typecode": "080502", "category": "手工"},
+        {"name": "城市博物馆", "typecode": "140200", "category": "博物馆"},
+        {"name": "火锅店", "typecode": "050100", "category": "餐饮"}
       ],
       "expected": {
-        "accepted": ["剧本推理馆", "桌游推理社"],
-        "rejected": ["火车站广场", "故宫", "普通餐厅"]
+        "accepted": ["非遗手作体验坊", "陶艺工坊"],
+        "rejected": ["城市博物馆", "火锅店"]
       }
     },
     {
       "id": "flower_market",
-      "primary_query": "花鸟市场",
+      "primary_query": "花艺市场",
       "poi_query_type": "poi_category",
-      "primary_required_terms": ["花鸟", "花卉", "宠物"],
+      "primary_required_terms": ["花店", "花市", "花艺", "鲜花", "花卉"],
       "allowed_typecode_prefixes": ["0611"],
+      "excluded_typecode_prefixes": ["05", "11"],
       "explicit_meal_intent": false,
       "candidates": [
-        {"name": "花鸟鱼虫市场", "typecode": "061101", "category": "花鸟市场"},
-        {"name": "鲜花批发", "typecode": "061102", "category": "花卉"},
-        {"name": "宠物医院", "typecode": "991400", "category": "宠物服务"},
-        {"name": "普通餐厅", "typecode": "050100", "category": "餐饮"},
-        {"name": "广州花市", "typecode": "061101", "category": "花鸟市场", "address": "广州市越秀区"}
+        {"name": "花艺市场", "typecode": "061101", "category": "花鸟市场"},
+        {"name": "鲜花坊", "typecode": "061102", "category": "花卉销售"},
+        {"name": "咖啡书吧", "typecode": "050900", "category": "咖啡厅"},
+        {"name": "花雕艺术馆", "typecode": "110000", "category": "风景名胜"}
       ],
       "expected": {
-        "accepted": ["花鸟鱼虫市场", "鲜花批发"],
-        "rejected": ["普通餐厅"],
-        "note_pet_hospital": "宠物医院 may pass typecode 9914 but should not be top result for 花鸟市场"
+        "accepted": ["花艺市场", "鲜花坊"],
+        "rejected": ["咖啡书吧", "花雕艺术馆"]
+      }
+    },
+    {
+      "id": "wood_craft",
+      "primary_query": "木材工作坊",
+      "poi_query_type": "poi_category",
+      "primary_required_terms": ["木工坊", "木作", "木艺", "木工体验"],
+      "allowed_typecode_prefixes": ["0805", "0612"],
+      "excluded_typecode_prefixes": ["05", "11"],
+      "explicit_meal_intent": false,
+      "candidates": [
+        {"name": "木艺工作室", "typecode": "080503", "category": "手工艺"},
+        {"name": "手工木作工坊", "typecode": "080501", "category": "手工艺"},
+        {"name": "建材市场", "typecode": "061500", "category": "建材"},
+        {"name": "中式餐厅", "typecode": "050100", "category": "餐饮"}
+      ],
+      "expected": {
+        "accepted": ["木艺工作室", "手工木作工坊"],
+        "rejected": ["建材市场", "中式餐厅"]
+      }
+    },
+    {
+      "id": "convenience_store",
+      "primary_query": "便利店",
+      "poi_query_type": "poi_category",
+      "primary_required_terms": ["便利店", "便利", "超市"],
+      "allowed_typecode_prefixes": ["060200", "060201"],
+      "excluded_typecode_prefixes": ["05", "11"],
+      "explicit_meal_intent": false,
+      "candidates": [
+        {"name": "好邻居便利店", "typecode": "060201", "category": "便利店"},
+        {"name": "社区24小时超市", "typecode": "060200", "category": "便利超市"},
+        {"name": "新华书店", "typecode": "060400", "category": "书店"},
+        {"name": "快餐小食", "typecode": "050100", "category": "餐饮"}
+      ],
+      "expected": {
+        "accepted": ["好邻居便利店", "社区24小时超市"],
+        "rejected": ["新华书店", "快餐小食"]
+      }
+    },
+    {
+      "id": "composite_typecode_match",
+      "primary_query": "手工艺体验",
+      "poi_query_type": "poi_category",
+      "primary_required_terms": ["手工艺", "体验"],
+      "allowed_typecode_prefixes": ["0612", "0805"],
+      "excluded_typecode_prefixes": ["05"],
+      "explicit_meal_intent": false,
+      "candidates": [
+        {"name": "综合手工艺坊", "typecode": "061202|080500", "category": "手工艺体验"},
+        {"name": "单码工坊", "typecode": "080501", "category": "手工艺体验"}
+      ],
+      "expected": {
+        "accepted": ["综合手工艺坊", "单码工坊"],
+        "rejected": []
       }
     }
   ]

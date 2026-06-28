@@ -360,6 +360,15 @@ class ParsedIntent(BaseModel):
     # 通用行程段（v5.2 r3）：exploratory和planned统一为有序段列表
     plan_segments: list[PlanSegment] = []  # 按时间顺序排列的行程段
 
+    # ── v20: POI category query fields ──
+    poi_query_type: str = ""                        # "theme_route" | "poi_category" | "named_poi" | ""
+    primary_query: str = ""                         # 用户主查询词，如 "古玩市场"、"附近便利店"
+    explicit_meal_intent: bool = False              # 是否明确有餐饮意图
+    allowed_typecode_prefixes: list[str] = Field(default_factory=list)  # 允许的typecode前缀
+    excluded_typecode_prefixes: list[str] = Field(default_factory=list) # 排除的typecode前缀
+    primary_required_terms: list[str] = Field(default_factory=list)     # 主POI必须包含的词
+    primary_excluded_terms: list[str] = Field(default_factory=list)     # 主POI必须排除的词
+
     # ── Step2输出 ──
 
     search_centrality: list["SearchCentralityItem"] = Field(default_factory=list)

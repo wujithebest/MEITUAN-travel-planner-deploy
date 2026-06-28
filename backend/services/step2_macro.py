@@ -26,6 +26,8 @@ from .api_client import (
 from .data_schema import AnchorPlan, CompletePlan, DayPlan, ExtractedPlace, FixedPoi, ParsedIntent, ScoredPlace, SearchCentralityItem, UserProfile
 from .day_slots import DURATION_TO_BUDGET, MEAL_WINDOWS, WEATHER_PENALTY, infer_capacity_from_typecode
 from .poi_feedback_service import calculate_feedback_score, get_profile_feedback_records
+from .poi_relevance import recall_audit_log, score_poi_against_intent
+from .poi_typecodes import matches_typecode, split_typecodes
 from .route_backbone import is_valid_route_poi
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
 from .city_context import apply_resolved_city, resolve_departure_city
@@ -1694,6 +1696,127 @@ def _meal_slots_for_day(parsed_intent: ParsedIntent, day_index: int) -> list[dic
     return _apply_meal_constraints(parsed_intent, day_index, slots)
 
 
+# ── v20: Synonym wide recall for poi_category queries ──
+async def _synonym_wide_recall(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace] | None:
+    """When primary search produces no results, try once with wider synonym terms."""
+    from .poi_typecodes import CATEGORY_RULES, get_semantic_terms, get_allowed_typecode_prefixes
+
+    city = await _resolve_city_from_profile(user_profile) or (
+        user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    )
+    if not city:
+        return None
+
+    primary_query = getattr(parsed_intent, "primary_query", "") or ""
+    if not primary_query:
+        return None
+
+    # Find matching category rule
+    cat_id = None
+    rule = None
+    for cid, r in CATEGORY_RULES.items():
+        if cid == "restaurant":
+            continue
+        for term in r.get("semantic_terms", []):
+            if term.lower() in primary_query.lower():
+                cat_id = cid
+                rule = r
+                break
+        if rule:
+            break
+
+    if not rule:
+        return None
+
+    city_short = city[:-1] if city.endswith("市") else city
+    synonyms = rule.get("semantic_terms", [])[:6]
+    wide_keywords = [f"{city_short} {syn}" for syn in synonyms if syn != primary_query]
+
+    if not wide_keywords:
+        return None
+
+    print(f"[DEBUG step2] synonym wide recall: keywords={wide_keywords}")
+
+    try:
+        results = await asyncio.gather(
+            *[gaode_text_search(kw, city=city, show_fields=config.GAODE_SHOW_FIELDS) for kw in wide_keywords[:4]],
+            return_exceptions=True,
+        )
+    except Exception:
+        return None
+
+    places: list[ExtractedPlace] = []
+    for group in results:
+        if isinstance(group, Exception):
+            continue
+        if not group:
+            continue
+        for raw in group:
+            place = _to_extracted(raw)
+            if place and place.location and place.name:
+                # Basic filter: must pass is_valid_route_poi
+                poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+                allowed_prefixes = get_allowed_typecode_prefixes(cat_id)
+                if is_valid_route_poi(
+                    place.typecode,
+                    place.name,
+                    explicit_meal_intent=False,
+                    poi_query_type=poi_qtype,
+                    allowed_shopping_prefixes=allowed_prefixes,
+                ):
+                    places.append(place)
+
+    return places[:8] if places else None
+
+
+# ── v20: Intent-based candidate filtering ──
+def _filter_candidates_by_intent(
+    candidates: list[ScoredPlace],
+    parsed_intent: ParsedIntent,
+) -> list[ScoredPlace]:
+    """Filter candidates using score_poi_against_intent. Hard-conflict POIs are deleted."""
+    poi_query_type = getattr(parsed_intent, "poi_query_type", "") or ""
+    if poi_query_type not in ("poi_category", "named_poi"):
+        return candidates
+
+    filtered: list[ScoredPlace] = []
+    for place in candidates:
+        evidence = score_poi_against_intent(
+            poi={
+                "name": place.name,
+                "typecode": place.typecode or "",
+                "category": getattr(place, "category", "") or "",
+                "address": getattr(place, "address", "") or "",
+                "business_area": getattr(place, "district", "") or "",
+            },
+            parsed_intent=parsed_intent,
+            matched_query=getattr(parsed_intent, "primary_query", "") or "",
+        )
+        audit_msg = recall_audit_log(
+            primary_query=getattr(parsed_intent, "primary_query", "") or "",
+            poi_query_type=poi_query_type,
+            candidate={"name": place.name, "typecode": place.typecode},
+            evidence=evidence,
+        )
+        print(f"[DEBUG step2] {audit_msg}")
+
+        if not evidence.accepted and evidence.score <= -80:
+            # Hard conflict — delete
+            print(f"[DEBUG step2] hard reject: {place.name} reason={evidence.rejection_reasons}")
+            continue
+
+        if evidence.accepted or evidence.score > 0:
+            # Boost accepted/intent-matched candidates
+            place.final_score = (getattr(place, "final_score", 0) or 0) + evidence.score * 0.5
+
+        filtered.append(place)
+
+    return filtered
+
+
 def _has_strong_meal_intent(parsed_intent: ParsedIntent) -> bool:
     """v6: 检测用户是否明确表达了找餐厅/吃某类餐的强餐饮意图。
     基于 ParsedIntent 已有字段判断，不依赖 user_request。"""
@@ -2063,15 +2186,29 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                 },
             )
             # v12: 混合任务（游览+餐饮）禁止直接 meal-only，先尝试活动 fallback
-            fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
-            if fallback_places:
-                places = fallback_places
-                deleted = []
-                print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
-            elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
-                print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
+            # v20: 直接品类查询不得进入 meal-only；无结果时提示无匹配
+            _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+            _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
+            _primary_q = getattr(parsed_intent, "primary_query", "") or ""
+            if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+                # Try synonym wide recall once
+                wide_places = await _synonym_wide_recall(parsed_intent, user_profile)
+                if wide_places:
+                    places = wide_places
+                    deleted = []
+                    print(f"[DEBUG step2] poi_category wide recall found {len(places)} candidates")
+                else:
+                    raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
             else:
-                raise ZeroOutputError("宏观 POI 搜索结果为空或全部被过滤")
+                fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
+                if fallback_places:
+                    places = fallback_places
+                    deleted = []
+                    print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
+                elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
+                    print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
+                else:
+                    raise ZeroOutputError("宏观 POI 搜索结果为空或全部被过滤")
         delete_list.extend(deleted)
         await logger.log_step(
             "step_2_1_gaode_search",
@@ -2135,7 +2272,18 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         await emit_status("正在评估和筛选目的地...")
         # v4.1 F7: 直接用已预查的 transit 结果，不再重复 API 调用
         candidates = _score_places_prefetched(places_enriched, parsed_intent, user_profile, transit_map)
+
+        # v20: Apply intent-based filtering for poi_category/named_poi queries
+        if candidates:
+            candidates = _filter_candidates_by_intent(candidates, parsed_intent)
+
         if not candidates:
+            # v20: 直接品类查询不得进入 meal-only
+            _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+            _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
+            _primary_q = getattr(parsed_intent, "primary_query", "") or ""
+            if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+                raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
             # v12: 混合任务禁止直接 meal-only
             if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
                 candidates = []
@@ -2164,6 +2312,12 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     pool_size = max(config.POOL_SIZE, 20) if "二次元" in parsed_intent.raw_keywords else config.POOL_SIZE
     selected = _select_anchors(fixed_anchors, candidates[:pool_size], parsed_intent)
     if not selected:
+        # v20: 直接品类查询不得进入 meal-only
+        _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+        _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
+        _primary_q = getattr(parsed_intent, "primary_query", "") or ""
+        if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+            raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
         if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
             selected = []
             print("[DEBUG step2] 无可用路线锚点且为纯餐饮意图，进入 meal-only 流程")

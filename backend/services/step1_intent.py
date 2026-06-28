@@ -18,6 +18,13 @@ from .theme_profile_matcher import (
     resolve_theme_profile,
     get_all_theme_profiles,
 )
+from .poi_typecodes import (
+    CATEGORY_RULES,
+    category_for_query,
+    get_allowed_typecode_prefixes,
+    get_excluded_typecode_prefixes,
+    get_semantic_terms,
+)
 
 
 INCOMPLETE_REQUEST_TEXT = "消息似乎不全面，可以再说得详细一点吗~"
@@ -380,7 +387,7 @@ KEYWORD_PROFILES = [
             "面包店",
         ],
         "micro": ["水果店 生鲜", "菜市场 买菜", "便利店 零食", "面包店 烘焙"],
-        "typecodes": ["060400", "060401", "060402"],
+        "typecodes": ["060200", "060201"],  # v20 fix: 0602xx = 便利店, 不是 060400 (书店/文具)
     },
     # 8. 轻食简餐
     {
@@ -695,6 +702,13 @@ def _enforce_late_nearby_guard(parsed: ParsedIntent, user_request: str, current_
 def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str) -> ParsedIntent:
     city_short = city[:-1] if city.endswith("市") else city
     lowered = user_request.lower()
+
+    # v20: Direct POI category queries have focused keywords already set;
+    # skip profile-based expansion to avoid mixing in unrelated categories.
+    _poi_cat = getattr(parsed, "poi_query_type", "") or ""
+    if _poi_cat == "poi_category":
+        parsed.explicit_meal_intent = getattr(parsed, "explicit_meal_intent", False)
+        return parsed
 
     # v6 Layer 2: 检测强餐饮意图 — 有明确就餐需求时，不追加快闪游玩关键词
     has_explicit_meal = (
@@ -1602,6 +1616,64 @@ async def _detect_destination_from_keywords(search_keywords: list[str], origin: 
     return detected
 
 
+# ── v20: Direct POI category query detection ──
+# Maps user query patterns to category rules WITHOUT hardcoding any city or specific POI.
+_DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
+    (["古玩市场", "古玩城", "文玩市场", "旧货市场", "收藏品市场", "古玩", "文玩"], "antique_market"),
+    (["非遗手作", "非遗体验", "手作体验", "手工坊", "手工艺", "非遗", "扎染体验", "陶艺体验"], "handcraft_intangible"),
+    (["花艺市场", "花市", "花卉市场", "鲜花市场", "花店", "买花", "花鸟市场"], "flower_market"),
+    (["木材工作坊", "木工坊", "木作体验", "木艺工作室", "木工体验", "木工"], "wood_craft"),
+    (["便利店", "附近便利店", "小卖部", "士多"], "convenience_store"),
+    (["书店", "城市书房", "书局", "书城"], "bookstore"),
+]
+
+
+def _detect_poi_category_query(user_request: str) -> dict | None:
+    """Detect if user request is a direct POI category query (e.g. '找古玩市场', '附近便利店').
+
+    Returns a dict with poi_query_type, primary_query, category metadata, or None.
+    No city or POI name is hardcoded — all derived from category rules.
+    """
+    lowered = user_request.lower()
+
+    for tokens, cat_id in _DIRECT_CATEGORY_PATTERNS:
+        for token in tokens:
+            if token.lower() in lowered:
+                rule = CATEGORY_RULES.get(cat_id)
+                if not rule:
+                    continue
+                return {
+                    "poi_query_type": "poi_category",
+                    "primary_query": token,
+                    "explicit_meal_intent": False,
+                    "category_id": cat_id,
+                    "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id),
+                    "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id),
+                    "primary_required_terms": get_semantic_terms(cat_id),
+                    "primary_excluded_terms": [],
+                    "category_label": rule.get("label", token),
+                }
+
+    # Check via category_for_query (more general matching)
+    inferred_cat = category_for_query(user_request)
+    if inferred_cat:
+        rule = CATEGORY_RULES.get(inferred_cat)
+        if rule:
+            return {
+                "poi_query_type": "poi_category",
+                "primary_query": user_request.strip(),
+                "explicit_meal_intent": False,
+                "category_id": inferred_cat,
+                "allowed_typecode_prefixes": get_allowed_typecode_prefixes(inferred_cat),
+                "excluded_typecode_prefixes": get_excluded_typecode_prefixes(inferred_cat),
+                "primary_required_terms": get_semantic_terms(inferred_cat),
+                "primary_excluded_terms": [],
+                "category_label": rule.get("label", user_request.strip()),
+            }
+
+    return None
+
+
 async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
     city = await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
@@ -1675,6 +1747,48 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.original_location = await gaode_geocode(parsed.original_location_label, city=city)
     if not parsed.original_location:
         parsed.original_location = _fallback_origin(parsed, user_profile)
+
+    # v20: Detect direct POI category query BEFORE keyword overrides
+    # so that keywords are focused on the target category, not expanded to unrelated ones.
+    poi_cat_result = _detect_poi_category_query(user_request)
+    if poi_cat_result:
+        parsed.poi_query_type = poi_cat_result["poi_query_type"]
+        parsed.primary_query = poi_cat_result["primary_query"]
+        parsed.explicit_meal_intent = poi_cat_result["explicit_meal_intent"]
+        parsed.allowed_typecode_prefixes = poi_cat_result["allowed_typecode_prefixes"]
+        parsed.excluded_typecode_prefixes = poi_cat_result["excluded_typecode_prefixes"]
+        parsed.primary_required_terms = poi_cat_result["primary_required_terms"]
+        parsed.primary_excluded_terms = poi_cat_result["primary_excluded_terms"]
+        # For direct category queries, search_keywords = city tag + primary_query + synonyms
+        # Do NOT expand into fruit shops, bakeries, etc.
+        city_short = city[:-1] if city.endswith("市") else city
+        cat_id = poi_cat_result["category_id"]
+        rule = CATEGORY_RULES.get(cat_id, {})
+        synonyms = rule.get("semantic_terms", [])[:4]
+        focused_search = [f"{city_short} {poi_cat_result['primary_query']}"]
+        for syn in synonyms:
+            if syn != poi_cat_result["primary_query"]:
+                focused_search.append(f"{city_short} {syn}")
+        parsed.search_keywords = _append_unique(
+            focused_search,
+            parsed.search_keywords[:2] if parsed.search_keywords else [],
+            limit=6,
+        )
+        # Also set micro keywords to be category-relevant
+        parsed.micro_keywords = _append_unique(
+            [f"{syn} 打卡" if city_short not in syn else syn for syn in synonyms[:3]],
+            [],
+            limit=4,
+        )
+        print(
+            f"[DEBUG step1] poi_category_query detected: "
+            f"cat_id={cat_id} primary_query={poi_cat_result['primary_query']} "
+            f"typecodes={poi_cat_result['allowed_typecode_prefixes']}"
+        )
+    else:
+        parsed.poi_query_type = getattr(parsed, "poi_query_type", "") or ""
+        if not parsed.poi_query_type:
+            parsed.poi_query_type = "theme_route"
 
     parsed = _apply_keyword_overrides(parsed, user_request, city)
     parsed = _append_fixed_poi_from_request(parsed, user_request)
@@ -1827,12 +1941,31 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed.food_pref_keywords = _normalize_food_preferences(parsed.food_pref_keywords)
     parsed.food_pref_keywords = _append_unique(parsed.food_pref_keywords, request_food_keywords, limit=6)
     # v12: 先算 meal_needs，只有需要吃饭时才注入偏好
-    meal_overlap_threshold = 1.0 if parsed.time_budget <= 0.25 else 0.5
-    parsed.meal_needs = compute_meal_needs(
-        parsed.start_time,
-        parsed.duration,
-        min_overlap_hours=meal_overlap_threshold,
+    # v20: poi_category/named_poi 短查询不自动生成餐饮需求
+    # v20: 单地点、附近、最近查询不得因当前时间自动生成 meal_needs
+    # 自动餐饮只能用于明确的多小时路线规划（time_budget >= 0.5）
+    _poi_query_type = getattr(parsed, "poi_query_type", "") or ""
+    _explicit_meal = bool(getattr(parsed, "explicit_meal_intent", False))
+    _has_food_keywords = bool(parsed.food_pref_keywords or parsed.meal_search_keywords)
+    _is_nearby = any(token in user_request for token in ["附近", "最近", "周边", "旁边"])
+    _is_single_target = len(parsed.planned_waypoints or []) <= 1 and len(parsed.fixed_pois or []) <= 1
+    _is_short_duration = parsed.time_budget <= 0.25
+    _has_no_food_mention = not _has_food_keywords and not _explicit_meal
+    _skip_auto_meals = (
+        (_poi_query_type in ("poi_category", "named_poi") and _has_no_food_mention)
+        or (_is_nearby and _has_no_food_mention)
+        or (_is_single_target and _has_no_food_mention)
+        or (_is_short_duration and _has_no_food_mention)
     )
+    if _skip_auto_meals:
+        parsed.meal_needs = []
+    else:
+        meal_overlap_threshold = 1.0 if parsed.time_budget <= 0.25 else 0.5
+        parsed.meal_needs = compute_meal_needs(
+            parsed.start_time,
+            parsed.duration,
+            min_overlap_hours=meal_overlap_threshold,
+        )
     # 只有确实需要安排餐饮时，才用用户画像偏好作为兜底口味
     if not parsed.food_pref_keywords and user_profile.food_pref_tag and bool(parsed.meal_needs):
         parsed.food_pref_keywords = list(user_profile.food_pref_tag)
