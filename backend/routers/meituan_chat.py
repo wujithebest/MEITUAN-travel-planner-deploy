@@ -778,19 +778,38 @@ async def _run_planned_pipeline_fast(
         if getattr(parsed_intent, 'budget_per_capita', None) is not None
         else getattr(user_profile, 'budget_per_capita', 100.0) * 1.5
     )
+    # v20: Pass search area context for planned waypoint resolution
+    _search_area_loc = getattr(parsed_intent, "search_area_location", None)
+    _search_area_label = getattr(parsed_intent, "search_area_label", "") or ""
+
     resolved_wps, candidate_map = await resolve_planned_waypoints_with_candidates(
         waypoints,
         start_location,
         city,
         home_location=home_loc if home_loc.get('lat') else None,
         budget_threshold=planned_budget_threshold,
+        search_area_location=_search_area_loc,
+        search_area_label=_search_area_label,
     )
     resolved_count = sum(1 for wp in resolved_wps if wp.resolved_location)
     print(f"[DEBUG planned_fast] budget_threshold={planned_budget_threshold} request_budget={getattr(parsed_intent, 'budget_per_capita', None)}")
     print(f"[DEBUG planned_fast] resolved_wps={[(wp.resolved_name or wp.search_keyword, wp.category) for wp in resolved_wps]} num_candidates={sum(len(v) for v in candidate_map.values())}")
 
     if resolved_count == 0:
-        raise ZeroOutputError("未能找到任何途经点，请检查您的需求描述或扩大搜索范围")
+        _primary_q = getattr(parsed_intent, "primary_query", "") or ""
+        _search_lbl = _search_area_label or "指定区域"
+        _kw_list = [wp.search_keyword for wp in waypoints if wp.search_keyword]
+        print(
+            f"[DEBUG planned_zero_result] "
+            f"search_area={_search_lbl} "
+            f"primary_query={_primary_q} "
+            f"keywords={_kw_list} "
+            f"waypoint_count={len(waypoints)} "
+        )
+        raise ZeroOutputError(
+            f"未在{_search_lbl}找到符合条件的{'、'.join(_kw_list[:3])}，"
+            f"请修改区域或目标类型后重试。"
+        )
 
     # 2. 判断时间标签
     current_time = getattr(parsed_intent, 'start_time', None)

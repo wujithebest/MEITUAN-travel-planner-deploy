@@ -6,6 +6,7 @@ the single-POI level (e.g. meal takeover, hidden primary target, free_explore ab
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -24,6 +25,44 @@ class PlanRealityResult:
     violations: list[str] = field(default_factory=list)
 
 
+_THEME_TERM_STOPWORDS = {
+    "北京", "北京市", "攻略", "推荐", "路线", "打卡", "拍照", "游玩",
+    "一整天", "一日游", "半日游", "附近", "周边", "休闲",
+}
+
+
+def _theme_evidence_profile(parsed_intent: Any) -> dict[str, list[str]] | None:
+    """Build deterministic relevance terms for generic theme routes.
+
+    Step1 may not select an official theme_profile for a named park request, but
+    its raw/search/micro keywords still contain reliable evidence such as 公园、
+    湿地、自然.  The reality validator must use that evidence instead of
+    treating every generated waypoint as unrelated.
+    """
+    values: list[str] = []
+    for field_name in (
+        "primary_required_terms",
+        "theme_keywords",
+        "micro_poi_keywords",
+        "micro_keywords",
+        "raw_keywords",
+        "search_keywords",
+    ):
+        values.extend(str(item or "") for item in (getattr(parsed_intent, field_name, []) or []))
+
+    terms: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for token in re.split(r"[\s,，、/|;；]+", value):
+            clean = token.strip()
+            if len(clean) < 2 or clean in _THEME_TERM_STOPWORDS or clean in seen:
+                continue
+            seen.add(clean)
+            terms.append(clean)
+
+    return {"required_terms": terms[:24]} if terms else None
+
+
 def validate_plan_reality(
     parsed_intent: Any,
     route_points: list[dict[str, Any]],
@@ -39,6 +78,7 @@ def validate_plan_reality(
         getattr(parsed_intent, "primary_required_terms", []) or []
     )
     explicit_meal: bool = bool(getattr(parsed_intent, "explicit_meal_intent", False))
+    theme_evidence = _theme_evidence_profile(parsed_intent) if poi_query_type == "theme_route" else None
 
     from .poi_relevance import score_poi_against_intent
 
@@ -56,7 +96,14 @@ def validate_plan_reality(
     for pt in points:
         name = str(pt.get("name", "") or "")
         kind = str(pt.get("kind", "") or "")
-        is_display = pt.get("is_display_poi", False) or pt.get("display_order") is not None
+        is_display = (
+            kind not in ("start", "hint", "free_explore", "route_only", "traffic", "empty")
+            and (
+                pt.get("is_display_poi", False)
+                or pt.get("display_order") is not None
+                or pt.get("is_waypoint") is True
+            )
+        )
         typecode = str(pt.get("typecode", "") or "")
         is_meal = typecode.startswith("05") or kind in ("meal", "restaurant")
 
@@ -69,19 +116,21 @@ def validate_plan_reality(
         evidence = score_poi_against_intent(
             poi=pt,
             parsed_intent=parsed_intent,
+            theme_profile=theme_evidence,
             matched_query=primary_query,
         )
 
-        if evidence.accepted:
+        if evidence.accepted and is_display:
+            # v20: Only count visible display POIs as primary waypoints
+            # Search area names and hidden points don't count
             primary_count += 1
             primary_anchors.append(name)
-        elif not is_meal and not evidence.identity_term_hits and not evidence.theme_term_hits:
-            unrelated_count += 1
-
-        # Check for hidden primary: free_explore that matches intent
-        if evidence.accepted and not is_display and kind in ("free_explore", "hint"):
+        elif evidence.accepted and not is_display and kind in ("free_explore", "hint"):
+            # A valid primary target that's been hidden — this is a violation
             hidden_primary = True
             violations.append(f"primary_target_hidden_as_{kind}: {name}")
+        elif not is_meal and not evidence.identity_term_hits and not evidence.theme_term_hits:
+            unrelated_count += 1
 
     # ── Check invariants ──
     if poi_query_type in ("named_poi", "poi_category"):
@@ -89,6 +138,39 @@ def validate_plan_reality(
             violations.append("no_primary_waypoint_found")
         if hidden_primary:
             violations.append("primary_target_marked_free_explore_or_hint")
+
+    # v20: Check that all user-specified fixed POIs are present in route_points
+    _user_fixed_names = {
+        fp.name for fp in (getattr(parsed_intent, "fixed_pois", []) or [])
+    }
+    # Also check selected_anchors for fixed/primary_target markers
+    if selected_anchors:
+        for sa in selected_anchors:
+            if sa.get("fixed") or sa.get("primary_target") or sa.get("explicitly_named_by_user"):
+                _user_fixed_names.add(str(sa.get("name", "") or ""))
+    # Check each user-specified fixed POI is a visible waypoint
+    _point_names = {str(p.get("name", "") or "") for p in points}
+    _visible_point_names = {
+        str(p.get("name", "") or "") for p in points
+        if p.get("is_display_poi") or p.get("is_waypoint") or p.get("display_order") is not None
+    }
+    for fname in _user_fixed_names:
+        if not fname:
+            continue
+        # Must exist in points
+        if fname not in _point_names:
+            violations.append(f"required_fixed_anchor_missing: {fname}")
+        # Must be visible (not hidden/free_explore/hint)
+        elif fname not in _visible_point_names:
+            violations.append(f"required_fixed_anchor_hidden: {fname}")
+        # Must not be free_explore/hint
+        else:
+            for pt in points:
+                if str(pt.get("name", "") or "") == fname:
+                    kind = str(pt.get("kind", "") or "")
+                    if kind in ("free_explore", "hint", "route_only"):
+                        violations.append(f"required_fixed_anchor_bad_kind: {fname} is {kind}")
+                    break
 
     # Meal takeover
     meal_takeover = (
@@ -120,6 +202,10 @@ def validate_plan_reality(
             violations.append("half_day_theme_needs_2_related")
         elif time_budget > 0.5 and primary_count < 3:
             violations.append("full_day_theme_needs_3_related")
+
+    # v20: visible_waypoint_count=0 should never be valid
+    if visible_count == 0:
+        violations.append("no_visible_waypoints")
 
     return PlanRealityResult(
         valid=len(violations) == 0,

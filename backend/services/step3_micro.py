@@ -17,6 +17,7 @@ from .api_client import (
     gaode_get_district_boundary,
     gaode_polygon_search_batch,
     gaode_reverse_geocode,
+    gaode_text_search,
     gaode_transit_route,
     gaode_walking_route,
     gaode_walking_route_waypoints,
@@ -1162,23 +1163,63 @@ def _filter_and_sort_internal_pois(
     variance_ratio: float = 0.0,
     is_large_area: bool = False,
     micro_policy: dict[str, Any] | None = None,
+    parsed_intent: Any = None,
 ) -> tuple[list[dict], str | None]:
-    """v3：排除无关typecode → 空间排序 → 跳过优化 → 时间预算裁剪 → 深度体验兜底"""
+    """v3+v20：排除无关typecode → 空间排序 → 跳过优化 → 时间预算裁剪 → 深度体验兜底
+
+    v20: 传递 parsed_intent，让 is_valid_route_poi 按意图控制 typecode 过滤。
+    逛吃穿插意图允许 05 轻餐饮和 06 购物/街区体验点。
+    """
 
     policy = micro_policy or {"active": False}
 
-    # v4.1 F1/F2: 用统一白/黑名单过滤，含咖啡放行+名称兜底
+    # v20: 构建 intent context for is_valid_route_poi
+    _explicit_meal = False
+    _poi_qtype = ""
+    _allowed_shopping: list[str] | None = None
+    _is_stroll_eat = False
+    if parsed_intent is not None:
+        _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
+        _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+        constraints = getattr(parsed_intent, "other_constraints", []) or []
+        _is_stroll_eat = "逛吃穿插" in constraints
+        # For stroll_eat or food_cuisine theme: allow 06 shopping/stroll POIs
+        if _is_stroll_eat or _poi_qtype in ("poi_category", "named_poi"):
+            _allowed_shopping = ["06"]  # Allow all 06xxxx for stroll/shopping intent
+
+    # v4.1 F1/F2 + v20: 用统一白/黑名单过滤，含意图感知的 05/06 放行
     valid: list[dict] = []
     subordinate_buffer: list[dict] = []  # 被subordinate过滤的POI，备用补充
+    _raw_poi_log: list[str] = []
     for poi in raw_pois:
         typecode = poi.get("typecode", "")
         name = poi.get("name", "")
-        if not is_valid_route_poi(typecode, name):
+        _raw_poi_log.append(f"{name}({typecode})")
+        if not is_valid_route_poi(
+            typecode, name,
+            explicit_meal_intent=_explicit_meal,
+            poi_query_type=_poi_qtype,
+            allowed_shopping_prefixes=_allowed_shopping,
+        ):
+            # v20: collect light eat candidates into global buffer
+            if _is_stroll_eat and _is_light_eat_candidate(poi):
+                _stroll_eat_buffer.append(poi)
             # 检查：跳过subordinate检查后是否能通过
-            if is_valid_route_poi(typecode, name, skip_subordinate_check=True):
+            if is_valid_route_poi(
+                typecode, name, skip_subordinate_check=True,
+                explicit_meal_intent=_explicit_meal,
+                poi_query_type=_poi_qtype,
+                allowed_shopping_prefixes=_allowed_shopping,
+            ):
                 subordinate_buffer.append(poi)
             continue
         valid.append(poi)
+
+    print(
+        f"[DEBUG step3 filter] raw={len(raw_pois)} valid={len(valid)} sub_buf={len(subordinate_buffer)} "
+        f"stroll_eat={_is_stroll_eat} explicit_meal={_explicit_meal} "
+        f"raw_names=[{', '.join(_raw_poi_log[:10])}]"
+    )
 
     # 数量不足时放行商场内子店铺作为补充
     if len(valid) < 3 and subordinate_buffer:
@@ -1633,6 +1674,43 @@ def _fill_segment(
     if sub is None:
         return []
 
+    poi_query_type = str(getattr(parsed_intent, "poi_query_type", "") or "") if parsed_intent else ""
+    is_direct_primary_target = poi_query_type in {"poi_category", "named_poi"}
+
+    def _primary_anchor_point() -> dict[str, Any]:
+        """Keep the Step2 target itself executable even when internals are sparse."""
+        return {
+            "day": day_index,
+            "name": sub.name,
+            "location": sub.location or start_location,
+            "kind": "anchor_internal",
+            "poi_id": getattr(sub, "poi_id", None) or sub.name,
+            "gaode_poi_id": getattr(sub, "gaode_poi_id", "") or "",
+            "typecode": getattr(sub, "typecode", "") or "",
+            "category": getattr(sub, "category", "") or "",
+            "address": getattr(sub, "address", "") or "",
+            "rating": getattr(sub, "rating", None),
+            "avg_cost": getattr(sub, "avg_cost", None),
+            "photo_url": getattr(sub, "photo_url", "") or "",
+            "photo_source": getattr(sub, "photo_source", "") or "",
+            "travel_before": 0,
+            "sub_anchor_name": sub.name,
+            "parent_name": getattr(sub, "parent_name", "") or "",
+            "is_passthrough": False,
+            "primary_target": True,
+            "recommend_reason": "本次搜索的核心目标",
+            "is_waypoint": True,
+            "is_display_poi": True,
+        }
+
+    # For direct category/named-POI lookup, the selected Step2 anchor is the
+    # destination. Nearby internals may be useful as later alternatives, but
+    # they must not become route waypoints that dilute or replace the target.
+    if is_direct_primary_target:
+        if used_names is not None:
+            used_names.add(sub.name)
+        return [_primary_anchor_point()]
+
     if segment.get("degradation") == "free":
         intent_theme_id = str(getattr(parsed_intent, "theme_profile", "") or "") if parsed_intent else ""
         is_themed = bool(intent_theme_id or getattr(parsed_intent, "theme_label", None)) if parsed_intent else False
@@ -2085,7 +2163,14 @@ MICRO_BAD_TERMS = [
 ]
 LIGHT_FOOD_MICRO_TERMS = ["蛋糕", "甜品", "茶歇", "奶茶", "小吃", "咖啡", "cafe", "coffee"]
 MEAL_POSITIVE_TERMS = ["本帮", "上海菜", "中餐", "餐厅", "饭店", "酒家", "小馆", "菜馆", "食府", "馆", "面馆", "馄饨", "烤鸭"]
-MEAL_LIGHT_TERMS = ["咖啡", "cafe", "coffee", "奶茶", "甜品", "蛋糕", "茶歇", "小吃", "面包", "炸鸡"]
+MEAL_LIGHT_TERMS = [
+    "咖啡", "cafe", "coffee", "奶茶", "甜品", "蛋糕", "茶歇", "小吃", "面包", "炸鸡",
+    # v20: English/international light food terms for Baker & Spice etc.
+    "baker", "bakery", "bread", "dessert", "pastry", "spice",
+    "patisserie", "gelato", "ice cream", "yogurt", "smoothie",
+    "juice", "bubble tea", "donut", "muffin", "croissant",
+    "bagel", "sandwich", "salad", "snack", "sweets",
+]
 MEAL_CHAIN_PENALTY_TERMS = ["老乡鸡", "肯德基", "麦当劳", "必胜客", "瑞幸", "星巴克", "CoCo", "库迪"]
 
 
@@ -2256,6 +2341,9 @@ def _filter_meal_candidates(
 def _meal_quality_score(item: MicroPOI) -> float:
     name = item.name
     name_lower = name.lower()
+    category = getattr(item, "category", "") or ""
+    category_lower = category.lower()
+    typecode = getattr(item, "typecode", "") or ""
     score = 0.0
     if any(term in name for term in MEAL_POSITIVE_TERMS):
         score += 3.0
@@ -2265,7 +2353,18 @@ def _meal_quality_score(item: MicroPOI) -> float:
         score += min(item.gaode_rating, 5.0) / 5.0
     if item.avg_cost is not None and 20 <= item.avg_cost <= 180:
         score += 0.5
-    if any(term in name or term in name_lower for term in MEAL_LIGHT_TERMS):
+    # v20: Light food detection — check name (case-insensitive for English terms)
+    # and typecode, not just Chinese name characters
+    light_name_hit = any(
+        term in name or term in name_lower for term in MEAL_LIGHT_TERMS
+    )
+    light_category_hit = any(
+        term in category_lower for term in ["咖啡", "cafe", "coffee", "bakery", "dessert", "pastry", "snack"]
+    )
+    from .poi_typecodes import matches_typecode
+    # v20: Only strict light food typecodes (0502xx-0510xx); 050100 only with name evidence
+    light_typecode_hit = matches_typecode(typecode, ["0502", "0503", "0509", "0510"])
+    if light_name_hit or light_category_hit or light_typecode_hit:
         score -= 1.5
     if any(term in name or term.lower() in name_lower for term in MEAL_CHAIN_PENALTY_TERMS):
         score -= 1.0
@@ -4040,11 +4139,19 @@ def _inject_required_anchors(
     complete_plan: CompletePlan,
     micro_pois: list[MicroPOI],
 ) -> list[dict[str, Any]]:
-    """v6: 确保强意图 anchor/meal POI 进入 route_points，修复 summary 与 points 不一致的问题。"""
+    """v6+v20: 确保固定锚点/meal POI 进入 route_points。
+
+    v20: ALL user-specified fixed anchors are required in route_points,
+    not just meal/keyword-matched ones. Non-meal fixed anchors get
+    kind='primary_anchor' with correct display properties.
+    """
 
     # Step A: 收集必须保留的 POI 名称和对应 slot/day
     _required: dict[str, dict] = {}  # name → {day, slot, kind}
     _meal_pois_by_name: dict[str, MicroPOI] = {m.name: m for m in micro_pois if m.is_meal}
+
+    # User-specified fixed POI names
+    _user_fixed_names = {fp.name for fp in (parsed_intent.fixed_pois or [])}
 
     # 从 meal_slots 中收集已选餐饮 POI，记录其 slot 和 day
     for day in complete_plan.day_plans:
@@ -4054,23 +4161,48 @@ def _inject_required_anchors(
             if pn and pn in _meal_pois_by_name:
                 _required[pn] = {"day": day.day_index, "slot": meal, "kind": "meal"}
 
-    # 从 anchors 中收集命中了强意图关键词的 anchor
-    strong_kws = set(parsed_intent.food_pref_keywords or [])
-    for kw in (parsed_intent.meal_search_keywords or []):
-        strong_kws.add(kw)
-    for kw in (parsed_intent.search_keywords or []):
-        strong_kws.add(kw)
-
+    # v20: Collect ALL fixed anchors (not just meal/keyword ones)
     for day in complete_plan.day_plans:
         for anchor in day.anchors:
             name = anchor.name
             tc = getattr(anchor, "typecode", "") or ""
-            if (tc.startswith("05") or any(kw in name for kw in strong_kws if len(kw) >= 2)):
-                if name not in {p.get("name") for p in points} and name not in _required:
+            is_fixed = getattr(anchor, "fixed", False)
+            is_user_named = name in _user_fixed_names
+            is_meal = tc.startswith("05")
+
+            # Already in points or already in _required
+            if name in {p.get("name") for p in points} or name in _required:
+                continue
+
+            if is_fixed or is_user_named:
+                # v20: Fixed anchor — inject as primary_anchor, NOT meal
+                _required[name] = {
+                    "day": day.day_index,
+                    "slot": "",
+                    "kind": "primary_anchor",
+                    "fixed": True,
+                    "anchor_obj": anchor,
+                }
+            elif is_meal:
+                strong_kws = set(parsed_intent.food_pref_keywords or [])
+                for kw in (parsed_intent.meal_search_keywords or []):
+                    strong_kws.add(kw)
+                for kw in (parsed_intent.search_keywords or []):
+                    strong_kws.add(kw)
+                if any(kw in name for kw in strong_kws if len(kw) >= 2):
                     _required[name] = {"day": day.day_index, "slot": "dinner", "kind": "meal"}
 
     if not _required:
         return points
+
+    # v20: Log required fixed anchors
+    _required_fixed = [n for n, info in _required.items() if info.get("kind") == "primary_anchor"]
+    if _required_fixed:
+        print(
+            f"[RequiredAnchorInjection] "
+            f"before={[p.get('name') for p in points]} "
+            f"required_fixed={_required_fixed}"
+        )
 
     # Step B: 将缺失的必须 POI 注入 points（插入到 start 之后）
     _existing_names = {p.get("name") for p in points}
@@ -4140,9 +4272,35 @@ def _inject_required_anchors(
             else:
                 continue
 
+        # v20: For primary_anchor, set correct display properties and slot
+        if kind == "primary_anchor":
+            pt["primary_target"] = True
+            pt["fixed"] = True
+            if not pt.get("display_slot"):
+                existing_slots = [p.get("display_slot") for p in points if p.get("display_slot")]
+                if "morning" not in str(existing_slots):
+                    pt["display_slot"] = "morning"
+                else:
+                    pt["display_slot"] = "afternoon"
+            pt["recommend_reason"] = pt.get("recommend_reason", "") or "用户指定目的地"
+            print(
+                f"[RequiredAnchorInjection] inserted={name} "
+                f"kind={kind} slot={pt.get('display_slot')} "
+                f"fixed={pt.get('fixed')} primary={pt.get('primary_target')}"
+            )
+        elif kind == "meal":
+            print(f"[DEBUG step3] injected meal POI: {name} day={day_idx} slot={slot}")
+
         result.insert(_insert_idx, pt)
         _insert_idx += 1
-        print(f"[DEBUG step3] injected POI into route_points: {name} day={day_idx} slot={slot} kind={kind}")
+
+    # v20: Log final state
+    if _required_fixed:
+        _final_names = [p.get("name") for p in result if p.get("kind") == "primary_anchor"]
+        print(
+            f"[RequiredAnchorInjection] "
+            f"after={_final_names}"
+        )
 
     return result
 
@@ -4632,37 +4790,104 @@ def _promote_density_waypoints(
     return points, waypoint_annotations
 
 
+# v20: Light eat buffer — collects light eat candidates filtered out of internal POIs
+# so _interleave_stroll_eat_points can use them even when theme policy would exclude them.
+_stroll_eat_buffer: list[dict[str, Any]] = []
+
+LIGHT_EAT_NAMES = {"小吃", "咖啡", "甜品", "蛋糕", "奶茶", "茶饮", "冰淇淋", "烘焙", "面包", "零食", "轻食", "简餐"}
+LIGHT_EAT_TYPECODES = {
+    "050100",  # 中餐厅 — only when combined with light food name (see _is_light_eat_candidate)
+}
+# v20: Light eat typecodes for use in _is_light_eat_candidate — excludes 050100 to avoid
+# false-positive on regular restaurants like 海底捞. 050100 is only light food when name matches.
+LIGHT_EAT_TYPECODES_STRICT = {"050200", "050300", "050301", "050302", "050900", "051000"}
+# v20: English light food detection — Baker & Spice etc.
+LIGHT_EAT_ENGLISH_TERMS = [
+    "baker", "bakery", "bread", "cafe", "coffee", "dessert", "pastry", "spice",
+    "cake", "patisserie", "boulangerie", "gelato", "ice cream", "yogurt",
+    "smoothie", "juice bar", "tea house", "bubble tea", "donut", "muffin",
+    "croissant", "bagel", "sandwich", "salad", "snack", "sweets",
+    "starbucks", "costa", "manner", "tim hortons", "pret a manger",
+]
+
+
+def _is_light_eat_candidate(poi: dict[str, Any]) -> bool:
+    """Check if a POI is a light eat/snack/cafe candidate — data-driven, no city names.
+
+    v20: Uses strict typecode matching. 050100 (中餐厅) only counts as light food
+    when combined with name evidence (e.g. "咖啡", "bakery").
+    """
+    from .poi_typecodes import matches_typecode
+    name = str(poi.get("name", "") or "")
+    name_lower = name.lower()
+    typecode = str(poi.get("typecode", "") or "")
+    category = str(poi.get("category", "") or "").lower()
+
+    has_light_name = (
+        any(term in name for term in LIGHT_EAT_NAMES)
+        or any(term in name_lower for term in LIGHT_EAT_ENGLISH_TERMS)
+    )
+    has_light_category = any(
+        term in category for term in ["咖啡", "甜品", "面包", "烘焙", "茶饮", "cafe", "bakery", "dessert", "pastry"]
+    )
+    has_strict_typecode = matches_typecode(typecode, list(LIGHT_EAT_TYPECODES_STRICT))
+
+    # Light name/category alone is enough
+    if has_light_name or has_light_category:
+        return True
+    # Strict typecodes (0502xx-0510xx) are reliably light food
+    if has_strict_typecode:
+        return True
+    # 050100 (中餐厅) only with name or category evidence — not alone
+    if matches_typecode(typecode, ["050100"]) and (has_light_name or has_light_category):
+        return True
+
+    return False
+
+
 def _interleave_stroll_eat_points(
     points: list[dict[str, Any]],
     parsed_intent: ParsedIntent,
 ) -> list[dict[str, Any]]:
-    """v18: 逛吃穿插 — 在上午/下午游览点间穿插轻食/小吃/咖啡/甜品。
+    """v18+v20: 逛吃穿插 — 在上午/下午游览点间穿插轻食/小吃/咖啡/甜品。
 
-    每 1-2 个 anchor_internal 游览点后最多补 1 个轻餐饮点，不替换正餐 slots。
+    v20: 每 1-2 个真实逛游点后最多插入 1 个轻食点，全天最多 2-3 个。
+    轻食不能替换午餐和晚餐。候选来源包括 _stroll_eat_buffer 和 points 中未展示的轻食点。
     """
     constraints = getattr(parsed_intent, "other_constraints", []) or []
     if "逛吃穿插" not in constraints:
         return points
 
-    LIGHT_EAT_NAMES = {"小吃", "咖啡", "甜品", "蛋糕", "奶茶", "茶饮", "冰淇淋", "烘焙", "面包", "零食", "轻食", "简餐"}
-    LIGHT_EAT_TYPECODES = {"050100", "050200", "050300", "050301", "050302", "050900", "051000"}
-
-    def _is_light_eat(p: dict[str, Any]) -> bool:
-        kind = str(p.get("kind") or "").lower()
-        if kind in {"meal", "restaurant", "start", "hint", "free_explore"}:
-            return False
-        name = str(p.get("name") or "")
-        typecode = str(p.get("typecode") or "")
-        # v20: use per-code prefix matching instead of typecode[:6] on raw string
-        from .poi_typecodes import matches_typecode
-        return (
-            any(term in name for term in LIGHT_EAT_NAMES)
-            or matches_typecode(typecode, list(LIGHT_EAT_TYPECODES))
-        )
-
     def _is_visit(p: dict[str, Any]) -> bool:
         kind = str(p.get("kind") or "").lower()
-        return kind in {"anchor_internal", "micro"} and p.get("is_waypoint") not in (False, None)
+        return kind in {"anchor_internal", "micro"} and p.get("is_waypoint") in (True, None)
+
+    # Build light eat candidate pool from:
+    # 1) Points that are light_eat but not waypoints
+    # 2) _stroll_eat_buffer (collected during internal POI filtering)
+    light_pool: list[dict[str, Any]] = []
+    for p in points:
+        if _is_light_eat_candidate(p) and not p.get("is_waypoint"):
+            kind = str(p.get("kind") or "").lower()
+            if kind not in {"meal", "restaurant", "start", "hint", "free_explore"}:
+                light_pool.append(p)
+
+    # Also check _stroll_eat_buffer for additional candidates
+    for p in _stroll_eat_buffer:
+        if _is_light_eat_candidate(p):
+            p_already_in = any(p.get("name") == existing.get("name") for existing in points)
+            if not p_already_in:
+                light_pool.append(p)
+
+    if not light_pool:
+        print("[DEBUG step3] interleave_stroll_eat: no light eat candidates in pool or buffer")
+        return points
+
+    print(
+        f"[DEBUG step3] interleave_stroll_eat: "
+        f"light_pool_size={len(light_pool)} buffer_size={len(_stroll_eat_buffer)} "
+        f"names={[p.get('name') for p in light_pool[:8]]}"
+    )
 
     # Group by day
     by_day: dict[int, list[dict[str, Any]]] = {}
@@ -4670,40 +4895,67 @@ def _interleave_stroll_eat_points(
         day = int(p.get("day") or p.get("day_index") or 1)
         by_day.setdefault(day, []).append(p)
 
+    # Separate light pool by day based on location proximity to day's visit points
+    def _day_for_light_candidate(lc: dict[str, Any]) -> int:
+        lc_loc = lc.get("location") or {}
+        if not lc_loc:
+            return 1
+        best_day = 1
+        best_dist = float("inf")
+        for d, day_pts in by_day.items():
+            for dp in day_pts:
+                dp_loc = dp.get("location") or {}
+                if dp_loc:
+                    dist = haversine_km(lc_loc, dp_loc)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_day = d
+        return best_day
+
     result: list[dict[str, Any]] = []
+    total_light_used = 0
+    max_total_light = 3  # v20: 全天最多 3 个轻食点
+
     for day in sorted(by_day.keys()):
         day_points = by_day[day]
-        # Identify light eat candidates within this day's points that are NOT already waypoints
-        light_candidates = [p for p in day_points if _is_light_eat(p) and not p.get("is_waypoint")]
-        if not light_candidates:
+        light_for_day = [lc for lc in light_pool if _day_for_light_candidate(lc) == day]
+        if not light_for_day:
             result.extend(day_points)
             continue
 
         interleaved: list[dict[str, Any]] = []
         visit_count = 0
         light_used = 0
-        max_light = min(len(light_candidates), 3)
 
         for p in day_points:
             interleaved.append(p)
             if _is_visit(p):
                 visit_count += 1
-                if visit_count % 2 == 0 and light_used < max_light:
-                    lc = light_candidates[light_used]
+                if visit_count % 2 == 0 and light_used < len(light_for_day) and total_light_used < max_total_light:
+                    lc = light_for_day[light_used]
+                    # v20: don't replace lunch/dinner meal slots
+                    slot = str(p.get("display_slot") or "")
+                    if slot in {"lunch", "dinner"}:
+                        continue
+                    lc["kind"] = "micro"
                     lc["is_waypoint"] = True
+                    lc["is_display_poi"] = True
                     lc["stroll_eat_promoted"] = True
                     lc["display_slot"] = p.get("display_slot", "")
+                    lc["recommend_reason"] = lc.get("recommend_reason") or "逛吃穿插推荐"
                     lc.pop("display_order", None)
                     interleaved.append(lc)
                     light_used += 1
+                    total_light_used += 1
 
         if light_used > 0:
             print(
-                f"[DEBUG step3] interleaved stroll-eat points day={day} "
-                f"count={light_used} names={[light_candidates[i].get('name') for i in range(light_used)]}"
+                f"[DEBUG step3] interleaved stroll-eat day={day} "
+                f"inserted={light_used} names={[light_for_day[i].get('name') for i in range(min(light_used, len(light_for_day)))]}"
             )
         result.extend(interleaved)
 
+    # Recompute display_order
     for idx, p in enumerate(result, start=1):
         if p.get("kind") != "start":
             p["route_order"] = idx
@@ -4825,6 +5077,94 @@ def _defer_night_scene_points(route_points: list[dict[str, Any]]) -> list[dict[s
     return result
 
 
+async def _targeted_supplement_recall(
+    parsed_intent: ParsedIntent,
+    complete_plan: CompletePlan,
+    points: list[dict[str, Any]],
+    sub_anchors: list[Any],
+) -> list[dict[str, Any]]:
+    """City-scoped targeted recall for a genuinely sparse full-day theme route.
+
+    The query terms come from Step1's original theme/search fields.  Results are
+    hard-limited to CompletePlan.city; no unrelated category fallback is used.
+    """
+    city = complete_plan.city or ""
+    if not city:
+        return []
+
+    raw_terms = [
+        *(getattr(parsed_intent, "micro_keywords", []) or []),
+        *(getattr(parsed_intent, "micro_poi_keywords", []) or []),
+        *(getattr(parsed_intent, "theme_keywords", []) or []),
+        *(getattr(parsed_intent, "search_keywords", []) or []),
+    ]
+    supplement_terms: list[str] = []
+    for term in raw_terms:
+        clean = str(term or "").strip()
+        if clean and clean not in supplement_terms:
+            supplement_terms.append(clean)
+    if not supplement_terms:
+        return []
+
+    results: list[dict[str, Any]] = []
+    existing_names = {str(point.get("name") or "") for point in points}
+    city_short = city.rstrip("市")
+
+    for term in supplement_terms[:4]:
+        try:
+            raws = await gaode_text_search(
+                term,
+                city=city,
+                show_fields=config.GAODE_SHOW_FIELDS,
+                city_limit=True,
+            )
+        except Exception:
+            continue
+
+        query_tokens = [
+            token for token in str(term).replace(city, "").replace(city_short, "").split()
+            if len(token) >= 2 and token not in {"攻略", "推荐", "路线", "打卡", "拍照", "休闲"}
+        ]
+        for raw in (raws or [])[:10]:
+            place = raw_to_place(raw)
+            if not place or not place.get("location"):
+                continue
+            name = str(place.get("name", "") or "")
+            if not name or name in existing_names:
+                continue
+            typecode = str(place.get("typecode", "") or "")
+            identity_text = " ".join([
+                name,
+                str(place.get("category", "") or ""),
+                str(place.get("address", "") or ""),
+            ])
+            if query_tokens and not any(token in identity_text for token in query_tokens):
+                continue
+            if not is_valid_route_poi(typecode, name):
+                continue
+            existing_names.add(name)
+            results.append({
+                "name": name,
+                "location": place.get("location"),
+                "typecode": typecode,
+                "kind": "anchor_internal",
+                "is_display_poi": True,
+                "is_waypoint": True,
+                "supplement_recall": True,
+                "recommend_reason": f"{city_short}市范围内主题补充推荐",
+            })
+            if len(results) >= 5:
+                break
+        if len(results) >= 5:
+            break
+
+    print(
+        f"[DEBUG step3] targeted_supplement_recall: "
+        f"scope=citywide city={city} terms={supplement_terms[:4]} found={len(results)}"
+    )
+    return results[:5]
+
+
 async def run_step3(
     parsed_intent: ParsedIntent,
     complete_plan: CompletePlan,
@@ -4871,6 +5211,8 @@ async def run_step3(
     # ── 3.1 锚点内子POI搜索 + 筛选排序 ──
     logger.start_step("step_3_1_internal_search")
     await emit_status("正在搜索目的地内部景点...")
+    # v20: clear stroll eat buffer before new search
+    _stroll_eat_buffer.clear()
     theme_search = list(micro_policy.get("search_terms", []))[:8] if micro_policy.get("active") else None
     sub_anchors = await _search_anchor_internals(sub_anchors, city, theme_search_terms=theme_search)
     # v5.2 r5: POI空间硬分配 — 每个POI只归最近的锚点，解决跨锚点POI泄漏
@@ -4886,6 +5228,7 @@ async def run_step3(
             sub.variance_ratio,
             is_large,
             micro_policy=micro_policy,
+            parsed_intent=parsed_intent,
         )
         sub.internal_pois = filtered
         # 更新prev_end为当前子锚点排序后最后一个POI的位置
@@ -4894,6 +5237,10 @@ async def run_step3(
         if trim_hint and not sub.degradation_hint:
             sub.degradation_hint = trim_hint
         new_level, new_hint = _determine_degradation(filtered, sub.capacity)
+        print(
+            f"[DEBUG step3 degrade] sub={sub.name} filtered_count={len(filtered)} "
+            f"degradation={new_level} hint={new_hint} capacity={sub.capacity}"
+        )
         if new_level != sub.degradation_level:
             sub.degradation_level = new_level
             if new_hint and not sub.degradation_hint:
@@ -5096,25 +5443,61 @@ async def run_step3(
         ],
         route_segments=[s.model_dump() if hasattr(s, "model_dump") else s for s in route_segments],
     )
-    _reality_log = plan_reality_audit_log(_reality, getattr(parsed_intent, "primary_query", "") or "")
+    # v20: Initialize variables BEFORE conditional blocks to avoid UnboundLocalError
+    _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+    _primary_query = getattr(parsed_intent, "primary_query", "") or ""
+    _time_budget = float(getattr(parsed_intent, "time_budget", 1.0) or 1.0)
+
+    _reality_log = plan_reality_audit_log(_reality, _primary_query)
     print(f"[DEBUG step3] {_reality_log}")
 
     if not _reality.valid:
         print(f"[WARN step3] Plan reality check failed: {_reality.violations}")
-        # For primary missing or meal takeover on direct POI query, re-trigger recall
-        _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
-        if _poi_qtype in ("poi_category", "named_poi") and (
+
+        # v20: Full-day theme routes with critical violations must block output
+        _is_full_day_theme = (
+            _poi_qtype in ("theme_route", "") and _time_budget >= 1.0
+        )
+        _critical_violations = (
             "no_primary_waypoint_found" in _reality.violations
             or "meal_takeover" in _reality.violations
             or "primary_target_marked_free_explore_or_hint" in _reality.violations
-        ):
+            or "full_day_theme_needs_3_related" in _reality.violations
+        )
+
+        # For poi_category/named_poi: hard block on critical violations
+        if _poi_qtype in ("poi_category", "named_poi") and _critical_violations:
             raise ZeroOutputError(
                 f"路线验证失败：{'; '.join(_reality.violations)}。"
                 f"请调整搜索条件后重试。"
             )
 
+        # v20: Full-day theme route — trigger targeted re-recall instead of silent output
+        if _is_full_day_theme and _critical_violations:
+            print(
+                f"[WARN step3] full_day theme route with critical violations: "
+                f"{_reality.violations}. Triggering targeted re-recall..."
+            )
+            # Try to supplement with nearby walkable POIs
+            _supplement_points = await _targeted_supplement_recall(
+                parsed_intent, complete_plan, points, sub_anchors,
+            )
+            if _supplement_points:
+                for sp in _supplement_points:
+                    if sp.get("name") not in {p.get("name") for p in points}:
+                        points.append(sp)
+                print(
+                    f"[DEBUG step3] supplement recall added {len(_supplement_points)} points: "
+                    f"{[sp.get('name') for sp in _supplement_points]}"
+                )
+            else:
+                # Still failed — return clear message, don't pretend it's a valid full day
+                raise ZeroOutputError(
+                    f"该区域全天可逛地点不足（{_reality.violations}），"
+                    f"建议缩小范围或换一个片区试试~"
+                )
+
     # Ensure primary query POIs are visible waypoints (not hidden/free_explore)
-    _primary_query = getattr(parsed_intent, "primary_query", "") or ""
     if _primary_query and _poi_qtype in ("poi_category", "named_poi"):
         for point in points:
             name = str(point.get("name", "") or "")

@@ -980,6 +980,89 @@ def _recommend_reason(place: ScoredPlace, parsed_intent: ParsedIntent) -> str:
     return "；".join(reason_parts)
 
 
+def _select_best_fixed_match(
+    items: list[dict], target_name: str, city: str, city_short: str
+) -> dict | None:
+    """v20: Select the best match for a user-specified fixed POI.
+    Priority: exact name match > normalized match > name overlap + park/scenic type > first result.
+    All must be in the correct city.
+    """
+    if not items:
+        return None
+
+    target_lower = target_name.lower().strip()
+
+    # Score each item
+    scored = []
+    for item in items:
+        score = 0
+        item_name = str(item.get("name", "") or "").strip()
+        item_name_lower = item_name.lower()
+        item_city = str(item.get("cityname", "") or item.get("city", "") or "")
+        item_adname = str(item.get("adname", "") or "")
+        item_typecode = str(item.get("typecode", "") or "")
+
+        # City check: must be in Beijing (or target city)
+        city_ok = (
+            city in item_city or city_short in item_city
+            or city in item_adname or city_short in item_adname
+            or (not item_city and not item_adname)  # no city info → assume correct
+        )
+        if not city_ok:
+            continue
+
+        # Exact name match
+        if item_name == target_name:
+            score += 100
+        elif item_name_lower == target_lower:
+            score += 90
+        # Normalized match (strip punctuation)
+        norm_item = re.sub(r"[（(].*?[）)]", "", item_name).strip()
+        norm_target = re.sub(r"[（(].*?[）)]", "", target_name).strip()
+        if norm_item == norm_target:
+            score += 80
+        elif norm_item.lower() == norm_target.lower():
+            score += 70
+        # High character overlap
+        item_chars = set(item_name_lower)
+        target_chars = set(target_lower)
+        overlap = len(item_chars & target_chars)
+        if overlap >= max(len(target_chars) * 0.7, 2):
+            score += 30
+
+        # Type bonus: park/scenic/landmark
+        if item_typecode.startswith("11"):
+            score += 10
+
+        scored.append((score, item))
+
+    if not scored:
+        return items[0] if items else None
+
+    scored.sort(key=lambda x: -x[0])
+    best_score, best_item = scored[0]
+
+    if best_score >= 30:
+        print(
+            f"[DEBUG fixed_match] selected={best_item.get('name')} "
+            f"score={best_score} candidates={[(s, i.get('name','')[:20]) for s, i in scored[:5]]}"
+        )
+        return best_item
+
+    return None
+
+
+def _extract_photo_from_raw(raw: dict) -> str:
+    """Extract photo URL from raw Gaode result if available."""
+    photos = raw.get("photos") or raw.get("photo") or []
+    if isinstance(photos, list) and photos:
+        first = photos[0]
+        if isinstance(first, dict):
+            return str(first.get("url", "") or "")
+        return str(first)
+    return ""
+
+
 async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile) -> list[AnchorPlan]:
     if not parsed_intent.fixed_pois:
         return []
@@ -995,28 +1078,58 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
 
     city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
 
-    # 对未查询过的FixedPoi进行高德搜索
+    # 对未查询过的FixedPoi进行高德搜索（v20: 城市限制精确匹配）
     fixed_pois = [fp for fp in parsed_intent.fixed_pois if fp.name.lower() not in all_excluded]
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v20: Enhanced search — city-limited, best-match selection, preserve real data
     to_search = [(i, fp) for i, fp in enumerate(fixed_pois) if not fp.location or not fp.typecode]
     if to_search:
         search_results = await asyncio.gather(*[
             gaode_text_search(fp.name, city=city) for _, fp in to_search
         ])
         for (idx, fp), items in zip(to_search, search_results):
-            if items:
-                item = items[0]
-                fp.location = fp.location or item.get("location")
-                fp.typecode = fp.typecode or item.get("typecode", "")
+            if not items:
+                continue
+            # v20: Select best match by name exactness, city match, type relevance
+            best_item = _select_best_fixed_match(items, fp.name, city, city_short)
+            if best_item:
+                fp.location = fp.location or best_item.get("location")
+                fp.typecode = fp.typecode or best_item.get("typecode", "")
+                # v20: Preserve real Gaode POI data
+                fp.gaode_poi_id = str(best_item.get("id", "") or best_item.get("uid", ""))
+                fp.address = str(best_item.get("address", "") or "")
+                fp.district = str(best_item.get("adname", "") or best_item.get("district", "") or "")
+                fp.poi_rating = best_item.get("rating") or best_item.get("biz_ext", {}).get("rating")
+                fp.photo_url = _extract_photo_from_raw(best_item)
+                print(
+                    f"[FixedAnchorAudit] name={fp.name} "
+                    f"gaode_poi_id={fp.gaode_poi_id} "
+                    f"fixed=True explicit=True "
+                    f"resolved=True "
+                    f"typecode={fp.typecode} "
+                    f"city={city}"
+                )
 
     anchors: list[AnchorPlan] = []
     places: list[ExtractedPlace] = []
     for fp in fixed_pois:
         name = fp.name
         location = fp.location or parsed_intent.original_location or {}
-        raw = {"name": name, "typecode": fp.typecode or "110200", "location": location, "id": name}
+        gaode_id = getattr(fp, "gaode_poi_id", "") or name
+        raw = {
+            "name": name,
+            "typecode": fp.typecode or "110200",
+            "location": location,
+            "id": gaode_id,
+            "address": getattr(fp, "address", "") or "",
+            "district": getattr(fp, "district", "") or "",
+        }
         extracted = _to_extracted(raw)
         if extracted:
             extracted.time_capacity = fp.resolved_time_budget or infer_capacity_from_typecode(extracted.typecode, extracted.name)
+            # v20: Carry real POI data forward
+            extracted.gaode_poi_id = gaode_id
             places.append(extracted)
     routes = await asyncio.gather(*[_route_from_origin(parsed_intent, place, city) for place in places])
     for place, route in zip(places, routes):
@@ -1034,6 +1147,7 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
                 final_time_budget=time_budget,
                 recommend_reason=reason,
                 origin_transit=f"从出发点约{int(transit or 0)}分钟",
+                fixed=True,  # v20: Mark as user-specified fixed anchor
             )
         )
     return anchors
@@ -1048,7 +1162,29 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
     # v6: 强餐饮意图检测
     strong_meal = _has_strong_meal_intent(parsed_intent)
 
-    if "二次元" in parsed_intent.raw_keywords:
+    # v20: Use intent typecodes for poi_category/named_poi queries
+    _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+    _intent_typecodes = getattr(parsed_intent, "allowed_typecode_prefixes", []) or []
+    if _poi_qtype in ("poi_category", "named_poi") and _intent_typecodes:
+        # Use the exact typecodes from the category rule
+        allowed_types = list(_intent_typecodes)
+        # Include wide fallback so we don't miss relevant results
+        from .poi_typecodes import CATEGORY_RULES
+        _cat_id = getattr(parsed_intent, "primary_query", "") or ""
+        for cid, rule in CATEGORY_RULES.items():
+            for term in rule.get("semantic_terms", []):
+                if term.lower() in _cat_id.lower():
+                    for wf in rule.get("wide_fallback", []):
+                        if wf not in allowed_types:
+                            allowed_types.append(wf)
+                    break
+            if allowed_types != _intent_typecodes:
+                break
+        print(
+            f"[DEBUG macro search] using intent typecodes: "
+            f"intent={_intent_typecodes} full={allowed_types}"
+        )
+    elif "二次元" in parsed_intent.raw_keywords:
         allowed_types = ANIME_ANCHOR_TYPECODES
     else:
         allowed_types = list(ANCHOR_LEVEL_TYPECODES)
@@ -1090,13 +1226,59 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
     ]
     results = await gaode_around_search_batch(requests)
     places = [_to_extracted(raw) for group in results for raw in group]
+    raw_count = len(places)
+
+    # v20: category validation for poi_category queries
+    if _poi_qtype in ("poi_category", "named_poi") and _intent_typecodes:
+        from .poi_typecodes import validate_poi_category
+        _cat_id = getattr(parsed_intent, "primary_query", "") or ""
+        inferred_cat = None
+        for cid in CATEGORY_RULES:
+            if cid == "restaurant":
+                continue
+            for term in CATEGORY_RULES[cid].get("semantic_terms", []):
+                if term.lower() in _cat_id.lower():
+                    inferred_cat = cid
+                    break
+            if inferred_cat:
+                break
+
+        category_passed: list = []
+        category_rejected: list = []
+        for place in places:
+            if not place or not place.typecode:
+                continue
+            if inferred_cat:
+                ok, _ = validate_poi_category(
+                    {"name": place.name, "typecode": place.typecode, "category": getattr(place, "category", "") or ""},
+                    inferred_cat,
+                )
+                if ok:
+                    category_passed.append(place)
+                else:
+                    category_rejected.append((place.name, place.typecode))
+            else:
+                category_passed.append(place)
+
+        print(
+            f"[DEBUG macro search] raw_count={raw_count} "
+            f"category_pass={len(category_passed)} category_reject={len(category_rejected)} "
+            f"rejected=[{', '.join(f'{n}({t})' for n, t in category_rejected[:8])}]"
+        )
+        return category_passed
+
     # v4.1 F1/F2: 宏观搜索也应用 POI 名称过滤（拦截餐厅/停车场等）
-    return [
+    filtered = [
         place for place in places
         if place
         and _type_allowed(place.typecode, allowed_types)
         and is_valid_route_poi(place.typecode, place.name)
     ]
+    print(
+        f"[DEBUG macro search] raw_count={raw_count} deduped={len(filtered)} "
+        f"passed_types_count={len([p for p in places if p and _type_allowed(p.typecode, allowed_types)])} "
+    )
+    return filtered
 
 
 async def _theme_recall_places(
@@ -1432,6 +1614,12 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
     selected: list[AnchorPlan] = list(fixed)
     used = sum(capacity_budget(anchor.final_capacity or anchor.time_capacity) for anchor in fixed)
     target = max(parsed_intent.time_budget, 0.25)
+    # v20: debug logging
+    print(
+        f"[DEBUG step2 select] START fixed_anchors={[(a.name, a.final_capacity or a.time_capacity) for a in fixed]} "
+        f"used={used:.2f} target={target:.2f} "
+        f"candidates={[(c.name, c.final_capacity or c.time_capacity, getattr(c, 'typecode', '')[:6]) for c in candidates[:8]]}"
+    )
     if "节奏宽松" in parsed_intent.other_constraints and any(
         keyword in {"古街", "古镇"} for keyword in parsed_intent.raw_keywords
     ):
@@ -1474,9 +1662,15 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
         selected_capacity = _effective_capacity_for_request(
             candidate.final_capacity or candidate.time_capacity,
             parsed_intent,
+            has_fixed_anchors=bool(fixed),
         )
         budget = capacity_budget(selected_capacity)
         if used + budget > target + 0.001 and selected:
+            print(
+                f"[DEBUG step2 select] SKIP {candidate.name}: "
+                f"capacity={selected_capacity} budget={budget:.2f} used={used:.2f} target={target:.2f} "
+                f"would_exceed={used + budget > target + 0.001}"
+            )
             continue
         data = candidate.model_dump()
         data["final_capacity"] = selected_capacity
@@ -1498,7 +1692,12 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
             break
     if not selected and candidates:
         candidate = candidates[0]
-        capacity = _effective_capacity_for_request(candidate.final_capacity or candidate.time_capacity, parsed_intent)
+        capacity = _effective_capacity_for_request(candidate.final_capacity or candidate.time_capacity, parsed_intent, has_fixed_anchors=bool(fixed))
+        print(
+            f"[DEBUG step2 select] FALLBACK single anchor: {candidate.name} "
+            f"original_capacity={candidate.final_capacity or candidate.time_capacity} "
+            f"upgraded_capacity={capacity}"
+        )
         selected.append(
             AnchorPlan(
                 **candidate.model_dump(),
@@ -1530,6 +1729,7 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
                     selected_capacity = _effective_capacity_for_request(
                         best.final_capacity or best.time_capacity,
                         parsed_intent,
+                        has_fixed_anchors=bool(fixed),
                     )
                     data = best.model_dump()
                     data["final_capacity"] = selected_capacity
@@ -1541,6 +1741,10 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
                         recommend_reason=reason,
                         origin_transit=f"从出发点约{int(best.transit_from_origin_min or 0)}分钟",
                     )
+    print(
+        f"[DEBUG step2 select] DONE selected={[(a.name, a.final_capacity or a.time_capacity) for a in selected]} "
+        f"used/target={used:.2f}/{target:.2f} count={len(selected)}"
+    )
     return selected
 
 
@@ -1550,12 +1754,18 @@ def _capacity_rejects_for_macro_search(parsed_intent: ParsedIntent) -> list[str]
     return list(parsed_intent.reject_capacities)
 
 
-def _effective_capacity_for_request(capacity: str, parsed_intent: ParsedIntent, *, is_fixed: bool = False) -> str:
-    """v5.2: is_fixed=True时，不升级用户明确指定的capacity（如"上午"→half_day不应被升为full_day）"""
+def _effective_capacity_for_request(capacity: str, parsed_intent: ParsedIntent, *, is_fixed: bool = False, has_fixed_anchors: bool = False) -> str:
+    """v5.2+v20: is_fixed=True时不升级用户明确指定的capacity。
+
+    v20: 有固定锚点时不再将 half_day 普遍升级为 full_day，
+    以免单个候选占满预算导致其他候选全部被跳过。
+    仅在无固定锚点且最终只有一个候选时才扩大单锚点预算。
+    """
     if parsed_intent.time_budget <= 0.25:
         return "quarter_day"
     if not is_fixed:
-        if parsed_intent.time_budget >= 1.0 and capacity == "half_day":
+        # v20: 有固定锚点时保持 half_day，允许组合多个候选
+        if parsed_intent.time_budget >= 1.0 and capacity == "half_day" and not has_fixed_anchors:
             return "full_day"
         if parsed_intent.time_budget >= 0.5 and capacity == "quarter_day" and not _is_nearby_request(parsed_intent):
             return "half_day"
@@ -2002,6 +2212,11 @@ def _assemble_plan(
     budget_threshold: float,
 ) -> CompletePlan:
     max_days = _target_day_count(parsed_intent)
+    print(
+        f"[DEBUG step2 assemble] START anchors={[(a.name, a.final_capacity or a.time_capacity) for a in anchors]} "
+        f"max_days={max_days} delete_list={delete_list[:10]} "
+        f"meal_needs={parsed_intent.meal_needs} time_budget={parsed_intent.time_budget}"
+    )
     day_bins: list[dict[str, Any]] = [{"anchors": [], "used": 0.0, "long_transit_used": False} for _ in range(max_days)]
     single_day_capacity = 1.25 if max_days == 1 and parsed_intent.evening_requested else 1.0
     remaining = list(enumerate(anchors))
@@ -2069,8 +2284,25 @@ def _assemble_plan(
         meal_slots = _meal_slots_for_day(parsed_intent, index)
         if not day_anchors and not meal_slots:
             meal_slots = []
-        if len(day_anchors) <= 1 and not parsed_intent.evening_requested and not _has_requested_dinner(parsed_intent):
+        # v20: a full day 且时间范围覆盖晚餐窗口时，不得因 anchor 数量少删除 dinner
+        # meal_needs 中已计算出的 dinner 应视为明确需要
+        _full_day_covers_dinner = (
+            parsed_intent.time_budget >= 1.0
+            and "dinner" in (parsed_intent.meal_needs if isinstance(parsed_intent.meal_needs, list) else [])
+        )
+        _should_keep_dinner = (
+            parsed_intent.evening_requested
+            or _has_requested_dinner(parsed_intent)
+            or _full_day_covers_dinner
+        )
+        if len(day_anchors) <= 1 and not _should_keep_dinner:
+            meal_slots_before = [s.get("meal") for s in meal_slots]
             meal_slots = [slot for slot in meal_slots if slot.get("meal") != "dinner"]
+            print(
+                f"[DEBUG step2 assemble] dinner removed: "
+                f"day_anchors={len(day_anchors)} meal_slots_before={meal_slots_before} "
+                f"meal_slots_after={[s.get('meal') for s in meal_slots]}"
+            )
         day_plans.append(DayPlan(day_index=index, anchors=day_anchors, meal_slots=meal_slots))
 
     city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
@@ -2128,7 +2360,24 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     delete_list: list[str] = []
 
     # v9: 探索模式下，即使 fixed anchors 填满预算，也跑 Bocha 富化
-    should_skip_search = bool(fixed_anchors and fixed_budget >= parsed_intent.time_budget)
+    # v20: poi_category/named_poi queries MUST always execute target recall
+    _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+    _primary_q = getattr(parsed_intent, "primary_query", "") or ""
+    _proximity_req = bool(getattr(parsed_intent, "proximity_requested", False))
+    _has_search_center = (
+        bool(getattr(parsed_intent, "search_area_location", None))
+        or bool(getattr(parsed_intent, "search_area_label", None))
+    )
+    _must_recall_target = (
+        _poi_qtype in ("poi_category", "named_poi")
+        or bool(_primary_q)
+        or (_proximity_req and _has_search_center)
+    )
+
+    should_skip_search = bool(
+        fixed_anchors and fixed_budget >= parsed_intent.time_budget
+        and not _must_recall_target  # v20: never skip when user has explicit target
+    )
     is_exploratory = getattr(parsed_intent, 'plan_mode', 'exploratory') != 'planned'
     if should_skip_search and is_exploratory and fixed_anchors:
         # 仅富化 fixed anchors 本身，不跑宏观搜索
@@ -2158,7 +2407,39 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     if not should_skip_search:
         logger.start_step("step_2_1_gaode_search")
         await emit_status("正在搜索周边好去处...")
-        central_locations = [anchor.location for anchor in fixed_anchors] if fixed_anchors else None
+        # v20: Search center priority:
+        # 1. search_area_location (from proximity parsing)
+        # 2. fixed anchor locations (when fixed anchors are destinations, not search centers)
+        # 3. original_location (home)
+        _search_center = None
+        _search_center_label = ""
+        if parsed_intent.search_area_location:
+            _search_center = [parsed_intent.search_area_location]
+            _search_center_label = getattr(parsed_intent, "search_area_label", "") or "search_area"
+            print(
+                f"[DEBUG macro search] search_center_source=search_area_location "
+                f"label={_search_center_label} "
+                f"loc=({_search_center[0].get('lat','')},{_search_center[0].get('lng','')})"
+            )
+        elif fixed_anchors and not parsed_intent.is_search_center_only:
+            _search_center = [anchor.location for anchor in fixed_anchors]
+            _search_center_label = ", ".join(a.name for a in fixed_anchors)
+            print(f"[DEBUG macro search] search_center_source=fixed_anchors label={_search_center_label}")
+        else:
+            _search_center = [parsed_intent.original_location] if parsed_intent.original_location else None
+            _search_center_label = "original_location"
+            print(f"[DEBUG macro search] search_center_source=original_location label={_search_center_label}")
+
+        central_locations = _search_center
+        print(
+            f"[DEBUG macro search] "
+            f"should_skip_search={should_skip_search} "
+            f"must_recall_target={_must_recall_target} "
+            f"primary_query={_primary_q} "
+            f"poi_query_type={_poi_qtype} "
+            f"keywords={parsed_intent.search_keywords[:4]} "
+            f"radius={'proximity' if _proximity_req else 'default'} "
+        )
         raw_places = await _search_macro_places(parsed_intent, central_locations=central_locations)
         places = _dedupe_places(raw_places)
         deduped_count = len(places)

@@ -89,6 +89,10 @@ def is_valid_route_poi(
     explicit_meal_intent: bool = False,
     poi_query_type: str = "",
     allowed_shopping_prefixes: list[str] | None = None,
+    # v20: Explicit target bypass — if POI matches user's explicit query, skip blacklist
+    primary_query: str = "",
+    category_id: str | None = None,
+    allowed_typecode_prefixes: list[str] | None = None,
 ) -> bool:
     """v20: POI 是否允许进入游览路线。
 
@@ -96,6 +100,7 @@ def is_valid_route_poi(
     - 无明确餐饮意图时拒绝 05xxxx（餐饮服务）
     - 直接购物/服务查询时允许符合目标品类的 06xxxx
     - 游览主题路线时按白名单筛选
+    - 用户明确查询医院/药店等目标时，通过category validation的POI跳过通用黑名单
 
     skip_subordinate_check: 为True时跳过商场内子店铺过滤，用于POI不足时的补充放行。
     bypass_filter: 为True时绕过所有过滤（planned意图，用户明确指定的POI）。
@@ -108,8 +113,28 @@ def is_valid_route_poi(
     if bypass_filter:
         return True
 
+    # v20: Check if this POI is an explicit user target (e.g., hospital query)
+    # If so, validate via category rules and skip the generic blacklist
+    _is_explicit_target = bool(
+        poi_query_type in ("poi_category", "named_poi")
+        and primary_query
+        and category_id
+    )
+    _target_validated = False
+    if _is_explicit_target and name:
+        from .poi_typecodes import validate_poi_category, CATEGORY_RULES, get_allowed_typecode_prefixes
+        rule = CATEGORY_RULES.get(category_id) if category_id else None
+        if rule:
+            poi_data = {"name": name, "typecode": tc, "category": ""}
+            ok, reasons = validate_poi_category(poi_data, category_id, require_two_evidence=False)
+            if ok:
+                _target_validated = True
+                # This POI matches the user's explicit query target — skip blacklist
+                pass
+
     # ── 1. 名称兜底黑名单（停车场/学校/游泳馆等），最高优先级 ──
-    if name:
+    # v20: Skip blacklist for explicit target POIs that passed category validation
+    if name and not _target_validated:
         name_lower = name.lower()
         for kw in config.ROUTE_POI_NAME_BLACKLIST:
             if kw.lower() in name_lower:

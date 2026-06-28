@@ -457,6 +457,55 @@ def _planned_semantic_score(
     return score
 
 
+def _safe_float_cost(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value > 0 else None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        text = (
+            text.replace("¥", "")
+            .replace("￥", "")
+            .replace("元", "")
+            .replace("/人", "")
+            .replace("人均", "")
+            .strip()
+        )
+        try:
+            parsed = float(text)
+            return parsed if parsed > 0 else None
+        except ValueError:
+            return None
+    return None
+
+
+def _raw_avg_cost(raw: dict[str, Any]) -> float | None:
+    biz_ext = raw.get("biz_ext") or {}
+    cost = None
+    if isinstance(biz_ext, dict):
+        cost = biz_ext.get("cost") or biz_ext.get("price")
+    if cost is None:
+        cost = raw.get("avg_cost") or raw.get("cost") or raw.get("price")
+    return _safe_float_cost(cost)
+
+
+def _budget_filter_raw_results(
+    results: list[dict[str, Any]],
+    budget_threshold: float | None,
+) -> list[dict[str, Any]]:
+    if budget_threshold is None or budget_threshold <= 0:
+        return results
+    filtered: list[dict[str, Any]] = []
+    for item in results:
+        avg_cost = _raw_avg_cost(item)
+        if avg_cost is None or avg_cost <= budget_threshold:
+            filtered.append(item)
+    return filtered
+
+
 def _rank_planned_results(
     wp: PlannedWaypoint,
     results: list[dict[str, Any]],
@@ -526,9 +575,8 @@ def _to_poi_dict(raw: dict[str, Any], target_index: int = -1, is_candidate: bool
     lng = loc.get("lng", 0) if isinstance(loc, dict) else 0
     lat = loc.get("lat", 0) if isinstance(loc, dict) else 0
 
-    # 处理 biz_ext 中的 cost
-    biz_ext = raw.get("biz_ext", {}) or {}
-    avg_cost = biz_ext.get("cost") if isinstance(biz_ext, dict) else None
+    # 处理 biz_ext 中的 cost — 统一使用标准解析
+    avg_cost = _raw_avg_cost(raw)
 
     # 处理 photos
     photos = raw.get("photos") or []
@@ -567,19 +615,43 @@ async def resolve_planned_waypoints_with_candidates(
     start_location: dict,
     city: str = "上海",
     home_location: dict | None = None,
+    budget_threshold: float | None = None,
+    # v20: Search area context from area-category/proximity parsing
+    search_area_location: dict | None = None,
+    search_area_label: str = "",
 ) -> tuple[list[PlannedWaypoint], dict[int, list[dict[str, Any]]]]:
-    """v6: 递进解析 planned waypoints，每个 waypoint 返回主 POI + 候选 POI。
+    """v6+v20: 递进解析 planned waypoints，每个 waypoint 返回主 POI + 候选 POI。
+
+    v20 search center priority:
+    1. search_area_location (from "朝阳区的商场" parsing)
+    2. start_location (original/home)
 
     Args:
-        start_location: 出发位置（设备位置或用户常住地址）
-        home_location: 用户的家地址（从 user_profile.home_location 获取）
+        start_location: 出发位置
+        home_location: 用户的家地址
+        search_area_location: 区域搜索中心（如"朝阳区"坐标）
+        search_area_label: 搜索区域名称（日志用）
 
     Returns:
-        (resolved_waypoints, candidate_map) where candidate_map is {target_index: [dict, ...]}
+        (resolved_waypoints, candidate_map)
     """
     resolved = []
     candidate_map: dict[int, list[dict[str, Any]]] = {}
-    current_center = start_location
+
+    # v20: Use search_area_location as primary search center
+    if search_area_location and search_area_location.get("lat"):
+        current_center = search_area_location
+        print(
+            f"[DEBUG planned_search] search_center_source=search_area "
+            f"label={search_area_label} "
+            f"loc=({current_center.get('lat','')},{current_center.get('lng','')})"
+        )
+    else:
+        current_center = start_location
+        print(
+            f"[DEBUG planned_search] search_center_source=start_location "
+            f"loc=({current_center.get('lat','')},{current_center.get('lng','')})"
+        )
 
     for idx, wp in enumerate(waypoints):
         wp_copy = PlannedWaypoint(
@@ -638,6 +710,9 @@ async def resolve_planned_waypoints_with_candidates(
                         r_typecode = r.get("typecode", "")
                         if is_valid_route_poi(r_typecode, r_name, bypass_filter=True):
                             valid_results.append(r)
+
+                    valid_results = _budget_filter_raw_results(valid_results, budget_threshold)
+
                     if valid_results:
                         main_poi = valid_results[0]
                         if len(valid_results) > 1:
@@ -676,6 +751,7 @@ async def resolve_planned_waypoints_with_candidates(
                                 if not blocked:
                                     valid_results.append(r)
 
+                        valid_results = _budget_filter_raw_results(valid_results, budget_threshold)
                         if valid_results:
                             ranked_results = _rank_planned_results(wp_copy, valid_results, current_center)
                             if not ranked_results:

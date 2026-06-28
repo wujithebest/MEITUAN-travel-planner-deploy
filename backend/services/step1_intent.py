@@ -1616,8 +1616,51 @@ async def _detect_destination_from_keywords(search_keywords: list[str], origin: 
     return detected
 
 
-# ── v20: Direct POI category query detection ──
-# Maps user query patterns to category rules WITHOUT hardcoding any city or specific POI.
+# ── v20: Proximity modifier parsing ──
+# Deterministically extracts "X附近的Y" into search_area_label=X and primary_query=Y.
+# Does NOT rely on LLM. Prevents X from entering fixed_pois.
+
+_PROXIMITY_PATTERNS = [
+    # X附近的Y / X附近Y / X周边的Y / X旁边Y / X一带的Y
+    re.compile(r"(.{1,16}?)(?:的)?(?:附近|周边|旁边|一带)(?:的|有没有|哪里有|找|看|去)?(.{1,20}?)(?:[。，,;]|$)"),
+    # 在X附近找Y / 去X附近看Y
+    re.compile(r"(?:在|去|到)(.{1,16}?)(?:的)?(?:附近|周边|旁边|一带)(?:找|看|逛逛|有没有)(.{1,20}?)(?:[。，,;]|$)"),
+    # X附近有没有Y / X附近哪里有Y
+    re.compile(r"(.{1,16}?)(?:的)?(?:附近|周边)(?:有没有|哪里有)(.{1,20}?)(?:[。，,;]|$)"),
+]
+
+# "附近的Y" / "周边的Y" / "周边找Y" — no X, use original_location as search center
+_PROXIMITY_NO_AREA_PATTERNS = [
+    re.compile(r"(?:^| )(?:附近的?|周边的?)(?:的|找|有没有|哪里有)?(.{1,20}?)(?:[。，,;]|$)"),
+    re.compile(r"(?:^| )(?:周边找|附近找)(.{1,20}?)(?:[。，,;]|$)"),
+]
+
+# v20: Generic category nouns — when matched and CATEGORY_RULES has no entry,
+# still create poi_category query with unknown category fallback.
+_GENERIC_SERVICE_NOUNS = {
+    # Healthcare
+    "医院", "三甲医院", "综合医院", "专科医院", "诊所", "卫生院", "社区医院",
+    "医疗中心", "妇幼保健院", "中医院", "口腔医院", "眼科医院", "骨科医院",
+    "药店", "大药房", "中药房",
+    # Finance
+    "银行", "ATM", "储蓄所",
+    # Auto/Transport
+    "加油站", "充电站", "停车场", "洗车", "修车", "汽车美容",
+    # Retail
+    "超市", "菜市场", "农贸市场", "水果店", "生鲜超市",
+    "建材店", "建材市场", "五金店", "灯具城", "家具城",
+    "维修店", "手机维修", "家电维修",
+    # Entertainment
+    "电影院", "影院", "KTV", "网吧",
+    # Other services
+    "理发店", "美发店", "干洗店", "洗衣店",
+    "卫生间", "公共厕所",
+    "快递", "邮政", "邮局",
+    "打印", "复印", "图文快印",
+    "眼镜店", "手机店", "数码店",
+}
+
+# v20: Expanded direct category patterns — hospital, pharmacy and other service categories
 _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
     (["古玩市场", "古玩城", "文玩市场", "旧货市场", "收藏品市场", "古玩", "文玩"], "antique_market"),
     (["非遗手作", "非遗体验", "手作体验", "手工坊", "手工艺", "非遗", "扎染体验", "陶艺体验"], "handcraft_intangible"),
@@ -1625,17 +1668,317 @@ _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
     (["木材工作坊", "木工坊", "木作体验", "木艺工作室", "木工体验", "木工"], "wood_craft"),
     (["便利店", "附近便利店", "小卖部", "士多"], "convenience_store"),
     (["书店", "城市书房", "书局", "书城"], "bookstore"),
+    # v20: Healthcare
+    (["三甲医院", "综合医院", "专科医院", "社区医院", "妇幼保健院", "中医院", "口腔医院", "眼科医院", "骨科医院"], "hospital"),
+    (["医院", "卫生院", "医疗中心", "诊所", "卫生站", "社区卫生"], "hospital_general"),
+    (["药店", "大药房", "中药房", "药铺"], "pharmacy"),
+    # v20: Finance
+    (["银行", "储蓄所", "ATM", "atm", "自动取款机"], "bank"),
+    # v20: Auto
+    (["加油站", "加气站", "充电站", "充电桩"], "gas_station"),
+    # v20: Other services
+    (["电影院", "影院"], "cinema"),
+    (["停车场", "停车库"], "parking"),
+    (["建材店", "建材市场", "五金店", "灯具城", "家具城"], "building_materials"),
+    (["超市", "菜市场", "农贸市场", "生鲜超市"], "supermarket_market"),
+    (["维修店", "手机维修", "家电维修"], "repair_shop"),
+    (["卫生间", "公共厕所", "洗手间", "厕所"], "restroom"),
+    (["理发店", "美发店", "发廊", "剪发"], "hair_salon"),
+    (["快递", "邮政", "邮局", "顺丰", "菜鸟"], "postal"),
 ]
 
 
+# v20: Area-category modifier parsing (e.g. "朝阳区的商场", "海淀区书店")
+# Detects patterns like "X的Y", "去X的Y", "X的Y + 动作词"
+# where X is an administrative area / district / business zone.
+
+# Area name patterns — administrative divisions and business zones
+_AREA_SUFFIX_PATTERN = re.compile(
+    r"((?:"
+    r"[一-龥A-Za-z\d·]+(?:省|市|区|县|镇|乡|街道|商圈|片区|一带|开发区|园区|新城|"
+    r"新区|商务区|金融区|科技园|高新区|经济区|自贸区|保税区|"
+    r"胡同|里弄|弄堂|社区|小区)"
+    r"))"
+)
+
+# Pattern: "X的Y" where X contains area suffix and Y is a target category
+_AREA_CATEGORY_RE = re.compile(
+    r"(?:(?:去|在|到|找|看|逛)?)"
+    r"([一-龥A-Za-z\d·]+(?:省|市|区|县|镇|乡|街道|商圈|片区|一带|开发区|园区|新城|"
+    r"新区|商务区|金融区|科技园|高新区|经济区|自贸区|保税区|"
+    r"胡同|里弄|弄堂|社区|小区))"
+    r"(?:的|之)"
+    r"([一-龥A-Za-z\d·]{1,18}?)"  # non-greedy, max 18 chars for target
+    r"(?:玩一玩|看一看|看看|逛逛|坐一会儿|走一走|遛一遛|玩|参拜|祈福|拜佛|上香|拜一拜|"
+    r"顺便|然后|再|接着|并且|同时)?"
+    r"(?:[。，,;]|$)"
+)
+
+# Pattern without "的": "X区Y" / "海淀区书店" — area suffix acts as boundary
+_AREA_CATEGORY_NO_DE_RE = re.compile(
+    r"(?:(?:去|在|到|找|看|逛)?)"
+    r"([一-龥A-Za-z\d·]+(?:省|市|区|县|镇|乡|街道|商圈|片区|一带|开发区|园区|新城|"
+    r"新区|商务区|金融区|科技园|高新区|经济区|自贸区|保税区|"
+    r"胡同|里弄|弄堂|社区|小区))"
+    r"([一-龥A-Za-z\d·]{1,10}?(?:店|馆|场|所|院|站|中心|市场|超市|医院)"
+    r"|[一-龥A-Za-z\d·]{2,6})"
+    r"(?:玩一玩|看一看|看看|逛逛|坐一会儿|走一走|遛一遛|玩|参拜|祈福|拜佛|上香|拜一拜|"
+    r"顺便|然后|再|接着|并且|同时)?"
+    r"(?:[。，,;]|$)"
+)
+
+
+def _parse_area_category_modifier(user_request: str) -> dict | None:
+    """Detect 'X的Y' patterns where X is an administrative area and Y is a category.
+
+    Examples:
+        "朝阳区的商场" → search_area="朝阳区", target="商场"
+        "海淀区书店" → search_area="海淀区", target="书店"
+        "三里屯商圈的购物中心" → search_area="三里屯商圈", target="购物中心"
+        "五道口商圈的书店" → search_area="五道口商圈", target="书店"
+
+    Returns None if no area-category pattern detected.
+    """
+    text = user_request.strip()
+
+    # Strip leading time/functional words
+    _TIME_FUNC_STRIP = re.compile(
+        r"^(?:明天|今天|后天|周末|上午|下午|中午|晚上|傍晚|夜里|"
+        r"想|要|帮|请|帮忙|可以|能不能|是否|"
+        r"去|在|到|找|看|顺便)+"
+    )
+    clean_text = _TIME_FUNC_STRIP.sub("", text).strip()
+
+    m = _AREA_CATEGORY_RE.search(clean_text)
+    if not m:
+        # Try without "的": "海淀区书店", "朝阳区商场"
+        m = _AREA_CATEGORY_NO_DE_RE.search(clean_text)
+    if not m:
+        # Try with more flexible patterns
+        flex_pat = re.compile(
+            r"(?:去|在|到|找|看|逛)?"
+            r"([一-龥A-Za-z\d·]{2,12}?(?:省|市|区|县|镇|乡|街道|商圈|片区|一带|开发区|园区|新城|"
+            r"新区|商务区|金融区|科技园|高新区|经济区|自贸区|保税区|"
+            r"胡同|里弄|弄堂|社区|小区))"
+            r"(?:的|之)"
+            r"([一-龥A-Za-z\d·]{1,10})"
+        )
+        m = flex_pat.search(clean_text)
+
+    if not m:
+        return None
+
+    area_raw = m.group(1).strip()
+    target_raw = m.group(2).strip()
+
+    # The no-"的" form commonly puts an action verb between area and category,
+    # e.g. "朝阳区找商场".  Keep only the searchable category in primary_query.
+    _TARGET_PREFIX_RE = re.compile(
+        r"^(?:帮我找|想找|想去|想看|有没有|哪里有|找|看|逛|去|到)+"
+    )
+    target_raw = _TARGET_PREFIX_RE.sub("", target_raw).strip()
+
+    # Strip clause splitters first (so action words at line end become visible)
+    _CLAUSE_SPLIT_RE = re.compile(r"(顺便|然后|再|接着|并且|同时|，|,|。).*$")
+    target_raw = _CLAUSE_SPLIT_RE.sub("", target_raw).strip()
+    # Then strip action suffixes from the end
+    _ACTION_SUFFIX_RE = re.compile(
+        r"(玩一天|逛一天|待一天|玩半天|逛半天|待半天|玩一玩|看一看|看看|逛逛|坐一会儿|走一走|遛一遛|玩|参拜|祈福|拜佛|上香|拜一拜)$"
+    )
+    target_raw = _ACTION_SUFFIX_RE.sub("", target_raw).strip()
+
+    # Validate: area must look like a place name
+    if len(area_raw) < 2:
+        return None
+    # Don't treat pure functional words as area
+    skip_area = {"附近的", "周边的", "旁边的"}
+    if area_raw in skip_area:
+        return None
+
+    # Validate: target must look like a category or POI type
+    if len(target_raw) < 1:
+        return None
+    # Skip if target is purely an action word
+    skip_target = {"玩一玩", "看看", "逛逛", "坐一会儿", "走走", "溜达", "转转"}
+    if target_raw in skip_target:
+        return None
+
+    # Try to find matching category
+    from .poi_typecodes import (
+        CATEGORY_RULES, category_for_query, get_search_keywords,
+        get_negative_terms, get_allowed_typecode_prefixes,
+        get_excluded_typecode_prefixes, get_semantic_terms,
+    )
+    cat_id = category_for_query(target_raw)
+    rule = CATEGORY_RULES.get(cat_id) if cat_id else None
+
+    return {
+        "search_area_label": area_raw,
+        "primary_query": target_raw,
+        "proximity_requested": False,
+        "is_search_center_only": True,
+        "category_id": cat_id,
+        "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id) if cat_id else [],
+        "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id) if cat_id else [],
+        "primary_required_terms": get_semantic_terms(cat_id) if cat_id else [target_raw],
+        "primary_excluded_terms": get_negative_terms(cat_id) if cat_id else [],
+        "search_keywords": get_search_keywords(cat_id) if cat_id else [target_raw],
+        "category_label": rule.get("label", target_raw) if rule else target_raw,
+    }
+
+
+def _parse_proximity_modifier(user_request: str) -> dict | None:
+    """Deterministically parse 'X附近的Y' proximity patterns.
+
+    Returns dict with search_area_label, primary_query, proximity_requested,
+    or None if no proximity pattern found.
+
+    X → search_area_label (not a destination, just a search center)
+    Y → primary_query (the actual target category/POI)
+    """
+    text = user_request.strip()
+
+    # Leading functional words to strip from captured X
+    _LEADING_STRIP_RE = re.compile(
+        r"^(?:明天|今天|后天|周末|想|要|帮|请|帮忙|可以|能不能|是否|"
+        r"去|在|到|找|看|逛|玩|来|再去|想去|要去|"
+        r"帮我|给我|给|顺便)+(?:的|一下|一会|一会儿)?"
+    )
+
+    # Try patterns with explicit area X
+    for pat in _PROXIMITY_PATTERNS:
+        m = pat.search(text)
+        if m:
+            x_raw = m.group(1).strip()
+            y_raw = m.group(2).strip()
+            # Strip leading functional words from X
+            x_clean = _LEADING_STRIP_RE.sub("", x_raw).strip()
+            # Filter: X should not be a purely functional word
+            skip_x = {"明天", "今天", "后天", "周末", "想", "要", "帮", "请", "帮忙", "可以", "能不能", "是否"}
+            if x_clean in skip_x or len(x_clean) < 1:
+                continue
+            # Y should not be empty or purely functional
+            skip_y = {"附近", "周边", "旁边", "一带", "逛逛", "走走", "的"}
+            if y_raw in skip_y or len(y_raw) < 1:
+                # X alone: this is a destination query, not proximity
+                continue
+            return {
+                "search_area_label": x_clean,
+                "primary_query": y_raw,
+                "proximity_requested": True,
+                "is_search_center_only": True,
+            }
+
+    # Try patterns without explicit area (e.g. "附近的医院")
+    for pat in _PROXIMITY_NO_AREA_PATTERNS:
+        m = pat.search(text)
+        if m:
+            y_raw = m.group(1).strip()
+            skip_y = {"逛逛", "走走", "溜达", "转转", "玩"}
+            if y_raw in skip_y or len(y_raw) < 1:
+                continue
+            return {
+                "search_area_label": None,  # Will use original_location
+                "primary_query": y_raw,
+                "proximity_requested": True,
+                "is_search_center_only": False,  # No explicit X, use home
+            }
+
+    return None
+
+
 def _detect_poi_category_query(user_request: str) -> dict | None:
-    """Detect if user request is a direct POI category query (e.g. '找古玩市场', '附近便利店').
+    """Detect if user request is a direct POI category query.
+
+    Priority chain:
+    1. Proximity modifier ("X附近的Y") → extracts search_area + target category
+    2. Direct category patterns → registered CATEGORY_RULES entry
+    3. Generic service noun → poi_category with keyword fallback
+    4. category_for_query → last-resort category inference
 
     Returns a dict with poi_query_type, primary_query, category metadata, or None.
     No city or POI name is hardcoded — all derived from category rules.
     """
     lowered = user_request.lower()
 
+    # === Layer 1: Area-category modifier parsing ("朝阳区的商场") ===
+    area_cat = _parse_area_category_modifier(user_request)
+    if area_cat:
+        return {
+            "poi_query_type": "poi_category",
+            "primary_query": area_cat["primary_query"],
+            "explicit_meal_intent": False,
+            "proximity_requested": False,
+            "is_search_center_only": True,
+            "search_area_label": area_cat["search_area_label"],
+            "category_id": area_cat["category_id"],
+            "allowed_typecode_prefixes": area_cat["allowed_typecode_prefixes"],
+            "excluded_typecode_prefixes": area_cat["excluded_typecode_prefixes"],
+            "primary_required_terms": area_cat["primary_required_terms"],
+            "primary_excluded_terms": area_cat["primary_excluded_terms"],
+            "search_keywords_override": area_cat["search_keywords"],
+            "category_label": area_cat["category_label"],
+        }
+
+    # === Layer 2: Proximity modifier parsing ===
+    prox = _parse_proximity_modifier(user_request)
+    if prox:
+        search_area_label = prox.get("search_area_label")
+        primary_query = prox.get("primary_query", "")
+        # Find the best category for the target
+        best_cat_id = None
+        best_cat_rule = None
+        for tokens, cat_id in _DIRECT_CATEGORY_PATTERNS:
+            for token in tokens:
+                if token.lower() in primary_query.lower() or primary_query.lower() in token.lower():
+                    best_cat_id = cat_id
+                    best_cat_rule = CATEGORY_RULES.get(cat_id)
+                    break
+            if best_cat_id:
+                break
+        if not best_cat_id:
+            best_cat_id = category_for_query(primary_query)
+            if best_cat_id:
+                best_cat_rule = CATEGORY_RULES.get(best_cat_id)
+
+        result: dict = {
+            "poi_query_type": "poi_category",
+            "primary_query": primary_query,
+            "explicit_meal_intent": False,
+            "proximity_requested": True,
+            "is_search_center_only": prox.get("is_search_center_only", True),
+            "category_label": primary_query,
+        }
+
+        if search_area_label:
+            result["search_area_label"] = search_area_label
+            # Mark: X is a search center, NOT a destination
+            result["search_center_label"] = search_area_label
+
+        if best_cat_id and best_cat_rule:
+            result["category_id"] = best_cat_id
+            result["allowed_typecode_prefixes"] = get_allowed_typecode_prefixes(best_cat_id)
+            result["excluded_typecode_prefixes"] = get_excluded_typecode_prefixes(best_cat_id)
+            result["primary_required_terms"] = get_semantic_terms(best_cat_id)
+            result["primary_excluded_terms"] = []
+            result["category_label"] = best_cat_rule.get("label", primary_query)
+        else:
+            # Unknown category — generic fallback: allow any typecode, filter by keyword
+            result["category_id"] = None
+            result["allowed_typecode_prefixes"] = []
+            result["excluded_typecode_prefixes"] = []
+            result["primary_required_terms"] = [primary_query]
+            result["primary_excluded_terms"] = []
+
+        print(
+            f"[DEBUG step1] proximity parsing: "
+            f"label={search_area_label} target={primary_query} "
+            f"cat_id={result.get('category_id')} "
+            f"allowed_tc={result.get('allowed_typecode_prefixes')}"
+        )
+        return result
+
+    # === Layer 3: Direct registered category patterns ===
     for tokens, cat_id in _DIRECT_CATEGORY_PATTERNS:
         for token in tokens:
             if token.lower() in lowered:
@@ -1654,7 +1997,26 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
                     "category_label": rule.get("label", token),
                 }
 
-    # Check via category_for_query (more general matching)
+    # === Layer 4: Generic service noun detection ===
+    # Detect any known service noun even without registered CATEGORY_RULES entry.
+    for noun in sorted(_GENERIC_SERVICE_NOUNS, key=len, reverse=True):
+        if noun in lowered:
+            # Try to find a matching category rule first
+            cat_id = category_for_query(noun)
+            rule = CATEGORY_RULES.get(cat_id) if cat_id else None
+            return {
+                "poi_query_type": "poi_category",
+                "primary_query": noun,
+                "explicit_meal_intent": False,
+                "category_id": cat_id,
+                "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id) if cat_id else [],
+                "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id) if cat_id else [],
+                "primary_required_terms": get_semantic_terms(cat_id) if cat_id else [noun],
+                "primary_excluded_terms": [],
+                "category_label": (rule.get("label", noun) if rule else noun),
+            }
+
+    # === Layer 5: category_for_query (more general matching) ===
     inferred_cat = category_for_query(user_request)
     if inferred_cat:
         rule = CATEGORY_RULES.get(inferred_cat)
@@ -1748,6 +2110,15 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     if not parsed.original_location:
         parsed.original_location = _fallback_origin(parsed, user_profile)
 
+    # v20: For proximity queries without explicit search area, use original_location
+    if parsed.proximity_requested and not getattr(parsed, "search_area_location", None) and parsed.original_location:
+        parsed.search_area_location = parsed.original_location
+        print(
+            f"[DEBUG proximity] using original_location as search_area: "
+            f"label={parsed.original_location.get('label','')} "
+            f"loc=({parsed.original_location.get('lat','')},{parsed.original_location.get('lng','')})"
+        )
+
     # v20: Detect direct POI category query BEFORE keyword overrides
     # so that keywords are focused on the target category, not expanded to unrelated ones.
     poi_cat_result = _detect_poi_category_query(user_request)
@@ -1759,16 +2130,31 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.excluded_typecode_prefixes = poi_cat_result["excluded_typecode_prefixes"]
         parsed.primary_required_terms = poi_cat_result["primary_required_terms"]
         parsed.primary_excluded_terms = poi_cat_result["primary_excluded_terms"]
+
+        # v20: Proximity fields
+        parsed.proximity_requested = bool(poi_cat_result.get("proximity_requested", False))
+        parsed.is_search_center_only = bool(poi_cat_result.get("is_search_center_only", False))
+        search_area_label = poi_cat_result.get("search_area_label") or poi_cat_result.get("search_center_label")
+        if search_area_label:
+            parsed.search_area_label = search_area_label
+
         # For direct category queries, search_keywords = city tag + primary_query + synonyms
         # Do NOT expand into fruit shops, bakeries, etc.
         city_short = city[:-1] if city.endswith("市") else city
-        cat_id = poi_cat_result["category_id"]
-        rule = CATEGORY_RULES.get(cat_id, {})
-        synonyms = rule.get("semantic_terms", [])[:4]
-        focused_search = [f"{city_short} {poi_cat_result['primary_query']}"]
+        cat_id = poi_cat_result.get("category_id")
+        rule = CATEGORY_RULES.get(cat_id, {}) if cat_id else {}
+        # Use search_keywords_override if present (from area-category parsing)
+        synonyms = poi_cat_result.get("search_keywords_override", []) or (
+            rule.get("semantic_terms", [])[:4] if rule else []
+        )
+        primary_query = poi_cat_result["primary_query"]
+        focused_search = [f"{city_short} {primary_query}"]
         for syn in synonyms:
-            if syn != poi_cat_result["primary_query"]:
+            if syn != primary_query:
                 focused_search.append(f"{city_short} {syn}")
+        # For unknown categories, add the raw query term as a keyword
+        if not cat_id and primary_query not in " ".join(focused_search):
+            focused_search.append(f"{city_short} {primary_query}")
         parsed.search_keywords = _append_unique(
             focused_search,
             parsed.search_keywords[:2] if parsed.search_keywords else [],
@@ -1776,14 +2162,23 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         )
         # Also set micro keywords to be category-relevant
         parsed.micro_keywords = _append_unique(
-            [f"{syn} 打卡" if city_short not in syn else syn for syn in synonyms[:3]],
+            [f"{syn} 打卡" if city_short not in syn else syn for syn in synonyms[:3]] if synonyms else [f"{primary_query} 查询"],
             [],
             limit=4,
         )
+        # v20: area_category debug log
+        _is_area_cat = bool(poi_cat_result.get("search_area_label") and not poi_cat_result.get("proximity_requested"))
         print(
-            f"[DEBUG step1] poi_category_query detected: "
-            f"cat_id={cat_id} primary_query={poi_cat_result['primary_query']} "
-            f"typecodes={poi_cat_result['allowed_typecode_prefixes']}"
+            f"[DEBUG {'area_category' if _is_area_cat else 'proximity'}] "
+            f"user_request={user_request[:60]} "
+            f"search_area_label={parsed.search_area_label} "
+            f"proximity_requested={parsed.proximity_requested} "
+            f"primary_query={parsed.primary_query} "
+            f"poi_query_type={parsed.poi_query_type} "
+            f"category_id={cat_id} "
+            f"allowed_typecodes={parsed.allowed_typecode_prefixes[:6] if parsed.allowed_typecode_prefixes else 'none'} "
+            f"fixed_pois_before={[fp.name for fp in parsed.fixed_pois]} "
+            f"search_keywords_override={poi_cat_result.get('search_keywords_override', [])[:4]}"
         )
     else:
         parsed.poi_query_type = getattr(parsed, "poi_query_type", "") or ""
@@ -1793,6 +2188,42 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed = _apply_keyword_overrides(parsed, user_request, city)
     parsed = _append_fixed_poi_from_request(parsed, user_request)
     parsed = _exclude_pois_from_request(parsed, user_request)
+
+    # v20: Move search_area_label out of fixed_pois and geocode it as search center
+    # This prevents "朝阳区"/"西直门" from being treated as a destination when user says
+    # "朝阳区的商场" or "西直门附近的医院"
+    _search_area = getattr(parsed, "search_area_label", None)
+    _has_area = bool(_search_area and (parsed.is_search_center_only or parsed.proximity_requested))
+    if _has_area:
+        _fixed_before = [fp.name for fp in parsed.fixed_pois]
+        # Remove search area from fixed_pois
+        parsed.fixed_pois = [
+            fp for fp in parsed.fixed_pois
+            if _search_area not in fp.name and fp.name not in _search_area
+        ]
+        # Geocode the search area as the search center
+        try:
+            search_loc = await gaode_geocode(_search_area, city=city)
+            if search_loc:
+                parsed.search_area_location = search_loc
+                print(
+                    f"[DEBUG proximity] geocoded search_area={_search_area} "
+                    f"loc=({search_loc.get('lat','')},{search_loc.get('lng','')})"
+                )
+        except Exception:
+            pass
+        _fixed_after = [fp.name for fp in parsed.fixed_pois]
+        print(
+            f"[DEBUG proximity] fixed_pois_before={_fixed_before} "
+            f"fixed_pois_after={_fixed_after} "
+            f"search_area_label={_search_area} "
+            f"search_area_location_set={parsed.search_area_location is not None}"
+        )
+
+    # v20: If proximity_requested but no explicit search area, use original_location
+    if parsed.proximity_requested and not getattr(parsed, "search_area_location", None):
+        # Will be set later via _fallback_origin; search_area_location will be original_location
+        pass
 
     # v19: 主题决策 — 使用 resolve_theme_profile 替代旧版拼接匹配
     raw_theme_text = user_request
@@ -2165,15 +2596,120 @@ def _fallback_planned_waypoints_from_request(
                 matched = True
                 break
         if not matched and include_generic and len(clause) > 2:
-            # 未匹配的从句，尝试作为 visit
-            waypoints.append(PlannedWaypoint(
-                type="placeholder",
-                search_keyword=clause,
-                category="visit",
-                stay_minutes=30,
-            ))
+            # v20: Structure the clause — strip time/area/action words, match categories
+            wp = _structure_generic_clause(clause)
+            if wp:
+                waypoints.append(wp)
+            else:
+                # Last resort: use cleaned clause
+                cleaned = _strip_noise_from_clause(clause)
+                if cleaned and len(cleaned) >= 2:
+                    waypoints.append(PlannedWaypoint(
+                        type="placeholder",
+                        search_keyword=cleaned,
+                        category="visit",
+                        stay_minutes=30,
+                    ))
 
     return waypoints
+
+
+# v20: Generic clause structuring helpers
+def _strip_noise_from_clause(clause: str) -> str:
+    """Strip time/area/action noise words from a clause to extract the core target."""
+    # Remove time words
+    cleaned = re.sub(
+        r"(?:明天|今天|后天|周末|上午|下午|中午|晚上|傍晚|夜里)",
+        "", clause
+    )
+    # Remove action-only words
+    cleaned = re.sub(
+        r"(?:玩一玩|看看|逛逛|坐一会儿|走走|溜达|转转|玩|去|在|到|找)",
+        "", cleaned
+    )
+    # Remove area patterns
+    cleaned = _AREA_CATEGORY_RE.sub(r"\2", cleaned)
+    return cleaned.strip()
+
+
+def _structure_generic_clause(clause: str) -> PlannedWaypoint | None:
+    """Try to structure a generic clause into a category-based planned waypoint.
+
+    1. Strip time/area/action noise
+    2. Try CATEGORY_RULES semantic_terms matching
+    3. Try _GENERIC_SERVICE_NOUNS
+    4. Try category_for_query
+    """
+    from .poi_typecodes import (
+        CATEGORY_RULES, category_for_query,
+        get_search_keywords, get_allowed_typecode_prefixes,
+        get_semantic_terms, get_negative_terms,
+    )
+
+    # First, check if the clause matches known area+category patterns
+    area_cat = _parse_area_category_modifier(clause)
+    if area_cat:
+        target = area_cat["primary_query"]
+        cat_id = area_cat.get("category_id")
+        if cat_id:
+            return PlannedWaypoint(
+                type="placeholder",
+                search_keyword=target,
+                category="visit",
+                stay_minutes=45 if cat_id in ("shopping_mall", "religious_site") else 30,
+                search_keywords=get_search_keywords(cat_id),
+                required_terms=get_semantic_terms(cat_id),
+                excluded_terms=get_negative_terms(cat_id),
+            )
+        else:
+            return PlannedWaypoint(
+                type="placeholder",
+                search_keyword=target,
+                category="visit",
+                stay_minutes=30,
+                search_keywords=[target],
+            )
+
+    # Strip noise
+    cleaned = _strip_noise_from_clause(clause)
+    if not cleaned or len(cleaned) < 2:
+        return None
+
+    # Try CATEGORY_RULES semantic terms
+    best_cat = None
+    best_term_len = 0
+    for cat_id, rule in CATEGORY_RULES.items():
+        if cat_id == "restaurant":
+            continue
+        for term in rule.get("semantic_terms", []):
+            if term in cleaned:
+                if len(term) > best_term_len:
+                    best_cat = cat_id
+                    best_term_len = len(term)
+
+    if best_cat:
+        return PlannedWaypoint(
+            type="placeholder",
+            search_keyword=cleaned,
+            category="visit",
+            stay_minutes=45 if best_cat in ("shopping_mall", "religious_site") else 30,
+            search_keywords=get_search_keywords(best_cat),
+            required_terms=get_semantic_terms(best_cat),
+            excluded_terms=get_negative_terms(best_cat),
+        )
+
+    # Try generic service nouns
+    for noun in sorted(_GENERIC_SERVICE_NOUNS, key=len, reverse=True):
+        if noun in cleaned:
+            return PlannedWaypoint(
+                type="placeholder",
+                search_keyword=noun,
+                category="visit",
+                stay_minutes=30,
+                search_keywords=[noun],
+            )
+
+    return None
 
 
 def _fast_planned_intent_from_rules(

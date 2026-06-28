@@ -270,12 +270,16 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
   const text = query || '';
 
   // 1. scope
+  const explicitCity = text.match(/(上海|北京|广州|深圳|杭州|苏州|南京|成都|重庆|武汉|西安|长沙|厦门|青岛|天津|宁波|无锡|佛山|东莞|珠海|大连|沈阳|昆明|三亚)(市)?/)?.[1];
+  const planCity =
+    planData?.city
+    || planData?.parsed_intent?.destination
+    || backendRouteData?.city
+    || backendRouteData?.planning_state?.parsed_intent?.resolved_city
+    || '';
   const scope = /附近|周边|身边|附近逛|周围/.test(text)
     ? '附近'
-    : ((text.match(/(上海|北京|广州|深圳|杭州|苏州|南京|成都|重庆|武汉|西安|长沙|厦门|青岛|天津|宁波|无锡|佛山|东莞|珠海|大连|沈阳|昆明|三亚)(市)?/)?.[1])
-      || planData?.city
-      || backendRouteData?.city
-      || '上海');
+    : (explicitCity || String(planCity).replace(/市$/, '') || '上海');
 
   // 2. parsedIntent（用于 duration label）
   const parsedIntent =

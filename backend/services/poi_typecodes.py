@@ -102,6 +102,139 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         "excluded": ["050000", "080500"],
         "note": "061205 is the correct Gaode code for bookstores; 060400 is general stationery/cultural supplies",
     },
+    # ── v20: Healthcare ──
+    "hospital": {
+        "label": "三甲/综合医院",
+        "allowed": ["090100", "090101", "090102", "090103"],  # 综合医院/三级甲等
+        "wide_fallback": ["090000"],
+        "semantic_terms": ["三甲医院", "综合医院", "医院", "医疗中心", "人民医院", "附属医院"],
+        "excluded": ["050000", "110000"],
+        "conditional_allow": {
+            "090200": ["医院", "综合医院", "专科医院"],  # 专科医院 — only when name says 医院
+        },
+        "note": "0902xx = 专科医院; only accept when name has 医院 evidence",
+    },
+    "hospital_general": {
+        "label": "医院（通用）",
+        "allowed": ["090100", "090101", "090102", "090103", "090200", "090201", "090202"],
+        "wide_fallback": ["090000"],
+        "semantic_terms": ["医院", "卫生院", "卫生站", "医疗中心", "诊疗中心", "社区卫生"],
+        "excluded": ["050000", "110000"],
+        # Must NOT match: pet hospital, beauty hospital (整形), retirement home
+        "negative_terms": ["宠物", "兽医", "整形", "美容", "养老", "敬老", "颐养"],
+        "note": "excludes pet hospitals, cosmetic surgery, retirement homes via name check",
+    },
+    "pharmacy": {
+        "label": "药店",
+        "allowed": ["090500", "090501", "090502"],  # 药房/药店
+        "wide_fallback": ["090000"],
+        "semantic_terms": ["药房", "药店", "大药房", "医药", "中药房", "西药房"],
+        "excluded": ["050000", "110000"],
+        "negative_terms": ["宠物", "兽医"],
+        "note": "pharmacy/drugstore, excludes pet pharmacy",
+    },
+    # ── v20: Finance ──
+    "bank": {
+        "label": "银行",
+        "allowed": ["160100", "160101", "160102", "160200", "160300", "160400"],
+        "wide_fallback": ["160000"],
+        "semantic_terms": ["银行", "储蓄所", "ATM", "atm", "自动取款机", "存款", "取款"],
+        "excluded": ["050000"],
+    },
+    # ── v20: Auto/Transport ──
+    "gas_station": {
+        "label": "加油站",
+        "allowed": ["150100", "150101", "150200"],
+        "wide_fallback": ["150000"],
+        "semantic_terms": ["加油站", "加气站", "充电站", "充电桩", "石化"],
+        "excluded": ["050000"],
+    },
+    "parking": {
+        "label": "停车场",
+        "allowed": ["150300", "150301", "150302"],
+        "wide_fallback": ["150000"],
+        "semantic_terms": ["停车场", "停车库", "地下车库"],
+        "excluded": ["050000"],
+    },
+    # ── v20: Entertainment ──
+    "cinema": {
+        "label": "电影院",
+        "allowed": ["080200", "080201", "080202"],
+        "wide_fallback": ["080000"],
+        "semantic_terms": ["电影院", "影院", "电影城", "IMAX"],
+        "excluded": ["050000"],
+    },
+    # ── v20: Retail/Building ──
+    "building_materials": {
+        "label": "建材市场",
+        "allowed": ["061500", "061501", "061502", "061503", "061504"],
+        "wide_fallback": ["060000"],
+        "semantic_terms": ["建材", "五金", "灯具", "家具", "卫浴", "瓷砖", "地板"],
+        "excluded": ["050000", "110000"],
+    },
+    "supermarket_market": {
+        "label": "超市/菜市场",
+        "allowed": ["060100", "060101", "060200", "060300"],
+        "wide_fallback": ["060000"],
+        "semantic_terms": ["超市", "菜市场", "农贸市场", "生鲜", "市场"],
+        "excluded": ["050000", "110000"],
+    },
+    # ── v20: Shopping malls ──
+    "shopping_mall": {
+        "label": "商场/购物中心",
+        "allowed": ["060100", "060101", "060102", "060103", "060400", "060900", "061000"],
+        "wide_fallback": ["060000"],
+        "semantic_terms": ["购物中心", "商场", "商业广场", "商业中心", "商业综合体",
+                          "百货商场", "百货", "shopping mall", "mall"],
+        # search_keywords for planned waypoint expansion — category-relevant, no city names
+        "search_keywords": ["购物中心", "商场", "商业广场", "商业综合体", "购物广场"],
+        "excluded": ["050000", "110000"],
+        "negative_terms": ["停车场", "出入口", "写字楼", "物业", "公交站", "批发", "商贸公司",
+                          "办事处", "招商", "租赁", "售楼", "样板间"],
+        "note": "shopping mall body, NOT parking lots, office towers, or single shops",
+    },
+    # ── v20: Religious sites ──
+    "religious_site": {
+        "label": "寺庙/宗教场所",
+        "allowed": ["110200", "110201", "110202", "110203", "110204", "110205"],
+        "wide_fallback": ["110000"],
+        "semantic_terms": ["寺庙", "寺院", "佛寺", "禅寺", "道观", "教堂", "宗教场所", "参拜", "祈福"],
+        # For "寺庙" queries, prefer Buddhist temples; for "宗教场所" allow broader
+        "search_keywords": ["寺庙", "寺院", "佛寺", "禅寺"],
+        "excluded": ["050000"],
+        "negative_terms": ["停车场", "售票处", "公交站", "出入口", "培训", "素食餐厅"],
+        "note": "prefers Buddhist temples for 寺庙 queries; church/mosque only for explicit requests",
+    },
+    # ── v20: Personal services ──
+    "repair_shop": {
+        "label": "维修店",
+        "allowed": ["070400", "070401", "070402", "070403", "070404"],
+        "wide_fallback": ["070000"],
+        "semantic_terms": ["维修", "修理", "手机维修", "家电维修", "电脑维修"],
+        "excluded": ["050000", "110000"],
+    },
+    "hair_salon": {
+        "label": "理发店",
+        "allowed": ["070100", "070101", "070102"],
+        "wide_fallback": ["070000"],
+        "semantic_terms": ["理发", "美发", "发廊", "剪发", "洗剪吹", "烫发"],
+        "excluded": ["050000", "110000"],
+        "negative_terms": ["宠物", "培训", "学校"],
+    },
+    "restroom": {
+        "label": "公共厕所",
+        "allowed": ["200300", "200301", "200302"],
+        "wide_fallback": ["200000"],
+        "semantic_terms": ["卫生间", "公共厕所", "洗手间", "厕所"],
+        "excluded": ["050000"],
+    },
+    "postal": {
+        "label": "邮局/快递",
+        "allowed": ["170300", "170301"],
+        "wide_fallback": ["170000"],
+        "semantic_terms": ["快递", "邮政", "邮局", "顺丰", "菜鸟", "驿站"],
+        "excluded": ["050000"],
+    },
     "restaurant": {
         "label": "餐饮",
         "allowed": ["050000"],
@@ -111,6 +244,13 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         "note": "only used when explicit_meal_intent=True",
     },
 }
+
+# v20: Negative terms for hospital validation — configurable per category
+HOSPITAL_NEGATIVE_TERMS = [
+    "宠物", "兽医", "整形", "美容", "养老", "敬老", "颐养",
+    "体检推销", "医疗器械", "宿舍", "食堂", "公交站", "出入口",
+    "停车场", "停车场入口",
+]
 
 
 def category_for_query(query: str) -> str | None:
@@ -155,6 +295,12 @@ def validate_poi_category(
     if matches_typecode(raw_tc, rule.get("excluded", [])):
         reasons.append(f"excluded_typecode={raw_tc}")
         return False, reasons
+
+    # Check negative terms (e.g., "宠物医院" should not match hospital category)
+    for neg_term in rule.get("negative_terms", []) + (HOSPITAL_NEGATIVE_TERMS if cat_id.startswith("hospital") else []):
+        if neg_term.lower() in combined:
+            reasons.append(f"negative_term_matched={neg_term}")
+            return False, reasons
 
     # Check semantic terms in name and category
     found_semantic: list[str] = []
@@ -217,6 +363,56 @@ def get_semantic_terms(cat_id: str) -> list[str]:
     rule = CATEGORY_RULES.get(cat_id)
     if not rule:
         return []
+    return list(rule.get("semantic_terms", []))
+
+
+def get_search_keywords(cat_id: str) -> list[str]:
+    """Return recommended search keywords for a category, or semantic_terms as fallback."""
+    rule = CATEGORY_RULES.get(cat_id)
+    if not rule:
+        return []
+    return list(rule.get("search_keywords", []) or rule.get("semantic_terms", [])[:4])
+
+
+def get_negative_terms(cat_id: str) -> list[str]:
+    """Return negative/exclusion terms for a category."""
+    rule = CATEGORY_RULES.get(cat_id)
+    if not rule:
+        return []
+    terms = list(rule.get("negative_terms", []))
+    if cat_id.startswith("hospital"):
+        terms.extend(HOSPITAL_NEGATIVE_TERMS)
+    return terms
+
+
+def get_typecodes_for_planned(cat_id: str) -> str:
+    """Return Gaode 'types' filter string for planned waypoint category search.
+    Uses allowed typecodes joined by |, or empty string for no filter."""
+    allowed = get_allowed_typecode_prefixes(cat_id)
+    if not allowed:
+        return ""
+    # Use 4-digit prefixes for broader matching in Gaode API
+    types = sorted(set(p[:4] for p in allowed if len(p) >= 4))
+    return "|".join(f"{t}00" if len(t) == 4 else t for t in types) if types else ""
+
+
+def build_category_waypoint(raw_target: str, cat_id: str) -> dict[str, Any]:
+    """Build a structured planned waypoint config from category rule.
+
+    Returns dict with search_keyword, search_keywords, required_terms,
+    excluded_terms, allowed_typecodes, category suitable for PlannedWaypoint.
+    No city or POI names hardcoded.
+    """
+    rule = CATEGORY_RULES.get(cat_id, {})
+    return {
+        "search_keyword": raw_target,
+        "search_keywords": get_search_keywords(cat_id) or [raw_target],
+        "required_terms": get_semantic_terms(cat_id),
+        "excluded_terms": get_negative_terms(cat_id),
+        "allowed_typecodes": get_allowed_typecode_prefixes(cat_id),
+        "category": "visit" if cat_id not in ("restaurant",) else "meal",
+        "category_id": cat_id,
+    }
     return list(rule.get("semantic_terms", []))
 
 

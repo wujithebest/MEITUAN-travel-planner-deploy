@@ -30,25 +30,6 @@ _poi_cache: TTLCache = TTLCache(maxsize=1000, ttl=86400)
 _route_cache: TTLCache = TTLCache(maxsize=200, ttl=1800)
 
 
-def _is_in_shanghai(location_str: str) -> bool:
-    """
-    检查坐标是否在上海范围内
-    
-    Args:
-        location_str: 坐标字符串 "lng,lat"
-        
-    Returns:
-        bool: 是否在上海范围内
-    """
-    if not location_str or "," not in location_str:
-        return False
-    try:
-        lng, lat = map(float, location_str.split(","))
-        return (SHANGHAI_LNG_MIN < lng < SHANGHAI_LNG_MAX and 
-                SHANGHAI_LAT_MIN < lat < SHANGHAI_LAT_MAX)
-    except (ValueError, IndexError):
-        return False
-
 
 def _safe_str(value) -> Optional[str]:
     """

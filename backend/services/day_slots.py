@@ -116,29 +116,35 @@ MEAL_WINDOWS: dict[str, tuple[float, float]] = {
 }
 
 
-def compute_meal_needs(start_time: datetime.datetime, duration: str) -> list[str] | list[list[str]]:
+def compute_meal_needs(
+    start_time: datetime.datetime,
+    duration: str,
+    min_overlap_hours: float = 0.5,
+) -> list[str] | list[list[str]]:
     """
-    基于时间框架自动计算餐点需求。纯计算，零LLM调用。
+    基于时间窗口自动计算餐饮需求。
 
-    逻辑：活动时间范围与餐点窗口有交集 → 需安排该餐点。
-    - 13:00 + quarter_day(2.5h) → 13:00-15:30 → 无交集 → []
-    - 13:00 + half_day(5h)      → 13:00-18:00 → 交集dinner → ["dinner"]
-    - 10:00 + half_day(5h)      → 10:00-15:00 → 交集lunch  → ["lunch"]
-    - 09:00 + full_day(9h)      → 09:00-18:00 → 交集lunch+dinner → ["lunch","dinner"]
-
-    多天场景：每天独立计算，结果为嵌套列表
-    - "two days" starting 9:00 → [["lunch","dinner"], ["lunch","dinner"]]
+    min_overlap_hours:
+    - 默认 0.5 小时，适用于半天、全天、多天行程；
+    - 短途 quarter_day 场景可由调用方传入更高阈值，避免只擦到餐饮窗口边缘就强行插餐。
     """
     start_hour = start_time.hour + start_time.minute / 60
     hours = DURATION_HOURS[duration]
     days = int(hours // 9) or 1
     result = []
+
     for day in range(days):
         day_start = start_hour if day == 0 else 9.0
         day_end = day_start + min(hours - day * 9, 9.0)
-        day_meals = [meal for meal, (ws, we) in MEAL_WINDOWS.items()
-                     if day_start < we and day_end > ws]
+
+        day_meals = []
+        for meal, (ws, we) in MEAL_WINDOWS.items():
+            overlap = max(0.0, min(day_end, we) - max(day_start, ws))
+            if overlap >= min_overlap_hours:
+                day_meals.append(meal)
+
         result.append(day_meals)
+
     return result if len(result) > 1 else result[0]
 
 

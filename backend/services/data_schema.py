@@ -369,6 +369,14 @@ class ParsedIntent(BaseModel):
     primary_required_terms: list[str] = Field(default_factory=list)     # 主POI必须包含的词
     primary_excluded_terms: list[str] = Field(default_factory=list)     # 主POI必须排除的词
 
+    # ── v20: Proximity / location-context fields ──
+    # Distinguishes "search center" (X附近的医院) from "destination" (去西直门逛逛).
+    search_area_label: Optional[str] = None          # 搜索区域名称，如 "西直门"、"人民广场"
+    search_area_location: Optional[dict] = None      # 搜索区域坐标 {"lat":..., "lng":...}
+    proximity_requested: bool = False                # 用户是否表达了"附近/周边/旁边"
+    proximity_radius_m: Optional[int] = None         # 附近搜索半径（米），默认根据品类决定
+    is_search_center_only: bool = False              # search_area 只是搜索中心，不是目的地
+
     # ── Step2输出 ──
 
     search_centrality: list["SearchCentralityItem"] = Field(default_factory=list)
@@ -422,9 +430,11 @@ class ScoredPlace(ExtractedPlace):
 
 class AnchorPlan(ScoredPlace):
     """Step2输出给用户的推荐锚点，继承ScoredPlace所有字段"""
-    final_time_budget: str = ""            # v3新增：quarter_day/half_day/full_day，来源：fixed_poi取resolved_time_budget，搜索发现取typecode映射值
+    final_time_budget: str = ""            # v3新增：quarter_day/half_day/full_day
     recommend_reason: str = ""
     origin_transit: Optional[str] = None  # "从出发点约XX分钟"
+    fixed: bool = False                    # v20: 是否为用户明确指定的固定锚点
+    primary_target: bool = False           # v20: 是否为主要目标（fixed anchor with explicit name）
 
 
 class DayPlan(BaseModel):

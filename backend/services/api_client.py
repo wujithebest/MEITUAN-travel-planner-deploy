@@ -643,10 +643,17 @@ async def gaode_around_search(
         raise ExternalAPIError(f"高德周边搜索失败：{exc}") from exc
 
 
-async def gaode_text_search(keywords: str, city: str = "", show_fields: str = "") -> list[dict]:
+async def gaode_text_search(
+    keywords: str,
+    city: str = "",
+    show_fields: str = "",
+    city_limit: bool = False,
+) -> list[dict]:
     _require_key("高德地图", "GAODE_API_KEY", config.GAODE_API_KEY)
     url = config.GAODE_BASE_URL + config.GAODE_ENDPOINTS["text_search"]
     params = {"key": config.GAODE_API_KEY, "keywords": keywords, "city": city, "offset": 10, "extensions": "all"}
+    if city and city_limit:
+        params["citylimit"] = "true"
     if show_fields:
         params["show_fields"] = show_fields
     try:
