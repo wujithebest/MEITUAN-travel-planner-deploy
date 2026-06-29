@@ -249,11 +249,25 @@ STRONG_MEAL_TOKENS = [
     "快餐", "小吃", "美食", "探店", "找一家", "找一家...店",
 ]
 
+# v20: Style/theme synonyms — unambiguously map to art_culture_lifestyle theme,
+# NOT poi_category. Used by _detect_poi_category_query to avoid misclassification.
+_STYLE_THEME_SYNONYMS = frozenset({
+    "文艺", "文艺范", "文艺感", "文艺风", "文艺风格",
+    "雅致", "清雅", "安静雅致", "雅致风格", "清雅风格",
+    "有格调", "有格调的", "格调",
+    "艺术感", "艺术氛围", "有艺术感", "有审美",
+    "文化气息", "新中式氛围", "新中式风格",
+    "小资", "有氛围", "氛围感", "精神漫游", "松弛感",
+})
+
 STYLE_ROUTE_TOKENS = [
     "文艺", "文艺感", "艺术氛围", "艺术感",
     "有氛围", "氛围感", "有感觉", "小资", "有格调",
     "精神漫游", "城市漫游", "慢逛", "慢慢逛", "松弛感",
     "放空", "发呆", "独处",
+    # v20: Also include the new synonyms
+    "文艺范", "文艺风", "雅致", "清雅", "安静雅致",
+    "有审美", "文化气息", "新中式氛围", "新中式风格",
 ]
 
 STYLE_NIGHT_TOKENS = [
@@ -578,7 +592,7 @@ def _duration_hint_for_llm(user_request: str) -> str:
 
 def _duration_from_request(user_request: str) -> str | None:
     # ── v5.2: 多时段检测优先——用户同时提到上午+下午/晚上，说明要玩一整天 ──
-    has_morning = bool(re.search(r"上午|早上|一上午", user_request))
+    has_morning = bool(re.search(r"明早|今早|上午|早上|一上午", user_request))
     has_afternoon = bool(re.search(r"下午|一下午", user_request))
     has_evening = bool(re.search(r"晚上|夜里|夜间|傍晚", user_request))
     time_period_count = sum([has_morning, has_afternoon, has_evening])
@@ -718,7 +732,7 @@ def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str)
     )
 
     # v6: 检测"附近/待会儿"距离约束
-    has_nearby_distance = any(token in lowered for token in ["附近", "周边", "待会儿", "一会儿", "马上", "现在"])
+    has_nearby_distance = any(token in lowered for token in ["附近", "周边", "周围", "旁边", "就近", "待会儿", "一会儿", "马上", "现在"])
     if has_nearby_distance:
         if "不走远" not in parsed.other_constraints:
             parsed.other_constraints.append("不走远")
@@ -903,6 +917,10 @@ def _day_index_from_text(text: str) -> int | None:
 
 
 def _meal_from_text(text: str) -> str | None:
+    # A time word and the food action do not need to be adjacent:
+    # "晚上去首都医科大学旁边的饭馆吃饭" is still dinner.
+    if re.search(r"(?:晚上|傍晚|夜里|夜间).{0,40}(?:吃|用餐|就餐|饭馆|饭店|餐厅)", text):
+        return "dinner"
     if any(token in text for token in ["午饭", "午餐", "中饭", "中餐", "中午"]):
         return "lunch"
     if any(token in text for token in ["晚饭", "晚餐", "晚间吃", "晚上吃", "吃个晚饭", "吃晚饭"]):
@@ -928,7 +946,9 @@ def _fixed_meal_name_from_text(text: str) -> str | None:
     name = re.sub(r"^(?:中午|晚上|午餐|晚餐|餐厅|饭店|一家|一个|附近|周边|的)+", "", name)
     if not name:
         return None
-    if any(token in name for token in ["附近", "周边", "餐厅请帮我找", "帮我找", "找一家"]):
+    # "X附近/旁边的饭馆" is a category near a reference location, not a
+    # fixed restaurant name.  It is represented on PlannedWaypoint instead.
+    if any(token in name for token in ["附近", "周边", "周围", "旁边", "一带", "餐厅请帮我找", "帮我找", "找一家"]):
         return None
     if len(name) > 30:
         return None
@@ -976,6 +996,14 @@ def _meal_constraints_from_request(user_request: str) -> list[dict]:
         meal = _meal_from_text(clause)
         keywords = _food_keywords_from_text(clause)
         fixed_name = _fixed_meal_name_from_text(clause)
+        has_food_evidence = bool(
+            keywords
+            or fixed_name
+            or re.search(r"吃|用餐|就餐|饭馆|饭店|餐厅|美食|小吃|简餐|午饭|午餐|晚饭|晚餐", clause)
+        )
+        if meal and not has_food_evidence:
+            # A time marker alone ("中午去天坛公园") is not a meal request.
+            meal = None
         if day_index and keywords and not meal and not fixed_name:
             pending_day_keywords[day_index] = _append_unique(pending_day_keywords.get(day_index, []), keywords)
             continue
@@ -1053,7 +1081,10 @@ def _explicit_meals(user_request: str) -> list[str]:
     meals: list[str] = []
     if any(token in user_request for token in ["午饭", "午餐", "中饭", "中餐"]):
         meals.append("lunch")
-    if any(token in user_request for token in ["晚饭", "晚餐", "晚间吃", "吃个晚饭", "吃晚饭"]):
+    if any(token in user_request for token in ["晚饭", "晚餐", "晚间吃", "吃个晚饭", "吃晚饭"]) or re.search(
+        r"(?:晚上|傍晚|夜里|夜间).{0,40}(?:吃|用餐|就餐|饭馆|饭店|餐厅)",
+        user_request,
+    ):
         meals.append("dinner")
     return meals
 
@@ -1232,6 +1263,7 @@ async def _llm_parse(
                 "search_keywords": getattr(wp, "search_keywords", []) or [],
                 "required_terms": getattr(wp, "required_terms", []) or [],
                 "excluded_terms": getattr(wp, "excluded_terms", []) or [],
+                "search_center_name": getattr(wp, "search_center_name", None),
             }
             for wp in planned_rule_hints
         ]
@@ -1621,18 +1653,21 @@ async def _detect_destination_from_keywords(search_keywords: list[str], origin: 
 # Does NOT rely on LLM. Prevents X from entering fixed_pois.
 
 _PROXIMITY_PATTERNS = [
-    # X附近的Y / X附近Y / X周边的Y / X旁边Y / X一带的Y
-    re.compile(r"(.{1,16}?)(?:的)?(?:附近|周边|旁边|一带)(?:的|有没有|哪里有|找|看|去)?(.{1,20}?)(?:[。，,;]|$)"),
+    # v20: X and Y must NOT cross clause boundaries (，,。；;\n).
+    # Trailing action words (吃饭/耍一耍/看一看/坐一会儿 etc.) are stripped by caller.
+    # X附近的Y / X附近Y / X周边的Y / X周围Y / X旁边Y / X一带的Y
+    re.compile(r"([^，,。；;\n]{1,16}?)(?:的)?(?:附近|周边|周围|旁边|一带)(?:的|有没有|哪里有|找|找个|找一家|看|去)?([^，,。；;\n]{1,20}?)(?:吃饭|耍一耍|看一看|看看|逛逛|坐一会儿|走一走|玩|$|[。，,;])"),
     # 在X附近找Y / 去X附近看Y
-    re.compile(r"(?:在|去|到)(.{1,16}?)(?:的)?(?:附近|周边|旁边|一带)(?:找|看|逛逛|有没有)(.{1,20}?)(?:[。，,;]|$)"),
+    re.compile(r"(?:在|去|到)([^，,。；;\n]{1,16}?)(?:的)?(?:附近|周边|周围|旁边|一带)(?:找|找个|找一家|看|逛逛|有没有)([^，,。；;\n]{1,20}?)(?:吃饭|耍一耍|看一看|看看|逛逛|坐一会儿|走一走|玩|$|[。，,;])"),
     # X附近有没有Y / X附近哪里有Y
-    re.compile(r"(.{1,16}?)(?:的)?(?:附近|周边)(?:有没有|哪里有)(.{1,20}?)(?:[。，,;]|$)"),
+    re.compile(r"([^，,。；;\n]{1,16}?)(?:的)?(?:附近|周边|周围)(?:有没有|哪里有)([^，,。；;\n]{1,20}?)(?:吃饭|耍一耍|看一看|看看|逛逛|坐一会儿|走一走|玩|$|[。，,;])"),
 ]
 
-# "附近的Y" / "周边的Y" / "周边找Y" — no X, use original_location as search center
+# "附近的Y" / "周边的Y" / "周围的Y" — no X, use original_location as search center
+# v20: expanded optional group to consume "个", "一家", "一个" etc. between preposition and target
 _PROXIMITY_NO_AREA_PATTERNS = [
-    re.compile(r"(?:^| )(?:附近的?|周边的?)(?:的|找|有没有|哪里有)?(.{1,20}?)(?:[。，,;]|$)"),
-    re.compile(r"(?:^| )(?:周边找|附近找)(.{1,20}?)(?:[。，,;]|$)"),
+    re.compile(r"(?:^| )(?:附近的?|周边的?|周围的?)(?:的|找|找个|找一家|找一个|有没有|哪里有)?(.{1,20}?)(?:[。，,;]|$)"),
+    re.compile(r"(?:^| )(?:周边找|附近找|周围找)(?:个|一家|一个)?(.{1,20}?)(?:[。，,;]|$)"),
 ]
 
 # v20: Generic category nouns — when matched and CATEGORY_RULES has no entry,
@@ -1685,7 +1720,250 @@ _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
     (["卫生间", "公共厕所", "洗手间", "厕所"], "restroom"),
     (["理发店", "美发店", "发廊", "剪发"], "hair_salon"),
     (["快递", "邮政", "邮局", "顺丰", "菜鸟"], "postal"),
+    # v20: University / campus
+    (["大学", "高校", "高等院校", "大学校园", "大学校区", "校园", "学院"], "university_campus"),
+    # v20: Sports venues
+    (["运动场馆", "运动馆", "体育馆", "体育中心", "运动中心",
+      "健身房", "游泳馆", "篮球场", "足球场", "网球场",
+      "羽毛球馆", "乒乓球馆", "攀岩馆", "滑雪场", "滑冰场",
+      "保龄球馆", "找个地方运动", "运动场所", "运动的地方"], "sports_venue"),
+    # v20: Arcade / game centers
+    (["电玩城", "游戏厅", "动漫城", "电玩中心", "街机厅", "街机", "电玩"], "arcade"),
+    # v20: Science museum / planetarium
+    (["科技馆", "天文馆", "科学技术馆", "科学中心", "科学宫", "科技中心", "天文台"], "science_museum"),
+    # v20: Scenic areas / tourist spots
+    (["景区", "景点", "风景区", "名胜", "公园", "旅游景点", "风景名胜"], "scenic_area"),
 ]
+
+
+# v20: Container-target parsing ("商场里的电玩城", "园区中的咖啡馆").
+# Parse the relation separately instead of requiring an extra character before
+# the container suffix.  The old pattern therefore could not match bare
+# containers such as "商场" or "园区" despite listing them as examples.
+_CONTAINER_SUFFIXES = (
+    "商业综合体", "购物中心", "中心城", "步行街", "商场", "商城", "百货",
+    "综合体", "园区", "公园", "广场", "大楼", "大厦", "街区", "景区",
+    "场馆", "卖场",
+)
+_CONTAINER_RELATION_RE = re.compile(r"里面(?:的)?|内部(?:的)?|中的?|里的?|内(?:的)?")
+_CONTAINER_LEADING_NOISE_RE = re.compile(
+    r"^(?:(?:明天|今天|后天|周末|上午|下午|中午|晚上|傍晚|夜里|"
+    r"我|我们|帮我|请|想要|想|要|打算|准备|去|到|在|找|逛|看看?)\s*)+"
+)
+_CONTAINER_TARGET_LEADING_RE = re.compile(
+    r"^(?:(?:找一家|找一个|找个|找|去|逛逛|逛|看看|看|有没有|有个|有一家)\s*)+"
+)
+_CONTAINER_TARGET_TRAILING_RE = re.compile(
+    r"(?:玩一玩|体验一下|推荐一下|求推荐|好玩吗|怎么样|有没有|有吗|看看|逛逛|体验|玩|吗|吧)+$"
+)
+
+
+def _parse_container_target(user_request: str) -> tuple[str, str] | None:
+    """Return ``(container, target)`` for a clause-local container query.
+
+    Both sides are bounded by ``_split_clauses`` so a relation can never pull
+    text from the preceding or following itinerary step.
+    """
+    for clause in _split_clauses(user_request):
+        for relation in _CONTAINER_RELATION_RE.finditer(clause):
+            container = clause[:relation.start()].strip()
+            container = _CONTAINER_LEADING_NOISE_RE.sub("", container).strip()
+            if not container or not any(container.endswith(suffix) for suffix in _CONTAINER_SUFFIXES):
+                # For example, skip the "中" inside "购物中心" and continue
+                # until the actual relation word "里/中的" is reached.
+                continue
+
+            target = clause[relation.end():].strip()
+            target = _CONTAINER_TARGET_LEADING_RE.sub("", target).strip()
+            target = _CONTAINER_TARGET_TRAILING_RE.sub("", target).strip()
+            if not target:
+                continue
+            return container, target
+    return None
+
+
+# v20: Multi-theme enumeration — shared-suffix parsing (e.g. "工业，农业，水利，交通遗产")
+_ENUM_HERITAGE_FACETS: dict[str, dict] = {
+    "工业遗产": {
+        "facet_id": "industrial_heritage", "canonical_label": "工业遗产",
+        "search_keywords": ["工业遗产", "工业遗址", "老厂房", "工业博物馆", "矿业遗存"],
+        "required_terms": ["工业", "工厂", "厂房", "矿业", "制造", "车间", "钢铁", "纺织"],
+    },
+    "农业遗产": {
+        "facet_id": "agricultural_heritage", "canonical_label": "农业遗产",
+        "search_keywords": ["农业遗产", "农业博物馆", "农耕文化", "农业展览馆", "传统村落"],
+        "required_terms": ["农业", "农耕", "农田", "农具", "作物", "渔", "畜牧", "蚕桑"],
+    },
+    "水利遗产": {
+        "facet_id": "water_heritage", "canonical_label": "水利遗产",
+        "search_keywords": ["水利遗产", "水利工程", "水利博物馆", "古代水利", "运河水利", "水闸遗址"],
+        "required_terms": ["水利", "水闸", "运河", "水渠", "灌溉", "水库", "堤坝", "渡槽"],
+    },
+    "交通遗产": {
+        "facet_id": "transport_heritage", "canonical_label": "交通遗产",
+        "search_keywords": ["交通遗产", "交通博物馆", "铁路博物馆", "老火车站", "老码头", "历史桥梁"],
+        "required_terms": ["交通", "铁路", "火车", "车站", "码头", "桥梁", "隧道", "公路", "航空", "驿道"],
+    },
+}
+
+
+def _parse_multi_theme_enumeration(user_request: str) -> dict | None:
+    """Detect shared-suffix enumerations like '工业，农业，水利，交通遗产'.
+
+    Uses linear scanning — NO nested quantifier regex that could
+    cause catastrophic backtracking on long text.
+    """
+    text = user_request.strip().rstrip("。，,.!！?？")
+
+    # v20: Fast bail-out — only scan further if a target suffix is present
+    _SUFFIXES = ("遗产", "文化", "遗址", "博物馆", "文化路线", "主题路线")
+    matched_suffix = None
+    suffix_pos = -1
+    for sfx in _SUFFIXES:
+        pos = text.find(sfx)
+        if pos > 0 and (suffix_pos < 0 or pos < suffix_pos):
+            matched_suffix = sfx
+            suffix_pos = pos
+    if matched_suffix is None:
+        return None
+
+    shared_suffix = matched_suffix
+    # Extract the ~40-char segment just before the suffix (enumeration is short)
+    start = max(0, suffix_pos - 40)
+    prefix_block = text[start:suffix_pos]
+
+    # Strip leading functional / city words from the prefix segment
+    prefix_block = re.sub(
+        r"^(?:想看看|想看|想去|去看看?|推荐|游览|参观|玩|求|有没有|附近|周边)?"
+        r"(?:北京的?|上海的?|杭州的?|广州的?|深圳的?|成都的?|武汉的?|南京的?)?"
+        r"\s*",
+        "", prefix_block,
+    )
+
+    # Split by separators (commas, 、, 和/与/及)
+    prefixes = [p.strip() for p in re.split(r"[，,、和与及]\s*", prefix_block) if p.strip()]
+    if len(prefixes) < 2:
+        return None
+
+    # Keep only short prefix terms (genuine enumeration items, not stray text)
+    prefixes = [p for p in prefixes if 1 <= len(p) <= 6 and re.match(r'^[一-龥]+$', p)]
+    if len(prefixes) < 2:
+        return None
+
+    facets: list[dict] = []
+    for prefix in prefixes:
+        full_label = f"{prefix}{shared_suffix}"
+        if full_label in _ENUM_HERITAGE_FACETS:
+            fdef = dict(_ENUM_HERITAGE_FACETS[full_label])
+            fdef["raw_label"] = prefix
+            facets.append(fdef)
+        else:
+            facets.append({
+                "facet_id": f"custom_{prefix}_{shared_suffix}",
+                "raw_label": prefix,
+                "canonical_label": full_label,
+                "search_keywords": [full_label, prefix],
+                "required_terms": [prefix, shared_suffix],
+            })
+
+    if len(facets) < 2:
+        return None
+
+    return {
+        "facets": facets,
+        "umbrella_profile": "history_heritage",
+        "shared_suffix": shared_suffix,
+    }
+
+
+# v20: Ranking modifier parsing — removes ranking words from search terms
+_RANKING_MODIFIERS: list[tuple[list[str], str, str]] = [
+    (["最有名", "最知名", "最热门", "人气最高", "最受欢迎", "著名的"], "popularity", "desc"),
+    (["评分最高", "口碑最好", "评价最高", "口碑最佳"], "rating", "desc"),
+    (["最近", "离我最近", "距离最近", "最近的", "近的", "较近"], "distance", "asc"),
+    (["最大", "规模最大", "面积最大"], "scale", "desc"),
+    (["最老", "历史最悠久", "最古老", "老字号"], "history", "desc"),
+]
+_RANKING_CLEANUP_RE = re.compile(
+    r"最(?:有名|知名|热门|受欢迎|高|好|近|大|老|古老)的?"
+    r"|人气最高|口碑最好|评价最高|口碑最佳|规模最大|历史最悠久"
+    r"|离我最近|距离最近|著名的"
+)
+
+
+# v20: Unified set of time/duration expressions — must NOT become primary_query etc.
+# v20: Preference modifier words — modify ranking, not POI identity
+_PREFERENCE_MODIFIERS: set[str] = {
+    "冷门", "小众", "人少", "清静", "不拥挤", "低拥挤",
+    "本地人私藏", "宝藏", "非热门", "避开热门", "避开人流",
+    "幽静", "安静", "清净",
+}
+
+
+def _split_preference_from_category(text: str) -> tuple[str, list[str]]:
+    """Split preference modifiers from base category, e.g. '冷门景区' → ('景区', ['冷门'])."""
+    t = text.strip()
+    found_mods: list[str] = []
+    for mod in sorted(_PREFERENCE_MODIFIERS, key=len, reverse=True):
+        if t.startswith(mod):
+            found_mods.append(mod)
+            t = t[len(mod):]
+            break
+        if t.endswith(mod):
+            found_mods.append(mod)
+            t = t[:-len(mod)]
+            break
+    return t.strip(), found_mods
+
+
+_TIME_FUNCTIONAL_EXPRESSIONS: set[str] = {
+    "一整天", "整天", "全天", "一天", "一日", "半天", "半日",
+    "上午", "下午", "中午", "晚上", "早上", "傍晚", "夜里",
+    "玩一天", "逛一天", "待一天", "玩半天", "逛半天",
+    "两小时", "三小时", "几个小时", "一会儿", "一阵子",
+    "耍一耍", "看一看", "看看", "逛逛", "走走", "坐一会儿",
+    "玩一玩", "走一走", "遛一遛", "转一转",
+    "附近", "周边", "周围", "旁边", "就近",
+    "找个地方", "哪里有", "有没有", "求推荐", "推荐一下",
+}
+_TIME_FUNC_PATTERN = re.compile(
+    r"^(?:一整天|整天|全天|一天|一日|半天|半日|"
+    r"上午|下午|中午|晚上|早上|傍晚|夜里|"
+    r"玩[一二两三]?(?:天|小时)|逛[一二两三]?(?:天|小时)|待[一二两三]?(?:天|小时)|"
+    r"[两三]小时|几个小时|一会儿|一阵子|"
+    r"耍一耍|看一看|看看|逛逛|走走|坐一会儿|"
+    r"玩一玩|走一走|遛一遛|转一转)$"
+)
+
+
+def _is_time_or_functional_expression(text: str) -> bool:
+    """Return True if text is purely a time, duration, or functional word."""
+    t = text.strip()
+    if not t:
+        return True
+    if t in _TIME_FUNCTIONAL_EXPRESSIONS:
+        return True
+    if _TIME_FUNC_PATTERN.match(t):
+        return True
+    return False
+
+
+def _parse_ranking_modifier(user_request: str) -> dict | None:
+    """Detect ranking/ordering modifier words and remove them from the query.
+
+    Returns ranking_intent, ranking_raw_terms, ranking_direction, or None.
+    Does NOT modify user_request in-place — callers use ranking_result to adjust search.
+    """
+    for terms, intent, direction in _RANKING_MODIFIERS:
+        for term in sorted(terms, key=len, reverse=True):
+            if term in user_request:
+                return {
+                    "ranking_intent": intent,
+                    "ranking_raw_terms": [term],
+                    "ranking_direction": direction,
+                    "cleaned_text": _RANKING_CLEANUP_RE.sub("", user_request).strip(),
+                }
+    return None
 
 
 # v20: Area-category modifier parsing (e.g. "朝阳区的商场", "海淀区书店")
@@ -1693,6 +1971,7 @@ _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
 # where X is an administrative area / district / business zone.
 
 # Area name patterns — administrative divisions and business zones
+# v20: Semantic POI suffixes (景区/风景区/度假区 etc.) are filtered in code, not regex.
 _AREA_SUFFIX_PATTERN = re.compile(
     r"((?:"
     r"[一-龥A-Za-z\d·]+(?:省|市|区|县|镇|乡|街道|商圈|片区|一带|开发区|园区|新城|"
@@ -1700,6 +1979,12 @@ _AREA_SUFFIX_PATTERN = re.compile(
     r"胡同|里弄|弄堂|社区|小区)"
     r"))"
 )
+
+# v20: POI category suffixes that end with 区 but are NOT administrative districts
+_NON_ADMIN_AREA_SUFFIXES: set[str] = {
+    "景区", "风景区", "游览区", "度假区", "工业区", "居住区",
+    "服务区", "停车区", "休息区", "观景区",
+}
 
 # Pattern: "X的Y" where X contains area suffix and Y is a target category
 _AREA_CATEGORY_RE = re.compile(
@@ -1771,6 +2056,10 @@ def _parse_area_category_modifier(user_request: str) -> dict | None:
     area_raw = m.group(1).strip()
     target_raw = m.group(2).strip()
 
+    # v20: Reject non-admin "区" suffixes like 景区/风景区/度假区
+    if area_raw.endswith("区") and area_raw in _NON_ADMIN_AREA_SUFFIXES:
+        return None
+
     # The no-"的" form commonly puts an action verb between area and category,
     # e.g. "朝阳区找商场".  Keep only the searchable category in primary_query.
     _TARGET_PREFIX_RE = re.compile(
@@ -1840,9 +2129,22 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
 
     # Leading functional words to strip from captured X
     _LEADING_STRIP_RE = re.compile(
-        r"^(?:明天|今天|后天|周末|想|要|帮|请|帮忙|可以|能不能|是否|"
+        r"^(?:明天|今天|后天|周末|早上|上午|中午|下午|晚上|夜里|傍晚|"
+        r"想|要|帮|请|帮忙|可以|能不能|是否|"
         r"去|在|到|找|看|逛|玩|来|再去|想去|要去|"
         r"帮我|给我|给|顺便)+(?:的|一下|一会|一会儿)?"
+    )
+
+    # v20: Functional/noise words that must NOT be treated as area X
+    _FUNCTIONAL_X_SKIP = {
+        "明天", "今天", "后天", "周末", "上午", "下午", "晚上",
+        "想", "要", "帮", "请", "帮忙", "可以", "能不能", "是否",
+        "推荐", "推荐一个", "给我", "安排", "找", "找一个", "去一个",
+    }
+    # v20: Phrases that indicate X is purely functional, not a real area
+    _FUNCTIONAL_X_PATTERN = re.compile(
+        r"^(?:推荐|帮我|给我|安排|找|去|来|到)(?:一个|一下|个|下)?"
+        r"(?:明天|今天|后天|周末)?(?:去|到)?$"
     )
 
     # Try patterns with explicit area X
@@ -1853,38 +2155,96 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
             y_raw = m.group(2).strip()
             # Strip leading functional words from X
             x_clean = _LEADING_STRIP_RE.sub("", x_raw).strip()
-            # Filter: X should not be a purely functional word
-            skip_x = {"明天", "今天", "后天", "周末", "想", "要", "帮", "请", "帮忙", "可以", "能不能", "是否"}
-            if x_clean in skip_x or len(x_clean) < 1:
+            # v20: Validate X is a real area, not functional phrase
+            if x_clean in _FUNCTIONAL_X_SKIP or len(x_clean) < 2:
+                continue
+            if _FUNCTIONAL_X_PATTERN.match(x_clean):
+                continue
+            # v20: X must contain at least one geographic indicator or known place/building name
+            _has_geo_indicator = bool(re.search(
+                r"(?:路|街|巷|弄|里|园|苑|庄|村|桥|门|口|"
+                r"省|市|区|县|镇|乡|街道|商圈|片区|一带|社区|小区|"
+                r"胡同|里弄|弄堂|新城|新区|开发区|园区|"
+                r"大学|学院|学校|医院|商场|广场|大厦|大楼|公园|"
+                r"地铁站|火车站|机场|码头|车站)",
+                x_clean,
+            ))
+            if not _has_geo_indicator and len(x_clean) > 3:
+                # Long X without geo indicators is likely a false positive — treat as standalone proximity
                 continue
             # Y should not be empty or purely functional
             skip_y = {"附近", "周边", "旁边", "一带", "逛逛", "走走", "的"}
             if y_raw in skip_y or len(y_raw) < 1:
-                # X alone: this is a destination query, not proximity
                 continue
+            # v20: Split preference modifiers from Y before category matching
+            _base_y, _prefs = _split_preference_from_category(y_raw)
+            _effective_y = _base_y if _base_y else y_raw
             return {
                 "search_area_label": x_clean,
-                "primary_query": y_raw,
+                "primary_query": _effective_y,
+                "preference_terms": _prefs if _prefs else None,
                 "proximity_requested": True,
                 "is_search_center_only": True,
             }
+
+    # v20: Strip leading quantifier/functional words from captured Y
+    _Y_LEADING_STRIP_RE = re.compile(
+        r"^(?:个|下|一下|个新的|新开的|附近的|周边的|旁边的)+"
+    )
 
     # Try patterns without explicit area (e.g. "附近的医院")
     for pat in _PROXIMITY_NO_AREA_PATTERNS:
         m = pat.search(text)
         if m:
             y_raw = m.group(1).strip()
+            # Strip leading noise
+            y_clean = _Y_LEADING_STRIP_RE.sub("", y_raw).strip()
             skip_y = {"逛逛", "走走", "溜达", "转转", "玩"}
-            if y_raw in skip_y or len(y_raw) < 1:
+            if y_clean in skip_y or len(y_clean) < 1:
                 continue
+            _base_y2, _prefs2 = _split_preference_from_category(y_clean)
+            _effective_y2 = _base_y2 if _base_y2 else y_clean
             return {
-                "search_area_label": None,  # Will use original_location
-                "primary_query": y_raw,
+                "search_area_label": None,
+                "primary_query": _effective_y2,
+                "preference_terms": _prefs2 if _prefs2 else None,
                 "proximity_requested": True,
-                "is_search_center_only": False,  # No explicit X, use home
+                "is_search_center_only": False,
             }
 
     return None
+
+
+def _apply_preference_modifiers(result: dict) -> dict:
+    """Split '冷门景区' → base='景区' + prefs=['冷门'], with scenic_area category."""
+    pq = result.get("primary_query", "")
+    if pq and not result.get("category_id"):
+        base, mods = _split_preference_from_category(pq)
+        if mods:
+            result["primary_query"] = base
+            result["preference_terms"] = mods
+            for tokens, cat_id in _DIRECT_CATEGORY_PATTERNS:
+                for token in tokens:
+                    if token == base or base in token:
+                        rule = CATEGORY_RULES.get(cat_id)
+                        if rule:
+                            result["category_id"] = cat_id
+                            result["allowed_typecode_prefixes"] = get_allowed_typecode_prefixes(cat_id)
+                            result["excluded_typecode_prefixes"] = get_excluded_typecode_prefixes(cat_id)
+                            result["primary_required_terms"] = get_semantic_terms(cat_id)
+                            result["category_label"] = rule.get("label", base)
+                            print(
+                                f"[PreferenceAudit] raw_terms={mods} "
+                                f"base_category={base} category_id={cat_id} "
+                                f"matching_mode=category_plus_preference"
+                            )
+                            return result
+            print(
+                f"[PreferenceAudit] raw_terms={mods} "
+                f"base_category={base} category_id=None "
+                f"matching_mode=preference_only"
+            )
+    return result
 
 
 def _detect_poi_category_query(user_request: str) -> dict | None:
@@ -1900,6 +2260,42 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
     No city or POI name is hardcoded — all derived from category rules.
     """
     lowered = user_request.lower()
+
+    # === Layer 0: Container-target parsing ("商场里的电玩城", "园区中的咖啡馆") ===
+    # A = container (mall/park/plaza), B = actual target category
+    # B determines primary_query, category_id, typecodes; A is a location constraint
+    container_target = _parse_container_target(user_request)
+    if container_target:
+        container, target = container_target
+        # Find the longest category token for B (target), NOT A (container).
+        # Longest-match avoids a broad token winning over a more precise one.
+        category_matches: list[tuple[int, str]] = []
+        for tokens, cat_id in _DIRECT_CATEGORY_PATTERNS:
+            for token in tokens:
+                if token in target:
+                    category_matches.append((len(token), cat_id))
+        best_cat_id = max(category_matches, default=(0, ""))[1] or None
+        if not best_cat_id:
+            best_cat_id = category_for_query(target)
+        rule = CATEGORY_RULES.get(best_cat_id) if best_cat_id else None
+
+        print(
+            f"[DEBUG step1] container-target: container={container} target={target} "
+            f"cat_id={best_cat_id} "
+            f"allowed_tc={get_allowed_typecode_prefixes(best_cat_id) if best_cat_id else []}"
+        )
+        return {
+            "poi_query_type": "poi_category",
+            "primary_query": target,
+            "explicit_meal_intent": best_cat_id == "restaurant",
+            "category_id": best_cat_id,
+            "allowed_typecode_prefixes": get_allowed_typecode_prefixes(best_cat_id) if best_cat_id else [],
+            "excluded_typecode_prefixes": get_excluded_typecode_prefixes(best_cat_id) if best_cat_id else [],
+            "primary_required_terms": get_semantic_terms(best_cat_id) if best_cat_id else [target],
+            "primary_excluded_terms": [],
+            "category_label": rule.get("label", target) if rule else target,
+            "container_constraint": container,
+        }
 
     # === Layer 1: Area-category modifier parsing ("朝阳区的商场") ===
     area_cat = _parse_area_category_modifier(user_request)
@@ -1963,6 +2359,24 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             result["primary_excluded_terms"] = []
             result["category_label"] = best_cat_rule.get("label", primary_query)
         else:
+            # v20: If target looks like a theme/style expression (ends with 路线, or is a style word),
+            # return None so it falls through to theme_route.  Don't create a broken poi_category state.
+            _is_theme_expr = (
+                primary_query.endswith("路线")
+                or primary_query.endswith("游")
+                or primary_query in _STYLE_THEME_SYNONYMS
+                or any(
+                    primary_query == kw or (primary_query.endswith(kw) and len(primary_query) <= len(kw) + 2)
+                    for kw in _STYLE_THEME_SYNONYMS
+                )
+            )
+            if _is_theme_expr:
+                print(
+                    f"[DEBUG step1] proximity target '{primary_query}' is a theme/style expression, "
+                    f"NOT poi_category — falling back to theme_route"
+                )
+                return None
+
             # Unknown category — generic fallback: allow any typecode, filter by keyword
             result["category_id"] = None
             result["allowed_typecode_prefixes"] = []
@@ -2051,7 +2465,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.duration = request_duration
 
     # v5.3: 跨时段组合规则 — 用户同时提到两个以上时段（如上午+下午+晚上）→ full_day
-    _has_morning = bool(re.search(r"上午|早上|一上午", user_request))
+    _has_morning = bool(re.search(r"明早|今早|上午|早上|一上午", user_request))
     _has_afternoon = bool(re.search(r"下午|一下午", user_request))
     _has_evening = bool(re.search(r"晚上|夜里|夜间|傍晚", user_request))
     _period_count = sum([_has_morning, _has_afternoon, _has_evening])
@@ -2119,10 +2533,24 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             f"loc=({parsed.original_location.get('lat','')},{parsed.original_location.get('lng','')})"
         )
 
+    # v20: Parse ranking modifier words ("最有名", "评分最高", "最近" etc.)
+    # Remove them from the primary_query so they don't become search terms.
+    ranking_result = _parse_ranking_modifier(user_request)
+    _category_query_text = user_request  # default: raw text
+    if ranking_result:
+        parsed.ranking_intent = ranking_result["ranking_intent"]
+        parsed.ranking_raw_terms = ranking_result["ranking_raw_terms"]
+        parsed.ranking_direction = ranking_result["ranking_direction"]
+        # Use cleaned_text for category detection so ranking words don't
+        # become part of primary_query or search keywords.
+        _category_query_text = ranking_result.get("cleaned_text", user_request) or user_request
+
     # v20: Detect direct POI category query BEFORE keyword overrides
     # so that keywords are focused on the target category, not expanded to unrelated ones.
-    poi_cat_result = _detect_poi_category_query(user_request)
+    poi_cat_result = _detect_poi_category_query(_category_query_text)
     if poi_cat_result:
+        # v20: Split preference modifiers from base category (冷门景区 → 景区 + 冷门)
+        poi_cat_result = _apply_preference_modifiers(poi_cat_result)
         parsed.poi_query_type = poi_cat_result["poi_query_type"]
         parsed.primary_query = poi_cat_result["primary_query"]
         parsed.explicit_meal_intent = poi_cat_result["explicit_meal_intent"]
@@ -2130,6 +2558,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.excluded_typecode_prefixes = poi_cat_result["excluded_typecode_prefixes"]
         parsed.primary_required_terms = poi_cat_result["primary_required_terms"]
         parsed.primary_excluded_terms = poi_cat_result["primary_excluded_terms"]
+        parsed.container_constraint = poi_cat_result.get("container_constraint")
 
         # v20: Proximity fields
         parsed.proximity_requested = bool(poi_cat_result.get("proximity_requested", False))
@@ -2148,7 +2577,12 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             rule.get("semantic_terms", [])[:4] if rule else []
         )
         primary_query = poi_cat_result["primary_query"]
-        focused_search = [f"{city_short} {primary_query}"]
+        container_constraint = poi_cat_result.get("container_constraint") or ""
+        focused_search = (
+            [f"{city_short} {container_constraint} {primary_query}", f"{city_short} {primary_query}"]
+            if container_constraint
+            else [f"{city_short} {primary_query}"]
+        )
         for syn in synonyms:
             if syn != primary_query:
                 focused_search.append(f"{city_short} {syn}")
@@ -2185,6 +2619,28 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         if not parsed.poi_query_type:
             parsed.poi_query_type = "theme_route"
 
+    # v20: Invariant check — clear primary_query if it's a time expression, action word,
+    # or functional word; downgrade poi_category if no valid category_id/typecodes.
+    _primary_q = getattr(parsed, "primary_query", "") or ""
+    if _primary_q and _is_time_or_functional_expression(_primary_q):
+        print(
+            f"[DEBUG step1] primary_query '{_primary_q}' is a time/functional expression, "
+            f"clearing and downgrading to theme_route"
+        )
+        parsed.primary_query = ""
+    _cat_id = getattr(parsed, "category_id", None)
+    _has_typecodes = bool(getattr(parsed, "allowed_typecode_prefixes", None))
+    if parsed.poi_query_type == "poi_category" and not _cat_id and not _has_typecodes:
+        _pq = getattr(parsed, "primary_query", "") or ""
+        if not _pq or _is_time_or_functional_expression(_pq):
+            print(
+                f"[DEBUG step1] poi_category with no valid category/typecodes, "
+                f"primary_query='{_pq}' — downgrading to theme_route"
+            )
+            parsed.poi_query_type = "theme_route"
+            parsed.primary_query = ""
+            parsed.category_id = None
+
     parsed = _apply_keyword_overrides(parsed, user_request, city)
     parsed = _append_fixed_poi_from_request(parsed, user_request)
     parsed = _exclude_pois_from_request(parsed, user_request)
@@ -2206,9 +2662,14 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             search_loc = await gaode_geocode(_search_area, city=city)
             if search_loc:
                 parsed.search_area_location = search_loc
+                # v20: Capture adcode for district-level filtering
+                adcode = search_loc.get("adcode", "") or ""
+                if adcode:
+                    parsed.search_area_adcode = adcode
                 print(
                     f"[DEBUG proximity] geocoded search_area={_search_area} "
-                    f"loc=({search_loc.get('lat','')},{search_loc.get('lng','')})"
+                    f"loc=({search_loc.get('lat','')},{search_loc.get('lng','')}) "
+                    f"adcode={adcode}"
                 )
         except Exception:
             pass
@@ -2256,9 +2717,24 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         f"reason={decision.reason}"
     )
 
-    parsed.theme_profile = decision.profile_id
-    parsed.theme_label = decision.label
-    parsed.theme_confidence = decision.confidence
+    # v20: Multi-theme facet detection — shared-suffix enumeration
+    _multi_result = _parse_multi_theme_enumeration(user_request)
+    if _multi_result and len(_multi_result.get("facets", [])) >= 2:
+        parsed.multi_theme_requested = True
+        parsed.theme_coverage_policy = "cover_all_explicit_facets"
+        parsed.theme_facets = _multi_result["facets"]
+        print(
+            f"[MultiThemeAudit] raw_enumeration={user_request!r} "
+            f"expanded_facets={[f['facet_id'] for f in parsed.theme_facets]} "
+            f"umbrella_profile={_multi_result.get('umbrella_profile')} "
+            f"facet_count={len(parsed.theme_facets)}"
+        )
+
+    # v20: Multi-theme keeps umbrella profile; don't let single-theme decision override facets
+    if not parsed.multi_theme_requested:
+        parsed.theme_profile = decision.profile_id
+        parsed.theme_label = decision.label
+        parsed.theme_confidence = decision.confidence
 
     if decision.profile_id:
         profile = get_all_theme_profiles().get(decision.profile_id, {})
@@ -2285,7 +2761,23 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
                 limit=8,
             )
 
-    parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=8)
+    # v20: Multi-theme — expand per-facet keywords to prevent single-theme truncation
+    if parsed.multi_theme_requested and parsed.theme_facets:
+        city_short = city[:-1] if city.endswith("市") else city
+        for facet in parsed.theme_facets:
+            facet_kw = facet.get("search_keywords", [])
+            for kw in facet_kw[:4]:  # up to 4 per facet
+                scoped = f"{city_short} {kw}" if city_short else kw
+                if scoped not in parsed.search_keywords:
+                    parsed.search_keywords.append(scoped)
+                    if len(parsed.search_keywords) >= 20:
+                        break
+            print(
+                f"[MultiThemeAudit] facet={facet['facet_id']} "
+                f"keywords_added={facet_kw[:4]}"
+            )
+
+    parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=len(parsed.search_keywords) if parsed.multi_theme_requested else 8)
 
     # v18: 父母/长辈/老人不应触发儿童亲子主题
     parsed = _apply_parent_elder_theme_guard(parsed, user_request, city)
@@ -2366,8 +2858,38 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     DIRECTION_WORDS = {"外面", "旁边", "附近", "周边", "出去", "外面吃", "出去吃"}
     for constraint in parsed.meal_constraints:
         name = str(constraint.get("fixed_poi_name") or "").strip()
-        if name in DIRECTION_WORDS or len(name) <= 2:
+        if (
+            name in DIRECTION_WORDS
+            or len(name) <= 2
+            or any(term in name for term in ["附近", "周边", "周围", "旁边", "一带"])
+        ):
             constraint["fixed_poi_name"] = None
+
+    # Drop empty LLM meal constraints that are not supported by deterministic
+    # clause-level evidence, then deduplicate after clearing false fixed names.
+    rule_meal_constraints = _meal_constraints_from_request(user_request)
+    evidenced_meals = {item.get("meal") for item in rule_meal_constraints if item.get("meal")}
+    cleaned_constraints: list[dict] = []
+    seen_constraints: set[tuple] = set()
+    for constraint in parsed.meal_constraints:
+        has_payload = bool(constraint.get("keywords") or constraint.get("fixed_poi_name"))
+        if not has_payload and constraint.get("meal") not in evidenced_meals:
+            continue
+        key = (
+            constraint.get("day_index"),
+            constraint.get("meal"),
+            constraint.get("fixed_poi_name"),
+            tuple(constraint.get("keywords") or []),
+        )
+        if key in seen_constraints:
+            continue
+        seen_constraints.add(key)
+        cleaned_constraints.append(constraint)
+    parsed.meal_constraints = cleaned_constraints
+
+    # Preserve clause-local references on planned waypoints after LLM parsing.
+    # This must run after proximity parsing but before the planned fast path.
+    _bind_planned_waypoint_search_centers(parsed.planned_waypoints, user_request)
     request_food_keywords = _request_food_keywords_from_constraints(parsed.meal_constraints)
     parsed.food_pref_keywords = _normalize_food_preferences(parsed.food_pref_keywords)
     parsed.food_pref_keywords = _append_unique(parsed.food_pref_keywords, request_food_keywords, limit=6)
@@ -2576,6 +3098,26 @@ def _fallback_planned_waypoints_from_request(
     for clause in clauses:
         if _is_context_only_planned_clause(clause):
             continue
+
+        # Clause-local reference: "X旁边的饭馆" means search for a meal near
+        # X. X is not itself a visible visit waypoint.
+        prox = _parse_proximity_modifier(clause)
+        if prox and prox.get("search_area_label"):
+            prox_target = str(prox.get("primary_query") or "").strip()
+            if any(term in prox_target for term in ["饭馆", "饭店", "餐厅", "吃饭", "用餐", "就餐", "简餐"]):
+                waypoints.append(PlannedWaypoint(
+                    type="placeholder",
+                    search_keyword="餐厅",
+                    category="meal",
+                    stay_minutes=40,
+                    search_keywords=["餐厅", "饭馆", "小吃", "快餐"],
+                    required_terms=["餐厅", "饭馆", "饭店", "小馆", "菜馆", "食府"],
+                    excluded_terms=["咖啡", "奶茶", "甜品", "面包"],
+                    search_center_name=str(prox["search_area_label"]),
+                    time_slot="dinner" if re.search(r"晚上|傍晚|夜里|夜间", clause) else None,
+                ))
+                continue
+
         matched = False
         for tokens, config_val in _FALLBACK_RULES:
             if any(t in clause for t in tokens):
@@ -2612,6 +3154,62 @@ def _fallback_planned_waypoints_from_request(
                     ))
 
     return waypoints
+
+
+def _bind_planned_waypoint_search_centers(
+    waypoints: list[PlannedWaypoint],
+    user_request: str,
+) -> None:
+    """Attach clause-local X-near-Y references to the matching waypoint.
+
+    LLM output may correctly create a meal waypoint while omitting the local
+    reference.  This deterministic pass preserves the LLM waypoint order and
+    only enriches the matching placeholder with its search center.
+    """
+    if not waypoints:
+        return
+
+    used_indexes: set[int] = set()
+    for clause in _split_clauses(user_request):
+        prox = _parse_proximity_modifier(clause)
+        reference = str((prox or {}).get("search_area_label") or "").strip()
+        target = str((prox or {}).get("primary_query") or "").strip()
+        if not reference or not target:
+            continue
+
+        wants_meal = any(term in target for term in ["饭馆", "饭店", "餐厅", "吃饭", "用餐", "就餐", "简餐"])
+        wants_cafe = any(term in target.lower() for term in ["咖啡", "coffee", "奶茶", "茶馆"])
+
+        matching_indexes: list[int] = []
+        for idx, wp in enumerate(waypoints):
+            if idx in used_indexes:
+                continue
+            haystack = " ".join([
+                str(wp.name or ""),
+                str(wp.search_keyword or ""),
+                " ".join(wp.search_keywords or []),
+            ])
+            if wants_meal and wp.category == "meal":
+                matching_indexes.append(idx)
+            elif wants_cafe and wp.category == "cafe":
+                matching_indexes.append(idx)
+            elif target and (target in haystack or haystack in target):
+                matching_indexes.append(idx)
+
+        if not matching_indexes:
+            continue
+
+        # A proximity clause normally describes the later waypoint in a route.
+        selected_idx = matching_indexes[-1]
+        waypoints[selected_idx].search_center_name = reference
+        if wants_meal and re.search(r"晚上|傍晚|夜里|夜间", clause):
+            waypoints[selected_idx].time_slot = "dinner"
+        used_indexes.add(selected_idx)
+        print(
+            f"[DEBUG step1] waypoint local search center bound: "
+            f"idx={selected_idx} reference={reference} target={target} "
+            f"waypoint={waypoints[selected_idx].search_keyword or waypoints[selected_idx].name}"
+        )
 
 
 # v20: Generic clause structuring helpers
@@ -2824,8 +3422,9 @@ async def _extract_planned_waypoints(
                 "- search_keyword: 检索词（placeholder时必填，如\"日料\"\"水果店\"\"理发\"\"简餐\"）\n"
                 "- category: 严格枚举值 — meal(吃饭/餐厅等) | cafe(咖啡/奶茶) | purchase(买水果/超市/便利店/面包) | service(理发/剪发) | home(回家/到家) | visit(其他)\n"
                 "- stay_minutes: 预估停留分钟\n\n"
+                "- search_center_name: 仅当用户明确说X附近/旁边/周边的Y时填写X；X只是搜索中心，不是展示途经点\n\n"
                 "规则：保留用户顺序；回家→home；买水果→purchase；日料→meal；咖啡→cafe；理发→service；search_keyword用具体的检索词（水果店/理发/日料等）\n"
-                "返回JSON数组，每个元素含type/name/search_keyword/category/stay_minutes"
+                "返回JSON数组，每个元素含type/name/search_keyword/category/stay_minutes/search_center_name"
             ),
         },
         {

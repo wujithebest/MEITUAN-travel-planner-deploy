@@ -640,6 +640,22 @@ async def _run_pipeline_stream(
                 # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
                 micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
 
+            # v20: Exploratory mode — generate per-POI recommendation reasons via DeepSeek
+            _final_plan_mode = getattr(parsed_intent, "plan_mode", "exploratory") or "exploratory"
+            if _final_plan_mode == "exploratory" and route_points:
+                try:
+                    from services.reason_generator import generate_exploratory_reasons
+                    _city = getattr(parsed_intent, "resolved_city", "") or \
+                            (user_profile.permanent_city[0] if user_profile.permanent_city else "")
+                    route_points = await generate_exploratory_reasons(
+                        route_points=route_points,
+                        parsed_intent=parsed_intent,
+                        user_profile=user_profile,
+                        city=_city,
+                    )
+                except Exception as _re:
+                    print(f"[ReasonGen] generation failed (non-blocking): {_re}")
+
             # Step 4: 生成输出
             # 注意：run_step4 内部会发送 "正在生成行程方案..."、"路线规划完成！" 和 emit_done
             # 所以这里不需要重复发送这些消息

@@ -413,9 +413,11 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                                   <span className={styles.routePlaceAddress}>{poi.address}</span>
                                 )}
                               </div>
-                              <div className={styles.routePlaceReason}>
-                                {poi.recommend_reason || poi.address || '符合本次路线偏好'}
-                              </div>
+                              {poi.recommend_reason?.trim() && (
+                                <div className={styles.routePlaceReason}>
+                                  {poi.recommend_reason}
+                                </div>
+                              )}
                             </div>
                           </button>
                           {/* Action buttons — inside info column below text */}

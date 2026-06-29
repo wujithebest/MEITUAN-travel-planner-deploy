@@ -94,6 +94,52 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         "excluded": ["050000", "110000"],
         "note": "strict name check required; do not accept general craft shops without wood terms",
     },
+    # ── v20: Science/Tech museums ──
+    "science_museum": {
+        "label": "科技馆/天文馆",
+        "allowed": ["140600", "140700"],
+        "wide_fallback": ["140000"],
+        "semantic_terms": [
+            "科技馆", "天文馆", "科学技术馆", "科学中心", "科学宫",
+            "科技中心", "科学博物馆", "天文台", "气象馆",
+        ],
+        "negative_semantic_terms": [
+            "艺术馆", "美术馆", "金丝楠", "古董", "珠宝",
+        ],
+        "excluded": ["050000", "060000"],
+        "note": "140600=科技馆, 140700=天文馆; 140000 wide_fallback with semantic check",
+    },
+    # ── v20: Scenic areas / tourist attractions ──
+    "scenic_area": {
+        "label": "景区/景点",
+        "allowed": ["110000", "110100", "110200"],
+        "wide_fallback": ["110000"],
+        "semantic_terms": [
+            "景区", "景点", "风景区", "名胜", "公园", "旅游景点",
+            "名胜古迹", "风景区", "游览区",
+        ],
+        "negative_semantic_terms": [
+            "餐厅", "饭馆", "火锅", "小吃", "零售", "便利店",
+            "公司", "企业", "停车场", "住宅",
+        ],
+        "excluded": ["050000", "060000", "080000", "090000"],
+        "note": "110000=风景名胜, 110100=公园广场, 110200=景点/景区",
+    },
+    # ── v20: Entertainment venues ──
+    "arcade": {
+        "label": "电玩城/游戏厅",
+        "allowed": ["080300", "080305", "080306", "080307"],
+        "wide_fallback": ["080000"],
+        "semantic_terms": [
+            "电玩城", "游戏厅", "动漫城", "电玩中心", "街机厅",
+            "街机", "电玩", "游戏机", "投篮机", "跳舞机",
+        ],
+        "negative_semantic_terms": [
+            "棋牌", "麻将", "台球", "彩票", "网吧",
+        ],
+        "excluded": ["050000"],
+        "note": "0803xx = 娱乐场所-游戏厅/电玩城; excludes 棋牌室 and lottery shops",
+    },
     "bookstore": {
         "label": "书店/文具",
         "allowed": ["061205"],  # Gaode: 061205 = 书店 (actual bookstore code, NOT 060400)
@@ -101,6 +147,59 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         "semantic_terms": ["书店", "书局", "书城", "城市书房", "独立书店", "概念书店", "图书馆"],
         "excluded": ["050000", "080500"],
         "note": "061205 is the correct Gaode code for bookstores; 060400 is general stationery/cultural supplies",
+    },
+    # ── v20: Sports venues ──
+    "sports_venue": {
+        "label": "运动场馆",
+        "allowed": [
+            "080100", "080101", "080102", "080103", "080104", "080105",
+            "080106", "080107", "080108", "080109", "080110", "080111",
+            "080112", "080113", "080114", "080115", "080116", "080117",
+        ],
+        "wide_fallback": ["080000"],
+        "semantic_terms": [
+            "运动场馆", "体育馆", "体育中心", "运动中心",
+            "健身房", "游泳馆", "篮球场", "足球场", "网球场",
+            "羽毛球馆", "乒乓球馆", "攀岩馆", "滑雪场", "滑冰场",
+            "保龄球馆", "运动", "体育场", "运动场",
+            "健身", "瑜伽", "舞蹈室",
+        ],
+        "negative_semantic_terms": [
+            "培训学校", "教练培训", "运动用品", "体育器材", "体育用品",
+            "比赛报名", "团建轰趴", "轰趴馆", "私人会所",
+            "学校内部", "已停业",
+        ],
+        "excluded": ["050000", "060000"],
+        "note": "0801xx = sports venues; excludes training schools, equipment shops, private clubs",
+    },
+    # ── v20: Campus / education ──
+    "university_campus": {
+        "label": "大学/高等院校校园",
+        "allowed": ["141201"],  # Gaode: 141201 = 高等院校
+        "wide_fallback": ["141200", "140000"],
+        "forbidden_typecodes": ["141206"],  # 成人教育 — always reject for normal university requests
+        "semantic_terms": [
+            "大学", "高校", "高等院校", "大学校园", "大学校区",
+            "学院", "校园",
+        ],
+        "negative_semantic_terms": [
+            # Vocational / adult / training — must be rejected for normal "大学" requests
+            "职工大学", "职业大学", "职业学院", "职业技术学院",
+            "成人大学", "成人教育", "老年大学", "继续教育",
+            "开放大学分校", "开放大学",
+            "研修学院", "培训学院", "培训学校", "培训中心",
+            "临床医学系", "实验教学中心", "技能教学中心",
+            "电化教育馆", "社会主义学院",
+            # Non-campus facilities
+            "附属医院", "大学附属", "大学餐厅", "大学食堂", "大学商店",
+            "驾校",
+            # K-12 schools
+            "小学", "中学", "初中", "高中", "幼儿园",
+            # Internal departments only
+            "分校",  # branch campus — weak signal, needs extra evidence
+        ],
+        "excluded": ["050000", "060000"],
+        "note": "normal 大学 requests: 141206 forbidden; 141200/140000 need 2+ evidence; 学院 alone insufficient",
     },
     # ── v20: Healthcare ──
     "hospital": {
@@ -296,21 +395,39 @@ def validate_poi_category(
         reasons.append(f"excluded_typecode={raw_tc}")
         return False, reasons
 
-    # Check negative terms (e.g., "宠物医院" should not match hospital category)
+    # v20: Check forbidden typecodes (always reject, even in compound codes)
+    for fb_prefix in rule.get("forbidden_typecodes", []):
+        if matches_typecode(raw_tc, [fb_prefix]):
+            reasons.append(f"forbidden_typecode={fb_prefix}")
+            return False, reasons
+
+    # v20: Check negative_semantic_terms (strong negative filter)
+    for neg_term in rule.get("negative_semantic_terms", []):
+        if neg_term.lower() in combined:
+            reasons.append(f"negative_semantic_term={neg_term}")
+            return False, reasons
+
+    # Check legacy negative_terms
     for neg_term in rule.get("negative_terms", []) + (HOSPITAL_NEGATIVE_TERMS if cat_id.startswith("hospital") else []):
         if neg_term.lower() in combined:
             reasons.append(f"negative_term_matched={neg_term}")
             return False, reasons
 
-    # Check semantic terms in name and category
+    # v20: Collect POSITIVE evidence (multiple categories)
     found_semantic: list[str] = []
     for term in rule.get("semantic_terms", []):
         if term.lower() in combined:
             found_semantic.append(term)
-            break  # One semantic hit is enough for the semantic check
+    found_name_semantic: list[str] = []
+    name_only = str(poi.get("name", "") or "").lower()
+    for term in rule.get("semantic_terms", []):
+        if term.lower() in name_only:
+            found_name_semantic.append(term)
 
     # Check allowed typecodes (strict allowed list)
     tc_ok = matches_typecode(raw_tc, rule.get("allowed", []))
+    # v20: wide_fallback only counts as half evidence, needs semantic backing
+    tc_wide = matches_typecode(raw_tc, rule.get("wide_fallback", []))
 
     # Check conditional allows (e.g., 060400 only if name has "便利店")
     tc_conditional = False
@@ -344,7 +461,60 @@ def validate_poi_category(
         reasons.append(f"no_allowed_typecode({raw_tc})_and_no_semantic_match")
         return False, reasons
 
+    # v20: Entity role classification for university/campus
+    entity_role = "generic"
+    if cat_id == "university_campus":
+        has_college = any(t in name_only for t in ["大学", "学院"])
+        is_vocational = any(t in combined for t in [
+            "职工", "职业", "成人", "老年", "继续教育", "开放大学",
+            "研修", "培训", "教学中心", "实验中心",
+        ])
+        is_branch = any(t in combined for t in ["分校", "教学点", "函授站"])
+        if not is_vocational and not is_branch and has_college:
+            entity_role = "main_university_campus" if "大学" in name_only else "conventional_college_campus"
+        elif is_vocational:
+            entity_role = "adult_or_vocational_school"
+        elif is_branch:
+            entity_role = "branch_or_department"
+        elif any(t in combined for t in ["食堂", "商店", "医院", "附属"]):
+            entity_role = "campus_internal_facility"
+
+    # v20: Enhanced audit log for university/college candidates
+    if cat_id in ("university_campus",):
+        print(
+            f"[CategoryAudit] candidate={poi.get('name','')} "
+            f"cat_id={cat_id} "
+            f"all_typecodes={raw_tc} "
+            f"tc_ok={tc_ok} tc_wide={tc_wide} "
+            f"semantic_hits={found_name_semantic} "
+            f"evidence_count={evidence_count} "
+            f"entity_role={entity_role} "
+            f"accepted={True} "
+            f"reasons={reasons}"
+        )
+
     return True, []
+
+
+def classify_university_role(poi: dict[str, Any]) -> str:
+    """Return entity_role for a university candidate (for ranking priority)."""
+    name = str(poi.get("name", "") or "").lower()
+    combined = f"{name} {str(poi.get('category','') or '').lower()}"
+    is_vocational = any(t in combined for t in [
+        "职工", "职业", "成人", "老年", "继续教育", "开放大学",
+        "研修", "培训", "教学中心", "实验中心", "技能",
+    ])
+    if is_vocational:
+        return "adult_or_vocational_school"
+    if any(t in combined for t in ["分校", "教学点", "函授站"]):
+        return "branch_or_department"
+    if any(t in combined for t in ["食堂", "商店", "附属医院", "附属"]):
+        return "campus_internal_facility"
+    if "大学" in name:
+        return "main_university_campus"
+    if "学院" in name:
+        return "conventional_college_campus"
+    return "generic"
 
 
 def get_allowed_typecode_prefixes(cat_id: str) -> list[str]:

@@ -149,6 +149,9 @@ async def resolve_planned_waypoints(
             search_keyword=wp.search_keyword,
             category=wp.category,
             stay_minutes=wp.stay_minutes,
+            search_center_name=getattr(wp, "search_center_name", None),
+            search_center_location=getattr(wp, "search_center_location", None),
+            time_slot=getattr(wp, "time_slot", None),
         )
         resolved_wp = await _search_waypoint(wp_copy, current_center, city)
 
@@ -638,8 +641,11 @@ async def resolve_planned_waypoints_with_candidates(
     resolved = []
     candidate_map: dict[int, list[dict[str, Any]]] = {}
 
-    # v20: Use search_area_location as primary search center
-    if search_area_location and search_area_location.get("lat"):
+    # A clause-local waypoint reference takes precedence over the global
+    # proximity area.  In multi-stop routes the global area must not become
+    # the starting center for unrelated fixed visits.
+    has_local_reference = any(getattr(wp, "search_center_name", None) for wp in waypoints)
+    if search_area_location and search_area_location.get("lat") and not has_local_reference:
         current_center = search_area_location
         print(
             f"[DEBUG planned_search] search_center_source=search_area "
@@ -663,7 +669,39 @@ async def resolve_planned_waypoints_with_candidates(
             search_keywords=list(getattr(wp, "search_keywords", []) or []),
             required_terms=list(getattr(wp, "required_terms", []) or []),
             excluded_terms=list(getattr(wp, "excluded_terms", []) or []),
+            search_center_name=getattr(wp, "search_center_name", None),
+            search_center_location=getattr(wp, "search_center_location", None),
+            time_slot=getattr(wp, "time_slot", None),
         )
+
+        # Default recursion uses the previous selected waypoint.  A local
+        # reference (X附近的Y) overrides the center for this waypoint only.
+        waypoint_center = current_center
+        if wp_copy.search_center_location and wp_copy.search_center_location.get("lat"):
+            waypoint_center = wp_copy.search_center_location
+        elif wp_copy.search_center_name:
+            try:
+                reference_results = await gaode_text_search(wp_copy.search_center_name, city=city)
+                if reference_results:
+                    reference_loc = reference_results[0].get("location")
+                    if isinstance(reference_loc, str):
+                        lng, lat = reference_loc.split(",", 1)
+                        reference_loc = {"lng": float(lng), "lat": float(lat)}
+                    if isinstance(reference_loc, dict) and reference_loc.get("lat") is not None:
+                        wp_copy.search_center_location = reference_loc
+                        waypoint_center = reference_loc
+            except Exception as exc:
+                print(
+                    f"[WARNING planned_search] waypoint_reference_failed "
+                    f"idx={idx} name={wp_copy.search_center_name} error={exc}"
+                )
+        if wp_copy.search_center_name:
+            print(
+                f"[DEBUG planned_search] idx={idx} "
+                f"search_center_source=waypoint_reference "
+                f"search_center_name={wp_copy.search_center_name} "
+                f"loc=({waypoint_center.get('lat','')},{waypoint_center.get('lng','')})"
+            )
 
         # 推断 category（如果原始未指定）
         if wp_copy.category == "visit" and wp_copy.search_keyword:
@@ -729,7 +767,7 @@ async def resolve_planned_waypoints_with_candidates(
                 try:
                     results = await _search_planned_keywords_for_radius(
                         wp=wp_copy,
-                        current_center=current_center,
+                        current_center=waypoint_center,
                         search_keywords=search_keywords,
                         radius=radius,
                         search_radius=search_radius,
@@ -753,7 +791,7 @@ async def resolve_planned_waypoints_with_candidates(
 
                         valid_results = _budget_filter_raw_results(valid_results, budget_threshold)
                         if valid_results:
-                            ranked_results = _rank_planned_results(wp_copy, valid_results, current_center)
+                            ranked_results = _rank_planned_results(wp_copy, valid_results, waypoint_center)
                             if not ranked_results:
                                 continue
                             main_poi = ranked_results[0]

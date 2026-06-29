@@ -577,6 +577,9 @@ export default function MapContainer({
     return 6371 * 2 * Math.asin(Math.sqrt(s));
   }
 
+  // v20: Composite evidence — gap is auxiliary, not a single veto.
+  // A valid 24-point driving route with close path/distance ratio passes
+  // even if one segment slightly exceeds the threshold.
   function isSuspiciousPolyline(
     path: any[], distanceKm?: number, source?: string, degraded?: boolean,
   ): boolean {
@@ -596,8 +599,19 @@ export default function MapContainer({
       pathKm += gap;
     }
     if (routeDistance >= 0.3 && pathKm < routeDistance * 0.5) return true;
-    if (routeDistance > 0 && routeDistance < 5 && maxGap > Math.max(0.8, routeDistance * 0.6)) return true;
-    // v8.1: 近距离步行段绕路比校验 — waypoint 落入不可步行区域导致绕桥
+    // v20: ratio evidence — close path/distance ratio is strong positive signal
+    const ratioOk = routeDistance > 0 && pathKm > 0
+      && (pathKm / routeDistance) >= 0.8 && (pathKm / routeDistance) <= 1.5;
+    const gapLimit = Math.max(0.8, routeDistance * 0.6);
+    const gapTolerance = gapLimit * 1.10;  // 10% tolerance margin
+    if (routeDistance > 0 && routeDistance < 5 && maxGap > gapTolerance) {
+      // v20: gap alone cannot veto if ratio is good and points > 5
+      if (ratioOk && path.length > 5) {
+        console.log(`[Map] maxGap exceeds limit but ratio OK — accepting: distance=${routeDistance.toFixed(3)}km path=${pathKm.toFixed(3)}km maxGap=${maxGap.toFixed(3)}km gapLimit=${gapLimit.toFixed(3)}km points=${path.length}`);
+        return false;  // NOT suspicious
+      }
+      return true;
+    }
     if (routeDistance > 0 && routeDistance < 1.2 && pathKm > Math.max(1.5, routeDistance * 4)) {
       return true;
     }

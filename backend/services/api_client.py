@@ -528,6 +528,11 @@ def _normalize_poi(raw: dict[str, Any]) -> dict[str, Any] | None:
         "poiweight": poiweight,
         "indoor_map": raw.get("indoor_map", ""),
         "photos": photos,
+        # v20: District/region metadata for administrative filtering
+        "adname": raw.get("adname", "") or raw.get("district", ""),
+        "adcode": str(raw.get("adcode", "") or ""),
+        "cityname": raw.get("cityname", "") or raw.get("city", ""),
+        "pname": raw.get("pname", "") or raw.get("province", ""),
     }
 
 
@@ -704,6 +709,12 @@ async def gaode_geocode(address: str, city: str = "") -> dict | None:
         if not location:
             raise ExternalAPIError(f"高德地理编码返回坐标格式异常：{address}")
         location["label"] = geocodes[0].get("formatted_address") or address
+        # v20: Preserve district metadata for administrative filtering
+        geo = geocodes[0]
+        location["adcode"] = geo.get("adcode", "")
+        location["district"] = geo.get("district", "")
+        location["city"] = geo.get("city", "")
+        location["province"] = geo.get("province", "")
         return location
     except (ConfigurationError, ExternalAPIError):
         raise
@@ -1304,4 +1315,9 @@ def raw_to_place(raw: dict[str, Any]) -> dict[str, Any]:
         "poiweight": poiweight,
         "indoor_map": raw.get("indoor_map", ""),
         "photo_url": ((raw.get("photos") or [{}])[0] or {}).get("url") if isinstance(raw.get("photos"), list) and raw.get("photos") else "",
+        # v20: District/region metadata for administrative filtering
+        "district": raw.get("adname", "") or raw.get("district", ""),
+        "adcode": str(raw.get("adcode", "") or ""),
+        "cityname": raw.get("cityname", "") or raw.get("city", ""),
+        "pname": raw.get("pname", "") or raw.get("province", ""),
     }

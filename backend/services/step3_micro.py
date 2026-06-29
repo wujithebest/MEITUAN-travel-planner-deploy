@@ -1698,7 +1698,7 @@ def _fill_segment(
             "parent_name": getattr(sub, "parent_name", "") or "",
             "is_passthrough": False,
             "primary_target": True,
-            "recommend_reason": "本次搜索的核心目标",
+            "recommend_reason": "",  # v20: generated later by reason_generator
             "is_waypoint": True,
             "is_display_poi": True,
         }
@@ -2772,12 +2772,11 @@ def _is_drawable_route_polyline(
     transport: str = "",
     api_distance_km: float = 0.0,
 ) -> bool:
-    """v8: 校验 polyline 是否适合在地图上绘制为真实路线。
+    """v20: Validate polyline for map rendering — composite evidence, not single-veto.
 
-    新增规则：
-    - 已知不可绘制来源一律拒绝
-    - 公交/自驾允许稍大间隔，但间断不能超过合理上限
-    - api_distance_km 与 path_km 差距过大也拒绝
+    max_gap is auxiliary evidence only; path/api_distance ratio and point count
+    are the primary signals.  Adaptive gap thresholds with tolerance prevent
+    rejecting a valid 24-point driving route over a 30m margin.
     """
     if not polyline or len(polyline) < 2:
         return False
@@ -2787,12 +2786,23 @@ def _is_drawable_route_polyline(
         return False
 
     path_km = _polyline_distance_km(polyline)
-    if api_distance_km >= 0.3 and path_km < api_distance_km * 0.55:
+
+    # ── Primary checks: path vs known distances ──
+    # Path must be at least 50% of api_distance (strong mismatch → reject)
+    if api_distance_km >= 0.3 and path_km < api_distance_km * 0.50:
         return False
+    # Path must not be absurdly short relative to straight-line (missing waypoints)
     if len(polyline) <= 3 and straight_km > 0.1 and path_km > 0 and straight_km > 0 and (path_km / straight_km) < 0.3:
         return False
 
-    # v8.1: 近距离步行/骑行段若 API 路线远大于直线距离，通常是 waypoint 落入不可步行区域或导航绕桥
+    # ── Positive evidence: close path/api_distance ratio → very likely valid ──
+    _ratio_ok = False
+    if api_distance_km > 0 and path_km > 0:
+        ratio = path_km / api_distance_km
+        if 0.8 <= ratio <= 1.5:
+            _ratio_ok = True  # strong positive signal
+
+    # ── Walk-like detour check ──
     if straight_km > 0:
         detour_ratio = api_distance_km / straight_km if api_distance_km > 0 else path_km / straight_km
         is_walk_like = transport in ("步行", "骑行", "")
@@ -2804,13 +2814,35 @@ def _is_drawable_route_polyline(
             )
             return False
 
+    # ── Auxiliary: max adjacent gap — adaptive threshold with tolerance ──
     max_gap = _max_adjacent_gap_km(polyline)
     transit_or_drive = transport in ("地铁/公交", "公交", "自驾")
-    gap_limit = max(0.8, straight_km * 0.55) if transit_or_drive else max(0.35, straight_km * 0.45)
-    if straight_km < 5 and max_gap > gap_limit:
-        print(f"[RouteDebug] invalid geometry: transport={transport} straight={straight_km:.3f}km "
-              f"api_distance={api_distance_km:.3f}km path={path_km:.3f}km max_gap={max_gap:.3f}km "
-              f"gap_limit={gap_limit:.3f}km points={len(polyline)} src={polyline_source}")
+    if transit_or_drive:
+        # Driving/transit: long straight sections are normal. Use generous limit.
+        gap_limit = max(0.9, straight_km * 0.60)
+    else:
+        gap_limit = max(0.40, straight_km * 0.50)
+
+    # Allow 10% tolerance on the gap limit (prevents 30m marginal rejections)
+    gap_tolerance = gap_limit * 1.10
+
+    # v20: gap alone cannot veto if ratio is good and points > 5
+    if straight_km < 5 and max_gap > gap_tolerance:
+        if _ratio_ok and len(polyline) > 5:
+            print(
+                f"[RouteDebug] gap exceeds limit but ratio OK — ACCEPTING: "
+                f"transport={transport} straight={straight_km:.3f}km "
+                f"api_distance={api_distance_km:.3f}km path={path_km:.3f}km "
+                f"max_gap={max_gap:.3f}km gap_limit={gap_limit:.3f}km "
+                f"tolerance={gap_tolerance:.3f}km points={len(polyline)} "
+                f"ratio={path_km/api_distance_km:.3f}"
+            )
+            return True
+        print(
+            f"[RouteDebug] invalid geometry: transport={transport} straight={straight_km:.3f}km "
+            f"api_distance={api_distance_km:.3f}km path={path_km:.3f}km max_gap={max_gap:.3f}km "
+            f"gap_limit={gap_limit:.3f}km points={len(polyline)} src={polyline_source}"
+        )
         return False
     return True
 

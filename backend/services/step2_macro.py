@@ -29,6 +29,48 @@ from .poi_feedback_service import calculate_feedback_score, get_profile_feedback
 from .poi_relevance import recall_audit_log, score_poi_against_intent
 from .poi_typecodes import matches_typecode, split_typecodes
 from .route_backbone import is_valid_route_poi
+from .theme_profile_matcher import get_theme_profile
+
+
+# v20: Check if parsed_intent has a concrete POI target (named POI or registered category)
+def _is_concrete_target(parsed_intent) -> bool:
+    _ptype = getattr(parsed_intent, "poi_query_type", "") or ""
+    _primary = getattr(parsed_intent, "primary_query", "") or ""
+    _cat_id = getattr(parsed_intent, "category_id", None)
+    _has_tc = bool(getattr(parsed_intent, "allowed_typecode_prefixes", None))
+    if _ptype == "named_poi" and _primary:
+        return True
+    if _ptype == "poi_category" and _cat_id and _has_tc:
+        return True
+    return False
+
+
+# v20: Build intent context kwargs for is_valid_route_poi from parsed_intent
+def _is_valid_route_poi_ctx(typecode: str, name: str, parsed_intent, **extra) -> bool:
+    """Call is_valid_route_poi with intent + theme context from parsed_intent."""
+    _theme_id = getattr(parsed_intent, "theme_profile", None)
+    _theme_terms = None
+    _merged_typecodes = list(getattr(parsed_intent, "allowed_typecode_prefixes", None) or [])
+    if _theme_id:
+        _tp = get_theme_profile(_theme_id)
+        _theme_terms = _tp.get("allowed_name_terms", None) if _tp else None
+        # Merge theme typecodes with parsed_intent typecodes
+        _theme_tc = _tp.get("allowed_typecode_prefixes", []) or [] if _tp else []
+        for tc in _theme_tc:
+            if tc not in _merged_typecodes:
+                _merged_typecodes.append(tc)
+    return is_valid_route_poi(
+        typecode,
+        name,
+        poi_query_type=getattr(parsed_intent, "poi_query_type", "") or "",
+        primary_query=getattr(parsed_intent, "primary_query", "") or "",
+        category_id=getattr(parsed_intent, "category_id", None),
+        allowed_typecode_prefixes=_merged_typecodes if _merged_typecodes else None,
+        explicit_meal_intent=bool(getattr(parsed_intent, "explicit_meal_intent", False)),
+        theme_id=_theme_id,
+        theme_allowed_name_terms=_theme_terms,
+        **extra,
+    )
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
 from .city_context import apply_resolved_city, resolve_departure_city
 from .theme_profiles import OFFICIAL_THEME_PROFILES
@@ -46,7 +88,12 @@ except ImportError:
     )
 
 
-ANCHOR_LEVEL_TYPECODES = ["110000", "110100", "110200", "080500", "080600", "140100", "140200", "190100"]
+ANCHOR_LEVEL_TYPECODES = [
+    "110000", "110100", "110200",
+    "080500", "080600",
+    "140100", "140200", "140300", "140400", "140500", "140600", "140700", "140900",
+    "190100",
+]
 
 # ── v16: city 解析工具 — 不再信任前端手动 city ──
 CITY_NAME_RE = re.compile(r"([一-龥]{2,12}市)")
@@ -377,8 +424,29 @@ def _mismatches_rainy_indoor(place: ScoredPlace, parsed_intent: ParsedIntent) ->
 
 
 def _type_allowed(typecode: str, allowed_typecodes: list[str] | None = None) -> bool:
-    prefix = (typecode or "")[:6]
-    return not prefix or prefix in (allowed_typecodes or ANCHOR_LEVEL_TYPECODES)
+    """v20: Parent-class matching for typecode whitelist.
+
+    Each individual code from a composite typecode is checked:
+    1. Exact 6-digit match in the whitelist → pass.
+    2. Family (first 4 digits + "00") in the whitelist → pass.
+       e.g. 110102 → family 110100; 110204 → family 110200.
+    Does NOT do broad 2-digit prefix matching to avoid over-matching.
+    """
+    if not typecode:
+        return False
+    whitelist = allowed_typecodes or ANCHOR_LEVEL_TYPECODES
+    from .poi_typecodes import split_typecodes
+    codes = split_typecodes(typecode)
+    for code in codes:
+        code6 = code[:6] if len(code) >= 6 else code.ljust(6, "0")
+        if code6 in whitelist:
+            return True
+        # Parent-class: e.g. 110102 → 110100
+        if len(code6) >= 4:
+            family = code6[:4] + "00"
+            if family in whitelist:
+                return True
+    return False
 
 
 def _is_nearby_request(parsed_intent: ParsedIntent) -> bool:
@@ -1138,6 +1206,7 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
         effective_capacity = _effective_capacity_for_request(scored.final_capacity or scored.time_capacity, parsed_intent, is_fixed=True)
         data = scored.model_dump()
         data["final_capacity"] = effective_capacity
+        data.pop("fixed", None)  # v20: prevent duplicate kwarg clash with AnchorPlan.fixed
         reason_place = scored.model_copy(update={"final_capacity": effective_capacity})
         reason = _recommend_reason(reason_place, parsed_intent)
         time_budget = fp.resolved_time_budget or effective_capacity or place.time_capacity or "half_day"
@@ -1147,7 +1216,7 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
                 final_time_budget=time_budget,
                 recommend_reason=reason,
                 origin_transit=f"从出发点约{int(transit or 0)}分钟",
-                fixed=True,  # v20: Mark as user-specified fixed anchor
+                fixed=True,
             )
         )
     return anchors
@@ -1188,6 +1257,19 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
         allowed_types = ANIME_ANCHOR_TYPECODES
     else:
         allowed_types = list(ANCHOR_LEVEL_TYPECODES)
+        # v20: Merge theme-specific typecodes when theme_route is active
+        _theme_id = getattr(parsed_intent, "theme_profile", None)
+        if _theme_id:
+            _theme_profile_data = get_theme_profile(_theme_id)
+            _theme_tc = _theme_profile_data.get("allowed_typecode_prefixes", []) or []
+            if _theme_tc:
+                for tc in _theme_tc:
+                    if tc not in allowed_types:
+                        allowed_types.append(tc)
+                print(
+                    f"[DEBUG macro search] merged theme typecodes for {_theme_id}: "
+                    f"{_theme_tc} -> total allowed={len(allowed_types)}"
+                )
         if _has_shopping_intent(parsed_intent):
             allowed_types.extend(["060000", "060100", "060900", "061000", "061100"])
         if _has_eating_activity_intent(parsed_intent) or strong_meal:
@@ -1272,13 +1354,34 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
         place for place in places
         if place
         and _type_allowed(place.typecode, allowed_types)
-        and is_valid_route_poi(place.typecode, place.name)
+        and _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent)
     ]
     print(
         f"[DEBUG macro search] raw_count={raw_count} deduped={len(filtered)} "
         f"passed_types_count={len([p for p in places if p and _type_allowed(p.typecode, allowed_types)])} "
     )
     return filtered
+
+
+# v20: District-level filtering utilities
+def _place_matches_district_raw(place, district_label: str, search_adcode: str = "") -> bool:
+    """Check if an ExtractedPlace belongs to the target district."""
+    if not district_label:
+        return True
+    # Primary: adname match (require non-empty adname to avoid "" in "海淀区")
+    adname = str(getattr(place, "district", "") or "").strip()
+    if adname and (district_label in adname or adname in district_label):
+        return True
+    # Secondary: address contains district
+    addr = str(getattr(place, "address", "") or "").strip()
+    if addr and district_label in addr:
+        return True
+    # Tertiary: adcode match (use [:6] not [:4] to avoid matching all Beijing districts)
+    adcode = str(getattr(place, "adcode", "") or "")
+    if search_adcode and adcode and len(adcode) >= 6 and len(search_adcode) >= 6:
+        if adcode[:6] == search_adcode[:6]:
+            return True
+    return False
 
 
 async def _theme_recall_places(
@@ -1300,6 +1403,36 @@ async def _theme_recall_places(
     city = _normalize_city_name(city) or await _resolve_city_from_profile(user_profile)
     city_short = _city_short(city)
     dest_terms = list(dict.fromkeys(profile.get("destination_anchor_terms", []) or []))
+
+    # v20: District-level filtering
+    _search_area_label = str(getattr(parsed_intent, "search_area_label", "") or "")
+    _is_district = bool(re.search(
+        r"(?:区|县|镇|乡|街道|商圈|片区|新城|新区)$", _search_area_label
+    ))
+    _search_area_adcode = getattr(parsed_intent, "search_area_adcode", None)
+    _search_area_polygon = None  # lazy-load if needed
+
+    def _place_matches_district(raw: dict, place) -> bool:
+        """Check if a candidate belongs to the requested administrative district."""
+        if not _is_district or not _search_area_label:
+            return True  # no district constraint
+        # Check adname (require non-empty to avoid "" in "海淀区")
+        ad = str(raw.get("adname") or raw.get("district") or "").strip()
+        if ad and (_search_area_label in ad or ad in _search_area_label):
+            return True
+        # Check address
+        addr = str(raw.get("address") or "").strip()
+        if addr and _search_area_label in addr:
+            return True
+        # Check adcode (use [:6] to avoid matching all districts within same city)
+        raw_adcode = str(raw.get("adcode") or "")
+        if (
+            _search_area_adcode and raw_adcode
+            and len(raw_adcode) >= 6 and len(str(_search_area_adcode)) >= 6
+            and raw_adcode[:6] == str(_search_area_adcode)[:6]
+        ):
+            return True
+        return False
 
     def _place_matches_city(raw: dict, place) -> bool:
         if not city_short:
@@ -1364,12 +1497,20 @@ async def _theme_recall_places(
                 place = _to_extracted(raw)
                 if not place or not place.location:
                     continue
-                if not is_valid_route_poi(place.typecode, place.name):
+                if not _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent):
                     continue
                 if not _place_matches_city(raw, place):
                     print(
                         f"[DEBUG step2] drop cross-city theme recall: "
                         f"name={place.name} city={raw.get('cityname')} province={raw.get('pname')} target={city}"
+                    )
+                    continue
+                # v20: District-level filter — reject candidates outside the requested admin district
+                if not _place_matches_district(raw, place):
+                    print(
+                        f"[AreaScopeAudit] drop cross-district theme recall: "
+                        f"name={place.name} adname={raw.get('adname','')} "
+                        f"adcode={raw.get('adcode','')} target_district={_search_area_label}"
                     )
                     continue
                 # enrichment
@@ -1438,6 +1579,80 @@ async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[Extrac
     return places
 
 
+# v20: Ranking modifier — primary sort for popularity/rating/distance/scale/history.
+# Uses entity_role priority as first sort key, then ranking evidence, then original score.
+def _apply_ranking_modifier(
+    scored: list,
+    parsed_intent,
+    ranking_intent: str,
+) -> list:
+    """Apply ranking intent as PRIMARY sort, not a small bonus.
+
+    For popularity: entity_role > fame evidence > original score > distance.
+    Distance is only a tiebreaker, never the primary factor.
+    """
+    from .poi_typecodes import classify_university_role
+
+    ROLE_PRIORITY = {
+        "main_university_campus": 0,
+        "conventional_college_campus": 1,
+        "generic": 2,
+        "branch_or_department": 3,
+        "campus_internal_facility": 4,
+        "adult_or_vocational_school": 5,
+    }
+
+    for place in scored:
+        poiweight = float(getattr(place, "poiweight", 0) or 0)
+        rating = float(getattr(place, "gaode_rating", 0) or 0)
+        transit = float(getattr(place, "transit_from_origin_min", 999) or 999)
+        entity_role = classify_university_role({
+            "name": place.name,
+            "category": getattr(place, "typecode", ""),
+        })
+        role_priority = ROLE_PRIORITY.get(entity_role, 2)
+
+        # Compute ranking_score (fame evidence)
+        if ranking_intent == "popularity":
+            ranking_score = round(
+                poiweight * 20.0 + rating * 1.5 + max(0, (10 - min(transit, 10)) * 0.1),
+                2,
+            )
+        elif ranking_intent == "rating":
+            ranking_score = round(rating * 3.0 + poiweight * 5.0, 2)
+        elif ranking_intent == "distance":
+            ranking_score = round(max(0, (30 - min(transit, 30)) * 0.5), 2)
+        elif ranking_intent == "scale":
+            ranking_score = round(poiweight * 15.0, 2)
+        elif ranking_intent == "history":
+            ranking_score = round(poiweight * 10.0 + rating * 0.5, 2)
+        else:
+            ranking_score = 0.0
+
+        old_score = place.final_score
+        # Store ranking score for sorting
+        place._role_priority = role_priority
+        place._ranking_score = ranking_score
+        place._original_final_score = old_score
+
+        # Always log, even when evidence is zero
+        print(
+            f"[RankingAudit] intent={ranking_intent} candidate={place.name} "
+            f"entity_role={entity_role} role_priority={role_priority} "
+            f"poiweight={poiweight} rating={rating} transit={transit} "
+            f"ranking_score={ranking_score:.1f} original_score={old_score} "
+            f"evidence_missing={'poiweight_rating_zero' if poiweight==0 and rating==0 else 'none'}"
+        )
+
+    # Primary sort: role_priority > ranking_score > original score
+    scored.sort(key=lambda item: (
+        getattr(item, "_role_priority", 2),
+        -getattr(item, "_ranking_score", 0),
+        -item.final_score,
+    ))
+    return scored
+
+
 def _score_places_prefetched(
     places: list[ExtractedPlace],
     parsed_intent: ParsedIntent,
@@ -1489,6 +1704,11 @@ def _score_places_prefetched(
     always_bad_filtered = [item for item in scored if not _mismatches_always_bad(item, parsed_intent)]
     if always_bad_filtered:
         scored = always_bad_filtered
+    # v20: Apply ranking modifier from Step1 (popularity/rating/distance/scale/history)
+    _ranking_intent = getattr(parsed_intent, "ranking_intent", None)
+    if _ranking_intent and scored:
+        scored = _apply_ranking_modifier(scored, parsed_intent, _ranking_intent)
+
     before_rainy = len(scored)
     rainy_indoor_filtered = [item for item in scored if not _mismatches_rainy_indoor(item, parsed_intent)]
     if rainy_indoor_filtered:
@@ -1968,15 +2188,7 @@ async def _synonym_wide_recall(
             place = _to_extracted(raw)
             if place and place.location and place.name:
                 # Basic filter: must pass is_valid_route_poi
-                poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
-                allowed_prefixes = get_allowed_typecode_prefixes(cat_id)
-                if is_valid_route_poi(
-                    place.typecode,
-                    place.name,
-                    explicit_meal_intent=False,
-                    poi_query_type=poi_qtype,
-                    allowed_shopping_prefixes=allowed_prefixes,
-                ):
+                if _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent):
                     places.append(place)
 
     return places[:8] if places else None
@@ -1993,6 +2205,10 @@ def _filter_candidates_by_intent(
         return candidates
 
     filtered: list[ScoredPlace] = []
+    _has_registered_cat = bool(
+        getattr(parsed_intent, "category_id", None)
+        and getattr(parsed_intent, "allowed_typecode_prefixes", None)
+    )
     for place in candidates:
         evidence = score_poi_against_intent(
             poi={
@@ -2013,12 +2229,16 @@ def _filter_candidates_by_intent(
         )
         print(f"[DEBUG step2] {audit_msg}")
 
-        if not evidence.accepted and evidence.score <= -80:
-            # Hard conflict — delete
-            print(f"[DEBUG step2] hard reject: {place.name} reason={evidence.rejection_reasons}")
-            continue
+        # v20: For registered poi_category, accepted=False MUST delete
+        if not evidence.accepted:
+            if _has_registered_cat:
+                print(f"[DEBUG step2] hard reject (registered cat, accepted=False): {place.name}")
+                continue
+            if evidence.score <= -80:
+                print(f"[DEBUG step2] hard reject (score<=-80): {place.name} reason={evidence.rejection_reasons}")
+                continue
 
-        if evidence.accepted or evidence.score > 0:
+        if evidence.accepted:
             # Boost accepted/intent-matched candidates
             place.final_score = (getattr(place, "final_score", 0) or 0) + evidence.score * 0.5
 
@@ -2163,7 +2383,7 @@ async def _fallback_activity_places(
             if is_food and not is_area_like:
                 continue
 
-            if not is_valid_route_poi(place.typecode, place.name):
+            if not _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent):
                 continue
 
             data = place.model_dump()
@@ -2368,10 +2588,15 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         bool(getattr(parsed_intent, "search_area_location", None))
         or bool(getattr(parsed_intent, "search_area_label", None))
     )
+    # v20: must_recall_target is ONLY for concrete POI queries, not theme routes.
+    # "雅致路线" / "文艺路线" are theme_route — must NOT set must_recall_target.
+    _has_registered_category = bool(
+        getattr(parsed_intent, "category_id", None)
+        or getattr(parsed_intent, "allowed_typecode_prefixes", None)
+    )
     _must_recall_target = (
         _poi_qtype in ("poi_category", "named_poi")
-        or bool(_primary_q)
-        or (_proximity_req and _has_search_center)
+        and _has_registered_category
     )
 
     should_skip_search = bool(
@@ -2479,7 +2704,10 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                     deleted = []
                     print(f"[DEBUG step2] poi_category wide recall found {len(places)} candidates")
                 else:
-                    raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
+                    if _is_concrete_target(parsed_intent):
+                        raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
+                    else:
+                        raise ZeroOutputError(f"未找到符合您需求的路线地点，请尝试调整搜索范围")
             else:
                 fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
                 if fallback_places:
@@ -2549,6 +2777,40 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         if theme_recall_places:
             places_enriched = list(places_enriched) + theme_recall_places
 
+        # v20: District boundary filter — reject candidates outside requested admin district
+        _search_area_label = str(getattr(parsed_intent, "search_area_label", "") or "")
+        _is_admin_district = bool(re.search(
+            r"(?:区|县|镇|乡|街道|商圈|片区|新城|新区)$", _search_area_label
+        ))
+        if _is_admin_district and places_enriched:
+            _search_adcode = str(getattr(parsed_intent, "search_area_adcode", "") or "")
+            # Save before list for accurate audit
+            _before_places = list(places_enriched)
+            before_count = len(_before_places)
+            inside_places = [
+                p for p in _before_places
+                if _place_matches_district_raw(p, _search_area_label, _search_adcode)
+            ]
+            rejected_places = [
+                p for p in _before_places
+                if not _place_matches_district_raw(p, _search_area_label, _search_adcode)
+            ]
+            places_enriched = inside_places
+            after_count = len(inside_places)
+            if after_count < before_count:
+                rejected = before_count - after_count
+                print(
+                    f"[AreaScopeAudit] district_filter: {_search_area_label} "
+                    f"before={before_count} after={after_count} rejected={rejected}"
+                )
+                for rp in rejected_places:
+                    print(
+                        f"[AreaScopeAudit]   REJECTED: name={getattr(rp, 'name', '?')} "
+                        f"adname={getattr(rp, 'district', '?')} "
+                        f"adcode={getattr(rp, 'adcode', '?')} "
+                        f"reason=outside_{_search_area_label}"
+                    )
+
         logger.start_step("step_2_4_scoring")
         await emit_status("正在评估和筛选目的地...")
         # v4.1 F7: 直接用已预查的 transit 结果，不再重复 API 调用
@@ -2563,7 +2825,7 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
             _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
             _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
             _primary_q = getattr(parsed_intent, "primary_query", "") or ""
-            if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+            if _is_concrete_target(parsed_intent) and not _explicit_meal:
                 raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
             # v12: 混合任务禁止直接 meal-only
             if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
@@ -2597,7 +2859,7 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
         _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
         _primary_q = getattr(parsed_intent, "primary_query", "") or ""
-        if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+        if _is_concrete_target(parsed_intent) and not _explicit_meal:
             raise ZeroOutputError(f"未找到与「{_primary_q}」匹配的地点，请尝试修改搜索范围或关键词")
         if _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
             selected = []

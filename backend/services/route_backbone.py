@@ -93,6 +93,9 @@ def is_valid_route_poi(
     primary_query: str = "",
     category_id: str | None = None,
     allowed_typecode_prefixes: list[str] | None = None,
+    # v20: Theme profile for conditional blacklist bypass (e.g. health_wellness → 按摩/SPA/瑜伽)
+    theme_id: str | None = None,
+    theme_allowed_name_terms: list[str] | None = None,
 ) -> bool:
     """v20: POI 是否允许进入游览路线。
 
@@ -101,6 +104,7 @@ def is_valid_route_poi(
     - 直接购物/服务查询时允许符合目标品类的 06xxxx
     - 游览主题路线时按白名单筛选
     - 用户明确查询医院/药店等目标时，通过category validation的POI跳过通用黑名单
+    - 主题路线(health_wellness等)时，通过theme_allowed_name_terms绕过通用黑名单
 
     skip_subordinate_check: 为True时跳过商场内子店铺过滤，用于POI不足时的补充放行。
     bypass_filter: 为True时绕过所有过滤（planned意图，用户明确指定的POI）。
@@ -129,12 +133,25 @@ def is_valid_route_poi(
             ok, reasons = validate_poi_category(poi_data, category_id, require_two_evidence=False)
             if ok:
                 _target_validated = True
-                # This POI matches the user's explicit query target — skip blacklist
-                pass
+
+    # v20: Theme-based name term bypass — e.g. health_wellness allows 按摩/SPA/瑜伽
+    _theme_validated = False
+    if theme_id and theme_allowed_name_terms and name and not _target_validated:
+        if allowed_typecode_prefixes:
+            from .poi_typecodes import matches_typecode
+            tc_ok = matches_typecode(tc, allowed_typecode_prefixes)
+        else:
+            tc_ok = True
+        if tc_ok:
+            name_l = name.lower()
+            for term in theme_allowed_name_terms:
+                if term.lower() in name_l:
+                    _theme_validated = True
+                    break
 
     # ── 1. 名称兜底黑名单（停车场/学校/游泳馆等），最高优先级 ──
-    # v20: Skip blacklist for explicit target POIs that passed category validation
-    if name and not _target_validated:
+    # v20: Skip blacklist for explicit target OR theme-validated POIs
+    if name and not _target_validated and not _theme_validated:
         name_lower = name.lower()
         for kw in config.ROUTE_POI_NAME_BLACKLIST:
             if kw.lower() in name_lower:
@@ -190,7 +207,12 @@ def is_valid_route_poi(
     if tc in config.ROUTE_POI_EXCLUDED_TYPES or prefix2 in config.ROUTE_POI_EXCLUDED_TYPES:
         return False
 
-    # ── 6. 不在白名单默认排除 ──
+    # ── 6. Theme-based typecode bypass (v20) ──
+    if _theme_validated and allowed_typecode_prefixes:
+        if matches_typecode(tc, allowed_typecode_prefixes):
+            return True
+
+    # ── 7. 不在白名单默认排除 ──
     return False
 
 def get_visit_duration(typecode: str, name: str = "") -> int:

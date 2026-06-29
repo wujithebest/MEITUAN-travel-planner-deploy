@@ -250,6 +250,10 @@ class PlannedWaypoint(BaseModel):
     resolved_location: Optional[dict] = None  # 搜索解析后的坐标 {"lat":float,"lng":float}
     resolved_name: Optional[str] = None       # 搜索解析后的实际POI名
     resolved_poi: Optional[dict] = None       # 搜索解析后的完整POI信息，供 planned 快速通道构建 route_data
+    # v20: Local reference for X附近的Y patterns — the search center is X, not previous waypoint
+    search_center_name: Optional[str] = None  # e.g. "首都医科大学" for "首都医科大学旁边的饭馆"
+    search_center_location: Optional[dict] = None  # geocoded location of search_center_name
+    time_slot: Optional[str] = None  # morning/afternoon/evening/lunch/dinner
 
 
 class PlanSegment(BaseModel):
@@ -341,6 +345,11 @@ class ParsedIntent(BaseModel):
     micro_diversity_hint: list[str] = Field(default_factory=list)   # 子簇多样性提示
     custom_theme_profile: dict[str, Any] = Field(default_factory=dict)  # 自定义兜底主题
 
+    # ── v20: Multi-theme facet support ──
+    multi_theme_requested: bool = False
+    theme_facets: list[dict[str, Any]] = Field(default_factory=list)
+    theme_coverage_policy: str = ""  # "cover_all_explicit_facets" / "cover_best_effort" / ""
+
     # ── 代码计算字段 ──
 
     time_budget: float = 0.0            # 活动slot总预算（天），= DURATION_TO_BUDGET[duration]
@@ -376,6 +385,17 @@ class ParsedIntent(BaseModel):
     proximity_requested: bool = False                # 用户是否表达了"附近/周边/旁边"
     proximity_radius_m: Optional[int] = None         # 附近搜索半径（米），默认根据品类决定
     is_search_center_only: bool = False              # search_area 只是搜索中心，不是目的地
+    container_constraint: Optional[str] = None        # 容器场景，如“商场里的电玩城”中的商场
+
+    # ── v20: Administrative district constraints ──
+    search_area_adcode: Optional[str] = None         # 搜索区域的 adcode（用于行政区硬过滤）
+    search_area_scope_type: Optional[str] = None     # administrative_district / business_zone / null
+    search_area_hard_constraint: bool = False        # 是否必须严格限制在行政区内
+
+    # ── v20: Ranking modifier ──
+    ranking_intent: Optional[str] = None             # popularity / rating / distance / scale / history
+    ranking_direction: Optional[str] = None          # asc / desc
+    ranking_raw_terms: list[str] = Field(default_factory=list)  # ["最有名", "最热门"]
 
     # ── Step2输出 ──
 
@@ -413,6 +433,11 @@ class ExtractedPlace(BaseModel):
     theme_recall_score: float = 0.0
     theme_subcluster: str = ""
     generic_theme_penalty: float = 0.0
+    # ── v20: District/region metadata for administrative filtering ──
+    district: str = ""        # adname / district name
+    adcode: str = ""          # Gaode adcode
+    cityname: str = ""        # city name from Gaode
+    pname: str = ""           # province name from Gaode
 
 
 class ScoredPlace(ExtractedPlace):
