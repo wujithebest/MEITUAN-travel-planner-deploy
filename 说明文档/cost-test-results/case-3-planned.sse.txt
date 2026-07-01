@@ -1,0 +1,8 @@
+﻿Invoke-WebRequest : Object reference not set to an instance of an object.
+At line:43 char:13
++     $resp = Invoke-WebRequest -Uri 'http://localhost:8000/api/meituan ...
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Invoke-WebRequest], NullReferenceException
+    + FullyQualifiedErrorId : System.NullReferenceException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+ 
+

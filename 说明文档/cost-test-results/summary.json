@@ -1,0 +1,68 @@
+﻿[
+    {
+        "case":  1,
+        "mode":  "planned",
+        "text":  "待会儿下班，在附近找一家日料店，然后回家",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.88,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-1-planned.sse.txt"
+    },
+    {
+        "case":  2,
+        "mode":  "planned",
+        "text":  "下班路上想顺便买点水果，再找个地方简单吃晚饭",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.54,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-2-planned.sse.txt"
+    },
+    {
+        "case":  3,
+        "mode":  "planned",
+        "text":  "回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.54,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-3-planned.sse.txt"
+    },
+    {
+        "case":  4,
+        "mode":  "exploratory",
+        "text":  "上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.55,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-4-exploratory.sse.txt"
+    },
+    {
+        "case":  5,
+        "mode":  "exploratory",
+        "text":  "还有两个小时，我在杨浦滨江附近随便走走",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.54,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-5-exploratory.sse.txt"
+    },
+    {
+        "case":  6,
+        "mode":  "exploratory",
+        "text":  "我明天想去外滩玩一整天，帮我规划一下路线",
+        "status":  "ERROR: Object reference not set to an instance of an object.",
+        "elapsed_sec":  0.54,
+        "has_result":  false,
+        "has_done":  false,
+        "bytes":  0,
+        "file":  "D:\\pm_project\\travel-planner-final\\说明文档\\cost-test-results\\case-6-exploratory.sse.txt"
+    }
+]
