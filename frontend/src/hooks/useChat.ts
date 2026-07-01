@@ -1381,11 +1381,13 @@ export function useChat(): UseChatReturn {
                 console.error('[useChat] 转换 CompletePlan 失败:', e);
               }
 
+              // v20: Reset old route state BEFORE writing new route data (prevents stale routeId reuse)
+              useRouteStore.getState().resetRouteState();
               // 写入 routeStore.rawRouteData 和 mapRouteData（收藏按钮依赖这些数据）
               try {
                 useRouteStore.getState().setRawRouteData(backendRouteData);
                 useRouteStore.getState().convertAndSetRoute(backendRouteData);
-                console.log('[useChat] 已写入 routeStore.rawRouteData + mapRouteData');
+                console.log('[useChat] 已写入 routeStore.rawRouteData + mapRouteData (new generation)');
               } catch (e) {
                 console.error('[useChat] 写入 routeStore 路线数据失败:', e);
               }
@@ -1495,8 +1497,23 @@ export function useChat(): UseChatReturn {
                     polylines: [...(safeRouteData.polylines || [])],
                     markers: [...(safeRouteData.markers || [])],
                     center: safeRouteData.center ? [...safeRouteData.center] as [number, number] : null,
+                    // v20: Preserve route-level recommendation reason
+                    route_recommend_reason: (backendRouteData as any)?.route_recommend_reason || "",
                   }
                 : null;
+
+              console.log('[RouteReasonFrontendAudit]', {
+                backendReason: (backendRouteData as any)?.route_recommend_reason || '',
+                messageReason: routeDataForMessage?.route_recommend_reason || '',
+              });
+
+              // v20: POI reason audit
+              const points = (backendRouteData as any)?.points || [];
+              const pointReasons = points.filter((p: any) => p.recommend_reason?.trim());
+              console.log('[PoiReasonFrontendAudit]', {
+                backendPointReasonCount: pointReasons.length,
+                namesWithReason: pointReasons.map((p: any) => p.name),
+              });
 
               const currentRequestId = activeRequestIdRef.current;
               const currentUserMessage = userMsg.content || '';

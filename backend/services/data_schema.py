@@ -232,6 +232,9 @@ class FixedPoi(BaseModel):
     resolved_time_budget: Optional[str] = None                       # 枚举值 quarter_day/half_day/full_day；来源：user_time_budget解析 > typecode映射兜底
     location: Optional[dict] = None                                  # Step1.3预查询后填充 {"lat":float,"lng":float}
     typecode: Optional[str] = None                                   # Step1.3预查询后填充
+    # v20: Area stroll expansion
+    expansion_required: bool = False                                  # 步行街/商圈 + 逛逛 → 展开内部店铺
+    activity_facet: Optional[str] = None                              # "shopping_stroll" | "citywalk" etc.
 
 
 class PlannedWaypoint(BaseModel):
@@ -371,6 +374,7 @@ class ParsedIntent(BaseModel):
 
     # ── v20: POI category query fields ──
     poi_query_type: str = ""                        # "theme_route" | "poi_category" | "named_poi" | ""
+    category_id: Optional[str] = None               # registered CATEGORY_RULES key (e.g. "restaurant", "repair_shop")
     primary_query: str = ""                         # 用户主查询词，如 "古玩市场"、"附近便利店"
     explicit_meal_intent: bool = False              # 是否明确有餐饮意图
     allowed_typecode_prefixes: list[str] = Field(default_factory=list)  # 允许的typecode前缀

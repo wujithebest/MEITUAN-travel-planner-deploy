@@ -86,6 +86,15 @@ const TRAFFIC_COLORS = {
 
 const DAY_COLORS = ['#FFD100', '#52c41a', '#FFD100', '#f5222d', '#722ed1', '#eb2f96'];
 
+/** v20: Lighten a hex color by mixing with white, for halo effect */
+function lightenColor(hex: string, factor: number = 0.55): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * factor);
+  return `rgba(${mix(r)},${mix(g)},${mix(b)},0.85)`;
+}
+
 function parseRatingValue(value: any): number | null {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number(value);
@@ -631,6 +640,11 @@ export default function MapContainer({
         if (parts.length !== 2) return null;
         const [lng, lat] = parts.map(Number);
         if (isNaN(lng) || isNaN(lat)) return null;
+        // v20: Coordinate range defense — reject clearly swapped or out-of-range values
+        if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+          console.warn(`[MapCoordinateAudit] raw=${coord} parsedLng=${lng} parsedLat=${lat} valid=false rejectionReason=${lat > 90 ? 'lat_out_of_range' : 'lng_out_of_range'}`);
+          return null;
+        }
         return [lng, lat] as [number, number];
       })
       .filter((c): c is [number, number] => c !== null);
@@ -655,18 +669,17 @@ export default function MapContainer({
 
     const map = mapInstanceRef.current;
 
-    // 先清除旧 polyline，再判断是否有新数据
-    const oldPolylines = map.getAllOverlays('polyline') || [];
-    oldPolylines.forEach((p: any) => map.remove(p));
-    console.log(`[Map] 清除旧 polyline: ${oldPolylines.length} 条`);
-
+    // v20: Two-phase commit — validate new polylines before clearing old ones
     if (!dailyPolylines || dailyPolylines.length === 0) {
-      console.log('[Map] 无 polyline 数据，已清除旧路线');
+      const oldPolylines = map.getAllOverlays('polyline') || [];
+      oldPolylines.forEach((p: any) => map.remove(p));
+      console.log(`[Map] 无 polyline 数据，已清除旧路线: ${oldPolylines.length} 条`);
       return;
     }
 
-    const drawnPolylineOverlays: any[] = [];
-    let drawnCount = 0;
+    // Phase 1: build candidate overlays in memory
+    const candidateOverlays: any[] = [];
+    let drawableCount = 0;
 
     dailyPolylines.forEach((day, idx) => {
       // v7: 防御 — 跳过不可绘制的假路线
@@ -709,25 +722,61 @@ export default function MapContainer({
         : day.color || DAY_COLORS[idx % DAY_COLORS.length];
 
       try {
-        const polyline = new window.AMap.Polyline({
+        const segId = `${day.day_index || 1}_${drawableCount}`;
+        const extData = {
+          day_index: day.day_index,
+          degraded: isDegraded,
+          polyline_source: (day as any).polyline_source || '',
+          layer: 'main',
+          segmentId: segId,
+        };
+
+        // v20: Subtle dark outline for definition (outermost)
+        const shadowPolyline = new window.AMap.Polyline({
+          path,
+          strokeColor: 'rgba(0,0,0,0.12)',
+          strokeWeight: 5,
+          strokeOpacity: 0.35,
+          strokeStyle: 'solid',
+          lineJoin: 'round',
+          lineCap: 'round',
+          showDir: false,
+          zIndex: 35,
+          extData: { ...extData, layer: 'shadow' },
+        });
+        // v20: Lightened-color halo (mid layer) — much wider than main
+        const haloColor = lightenColor(color);
+        const haloPolyline = new window.AMap.Polyline({
+          path,
+          strokeColor: haloColor,
+          strokeWeight: 16,
+          strokeOpacity: 1.0,
+          strokeStyle: 'solid',
+          lineJoin: 'round',
+          lineCap: 'round',
+          showDir: false,
+          zIndex: 40,
+          extData: { ...extData, layer: 'halo' },
+        });
+        // v20: Main colored polyline on top with direction arrows
+        const mainPolyline = new window.AMap.Polyline({
           path,
           strokeColor: color,
           strokeWeight: 6,
-          strokeOpacity: 0.9,
+          strokeOpacity: 0.95,
           strokeStyle: isDegraded ? 'dashed' : 'solid',
           lineJoin: 'round',
           lineCap: 'round',
-          showDir: true,
-          extData: {
-            day_index: day.day_index,
-            degraded: isDegraded,
-            polyline_source: (day as any).polyline_source || '',
-          }
+          showDir: !isDegraded && path.length > 5,
+          dirColor: '#FFFFFF',
+          zIndex: 50,
+          extData: { ...extData, layer: 'main' },
         });
 
-        map.add(polyline);
-        drawnPolylineOverlays.push(polyline);
-        drawnCount++;
+        candidateOverlays.push(shadowPolyline);
+        candidateOverlays.push(haloPolyline);
+        candidateOverlays.push(mainPolyline);
+        drawableCount++;
 
         if (isDegraded) {
           console.log(`[Map] Day ${day.day_index} 路线为降级直线占位: ${path.length} 个点`);
@@ -739,10 +788,44 @@ export default function MapContainer({
       }
     });
 
-    // v6: 只对本次绘制的 polyline 做 fitView，完整路线模式适配所有线条，单段模式只适配被选中段
-    if (drawnPolylineOverlays.length > 0) {
-      map.setFitView(drawnPolylineOverlays, true, [60, 60, 60, 60]);
-      console.log(`[Map] 视野自适应完成，绘制了 ${drawnCount} 条路线`);
+    // v20: Two-phase commit — only replace old overlays if we have valid new ones
+    if (drawableCount === 0) {
+      console.warn(`[Map] No drawable segments found — keeping old polylines, not removing existing route`);
+      return;
+    }
+
+    // Phase 2: replace old overlays with new ones
+    const oldPolylines = map.getAllOverlays('polyline') || [];
+    oldPolylines.forEach((p: any) => map.remove(p));
+    console.log(`[Map] 清除旧 polyline: ${oldPolylines.length} 条`);
+
+    candidateOverlays.forEach((ov: any) => map.add(ov));
+    console.log(`[RouteVisualAudit] segments=${dailyPolylines?.length || 0} drawableCount=${drawableCount} oldPolylineCount=${oldPolylines.length} newOverlayCount=${candidateOverlays.length} overlaysReplaced=true`);
+
+    // v20: Bounding box validation before fitView
+    if (candidateOverlays.length > 0) {
+      let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+      let validPoints = 0;
+      for (const overlay of candidateOverlays) {
+        const extData = overlay.getExtData?.() || {};
+        if (extData.polyline_source === 'route_api_failed') continue;
+        const path = overlay.getPath?.() || [];
+        for (const pt of path) {
+          const lng = pt?.lng ?? pt?.[0]; const lat = pt?.lat ?? pt?.[1];
+          if (Number.isFinite(lng) && Number.isFinite(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90) {
+            minLng = Math.min(minLng, lng); maxLng = Math.max(maxLng, lng);
+            minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+            validPoints++;
+          }
+        }
+      }
+      const bboxDiagKm = validPoints >= 2
+        ? getLngLatDistanceKm([minLng, minLat], [maxLng, maxLat]) : 0;
+      console.log(`[MapBoundsAudit] validPoints=${validPoints} bboxDiagKm=${bboxDiagKm.toFixed(2)} fitViewApplied=${bboxDiagKm <= 100}`);
+      if (bboxDiagKm > 0 && bboxDiagKm <= 100) {
+        map.setFitView(candidateOverlays, true, [60, 60, 60, 60]);
+        console.log(`[Map] 视野自适应完成，绘制了 ${drawableCount} 条路线`);
+      }
     }
 
   }, [isMapReady, dailyPolylines, parsePolyline]);

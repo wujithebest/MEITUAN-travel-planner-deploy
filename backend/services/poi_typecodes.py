@@ -26,14 +26,24 @@ def split_typecodes(raw: Any) -> list[str]:
 def matches_typecode(raw: Any, prefixes: list[str]) -> bool:
     """True if ANY individual code matches ANY prefix.
 
-    Uses per-code ``startswith``, not ``typecode[:6]`` on the raw string.
+    Supports parent-class matching:
+    - 050000 matches 050100 (same family 0500)
+    - 060000 matches 060306 (same family 0600)
+    - 050100 matches 050102 (same family 0501)
+    Per-code startswith, with family-based fallback.
     """
     codes = split_typecodes(raw)
     if not codes:
         return False
     for code in codes:
+        code6 = code[:6] if len(code) >= 6 else code.ljust(6, "0")
         for prefix in prefixes:
-            if code.startswith(prefix):
+            # Exact startswith
+            if code6.startswith(prefix):
+                return True
+            # Parent-class: strip trailing zeros from prefix, match family
+            pfx_trimmed = prefix.rstrip("0")
+            if pfx_trimmed and len(pfx_trimmed) >= 2 and code6.startswith(pfx_trimmed):
                 return True
     return False
 
@@ -108,6 +118,22 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         ],
         "excluded": ["050000", "060000"],
         "note": "140600=科技馆, 140700=天文馆; 140000 wide_fallback with semantic check",
+    },
+    # ── v20: Parks (separate from generic scenic_area) ──
+    "park": {
+        "label": "公园",
+        "allowed": ["110100", "110101", "110102", "110103", "110104", "110105"],
+        "wide_fallback": ["110000", "110200"],
+        "semantic_terms": [
+            "公园", "城市公园", "森林公园", "湿地公园", "郊野公园",
+            "体育公园", "文化公园", "植物园",
+        ],
+        "negative_semantic_terms": [
+            "入口", "停车场", "厕所", "雕塑", "如意湖",
+            "广场", "管理中心", "售票处", "服务站",
+        ],
+        "excluded": ["050000", "060000", "080000"],
+        "note": "1101xx = parks; excludes entrances, parking lots, internal sub-features",
     },
     # ── v20: Scenic areas / tourist attractions ──
     "scenic_area": {
@@ -307,10 +333,15 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
     # ── v20: Personal services ──
     "repair_shop": {
         "label": "维修店",
-        "allowed": ["070400", "070401", "070402", "070403", "070404"],
-        "wide_fallback": ["070000"],
-        "semantic_terms": ["维修", "修理", "手机维修", "家电维修", "电脑维修"],
-        "excluded": ["050000", "110000"],
+        "allowed": ["071200", "071300", "070000"],
+        "wide_fallback": ["070000", "071000", "060000"],
+        "conditional_allow": {
+            "060306": ["电脑维修", "手机维修", "笔记本维修", "数码维修", "售后服务", "客户服务中心", "授权服务中心"],
+        },
+        "semantic_terms": ["维修", "修理", "电脑维修", "笔记本维修", "手机维修", "数码维修", "售后服务", "客户服务中心"],
+        "negative_semantic_terms": ["销售", "专卖店", "零售", "批发"],
+        "excluded": ["050000"],
+        "note": "0712xx/0713xx = computer/phone repair; 060306 only with repair evidence in name",
     },
     "hair_salon": {
         "label": "理发店",

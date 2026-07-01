@@ -119,7 +119,15 @@ function findPoi(panelDays: PanelDay[], key: string): {
     for (let si = 0; si < day.slots.length; si++) {
       const slot = day.slots[si];
       for (let pi = 0; pi < slot.pois.length; pi++) {
-        if (poiKey(slot.pois[pi]) === key) {
+        const poi = slot.pois[pi];
+        const candidateKeys = new Set([
+          poiKey(poi),
+          poi.poi_id || '',
+          poi.gaode_poi_id || '',
+          poi.name || '',
+          poi.name && poi.location ? `${poi.name}:${poi.location}` : '',
+        ].filter(Boolean));
+        if (candidateKeys.has(key)) {
           return { dayIdx: di, slotIdx: si, poiIdx: pi, day, slot, poi: slot.pois[pi] };
         }
       }
@@ -238,9 +246,13 @@ export function applyPanelPoiMutation(
     case 'addCandidate': {
       const insertInfo = findInsertSlot(cloned, mutation.candidate);
       if (insertInfo) {
+        const nextOrder = insertInfo.slot.pois.reduce(
+          (max, poi) => Math.max(max, Number(poi.order || 0)),
+          0,
+        ) + 1;
         const newPoi = {
           ...mutation.candidate,
-          order: 0,
+          order: nextOrder,
           day_index: insertInfo.day.day_index,
           slot: insertInfo.slot.type,
           is_start: false,
@@ -260,7 +272,7 @@ export function applyPanelPoiMutation(
           if (idx >= 0) {
             const newPoi = {
               ...mutation.candidate,
-              order: 0,
+              order: Number(slot.pois[idx].order || idx + 1) + 0.5,
               day_index: day.day_index,
               slot: slot.type,
               is_start: false,
@@ -278,9 +290,13 @@ export function applyPanelPoiMutation(
         // fallback to old addCandidate behavior
         const insertInfo = findInsertSlot(cloned, mutation.candidate);
         if (insertInfo) {
+          const nextOrder = insertInfo.slot.pois.reduce(
+            (max, poi) => Math.max(max, Number(poi.order || 0)),
+            0,
+          ) + 1;
           const newPoi = {
             ...mutation.candidate,
-            order: 0,
+            order: nextOrder,
             day_index: insertInfo.day.day_index,
             slot: insertInfo.slot.type,
             is_start: false,

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { MapPin, Heart, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
-import { message } from 'antd';
+import { message, Tooltip } from 'antd';
+import { getPoiAlternatives } from '@/api/poi';
 import styles from './styles.module.css';
 
 // ── types ──
@@ -137,6 +138,9 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     action: 'replace' | 'add';
     anchorPoi: any;
   } | null>(null);
+  const [remoteCandidates, setRemoteCandidates] = useState<any[]>([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const candidateRequestId = useRef(0);
 
   // Find origin point for distance calculation
   const origin = useMemo(() => {
@@ -189,6 +193,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     return result;
   }, [panelDays, points]);
 
+  const availableCandidates = useMemo(() => {
+    const unique = new Map<string, any>();
+    for (const candidate of [...(candidatePoints || []), ...remoteCandidates]) {
+      const key = candidate.poi_id
+        || candidate.gaode_poi_id
+        || `${candidate.name || ''}:${typeof candidate.location === 'string' ? candidate.location : JSON.stringify(candidate.location || '')}`;
+      if (key) unique.set(String(key), candidate);
+    }
+    return [...unique.values()];
+  }, [candidatePoints, remoteCandidates]);
+
   // Filter candidates by same day + slot as anchorPoi
   const filteredCandidates = useMemo(() => {
     if (!candidateMode) return [];
@@ -197,7 +212,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     const anchorSlot = anchor.slot || anchor.display_slot || '';
     const anchorParent = anchor.parent_anchor || anchor.sub_anchor_name || '';
 
-    let filtered = (candidatePoints || []).filter((c: any) => {
+    let filtered = availableCandidates.filter((c: any) => {
       const cDay = c.day ?? c.day_index;
       const cSlot = c.display_slot || c.slot || c.period || '';
       if (cDay != null && cDay !== anchorDay) return false;
@@ -207,14 +222,46 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
 
     // If too few, try matching by parent_anchor
     if (filtered.length === 0 && anchorParent) {
-      filtered = (candidatePoints || []).filter((c: any) => {
+      filtered = availableCandidates.filter((c: any) => {
         const cParent = c.parent_name || c.parent_anchor || c.sub_anchor_name || '';
         if (cParent && anchorParent && !cParent.includes(anchorParent) && !anchorParent.includes(cParent)) return false;
         return true;
       });
     }
     return filtered;
-  }, [candidateMode, candidatePoints]);
+  }, [candidateMode, availableCandidates]);
+
+  const loadReplacementCandidates = async (poi: any) => {
+    const requestId = ++candidateRequestId.current;
+    setCandidateLoading(true);
+    setRemoteCandidates([]);
+    try {
+      const location = typeof poi.location === 'string'
+        ? poi.location
+        : poi.location?.lng != null && poi.location?.lat != null
+          ? `${poi.location.lng},${poi.location.lat}`
+          : '';
+      const alternatives = await getPoiAlternatives({
+        poi_id: poi.gaode_poi_id || poi.poi_id || poi.name,
+        poi_name: poi.name,
+        location,
+        category: poi.typecode || poi.category || '',
+        limit: 8,
+      });
+      if (candidateRequestId.current !== requestId) return;
+      setRemoteCandidates((alternatives || []).filter((item: any) =>
+        item.name !== poi.name
+        && (!poi.poi_id || item.poi_id !== poi.poi_id)
+        && (!poi.gaode_poi_id || item.gaode_poi_id !== poi.gaode_poi_id)
+      ));
+    } catch (error) {
+      if (candidateRequestId.current !== requestId) return;
+      console.error('[RoutePlacesList] 加载替换候选失败:', error);
+      message.error('加载备选地点失败，请稍后重试');
+    } finally {
+      if (candidateRequestId.current === requestId) setCandidateLoading(false);
+    }
+  };
 
   const handlePoiActionClick = (poi: any, actionType: string) => {
     if (actionType === 'delete') {
@@ -222,6 +269,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
       onPoiAction?.({ type: 'delete', poiId: poiKey, poi });
     } else if (actionType === 'replace') {
       setCandidateMode({ action: 'replace', anchorPoi: poi });
+      void loadReplacementCandidates(poi);
     } else if (actionType === 'add') {
       setCandidateMode({ action: 'add', anchorPoi: poi });
     }
@@ -231,13 +279,6 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     if (!candidateMode) return;
     const anchor = candidateMode.anchorPoi;
     const normalized = normalizeCandidate(candidate);
-    // v18: 先本地乐观更新 panelDays
-    try {
-      import('@/utils/panelPoiReorder').then(({ applyPanelPoiMutation }) => {
-        const state = (window as any).__routeStore?.getState?.() || useRouteStore.getState?.();
-        if (!state) return;
-      });
-    } catch {}
     if (candidateMode.action === 'replace') {
       onPoiAction?.({ type: 'replace', poiId: anchor.name, replacementPoi: normalized, poi: anchor });
     } else {
@@ -252,11 +293,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     }
     // Clear candidate mode and preview
     setCandidateMode(null);
+    candidateRequestId.current += 1;
+    setRemoteCandidates([]);
+    setCandidateLoading(false);
     onCandidatePreview?.(null);
   };
 
   const clearCandidateMode = () => {
     setCandidateMode(null);
+    candidateRequestId.current += 1;
+    setRemoteCandidates([]);
+    setCandidateLoading(false);
     onCandidatePreview?.(null);
   };
 
@@ -291,8 +338,10 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             <X size={16} /> 取消
           </button>
         </div>
-        {filteredCandidates.length === 0 ? (
-          <div className={styles.emptyState}><p>暂无可选备选点</p></div>
+        {candidateLoading && filteredCandidates.length === 0 ? (
+          <div className={styles.emptyState}><p>正在加载备选地点...</p></div>
+        ) : filteredCandidates.length === 0 ? (
+          <div className={styles.emptyState}><p>暂无可选备选点，请稍后重试</p></div>
         ) : (
           filteredCandidates.map((c: any, idx: number) => (
             <div
@@ -413,11 +462,6 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                                   <span className={styles.routePlaceAddress}>{poi.address}</span>
                                 )}
                               </div>
-                              {poi.recommend_reason?.trim() && (
-                                <div className={styles.routePlaceReason}>
-                                  {poi.recommend_reason}
-                                </div>
-                              )}
                             </div>
                           </button>
                           {/* Action buttons — inside info column below text */}
@@ -437,6 +481,22 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                           </div>
                         </div>
                       </div>
+                      {/* v20: Short witty recommendation — below card content, above transport */}
+                      {(poi.short_recommend_reason?.trim() || poi.recommend_reason?.trim()) ? (
+                        <Tooltip
+                          title={poi.recommend_reason?.length > 20 ? poi.recommend_reason : undefined}
+                          placement="top"
+                          overlayStyle={{ maxWidth: 320 }}
+                          overlayInnerStyle={{ color: '#fff', fontSize: 13, lineHeight: 1.5 }}
+                        >
+                          <div className={styles.poiShortReason}>
+                            <span className={styles.poiShortReasonIcon}>💡</span>
+                            <span className={styles.poiShortReasonText}>
+                              {(poi.short_recommend_reason?.trim() || (poi.recommend_reason || '').trim()).slice(0, 20)}
+                            </span>
+                          </div>
+                        </Tooltip>
+                      ) : null}
                     </div>
                   </div>
                 )}

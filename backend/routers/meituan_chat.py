@@ -640,9 +640,8 @@ async def _run_pipeline_stream(
                 # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
                 micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
 
-            # v20: Exploratory mode — generate per-POI recommendation reasons via DeepSeek
-            _final_plan_mode = getattr(parsed_intent, "plan_mode", "exploratory") or "exploratory"
-            if _final_plan_mode == "exploratory" and route_points:
+            # v20: Generate per-POI recommendation reasons via DeepSeek (all plan modes)
+            if route_points:
                 try:
                     from services.reason_generator import generate_exploratory_reasons
                     _city = getattr(parsed_intent, "resolved_city", "") or \
@@ -652,6 +651,7 @@ async def _run_pipeline_stream(
                         parsed_intent=parsed_intent,
                         user_profile=user_profile,
                         city=_city,
+                        user_request=user_request,
                     )
                 except Exception as _re:
                     print(f"[ReasonGen] generation failed (non-blocking): {_re}")

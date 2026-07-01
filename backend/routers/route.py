@@ -702,6 +702,38 @@ class PipelineReplanOperation(BaseModel):
     after_poi_location: Optional[str] = Field(None, description="插入位置参考坐标 'lng,lat'（add 时可选）")
 
 
+class PipelineReplanRequest(BaseModel):
+    """前端路线地点增删替换后的重新计算请求。"""
+    points: List[dict] = Field(default_factory=list)
+    segments: List[dict] = Field(default_factory=list)
+    operations: List[PipelineReplanOperation] = Field(default_factory=list)
+    transport_mode: Optional[str] = None
+    route_id: Optional[str] = None
+
+
+@router.post("/replan-pipeline", summary="重新计算管线路线")
+async def replan_pipeline(request: PipelineReplanRequest):
+    """应用 POI 增删替换操作，并重新获取相邻地点间的真实路线。"""
+    try:
+        result = await apply_pipeline_replan(
+            points=request.points,
+            operations=[op.model_dump(exclude_none=True) for op in request.operations],
+            route_id=request.route_id,
+        )
+        return {"success": True, "data": result, "message": "路线重新计算成功"}
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "data": None, "message": str(exc)},
+        )
+    except Exception as exc:
+        logger.exception("管线路线重新计算异常: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "data": None, "message": "路线重新计算失败"},
+        )
+
+
 @router.get("/{route_id}", response_model=ApiResponse, summary="获取路线详情")
 async def get_route(route_id: str):
     """获取路线详情"""

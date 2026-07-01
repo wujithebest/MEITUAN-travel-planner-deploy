@@ -362,24 +362,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
 
     return (
-      <div role="button" tabIndex={0} className={styles.routePushCard} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}>
-        <div className={styles.routePushOverlay} />
-        <div className={styles.routePushContent}>
-          <div className={styles.routePushActions}>
-            <button type="button" className={styles.routePushIconBtn} title="反馈" onClick={(e) => { e.stopPropagation(); setFeedbackSnapshot(snapshot); setFeedbackOpen(true); }}>
-              <MessageCircle size={16} />
-            </button>
-            <button type="button" className={styles.routePushIconBtn} title="收藏路线" onClick={(e) => { e.stopPropagation(); onRouteCardFavorite?.(snapshot); }}>
-              <Star size={16} />
-            </button>
-          </div>
-          <div className={styles.routePushKicker}>路线已生成</div>
-          <div className={styles.routePushTitle}>{message.routeCardTitle || '路线规划'}</div>
-          <div className={styles.routePushMeta}>
-            <span>{poiCount > 0 ? `${poiCount} 个地点` : '点击查看路线'}</span>
-            {statsText && <span className={styles.routePushStats}>{statsText}</span>}
+      <div className={styles.routePushGroup}>
+        <div role="button" tabIndex={0} className={styles.routePushCard} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); }}>
+          <div className={styles.routePushOverlay} />
+          <div className={styles.routePushContent}>
+            <div className={styles.routePushActions}>
+              <button type="button" className={styles.routePushIconBtn} title="反馈" onClick={(e) => { e.stopPropagation(); setFeedbackSnapshot(snapshot); setFeedbackOpen(true); }}>
+                <MessageCircle size={16} />
+              </button>
+              <button type="button" className={styles.routePushIconBtn} title="收藏路线" onClick={(e) => { e.stopPropagation(); onRouteCardFavorite?.(snapshot); }}>
+                <Star size={16} />
+              </button>
+            </div>
+            <div className={styles.routePushKicker}>路线已生成</div>
+            <div className={styles.routePushTitle}>{message.routeCardTitle || '路线规划'}</div>
+            <div className={styles.routePushMeta}>
+              <span>{poiCount > 0 ? `${poiCount} 个地点` : '点击查看路线'}</span>
+              {statsText && <span className={styles.routePushStats}>{statsText}</span>}
+            </div>
           </div>
         </div>
+        {renderRouteRecReason(message)}
+      </div>
+    );
+  };
+
+  const renderRouteRecReason = (message: ChatMessage) => {
+    const reason =
+      message.routeData?.route_recommend_reason?.trim() ||
+      message.routeSnapshot?.route_data?.route_recommend_reason?.trim() ||
+      '';
+    if (!reason) return null;
+    return (
+      <div className={styles.routeRecReason}>
+        <div className={styles.routeRecReasonTitle}>为什么推荐</div>
+        <div className={styles.routeRecReasonText}>{reason}</div>
       </div>
     );
   };
@@ -486,7 +503,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const renderMessageContent = (message: ChatMessage) => {
-    // v18: 推荐理由消息 → 渲染路线卡片
+    // v18: 推荐理由消息 → 渲染路线卡片（内含推荐理由）
     if (message.role === 'assistant' && message.displayType === 'recommendReasons') {
       return renderRoutePushCard(message);
     }

@@ -1062,10 +1062,10 @@ MICRO_EXPLICIT_SPORT_TERMS = (
 # v14: 使用主题画像系统
 try:
     from .theme_profiles import build_effective_theme_profile
-    from .theme_profile_matcher import poi_has_competing_theme
+    from .theme_profile_matcher import poi_has_competing_theme, score_poi_against_theme
 except ImportError:
     from services.theme_profiles import build_effective_theme_profile
-    from services.theme_profile_matcher import poi_has_competing_theme
+    from services.theme_profile_matcher import poi_has_competing_theme, score_poi_against_theme
 
 
 def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
@@ -1088,11 +1088,18 @@ def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
         "profile_id": profile.get("id", ""),
         "label": profile.get("label", ""),
         "search_terms": tuple(profile.get("search_terms", []) or []),
-        "preferred_name_terms": tuple(profile.get("required_terms", []) or []),
+        "preferred_name_terms": tuple(dict.fromkeys(
+            list(profile.get("destination_anchor_terms", []) or [])
+            + list(profile.get("allowed_name_terms", []) or [])
+            + list(profile.get("required_terms", []) or [])
+        )),
         "micro_keywords": tuple(profile.get("micro_keywords", []) or []),
         "excluded_terms": tuple(excluded_terms),
         "generic_penalty_terms": tuple(profile.get("generic_penalty_terms", []) or []),
-        "preferred_type_prefixes": set(profile.get("typecode_prefixes", []) or []),
+        "preferred_type_prefixes": set(
+            list(profile.get("typecode_prefixes", []) or [])
+            + list(profile.get("allowed_typecode_prefixes", []) or [])
+        ),
         "excluded_typecode_prefixes": set(profile.get("excluded_typecode_prefixes", []) or []),
         "diversity_hint": tuple(profile.get("diversity_hint", []) or []),
         "reject_unrequested_sports": not explicit_sport,
@@ -4546,6 +4553,70 @@ def _has_late_slot(points: list[dict[str, Any]]) -> bool:
     return False
 
 
+# v20: Shop keyword generation based on user preferences
+def _generate_stroll_shop_keywords(parsed_intent: Any) -> list[str]:
+    """Generate shop search keywords based on user preferences."""
+    prefs = list(getattr(parsed_intent, "raw_keywords", []) or [])
+    prefs.extend(getattr(parsed_intent, "activity_pref_tag", []) or [])
+    food = list(getattr(parsed_intent, "food_pref_keywords", []) or [])
+    lowered = " ".join(prefs + food).lower()
+
+    kws = ["特色店铺", "旗舰店"]
+    if any(t in lowered for t in ["拍照", "摄影", "打卡", "出片"]):
+        kws.extend(["拍照打卡", "网红店", "复古店铺"])
+    if any(t in lowered for t in ["购物", "逛街", "买", "商场"]):
+        kws.extend(["品牌店", "买手店", "伴手礼"])
+    if any(t in lowered for t in ["美食", "吃", "小吃", "甜品", "咖啡", "日料"]):
+        kws.extend(["小吃", "甜品", "咖啡", "美食"])
+    if any(t in lowered for t in ["文艺", "文创", "书店", "展览"]):
+        kws.extend(["书店", "文创店", "展览空间"])
+    if any(t in lowered for t in ["亲子", "儿童", "娃"]):
+        kws.extend(["亲子店", "玩具店", "甜品"])
+    if any(t in lowered for t in ["二次元", "动漫", "潮牌", "年轻"]):
+        kws.extend(["潮牌店", "二次元店", "网红店"])
+    # Always add diverse fallbacks
+    kws.extend(["老字号", "特色小吃"])
+    return list(dict.fromkeys(kws))[:6]  # unique, preserve order, max 6
+
+
+async def _search_nearby_shops(
+    location: dict, keywords: list[str], radius_m: int = 800,
+) -> list[dict[str, Any]]:
+    """Search for shops near a location matching preference keywords."""
+    from .api_client import gaode_around_search, gaode_text_search
+    shops: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for kw in keywords[:4]:
+        try:
+            results = await gaode_text_search(kw)
+            for item in (results or [])[:4]:
+                name = str(item.get("name", ""))
+                if name in seen:
+                    continue
+                # Skip facilities, not shops
+                if any(t in name for t in ["公交站", "地铁站", "停车场", "入口", "卫生间", "厕所"]):
+                    continue
+                loc = item.get("location")
+                if not loc:
+                    continue
+                shops.append({
+                    "name": name,
+                    "location": loc if isinstance(loc, dict) else {"lat": 0, "lng": 0},
+                    "typecode": str(item.get("typecode", "")),
+                    "category": str(item.get("category", "") or ""),
+                    "address": str(item.get("address", "")),
+                    "rating": item.get("rating"),
+                    "gaode_poi_id": str(item.get("id", "") or ""),
+                })
+                seen.add(name)
+        except Exception:
+            continue
+        if len(shops) >= 4:
+            break
+    return shops
+
+
 def _ensure_theme_half_day_density(
     route_points: list[dict[str, Any]],
     parsed_intent: ParsedIntent,
@@ -5124,11 +5195,18 @@ async def _targeted_supplement_recall(
     if not city:
         return []
 
+    profile = build_effective_theme_profile(parsed_intent)
     raw_terms = [
+        # Concrete destination categories must lead.  Abstract activity phrases
+        # are poor AMap text-search keys and caused the family-route fallback to
+        # return zero even when 北京动物园/北京海洋馆 were available.
+        *(profile.get("destination_anchor_terms", []) or []),
+        *(profile.get("allowed_name_terms", []) or []),
+        *(profile.get("macro_search_terms", []) or []),
+        *(getattr(parsed_intent, "search_keywords", []) or []),
         *(getattr(parsed_intent, "micro_keywords", []) or []),
         *(getattr(parsed_intent, "micro_poi_keywords", []) or []),
         *(getattr(parsed_intent, "theme_keywords", []) or []),
-        *(getattr(parsed_intent, "search_keywords", []) or []),
     ]
     supplement_terms: list[str] = []
     for term in raw_terms:
@@ -5138,11 +5216,30 @@ async def _targeted_supplement_recall(
     if not supplement_terms:
         return []
 
-    results: list[dict[str, Any]] = []
+    candidates: list[tuple[float, float, dict[str, Any]]] = []
     existing_names = {str(point.get("name") or "") for point in points}
+    existing_bases = {
+        name[:-2] if name.endswith(("东段", "西段", "南段", "北段")) else name
+        for name in existing_names
+    }
+    existing_locations = [
+        point.get("location") or {}
+        for point in points
+        if (point.get("location") or {}).get("lat") is not None
+        and (point.get("location") or {}).get("lng") is not None
+    ]
+    existing_days = [
+        int(point.get("day") or point.get("day_index") or 1)
+        for point in points
+        if point.get("kind") != "start"
+    ]
+    supplement_day = existing_days[-1] if existing_days else 1
     city_short = city.rstrip("市")
 
-    for term in supplement_terms[:4]:
+    attempted_terms: list[str] = []
+    seen_candidate_names: set[str] = set()
+    for term in supplement_terms[:8]:
+        attempted_terms.append(term)
         try:
             raws = await gaode_text_search(
                 term,
@@ -5150,19 +5247,26 @@ async def _targeted_supplement_recall(
                 show_fields=config.GAODE_SHOW_FIELDS,
                 city_limit=True,
             )
-        except Exception:
+        except Exception as exc:
+            print(f"[WARN step3] supplement recall failed term={term!r}: {exc}")
             continue
 
         query_tokens = [
             token for token in str(term).replace(city, "").replace(city_short, "").split()
             if len(token) >= 2 and token not in {"攻略", "推荐", "路线", "打卡", "拍照", "休闲"}
         ]
-        for raw in (raws or [])[:10]:
+        for raw in (raws or [])[:15]:
             place = raw_to_place(raw)
             if not place or not place.get("location"):
                 continue
             name = str(place.get("name", "") or "")
-            if not name or name in existing_names:
+            name_base = name[:-2] if name.endswith(("东段", "西段", "南段", "北段")) else name
+            if (
+                not name
+                or name in existing_names
+                or name in seen_candidate_names
+                or name_base in existing_bases
+            ):
                 continue
             typecode = str(place.get("typecode", "") or "")
             identity_text = " ".join([
@@ -5170,29 +5274,58 @@ async def _targeted_supplement_recall(
                 str(place.get("category", "") or ""),
                 str(place.get("address", "") or ""),
             ])
-            if query_tokens and not any(token in identity_text for token in query_tokens):
-                continue
             if not is_valid_route_poi(typecode, name):
                 continue
-            existing_names.add(name)
-            results.append({
+
+            evidence = score_poi_against_theme(place, profile) if profile.get("active") else None
+            token_match = not query_tokens or any(token in identity_text for token in query_tokens)
+            if evidence is not None and not evidence.accepted:
+                continue
+            if evidence is None and not token_match:
+                continue
+
+            location = place.get("location") or {}
+            nearest_km = min(
+                (haversine_km(location, existing) for existing in existing_locations),
+                default=0.0,
+            )
+            # A fallback point must remain practical for a one-day route.  A
+            # city-wide match 40-60 km away is not a valid density supplement.
+            if existing_locations and nearest_km > 15.0:
+                print(
+                    f"[DEBUG step3] skip distant supplement: name={name} "
+                    f"nearest_km={nearest_km:.1f} term={term!r}"
+                )
+                continue
+
+            seen_candidate_names.add(name)
+            candidate = {
                 "name": name,
-                "location": place.get("location"),
+                "location": location,
                 "typecode": typecode,
                 "kind": "anchor_internal",
+                "day": supplement_day,
+                "day_index": supplement_day,
+                "display_slot": "afternoon",
                 "is_display_poi": True,
                 "is_waypoint": True,
                 "supplement_recall": True,
-                "recommend_reason": f"{city_short}市范围内主题补充推荐",
-            })
-            if len(results) >= 5:
-                break
-        if len(results) >= 5:
-            break
+                "supplement_query": term,
+                "theme_relevance_score": float(evidence.score if evidence is not None else 1.0),
+                "recommend_reason": f"距现有路线约{nearest_km:.1f}公里的亲子主题补充地点",
+            }
+            candidates.append((nearest_km, -candidate["theme_relevance_score"], candidate))
 
+    # Prefer strong destination identity first, then choose the nearest among
+    # similarly relevant places.  This keeps a named aquarium/science museum
+    # ahead of a tiny internal facility that merely shares its category.
+    candidates.sort(key=lambda item: (item[1], item[0], item[2].get("name", "")))
+    results = [item[2] for item in candidates[:5]]
     print(
         f"[DEBUG step3] targeted_supplement_recall: "
-        f"scope=citywide city={city} terms={supplement_terms[:4]} found={len(results)}"
+        f"scope=near_route city={city} terms={attempted_terms} "
+        f"candidates={len(candidates)} selected="
+        f"{[(p.get('name'), p.get('supplement_query')) for p in results]}"
     )
     return results[:5]
 
@@ -5407,8 +5540,58 @@ async def run_step3(
     # v16: 主题路线半日均衡 — 确保上午至少 2 个真实游览点
     points = _ensure_theme_half_day_density(points, parsed_intent)
 
+    # v20: Area stroll expansion — expand shoppable anchors with internal shops
+    _expanded = False
+    for i, pt in enumerate(points):
+        if pt.get("expansion_required") and pt.get("activity_facet") == "shopping_stroll":
+            _name = pt.get("name", "")
+            _loc = pt.get("location")
+            if _loc and isinstance(_loc, dict) and _loc.get("lat") and _loc.get("lng"):
+                _shop_kws = _generate_stroll_shop_keywords(parsed_intent)
+                _shops = await _search_nearby_shops(_loc, _shop_kws, radius_m=800)
+                if _shops:
+                    # Insert shops after the area anchor
+                    for j, shop in enumerate(_shops[:4]):
+                        shop["kind"] = "anchor_internal"
+                        shop["is_display_poi"] = True
+                        shop["parent_anchor"] = _name
+                        shop["display_slot"] = pt.get("display_slot", "")
+                        shop["day"] = pt.get("day", 1)
+                        shop["expansion_required"] = False
+                        points.insert(i + 1 + j, shop)
+                    _expanded = True
+                    print(
+                        f"[AreaStroll] expanded {_name} with {len(_shops[:4])} shops: "
+                        f"{[s['name'] for s in _shops[:4]]}"
+                    )
+
     # v18: 逛吃穿插 — 上午/下午游览点之间优先穿插轻食/小吃/咖啡/甜品
     points = _interleave_stroll_eat_points(points, parsed_intent)
+
+    # v20: Run supplement recall BEFORE segment generation so new points get proper routes
+    _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
+    _primary_query = getattr(parsed_intent, "primary_query", "") or ""
+    _is_full_day_theme = (
+        parsed_intent.duration in ("a full day", "two days", "three days")
+        and (not _poi_qtype or _poi_qtype == "theme_route")
+    )
+    if _is_full_day_theme:
+        _pre_reality = validate_plan_reality(parsed_intent, points, route_segments=[])
+        if any(v for v in _pre_reality.violations if "theme_needs" in v):
+            _supplement_points = await _targeted_supplement_recall(
+                parsed_intent, complete_plan, points, sub_anchors,
+            )
+            if _supplement_points:
+                _added_names = []
+                _needed_related = max(0, 3 - _pre_reality.primary_waypoint_count)
+                for sp in _supplement_points:
+                    if len(_added_names) >= _needed_related:
+                        break
+                    if sp.get("name") not in {p.get("name") for p in points}:
+                        points.append(sp)
+                        _added_names.append(sp.get("name"))
+                if _added_names:
+                    print(f"[DEBUG step3] supplement recall added {len(_added_names)} points (before segments): {_added_names}")
 
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
@@ -5504,30 +5687,13 @@ async def run_step3(
                 f"请调整搜索条件后重试。"
             )
 
-        # v20: Full-day theme route — trigger targeted re-recall instead of silent output
+        # v20: Supplement recall now happens BEFORE segment generation (see above).
+        # If reality still fails here despite pre-sgement supplement, surface a clear error.
         if _is_full_day_theme and _critical_violations:
-            print(
-                f"[WARN step3] full_day theme route with critical violations: "
-                f"{_reality.violations}. Triggering targeted re-recall..."
+            raise ZeroOutputError(
+                f"当前条件下可组成完整亲子一日路线的地点较少。"
+                f"可以尝试扩大出行范围，或指定动物园、科技馆等主要目的地。"
             )
-            # Try to supplement with nearby walkable POIs
-            _supplement_points = await _targeted_supplement_recall(
-                parsed_intent, complete_plan, points, sub_anchors,
-            )
-            if _supplement_points:
-                for sp in _supplement_points:
-                    if sp.get("name") not in {p.get("name") for p in points}:
-                        points.append(sp)
-                print(
-                    f"[DEBUG step3] supplement recall added {len(_supplement_points)} points: "
-                    f"{[sp.get('name') for sp in _supplement_points]}"
-                )
-            else:
-                # Still failed — return clear message, don't pretend it's a valid full day
-                raise ZeroOutputError(
-                    f"该区域全天可逛地点不足（{_reality.violations}），"
-                    f"建议缩小范围或换一个片区试试~"
-                )
 
     # Ensure primary query POIs are visible waypoints (not hidden/free_explore)
     if _primary_query and _poi_qtype in ("poi_category", "named_poi"):

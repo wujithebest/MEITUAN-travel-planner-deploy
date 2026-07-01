@@ -1,7 +1,7 @@
-"""Batch DeepSeek recommendation reason generation for exploratory mode.
+"""Batch DeepSeek recommendation reason generation for all plan modes.
 
 Called AFTER Step3 finalises route_points.  One batch DeepSeek call per
-plan; bocha enrichment is batched as well.  Failure never blocks the route.
+plan; bocha enrichment is batched.  Failure never blocks the route.
 """
 
 from __future__ import annotations
@@ -11,7 +11,35 @@ import json
 import time
 from typing import Any
 
-from .api_client import bocha_search_batch
+from pydantic import BaseModel, Field
+
+from .api_client import bocha_search_batch, call_llm
+
+
+# ── Pydantic response models ──────────────────────────
+class ReasonItemResponse(BaseModel):
+    poi_id: str = ""
+    name: str = ""
+    highlight: str = ""
+    matched_preferences: list[dict] = Field(default_factory=list)
+    preference_match: str = ""
+    evidence_ids: list[str] = Field(default_factory=list)
+    recommend_reason: str = ""
+    short_recommend_reason: str = ""
+    confidence: float = 0.5
+
+
+class RouteReasonResponse(BaseModel):
+    route_recommend_reason: str = ""
+    items: list[ReasonItemResponse] = Field(default_factory=list)
+
+
+# ── Generic placeholder patterns to reject ─────────────
+_GENERIC_PLACEHOLDERS = frozenset({
+    "符合用户偏好", "符合本次路线偏好", "值得推荐", "适合用户需求",
+    "环境优美，值得一去", "值得一去", "推荐", "很好",
+    "本次搜索的核心目标", "符合本次路线偏好",
+})
 
 
 # ── System prompt ─────────────────────────────────────
@@ -24,19 +52,19 @@ _REASON_SYSTEM_PROMPT = """你是本地旅行路线的个性化推荐理由生�
 2. 禁止编造历史、活动、客流、评分、菜品、开放时间、价格和交通信息。
 3. 每条推荐理由必须包含：POI本身的具体特点；它符合用户哪一项偏好或约束；它在当前路线和时段中的安排价值。
 4. 不得只写"环境优美""值得一去""评分较高"等空泛表述。
-5. 不得输出"符合本次路线偏好"或"本次搜索的核心目标"这类没有解释的结论。
-6. 不要为不同POI重复同一套模板。
-7. 冷门、小众、人少等属性必须有enrichment、热度或博查证据。
-8. 餐厅优先说明口味、素食、预算、距离或餐段衔接。
-9. 如果用户明确提出雨天、室内、低强度、亲子、养生、拍照等要求，应明确说明POI如何满足该要求。
-10. 每条推荐理由控制在50至100个汉字。
-11. 不要重复POI名称作为句子开头。
-12. 不要输出Markdown。
-13. 只输出严格JSON。
-14. items数量和poi_id必须与输入POI一一对应。
+5. 不要为不同POI重复同一套模板。
+6. 冷门、小众、人少等属性必须有enrichment、热度或博查证据。
+7. 餐厅优先说明口味、素食、预算、距离或餐段衔接。
+8. 如果用户明确提出雨天、室内、低强度、亲子、养生、拍照等要求，应明确说明POI如何满足该要求。
+9. 每条推荐理由控制在50至100个汉字。
+10. 不要重复POI名称作为句子开头。
+11. 不要输出Markdown。
+12. 只输出严格JSON。
+13. items数量和poi_id必须与输入POI一一对应。
 
 输出格式：
 {
+  "route_recommend_reason": "40至90字的中文路线推荐理由，说明路线特色和为什么符合用户偏好。如果无法生成请返回空字符串。",
   "items": [
     {
       "poi_id": "与输入完全一致",
@@ -72,10 +100,10 @@ def _build_poi_context(poi: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _build_user_context(parsed_intent: Any, user_profile: Any) -> dict[str, Any]:
+def _build_user_context(parsed_intent: Any, user_profile: Any, user_request: str = "") -> dict[str, Any]:
     ctx: dict[str, Any] = {}
-    ctx["user_request"] = str(getattr(parsed_intent, "user_request", "") or "")[:200]
-    ctx["plan_mode"] = "exploratory"
+    ctx["user_request"] = str(user_request or getattr(parsed_intent, "user_request", "") or "")[:200]
+    ctx["plan_mode"] = str(getattr(parsed_intent, "plan_mode", "exploratory") or "exploratory")
     ctx["primary_query"] = str(getattr(parsed_intent, "primary_query", "") or "")
     ctx["theme_profile"] = str(getattr(parsed_intent, "theme_profile", "") or "")
     ctx["duration"] = str(getattr(parsed_intent, "duration", "") or "")
@@ -84,7 +112,6 @@ def _build_user_context(parsed_intent: Any, user_profile: Any) -> dict[str, Any]
     ctx["budget"] = getattr(parsed_intent, "budget_per_capita", None)
     ctx["constraints"] = list(getattr(parsed_intent, "other_constraints", []) or [])[:6]
     ctx["transport"] = str(getattr(parsed_intent, "transport_hint", "") or "")
-    ctx["weather"] = str(getattr(parsed_intent, "weather_info", {}) or {})
     ctx["proximity"] = bool(getattr(parsed_intent, "proximity_requested", False))
     ctx["search_area"] = str(getattr(parsed_intent, "search_area_label", "") or "")
     return ctx
@@ -96,7 +123,6 @@ async def _enrich_pois_with_bocha(
     parsed_intent: Any,
     city: str = "",
 ) -> None:
-    """Batch-enrich POIs that lack description/preference evidence via Bocha."""
     queries = []
     for poi in pois:
         if poi.get("enrichment_text") and len(poi.get("enrichment_text", "")) > 50:
@@ -126,28 +152,110 @@ async def _enrich_pois_with_bocha(
         pass
 
 
+# ── Short reason fallback generator ────────────────────
+_SHORT_REASON_TEMPLATES: dict[str, list[str]] = {
+    "park": [
+        "在这里，时间是用来浪费的", "树比人多，呼吸都变甜了",
+        "把烦恼丢在公园门口", "今天的主角是阳光和草坪",
+    ],
+    "museum": [
+        "吹着空调，把故事慢慢逛完", "历史在玻璃后面眨了眨眼",
+        "知识的殿堂，也可以很温柔",
+    ],
+    "zoo": [
+        "今日治愈额度由动物朋友提供", "狮子老虎都在等你合影",
+        "和国宝比，谁更会撒娇？",
+    ],
+    "aquarium": [
+        "蓝色世界的入口在这里", "看海豚转圈，心情也跟着转",
+    ],
+    "restaurant": [
+        "先别数热量，好吃才是正事", "筷子的下一站，是快乐",
+        "这一口的幸福感，值得绕路",
+    ],
+    "cafe": [
+        "咖啡是成年人白天的酒", "这杯喝完，今天就圆满了",
+    ],
+    "night_view": [
+        "天一黑，浪漫就准时上线", "城市的星空，是万家灯火",
+    ],
+    "shopping": [
+        "买买买不需要理由", "钱包说不，但脚步很诚实",
+    ],
+    "bridge": [
+        "桥的那一头，藏着老故事", "走过这座桥，就走进画里了",
+    ],
+    "riverfront": [
+        "江水滔滔，心事都带走", "散步的尽头，是橘色落日",
+    ],
+    "art": [
+        "给眼睛喝一杯艺术的酒", "看不懂也没关系，美就够了",
+    ],
+    "default": [
+        "藏在城市里的温柔角落", "来了就会爱上这里的空气",
+        "今天的目的地，不会让你失望",
+    ],
+}
+
+_PARK_TERMS = {"公园", "花园", "植物园", "绿道", "步道", "湿地"}
+_MUSEUM_TERMS = {"博物馆", "科技馆", "展览馆", "美术馆", "画廊", "陈列馆"}
+_ZOO_TERMS = {"动物园", "野生动物"}
+_AQUARIUM_TERMS = {"水族馆", "海洋馆", "海底世界"}
+_RESTAURANT_TERMS = {"餐厅", "饭店", "小吃", "火锅", "美食", "面馆", "烧烤", "日料"}
+_CAFE_TERMS = {"咖啡", "茶馆", "茶饮", "甜品", "烘焙"}
+_NIGHT_TERMS = {"夜景", "灯光", "夜游", "观景台", "天台"}
+_SHOPPING_TERMS = {"商场", "步行街", "集市", "买手"}
+_BRIDGE_TERMS = {"桥", "大桥"}
+_RIVER_TERMS = {"滨江", "河畔", "码头", "江边", "湖边"}
+_ART_TERMS = {"艺术", "创意", "画廊", "美术馆", "展"}
+
+
+def _generate_short_reason(name: str, typecode: str = "", kind: str = "", category: str = "") -> str:
+    """Generate a short, witty recommendation reason from POI metadata."""
+    import random
+    combined = f"{name} {category or ''} {kind or ''}"
+    # Match by terms
+    for term_set, template_key in [
+        (_PARK_TERMS, "park"), (_MUSEUM_TERMS, "museum"),
+        (_ZOO_TERMS, "zoo"), (_AQUARIUM_TERMS, "aquarium"),
+        (_RESTAURANT_TERMS, "restaurant"), (_CAFE_TERMS, "cafe"),
+        (_NIGHT_TERMS, "night_view"), (_SHOPPING_TERMS, "shopping"),
+        (_BRIDGE_TERMS, "bridge"), (_RIVER_TERMS, "riverfront"),
+        (_ART_TERMS, "art"),
+    ]:
+        for t in term_set:
+            if t in combined:
+                templates = _SHORT_REASON_TEMPLATES.get(template_key, _SHORT_REASON_TEMPLATES["default"])
+                return random.choice(templates)
+    return random.choice(_SHORT_REASON_TEMPLATES["default"])
+
+
 # ── JSON validation ────────────────────────────────────
-def _validate_reason_item(item: dict, input_poi: dict) -> tuple[bool, str]:
-    """Validate a single DeepSeek reason item. Returns (valid, failure_reason)."""
+def _validate_reason_item(item: dict, input_poi: dict) -> tuple[bool, str, str]:
+    """Validate a single DeepSeek reason item. Returns (valid, failure_reason, detail)."""
     if not isinstance(item, dict):
-        return False, "not_a_dict"
-    if str(item.get("poi_id", "")) != str(input_poi.get("poi_id") or input_poi.get("name", "")):
-        return False, "poi_id_mismatch"
+        return False, "not_a_dict", ""
+    pid = str(item.get("poi_id", ""))
+    expected_pid = str(input_poi.get("poi_id") or input_poi.get("name", ""))
+    if pid != expected_pid:
+        return False, "poi_id_mismatch", f"got={pid} expected={expected_pid}"
     reason = str(item.get("recommend_reason", "")).strip()
     if not reason:
-        return False, "empty_recommend_reason"
+        return False, "empty_recommend_reason", ""
     if len(reason) < 20 or len(reason) > 180:
-        return False, f"reason_length_{len(reason)}"
+        return False, "reason_length_out_of_range", f"len={len(reason)}"
+    if reason in _GENERIC_PLACEHOLDERS:
+        return False, "generic_placeholder", reason
     prefs = item.get("matched_preferences")
     if not prefs or not isinstance(prefs, list) or len(prefs) == 0:
-        return False, "empty_matched_preferences"
+        return False, "empty_matched_preferences", str(prefs)[:120]
     evidence = item.get("evidence_ids")
     if not evidence or not isinstance(evidence, list) or len(evidence) == 0:
-        return False, "empty_evidence_ids"
+        return False, "empty_evidence_ids", str(evidence)[:120]
     pref_match = str(item.get("preference_match", "")).strip()
-    if not pref_match or "符合" in pref_match:
-        return False, "vague_preference_match"
-    return True, ""
+    if not pref_match or pref_match in _GENERIC_PLACEHOLDERS:
+        return False, "vague_or_missing_preference_match", pref_match[:120]
+    return True, "", ""
 
 
 # ── Main entry point ───────────────────────────────────
@@ -156,11 +264,13 @@ async def generate_exploratory_reasons(
     parsed_intent: Any,
     user_profile: Any,
     city: str = "",
+    user_request: str = "",
 ) -> list[dict[str, Any]]:
     """Generate independent recommendation reasons for all display POIs.
 
     Returns the route_points list with recommend_reason fields populated.
     Never blocks route generation on failure.
+    Works for all plan modes (exploratory, planned, mixed).
     """
     t0 = time.monotonic()
 
@@ -169,7 +279,7 @@ async def generate_exploratory_reasons(
         p for p in route_points
         if p.get("is_display_poi") or p.get("display_order") is not None
         if p.get("kind") not in ("start", "origin", "hint", "free_explore", "route_only")
-        if p.get("is_waypoint") not in (False, None)
+        if p.get("is_waypoint", True) is not False
     ]
     if not display_pois:
         return route_points
@@ -187,13 +297,13 @@ async def generate_exploratory_reasons(
         pass
 
     # 3. Build context
-    user_ctx = _build_user_context(parsed_intent, user_profile)
+    user_ctx = _build_user_context(parsed_intent, user_profile, user_request)
     poi_ctxs = [_build_poi_context(p) for p in display_pois]
 
     prompt = json.dumps({
         "user_context": user_ctx,
         "pois": poi_ctxs,
-        "task": "为每个POI生成独立的推荐理由",
+        "task": "为每个POI生成独立的推荐理由，并为整条路线生成一个概括推荐理由",
     }, ensure_ascii=False)
 
     messages = [
@@ -202,70 +312,90 @@ async def generate_exploratory_reasons(
     ]
 
     # 4. Call DeepSeek (one batch call)
+    route_reason = ""
     try:
-        from .api_client import call_llm
         response = await asyncio.wait_for(
-            call_llm(messages, temperature=0.3, max_tokens=3000),
+            call_llm(
+                RouteReasonResponse,
+                messages,
+                max_tokens=3000,
+                temperature=0.3,
+            ),
             timeout=25.0,
         )
         deepseek_count = 1
 
-        # Parse JSON
-        content = str(getattr(response, "content", response) if hasattr(response, "content") else response)
-        # Strip markdown fences if present
-        if content.startswith("```"):
-            content = content.split("\n", 1)[-1].rsplit("\n```", 1)[0]
-        data = json.loads(content)
+        data = response.model_dump()
         items = data.get("items", []) if isinstance(data, dict) else []
+        route_reason = str(data.get("route_recommend_reason", "") if isinstance(data, dict) else "").strip()
+        if route_reason and (len(route_reason) < 20 or len(route_reason) > 150):
+            route_reason = ""
+        if route_reason in _GENERIC_PLACEHOLDERS:
+            route_reason = ""
 
         # Build index by poi_id
         reason_map: dict[str, dict] = {}
         for item in items:
-            pid = str(item.get("poi_id", ""))
-            reason_map[pid] = item
+            if isinstance(item, dict):
+                pid = str(item.get("poi_id", ""))
+                reason_map[pid] = item
+            elif hasattr(item, "model_dump"):
+                d = item.model_dump()
+                pid = str(d.get("poi_id", ""))
+                reason_map[pid] = d
 
         # Validate and write
         for i, poi in enumerate(display_pois):
             pid = str(poi.get("poi_id") or poi.get("name", ""))
             item = reason_map.get(pid, {})
-            valid, failure = _validate_reason_item(item, poi)
+            valid, failure, detail = _validate_reason_item(item, poi)
             if valid:
                 poi["recommend_reason"] = str(item.get("recommend_reason", "")).strip()
+                poi["short_recommend_reason"] = str(item.get("short_recommend_reason", "")).strip()[:20]
                 poi["_reason_matched_prefs"] = item.get("matched_preferences", [])
                 poi["_reason_evidence"] = item.get("evidence_ids", [])
                 poi["_reason_confidence"] = float(item.get("confidence", 0.5))
                 valid_count += 1
-                print(
-                    f"[ReasonAudit] plan_mode=exploratory poi_id={pid} "
-                    f"poi_name={poi.get('name','')} "
-                    f"matched_preferences={item.get('matched_preferences',[])} "
-                    f"evidence_ids={item.get('evidence_ids',[])} "
-                    f"json_valid=True preference_valid=True evidence_valid=True "
-                    f"reason_written=True confidence={item.get('confidence',0.5)} "
-                    f"source=deepseek failure_reason="
-                )
             else:
                 poi["recommend_reason"] = ""
+                poi["short_recommend_reason"] = ""
                 empty_count += 1
                 print(
-                    f"[ReasonAudit] plan_mode=exploratory poi_id={pid} "
+                    f"[ReasonAudit] plan_mode={user_ctx['plan_mode']} poi_id={pid} "
                     f"poi_name={poi.get('name','')} "
-                    f"matched_preferences=[] evidence_ids=[] "
+                    f"matched_preferences={item.get('matched_preferences',str(item.get('preference_match',''))[:80])} "
+                    f"evidence_ids={item.get('evidence_ids',str(item.get('recommend_reason',''))[:40])} "
                     f"json_valid=False preference_valid=False evidence_valid=False "
                     f"reason_written=False confidence=0.0 "
-                    f"source=deepseek failure_reason={failure}"
+                    f"source=deepseek failure_reason={failure} detail={detail}"
                 )
 
-    except (asyncio.TimeoutError, json.JSONDecodeError, Exception) as e:
+    except Exception as exc:
+        print(
+            f"[ReasonGenError] type={type(exc).__name__} "
+            f"detail={exc!r}"
+        )
         deepseek_count = 0
         empty_count = len(display_pois)
         for poi in display_pois:
             poi["recommend_reason"] = ""
             print(
-                f"[ReasonAudit] plan_mode=exploratory poi_id={poi.get('poi_id') or poi.get('name','')} "
+                f"[ReasonAudit] plan_mode={user_ctx.get('plan_mode','')} poi_id={poi.get('poi_id') or poi.get('name','')} "
                 f"poi_name={poi.get('name','')} "
-                f"reason_written=False source=deepseek failure_reason={type(e).__name__}"
+                f"reason_written=False source=deepseek failure_reason={type(exc).__name__}"
             )
+
+    # Always write route_reason to all display POIs for frontend transport
+    for poi in display_pois:
+        poi["_route_recommend_reason"] = route_reason
+        # v20: Fallback short reason if DeepSeek didn't provide one
+        if not (poi.get("short_recommend_reason") or "").strip():
+            _kind = str(poi.get("kind", "") or "")
+            if _kind not in ("start", "origin", "hint", "free_explore"):
+                poi["short_recommend_reason"] = _generate_short_reason(
+                    poi.get("name", ""), poi.get("typecode", ""),
+                    _kind, poi.get("category", ""),
+                )
 
     elapsed = int((time.monotonic() - t0) * 1000)
     print(

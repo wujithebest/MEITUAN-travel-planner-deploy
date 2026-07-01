@@ -593,6 +593,26 @@ async def run_step4(
         parsed_intent=parsed_intent,  # v18: for planning_state in route_data
     )
 
+    # v20: Thread route-level recommendation reason to frontend
+    _route_rec_reason = ""
+    _point_reason_count = 0
+    if route_points:
+        for pt in route_points:
+            rr = pt.get("_route_recommend_reason", "") or ""
+            if rr and not _route_rec_reason:
+                _route_rec_reason = rr
+            if pt.get("recommend_reason", "").strip():
+                _point_reason_count += 1
+    if _route_rec_reason:
+        route_data["route_recommend_reason"] = _route_rec_reason
+    print(
+        f"[RouteReasonTransportAudit] "
+        f"generated={bool(_route_rec_reason)} "
+        f"length={len(_route_rec_reason)} "
+        f"route_data_has_reason={bool(route_data.get('route_recommend_reason'))} "
+        f"point_reason_count={_point_reason_count}"
+    )
+
     # v6: 一致性校验 — summary 核心 POI 是否在 route_data.points 中
     _point_names = {p.get("name") for p in route_data.get("points", [])}
     _summary_refs = set()

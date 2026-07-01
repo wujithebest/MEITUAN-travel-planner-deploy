@@ -247,10 +247,13 @@ STRONG_MEAL_TOKENS = [
     "日料", "寿司", "刺身", "拉面", "烤肉", "火锅", "串串", "麻辣烫",
     "中餐", "西餐", "韩料", "泰餐", "本帮菜", "粤菜", "川菜", "湘菜",
     "快餐", "小吃", "美食", "探店", "找一家", "找一家...店",
+    # v20: Extended meal intent tokens
+    "必吃", "必尝", "招牌菜", "特色菜", "有什么好吃的", "吃什么",
+    "早餐", "午饭", "晚饭", "夜宵", "宵夜", "有什么推荐",
 ]
 
-# v20: Style/theme synonyms — unambiguously map to art_culture_lifestyle theme,
-# NOT poi_category. Used by _detect_poi_category_query to avoid misclassification.
+# v20: Abstract expressions — must NOT become poi_category primary_query.
+# These are either style/themes or social scenarios, never concrete POI names.
 _STYLE_THEME_SYNONYMS = frozenset({
     "文艺", "文艺范", "文艺感", "文艺风", "文艺风格",
     "雅致", "清雅", "安静雅致", "雅致风格", "清雅风格",
@@ -258,6 +261,13 @@ _STYLE_THEME_SYNONYMS = frozenset({
     "艺术感", "艺术氛围", "有艺术感", "有审美",
     "文化气息", "新中式氛围", "新中式风格",
     "小资", "有氛围", "氛围感", "精神漫游", "松弛感",
+    # v20: Abstract social scenario expressions
+    "情侣约会", "闺蜜聚会", "团建拓展", "团建", "朋友聚会",
+    "多人活动", "轻社交", "仪式感", "惊喜感", "参与感", "共创感",
+    "拍照约会", "纪念日", "拍照打卡",
+    "适合情侣约会的地方", "闺蜜聚会的地方", "团建的地方",
+    "有仪式感的地方", "有惊喜感的地方", "适合多人活动的地方",
+    "有参与感的活动", "可以共创的地方",
 })
 
 STYLE_ROUTE_TOKENS = [
@@ -721,7 +731,14 @@ def _apply_keyword_overrides(parsed: ParsedIntent, user_request: str, city: str)
     # skip profile-based expansion to avoid mixing in unrelated categories.
     _poi_cat = getattr(parsed, "poi_query_type", "") or ""
     if _poi_cat == "poi_category":
-        parsed.explicit_meal_intent = getattr(parsed, "explicit_meal_intent", False)
+        # v20: If category is restaurant or strong meal intent detected, force explicit_meal_intent
+        _cat = getattr(parsed, "category_id", None)
+        _is_rest = (_cat == "restaurant" or bool(getattr(parsed, "explicit_meal_intent", False)))
+        _has_meal_kw = any(token.lower() in lowered for token in STRONG_MEAL_TOKENS)
+        if _is_rest or _has_meal_kw:
+            parsed.explicit_meal_intent = True
+        else:
+            parsed.explicit_meal_intent = getattr(parsed, "explicit_meal_intent", False)
         return parsed
 
     # v6 Layer 2: 检测强餐饮意图 — 有明确就餐需求时，不追加快闪游玩关键词
@@ -1666,8 +1683,12 @@ _PROXIMITY_PATTERNS = [
 # "附近的Y" / "周边的Y" / "周围的Y" — no X, use original_location as search center
 # v20: expanded optional group to consume "个", "一家", "一个" etc. between preposition and target
 _PROXIMITY_NO_AREA_PATTERNS = [
-    re.compile(r"(?:^| )(?:附近的?|周边的?|周围的?)(?:的|找|找个|找一家|找一个|有没有|哪里有)?(.{1,20}?)(?:[。，,;]|$)"),
-    re.compile(r"(?:^| )(?:周边找|附近找|周围找)(?:个|一家|一个)?(.{1,20}?)(?:[。，,;]|$)"),
+    # "附近的Y" / "周边的Y" / "周围的Y"
+    re.compile(r"(?:^| )?(?:附近的?|周边的?|周围的?)(?:的|找|找个|找一家|找一个|有没有|哪里有)?(.{1,20}?)(?:[。，,;]|$)"),
+    # "周边找Y" / "附近找Y" / "周围找Y"
+    re.compile(r"(?:^| )?(?:周边找|附近找|周围找)(?:个|一家|一个)?(.{1,20}?)(?:[。，,;]|$)"),
+    # v20: "周围Y" without any preposition — e.g. "推荐一个周围公园", "周围公园逛一逛"
+    re.compile(r"(?:^|[，,。；;\s])(?:周围的?)([一-龥]{1,12}?)(?:[。，,;\s]|逛|玩|看|去|求|推荐|$)"),
 ]
 
 # v20: Generic category nouns — when matched and CATEGORY_RULES has no entry,
@@ -1729,10 +1750,17 @@ _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
       "保龄球馆", "找个地方运动", "运动场所", "运动的地方"], "sports_venue"),
     # v20: Arcade / game centers
     (["电玩城", "游戏厅", "动漫城", "电玩中心", "街机厅", "街机", "电玩"], "arcade"),
+    # v20: Restaurants and cuisine types
+    (["餐厅", "饭店", "饭馆", "餐馆", "日料", "日本料理", "寿司", "刺身",
+      "火锅", "烧烤", "川菜", "粤菜", "西餐", "湘菜", "鲁菜",
+      "小吃", "面馆", "快餐", "简餐"], "restaurant"),
     # v20: Science museum / planetarium
     (["科技馆", "天文馆", "科学技术馆", "科学中心", "科学宫", "科技中心", "天文台"], "science_museum"),
+    # v20: Parks (narrower priority before scenic_area)
+    (["公园", "城市公园", "森林公园", "湿地公园", "郊野公园",
+      "体育公园", "文化公园", "植物园"], "park"),
     # v20: Scenic areas / tourist spots
-    (["景区", "景点", "风景区", "名胜", "公园", "旅游景点", "风景名胜"], "scenic_area"),
+    (["景区", "景点", "风景区", "名胜", "旅游景点", "风景名胜"], "scenic_area"),
 ]
 
 
@@ -1892,6 +1920,34 @@ _RANKING_CLEANUP_RE = re.compile(
 
 
 # v20: Unified set of time/duration expressions — must NOT become primary_query etc.
+# v20: Activity/experience expressions — must NOT become poi_category primary_query
+_ACTIVITY_EXPRESSIONS: set[str] = {
+    "随便走走", "走走", "散步", "逛逛", "转转", "溜达",
+    "沿江走走", "滨江漫步", "看看风景", "拍照打卡",
+    "随便逛逛", "随便逛", "逛一逛", "走一走", "遛一遛",
+    "citywalk", "骑行", "骑车逛逛", "遛弯",
+}
+
+# v20: Area stroll detection — 步行街/商圈/街区 + 逛逛/逛街 → internal shop expansion
+_SHOPPABLE_AREA_TERMS: set[str] = {
+    "步行街", "商圈", "街区", "古镇", "夜市", "商场", "购物中心",
+    "创意园", "文创园", "滨江街区", "天地", "商厦", "百货",
+}
+_STROLL_INTENT_VERBS: set[str] = {
+    "逛逛", "逛街", "随便逛", "走走", "citywalk",
+    "买东西", "购物", "逛一下", "逛一逛", "溜达", "逛",
+}
+
+
+def _is_area_stroll_request(user_request: str, poi_name: str) -> bool:
+    """Check if user wants to explore shops inside a named area vs just visiting."""
+    lowered = user_request.lower()
+    has_stroll = any(v in lowered for v in _STROLL_INTENT_VERBS)
+    if not has_stroll:
+        return False
+    return any(poi_name.endswith(t) or t in poi_name for t in _SHOPPABLE_AREA_TERMS)
+
+
 # v20: Preference modifier words — modify ranking, not POI identity
 _PREFERENCE_MODIFIERS: set[str] = {
     "冷门", "小众", "人少", "清静", "不拥挤", "低拥挤",
@@ -1934,6 +1990,42 @@ _TIME_FUNC_PATTERN = re.compile(
     r"耍一耍|看一看|看看|逛逛|走走|坐一会儿|"
     r"玩一玩|走一走|遛一遛|转一转)$"
 )
+
+
+# v20: Normalize proximity query — strip garbage prefixes/suffixes, keep semantic core
+_QUERY_CLEAN_PREFIX_RE = re.compile(
+    r"^(?:我想在|我想|想在|帮我|请帮我|找|找个|找一家|一家|一个|个|"
+    r"获得一些|获得|得到|寻找|寻求|查找)+"
+)
+_QUERY_CLEAN_SUFFIX_RE = re.compile(
+    r"(?:中午吃饭|晚上吃饭|去吃饭|吃饭|可以去哪里|哪里有|求推荐|"
+    r"玩一会儿|逛一逛|看一看|耍一耍|玩玩|逛逛)+$"
+)
+
+# v20: Restaurant/food detection — must generate explicit_meal_intent + restaurant category
+_RESTAURANT_CATEGORY_TOKENS: set[str] = {
+    "餐厅", "饭店", "饭馆", "餐馆", "酒店",
+    "日料", "日本料理", "寿司", "刺身", "烧鸟", "居酒屋",
+    "火锅", "烧烤", "川菜", "粤菜", "西餐", "湘菜", "鲁菜",
+    "小吃", "面馆", "快餐", "简餐",
+}
+_MEAL_TIME_TOKENS: dict[str, str] = {
+    "中午": "lunch", "午饭": "lunch", "午餐": "lunch",
+    "晚上": "dinner", "晚饭": "dinner", "晚餐": "dinner",
+}
+
+
+def _normalize_primary_query(text: str) -> str:
+    """Strip garbage prefixes/suffixes from proximity-captured primary_query.
+
+    '一家电脑维修店' → '电脑维修店'
+    '获得一些未来科技体验' → '未来科技体验'
+    '一家饭店中午吃饭' → '饭店'
+    """
+    t = text.strip()
+    t = _QUERY_CLEAN_PREFIX_RE.sub("", t).strip()
+    t = _QUERY_CLEAN_SUFFIX_RE.sub("", t).strip()
+    return t or text.strip()
 
 
 def _is_time_or_functional_expression(text: str) -> bool:
@@ -2132,7 +2224,8 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
         r"^(?:明天|今天|后天|周末|早上|上午|中午|下午|晚上|夜里|傍晚|"
         r"想|要|帮|请|帮忙|可以|能不能|是否|"
         r"去|在|到|找|看|逛|玩|来|再去|想去|要去|"
-        r"帮我|给我|给|顺便)+(?:的|一下|一会|一会儿)?"
+        r"帮我|给我|给|顺便|我在|我在想|我想在|我想|想在)+"
+        r"(?:的|一下|一会|一会儿)?"
     )
 
     # v20: Functional/noise words that must NOT be treated as area X
@@ -2166,7 +2259,8 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
                 r"省|市|区|县|镇|乡|街道|商圈|片区|一带|社区|小区|"
                 r"胡同|里弄|弄堂|新城|新区|开发区|园区|"
                 r"大学|学院|学校|医院|商场|广场|大厦|大楼|公园|"
-                r"地铁站|火车站|机场|码头|车站)",
+                r"地铁站|火车站|机场|码头|车站|"
+                r"滨江|江|河|湖|海|山|塘|浦)",
                 x_clean,
             ))
             if not _has_geo_indicator and len(x_clean) > 3:
@@ -2176,15 +2270,20 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
             skip_y = {"附近", "周边", "旁边", "一带", "逛逛", "走走", "的"}
             if y_raw in skip_y or len(y_raw) < 1:
                 continue
-            # v20: Split preference modifiers from Y before category matching
+            # v20: Clean + normalize Y
             _base_y, _prefs = _split_preference_from_category(y_raw)
             _effective_y = _base_y if _base_y else y_raw
+            _effective_y = _normalize_primary_query(_effective_y)
+            # v20: Restaurant detection — check if any restaurant token is in the query
+            _is_rest = any(t in _effective_y for t in _RESTAURANT_CATEGORY_TOKENS)
             return {
                 "search_area_label": x_clean,
-                "primary_query": _effective_y,
+                "primary_query": _effective_y if not _is_rest else ("餐厅" if _effective_y in ("饭店", "饭馆", "餐馆") else _effective_y),
                 "preference_terms": _prefs if _prefs else None,
                 "proximity_requested": True,
                 "is_search_center_only": True,
+                "explicit_meal_intent": _is_rest,
+                "restaurant_category": _is_rest,
             }
 
     # v20: Strip leading quantifier/functional words from captured Y
@@ -2204,12 +2303,16 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
                 continue
             _base_y2, _prefs2 = _split_preference_from_category(y_clean)
             _effective_y2 = _base_y2 if _base_y2 else y_clean
+            _effective_y2 = _normalize_primary_query(_effective_y2)
+            _is_rest2 = any(t in _effective_y2 for t in _RESTAURANT_CATEGORY_TOKENS)
             return {
                 "search_area_label": None,
-                "primary_query": _effective_y2,
+                "primary_query": _effective_y2 if not _is_rest2 else ("餐厅" if _effective_y2 in ("饭店", "饭馆", "餐馆") else _effective_y2),
                 "preference_terms": _prefs2 if _prefs2 else None,
                 "proximity_requested": True,
                 "is_search_center_only": False,
+                "explicit_meal_intent": _is_rest2,
+                "restaurant_category": _is_rest2,
             }
 
     return None
@@ -2340,11 +2443,14 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
         result: dict = {
             "poi_query_type": "poi_category",
             "primary_query": primary_query,
-            "explicit_meal_intent": False,
+            "explicit_meal_intent": bool(prox.get("explicit_meal_intent", False)),
             "proximity_requested": True,
             "is_search_center_only": prox.get("is_search_center_only", True),
             "category_label": primary_query,
         }
+        # v20: Carry forward preference terms from proximity parsing
+        if prox.get("preference_terms"):
+            result["preference_terms"] = prox["preference_terms"]
 
         if search_area_label:
             result["search_area_label"] = search_area_label
@@ -2358,6 +2464,11 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             result["primary_required_terms"] = get_semantic_terms(best_cat_id)
             result["primary_excluded_terms"] = []
             result["category_label"] = best_cat_rule.get("label", primary_query)
+            if best_cat_id == "restaurant":
+                result["explicit_meal_intent"] = True
+        # v20: Also set meal intent when strong meal keywords hit (but no registered category)
+        elif any(t.lower() in primary_query.lower() for t in STRONG_MEAL_TOKENS):
+            result["explicit_meal_intent"] = True
         else:
             # v20: If target looks like a theme/style expression (ends with 路线, or is a style word),
             # return None so it falls through to theme_route.  Don't create a broken poi_category state.
@@ -2384,12 +2495,29 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             result["primary_required_terms"] = [primary_query]
             result["primary_excluded_terms"] = []
 
-        print(
-            f"[DEBUG step1] proximity parsing: "
-            f"label={search_area_label} target={primary_query} "
-            f"cat_id={result.get('category_id')} "
-            f"allowed_tc={result.get('allowed_typecode_prefixes')}"
-        )
+        # v20: Activity expressions like "随便走走/散步/逛逛" → theme_route, not poi_category
+        if primary_query in _ACTIVITY_EXPRESSIONS:
+            result["poi_query_type"] = "theme_route"
+            result["primary_query"] = ""
+            result["primary_required_terms"] = []
+            if search_area_label:
+                result["activity_facet"] = primary_query
+                result["search_keywords_override"] = [
+                    f"{search_area_label} 步道", f"{search_area_label} 公园",
+                    f"{search_area_label} 观景点", f"{search_area_label} 打卡点",
+                    f"{search_area_label} 徒步",
+                ]
+            print(
+                f"[DEBUG step1] activity expression '{primary_query}' → theme_route "
+                f"search_area={search_area_label}"
+            )
+        else:
+            print(
+                f"[DEBUG step1] proximity parsing: "
+                f"label={search_area_label} target={primary_query} "
+                f"cat_id={result.get('category_id')} "
+                f"allowed_tc={result.get('allowed_typecode_prefixes')}"
+            )
         return result
 
     # === Layer 3: Direct registered category patterns ===
@@ -2402,7 +2530,9 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
                 return {
                     "poi_query_type": "poi_category",
                     "primary_query": token,
-                    "explicit_meal_intent": False,
+                    "explicit_meal_intent": cat_id == "restaurant" or any(
+                        t.lower() in lowered for t in STRONG_MEAL_TOKENS
+                    ),
                     "category_id": cat_id,
                     "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id),
                     "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id),
@@ -2421,7 +2551,9 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             return {
                 "poi_query_type": "poi_category",
                 "primary_query": noun,
-                "explicit_meal_intent": False,
+                "explicit_meal_intent": (cat_id == "restaurant" if cat_id else any(
+                    t.lower() in noun.lower() for t in STRONG_MEAL_TOKENS
+                )),
                 "category_id": cat_id,
                 "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id) if cat_id else [],
                 "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id) if cat_id else [],
@@ -2571,6 +2703,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         # Do NOT expand into fruit shops, bakeries, etc.
         city_short = city[:-1] if city.endswith("市") else city
         cat_id = poi_cat_result.get("category_id")
+        parsed.category_id = cat_id  # v20: persisted for downstream use
         rule = CATEGORY_RULES.get(cat_id, {}) if cat_id else {}
         # Use search_keywords_override if present (from area-category parsing)
         synonyms = poi_cat_result.get("search_keywords_override", []) or (
@@ -2616,6 +2749,16 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         )
     else:
         parsed.poi_query_type = getattr(parsed, "poi_query_type", "") or ""
+        # v20: Force theme_route when proximity result is a theme expression with no category
+        _pq_raw = getattr(parsed, "primary_query", "") or ""
+        _cat_id = getattr(parsed, "category_id", None)
+        _has_tc = bool(getattr(parsed, "allowed_typecode_prefixes", None))
+        if (not _cat_id and not _has_tc) and (_pq_raw in ("体验", "路线", "主题") or
+            any(t in _pq_raw for t in ["体验", "科技体验", "未来科技", "路线"])
+        ):
+            parsed.poi_query_type = "theme_route"
+            parsed.primary_query = ""
+            print(f"[DEBUG step1] intent coordination: pq='{_pq_raw}' → theme_route")
         if not parsed.poi_query_type:
             parsed.poi_query_type = "theme_route"
 
@@ -2696,7 +2839,36 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         " ".join(getattr(parsed, "micro_poi_keywords", []) or []),
     ])
 
+    # v20: Activity facet detection — prevent "拍照打卡" from hijacking into relationship theme
+    _facet_raw = user_request.lower()
+    _has_relation_terms = any(t in _facet_raw for t in [
+        "情侣", "约会", "对象", "闺蜜", "朋友聚会", "团建", "多人",
+        "纪念日", "亲子", "家庭", "和好", "聚会", "par",
+    ])
+    _has_photo_terms = any(t in _facet_raw for t in [
+        "拍照", "打卡", "出片", "摄影", "取景", "拍", "照",
+    ])
+    _activity_facets: list[str] = []
+    if _has_photo_terms:
+        _activity_facets.append("photo_checkin")
+    if any(t in _facet_raw for t in ["散步", "漫步", "走走", "逛逛", "溜达", "遛弯"]):
+        _activity_facets.append("citywalk")
+    if any(t in _facet_raw for t in ["夜景", "夜晚", "晚间", "夜游"]):
+        _activity_facets.append("night_view")
+    if any(t in _facet_raw for t in ["展览", "看展", "博物馆", "艺术展"]):
+        _activity_facets.append("exhibition")
+    print(
+        f"[FacetIntentAudit] raw_text={user_request!r} "
+        f"social_context={'unspecified' if not _has_relation_terms else 'has_relation'} "
+        f"activity_facets={_activity_facets} "
+        f"explicit_terms={'photo' if _has_photo_terms else ''}{'+relation' if _has_relation_terms else ''} "
+        f"rejected_inferences={'none' if _has_relation_terms else 'relationship_group'}"
+    )
+
     llm_profile = getattr(parsed, "theme_profile", None)
+    # v20: If only photo terms (no relationship terms), prevent relationship_group_scenarios
+    if _has_photo_terms and not _has_relation_terms and llm_profile == "relationship_group_scenarios":
+        llm_profile = None
     decision = resolve_theme_profile(
         llm_profile=llm_profile,
         raw_text=raw_theme_text,
@@ -2736,6 +2908,25 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.theme_label = decision.label
         parsed.theme_confidence = decision.confidence
 
+    # v20: Intent coordination — abstract social scenario themes must become theme_route
+    _abstract_scenario_themes = {"relationship_group_scenarios", "social_emotional_community"}
+    if (parsed.theme_profile in _abstract_scenario_themes
+            and parsed.poi_query_type == "poi_category"
+            and not getattr(parsed, "category_id", None)):
+        old_type = parsed.poi_query_type
+        old_pq = getattr(parsed, "primary_query", "")
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        print(
+            f"[ThemeRoutingAudit] raw_text={user_request!r} "
+            f"resolved_profile={parsed.theme_profile} "
+            f"old_poi_query_type={old_type} "
+            f"new_poi_query_type=theme_route "
+            f"primary_query_cleared={old_pq!r} "
+            f"reason=abstract_scenario_not_poi_category"
+        )
+
     if decision.profile_id:
         profile = get_all_theme_profiles().get(decision.profile_id, {})
         if profile:
@@ -2760,6 +2951,20 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
                 list(macro_terms),
                 limit=8,
             )
+            # v20: If photo_checkin facet detected but no relationship terms, use photo archetypes
+            if "photo_checkin" in _activity_facets and not _has_relation_terms:
+                _cs = city[:-1] if city.endswith("市") else city
+                _photo_kw = [
+                    f"{_cs} 拍照打卡", f"{_cs} 出片地点",
+                    f"{_cs} 观景台", f"{_cs} 建筑摄影",
+                    f"{_cs} 街区摄影", f"{_cs} 花园拍照",
+                ]
+                parsed.search_keywords = _append_unique(
+                    parsed.search_keywords, _photo_kw, limit=12,
+                )
+                parsed.raw_keywords = _append_unique(
+                    parsed.raw_keywords or [], ["拍照打卡", "出片", "观景"],
+                )
 
     # v20: Multi-theme — expand per-facet keywords to prevent single-theme truncation
     if parsed.multi_theme_requested and parsed.theme_facets:
@@ -2954,7 +3159,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     return parsed
 
 
-async def _fixed_budget(parsed: ParsedIntent, city: str) -> float:
+async def _fixed_budget(parsed: ParsedIntent, city: str, user_request: str = "") -> float:
     if not parsed.fixed_pois:
         return 0.0
     await emit_status("正在查询目的地信息...")
@@ -2965,6 +3170,14 @@ async def _fixed_budget(parsed: ParsedIntent, city: str) -> float:
             item = items[0]
             fp.location = item.get("location")
             fp.typecode = item.get("typecode", "")
+        # v20: Mark shoppable areas for internal shop expansion when user has stroll intent
+        if _is_area_stroll_request(str(user_request or ""), fp.name):
+            fp.expansion_required = True
+            fp.activity_facet = "shopping_stroll"
+            print(
+                f"[AreaStroll] named_area={fp.name} expansion_required=True "
+                f"user_request={user_request[:60]}"
+            )
         # v3新增：回填resolved_time_budget（未从user_time_budget解析到的用typecode兜底）
         if fp.resolved_time_budget is None:
             typecode = fp.typecode or ""
@@ -3018,6 +3231,118 @@ def _normalize_planned_request_text(text: str) -> str:
     return normalized
 
 
+def _time_slot_from_planned_clause(clause: str) -> str | None:
+    """Return the explicit time slot carried by a planned-route clause."""
+    if re.search(r"明早|上午|早上|早晨|清晨", clause):
+        return "morning"
+    if re.search(r"中午|午间", clause):
+        return "lunch"
+    if re.search(r"下午", clause):
+        return "afternoon"
+    if re.search(r"晚上|傍晚|夜里|夜间", clause):
+        return "evening"
+    return None
+
+
+def _extract_named_target_from_timed_clause(clause: str) -> str:
+    """Extract a user-named destination from a time-slotted visit clause.
+
+    This deliberately handles only explicit visit wording.  Generic needs such
+    as ``找个好吃的地方`` are classified before this helper and must never be
+    promoted to a fixed POI name.
+    """
+    cleaned = re.sub(
+        r"(?:明早|今天|明天|后天|周末|上午|早上|早晨|清晨|中午|午间|下午|晚上|傍晚|夜里|夜间)",
+        "",
+        clause,
+    ).strip()
+    cleaned = re.sub(
+        r"^(?:我|我们)?(?:还)?(?:想|要|计划|打算)?(?:先)?(?:去|到|逛|游览|参观|打卡)",
+        "",
+        cleaned,
+    ).strip()
+    cleaned = re.sub(
+        r"(?:逛逛|逛一逛|看看|看一看|游览|参观|打卡|玩一玩|玩一会儿|走走|转转)$",
+        "",
+        cleaned,
+    ).strip(" 的地儿地方，,。；;！!")
+
+    generic_terms = {
+        "好吃", "好吃的", "吃的", "美食", "餐厅", "饭店", "饭馆",
+        "一个地方", "个地方", "地方", "随便走走", "逛逛", "看看",
+    }
+    if (
+        len(cleaned) < 2
+        or len(cleaned) > 40
+        or cleaned in generic_terms
+        or re.search(r"找(?:个|一(?:个|家))?.*(?:吃|餐厅|饭店|饭馆|美食|地方)", cleaned)
+    ):
+        return ""
+    return cleaned
+
+
+def _extract_timed_planned_waypoints(user_request: str) -> list[PlannedWaypoint]:
+    """Deterministically preserve explicit morning/afternoon/evening tasks.
+
+    Multi-period requests are especially sensitive to LLM omissions: dropping
+    one named stop changes the whole route.  For clauses with explicit time
+    slots, user-named places are fixed waypoints and a generic food request is
+    a restaurant placeholder anchored near the preceding named stop.
+    """
+    clauses = _split_clauses(_normalize_planned_request_text(user_request))
+    explicit_slot_count = sum(1 for clause in clauses if _time_slot_from_planned_clause(clause))
+    if explicit_slot_count < 2:
+        return []
+
+    waypoints: list[PlannedWaypoint] = []
+    previous_named_target = ""
+    for clause in clauses:
+        slot = _time_slot_from_planned_clause(clause)
+        if not slot:
+            continue
+
+        is_generic_meal = bool(re.search(
+            r"(?:好吃的地方|找(?:个|一(?:个|家))?.*(?:吃|餐厅|饭店|饭馆|美食)|"
+            r"吃(?:午饭|晚饭|饭)|午餐|晚餐|简餐|用餐|就餐)",
+            clause,
+        ))
+        if is_generic_meal:
+            meal_slot = "dinner" if slot == "evening" else ("lunch" if slot == "lunch" else slot)
+            proximity = _parse_proximity_modifier(clause)
+            explicit_search_center = str(
+                (proximity or {}).get("search_area_label") or ""
+            ).strip()
+            waypoints.append(PlannedWaypoint(
+                type="placeholder",
+                search_keyword="餐厅",
+                category="meal",
+                stay_minutes=60 if meal_slot == "dinner" else 45,
+                search_keywords=["餐厅", "本帮菜", "小吃", "饭馆"],
+                required_terms=["餐厅", "饭店", "饭馆", "小馆", "菜馆", "美食"],
+                excluded_terms=["咖啡", "奶茶", "甜品", "面包"],
+                search_center_name=explicit_search_center or previous_named_target or None,
+                time_slot=meal_slot,
+            ))
+            continue
+
+        target = _extract_named_target_from_timed_clause(clause)
+        if not target:
+            continue
+        waypoints.append(PlannedWaypoint(
+            type="fixed",
+            name=target,
+            search_keyword=target,
+            category="visit",
+            stay_minutes=120 if slot in {"morning", "afternoon"} else 60,
+            search_keywords=[target],
+            required_terms=[target],
+            time_slot=slot,
+        ))
+        previous_named_target = target
+
+    return waypoints
+
+
 def _fallback_planned_waypoints_from_request(
     user_request: str,
     include_generic: bool = True,
@@ -3027,6 +3352,10 @@ def _fallback_planned_waypoints_from_request(
     按 "再 / 然后 / 接着 / 顺便 / , / ， / 、" 切分子句，
     基于关键词规则匹配品类。
     """
+    timed_waypoints = _extract_timed_planned_waypoints(user_request)
+    if timed_waypoints:
+        return timed_waypoints
+
     waypoints: list[PlannedWaypoint] = []
     # 切分子句 — 使用 normalized 文本
     normalized_request = _normalize_planned_request_text(user_request)
@@ -3070,7 +3399,7 @@ def _fallback_planned_waypoints_from_request(
         (["川菜", "湘菜", "粤菜", "东北菜"], {"type": "placeholder", "search_keyword": "餐厅", "category": "meal", "stay_minutes": 40}),
         (["吃晚饭", "晚饭", "晚餐", "吃个晚饭"], {"type": "placeholder", "search_keyword": "餐厅", "category": "meal", "stay_minutes": 40}),
         (["吃午饭", "午饭", "午餐"], {"type": "placeholder", "search_keyword": "简餐", "category": "meal", "stay_minutes": 40}),
-        (["简单吃", "随便吃点", "对付一口", "垫垫肚子", "找个地方吃"], {"type": "placeholder", "search_keyword": "餐厅", "category": "meal", "stay_minutes": 40}),
+        (["简单吃", "随便吃点", "对付一口", "垫垫肚子", "找个地方吃", "好吃的地方", "找个好吃", "找一家好吃"], {"type": "placeholder", "search_keyword": "餐厅", "category": "meal", "stay_minutes": 40}),
         (["宵夜", "夜宵"], {"type": "placeholder", "search_keyword": "宵夜", "category": "meal", "stay_minutes": 40}),
         (["麦当劳", "肯德基", "kfc", "KFC", "金拱门", "开封菜", "汉堡王"], {"type": "fixed", "search_keyword": "", "category": "meal", "stay_minutes": 25}),
         # ── 咖啡/奶茶 ──
@@ -3520,7 +3849,7 @@ async def run_step1(
 
     city = user_profile.permanent_city[0] if user_profile.permanent_city else "上海市"
     logger.start_step("step_1_3_fixed_and_weather")
-    fixed_task = asyncio.create_task(_fixed_budget(parsed, city))
+    fixed_task = asyncio.create_task(_fixed_budget(parsed, city, user_request))
     weather_task = asyncio.create_task(gaode_weather("310000"))
     await emit_status("正在查询天气...")
     fixed_budget, weather_info = await asyncio.gather(fixed_task, weather_task)
@@ -3554,5 +3883,32 @@ async def run_step1(
     else:
         # explicit "exploratory" or other
         parsed.plan_mode = "exploratory"
+
+    # Explicit multi-period tasks are user-authored route constraints, not
+    # suggestions.  Reconcile even a non-empty LLM result so omissions and
+    # pseudo POIs such as "个好吃的地方" cannot enter the planned fast path.
+    if parsed.plan_mode == "planned":
+        timed_waypoints = _extract_timed_planned_waypoints(user_request)
+        if timed_waypoints:
+            before = [
+                (wp.type, wp.name or wp.search_keyword, wp.category)
+                for wp in (parsed.planned_waypoints or [])
+            ]
+            parsed.planned_waypoints = timed_waypoints
+            _bind_planned_waypoint_search_centers(parsed.planned_waypoints, user_request)
+            after = [
+                (
+                    wp.type,
+                    wp.name or wp.search_keyword,
+                    wp.category,
+                    wp.time_slot,
+                    wp.search_center_name,
+                )
+                for wp in parsed.planned_waypoints
+            ]
+            print(
+                f"[DEBUG step1] timed waypoint reconciliation: "
+                f"before={before} after={after}"
+            )
 
     return parsed

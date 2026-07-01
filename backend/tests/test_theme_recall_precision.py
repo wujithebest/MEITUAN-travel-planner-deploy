@@ -17,6 +17,7 @@ from services.theme_profile_matcher import (
     score_poi_against_theme,
 )
 from services.theme_profiles import OFFICIAL_THEME_PROFILES
+from services.step3_micro import _resolve_micro_poi_policy, _micro_poi_theme_score
 
 
 def test_search_keywords_use_one_authoritative_city():
@@ -128,6 +129,32 @@ def test_step3_rejects_competing_zoo_poi_from_art_route():
     }
     assert _is_micro_poi_compatible(zoo_internal, policy) is False
     assert _is_micro_poi_compatible(art_exhibition, policy) is True
+
+
+def test_family_micro_policy_scores_real_family_destinations():
+    class Intent:
+        theme_profile = "family_child_friendly"
+        theme_confidence = 1.0
+        time_budget = 1.0
+        micro_poi_keywords = []
+        micro_keywords = []
+        micro_required_terms = []
+        micro_excluded_terms = []
+        micro_diversity_hint = []
+        search_keywords = []
+        raw_keywords = []
+        food_pref_keywords = []
+        meal_search_keywords = []
+        other_constraints = []
+
+    policy = _resolve_micro_poi_policy(Intent())
+
+    assert _micro_poi_theme_score({
+        "name": "北京海洋馆", "typecode": "110104", "category": "水族馆"
+    }, policy) > 0
+    assert _micro_poi_theme_score({
+        "name": "北京科学中心", "typecode": "140100", "category": "科技馆"
+    }, policy) > 0
 
 
 def test_production_theme_library_has_no_migrated_shanghai_pois():

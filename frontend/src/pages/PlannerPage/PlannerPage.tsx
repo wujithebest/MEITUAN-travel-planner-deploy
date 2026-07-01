@@ -32,28 +32,47 @@ import RouteHistoryModal from '@/components/RouteHistoryModal';
 import FeatureGuide from '@/components/FeatureGuide';
 import routeHistoryService, { type RouteHistory } from '@/services/routeHistory';
 import { FALLBACK_HOME_LOCATION, FALLBACK_HOME_ADDRESS } from '@/utils/locationDefaults';
+import { applyPanelPoiMutation } from '@/utils/panelPoiReorder';
 import axios from 'axios';
 import { buildApiUrl } from '@/config/api.config';
 import styles from './PlannerPage.module.css';
 
-/** Normalize POI payload for replan API */
+/** v20: Strict coordinate normalization. Rejects 0,0, NaN, out-of-range. */
 function normalizePoiPayload(alt: any) {
-  let loc: any = alt.location;
-  if (typeof loc === 'string' && loc.includes(',')) {
-    const [lng, lat] = loc.split(',').map(Number);
+  let loc: { lat: number; lng: number } | null = null;
+
+  if (typeof alt.location === 'string' && alt.location.includes(',')) {
+    const [lng, lat] = alt.location.split(',').map(Number);
     loc = { lat, lng };
-  } else if (Array.isArray(loc)) {
-    loc = { lng: loc[0], lat: loc[1] };
-  } else if (loc && loc.lat == null && loc.lng != null) {
-    // already has lng/lat
-  } else if (loc && loc.lng == null && loc.lat != null) {
-    loc = { lng: loc.lat, lat: loc.lng };
+  } else if (Array.isArray(alt.location) && alt.location.length >= 2) {
+    loc = { lng: Number(alt.location[0]), lat: Number(alt.location[1]) };
+  } else if (alt.location && typeof alt.location === 'object') {
+    const rawLat = Number(alt.location.lat ?? alt.location.latitude);
+    const rawLng = Number(alt.location.lng ?? alt.location.longitude);
+    if (Number.isFinite(rawLat) && Number.isFinite(rawLng)) {
+      loc = { lat: rawLat, lng: rawLng };
+    }
   }
+
+  // Validate: reject 0,0, out-of-range, NaN
+  if (!loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) {
+    console.error('[PlannerPage] Invalid POI coordinates', { name: alt.name, location: alt.location });
+    return null;
+  }
+  if (loc.lat === 0 && loc.lng === 0) {
+    console.error('[PlannerPage] POI coordinates are 0,0 — rejecting', { name: alt.name });
+    return null;
+  }
+  if (loc.lng < -180 || loc.lng > 180 || loc.lat < -90 || loc.lat > 90) {
+    console.error('[PlannerPage] POI coordinates out of range', { name: alt.name, loc });
+    return null;
+  }
+
   return {
     poi_id: alt.poi_id || alt.gaode_poi_id || '',
     gaode_poi_id: alt.gaode_poi_id || alt.poi_id || '',
     name: alt.name || '',
-    location: loc || { lat: 0, lng: 0 },
+    location: loc,
     category: alt.category || '',
     typecode: alt.typecode || '',
     address: alt.address || '',
@@ -430,7 +449,8 @@ const PlannerPage: React.FC = () => {
   }) => {
     console.log('[PlannerPage] POI 操作:', action.type, action.poiId);
 
-    const allMarkers = useRouteStore.getState().mapRouteData?.markers || [];
+    const routeState = useRouteStore.getState();
+    const allMarkers = routeState.mapRouteData?.markers || [];
     const marker = allMarkers.find(m => {
       return (
         (m.poi_id && m.poi_id === action.poiId) ||
@@ -448,13 +468,62 @@ const PlannerPage: React.FC = () => {
       return undefined;
     };
 
+    const targetPoi = action.poi || marker || {};
+    const targetLocation = normalizeLoc(targetPoi.location);
+    const targetPoiKey = targetPoi.name
+      || targetPoi.poi_id
+      || targetPoi.gaode_poi_id
+      || (targetPoi.name && targetLocation ? `${targetPoi.name}:${targetLocation}` : '')
+      || action.poiId;
+    const apiPoiId = marker?.poi_id
+      || marker?.gaode_poi_id
+      || targetPoi.poi_id
+      || targetPoi.gaode_poi_id
+      || action.poiId;
+
+    const previousPanelDays = routeState.panelDays;
+    let optimisticPanelDays = previousPanelDays;
+    if (action.type === 'delete') {
+      optimisticPanelDays = applyPanelPoiMutation(previousPanelDays, {
+        action: 'deleteRoutePoi',
+        poiKey: targetPoiKey,
+      }) || previousPanelDays;
+    } else if (action.type === 'replace' && action.replacementPoi) {
+      optimisticPanelDays = applyPanelPoiMutation(previousPanelDays, {
+        action: 'replaceRoutePoi',
+        poiKey: targetPoiKey,
+        newPoi: action.replacementPoi,
+      }) || previousPanelDays;
+    } else if (action.type === 'add' && action.poi) {
+      const panelLocation = normalizeLoc(action.poi.location) || '';
+      optimisticPanelDays = applyPanelPoiMutation(previousPanelDays, {
+        action: 'addCandidateAfterPoi',
+        afterPoiKey: action.afterPoiName || action.afterPoiId || '',
+        candidate: {
+          ...action.poi,
+          order: 0,
+          name: action.poi.name || action.poiId,
+          kind: action.poi.kind || 'anchor_internal',
+          day_index: Number(action.poi.day_index || action.poi.day || 1),
+          slot: action.poi.display_slot || action.poi.slot || '',
+          location: panelLocation,
+          is_start: false,
+          transport_text: '',
+          recommend_reason: action.poi.recommend_reason || '',
+        },
+      }) || previousPanelDays;
+    }
+    if (optimisticPanelDays !== previousPanelDays) {
+      routeState.setPanelDays(optimisticPanelDays);
+    }
+
     const apiAction = action.type === 'delete' ? 'remove' : action.type;
     const ops: any[] = [{
       action: apiAction,
-      poi_id: action.poiId,
-      gaode_poi_id: marker?.gaode_poi_id || undefined,
-      poi_name: marker?.name || undefined,
-      poi_location: marker?.location || undefined,
+      poi_id: apiPoiId,
+      gaode_poi_id: marker?.gaode_poi_id || targetPoi.gaode_poi_id || undefined,
+      poi_name: marker?.name || targetPoi.name || action.poiId,
+      poi_location: normalizeLoc(marker?.location || targetPoi.location),
     }];
 
     if (action.type === 'replace' && action.replacementPoi) {
@@ -466,23 +535,73 @@ const PlannerPage: React.FC = () => {
       ops[0].after_poi_name = action.afterPoiName;
       ops[0].after_poi_location = normalizeLoc(action.afterPoiLocation);
     }
-    await replanPipelineRoute(ops);
-    setLocalMapRouteData(null);
-    setSelectedRouteSegment(null);
-    setPreviewCandidateMarker(null);
-    setRouteVersion(v => v + 1);
+    try {
+      await replanPipelineRoute(ops);
+      if (action.type === 'add' && action.poi) {
+        const committedState = useRouteStore.getState();
+        const committedPoints = (committedState.rawRouteData as any)?.points || [];
+        const targetId = action.poi.gaode_poi_id || action.poi.poi_id || '';
+        const targetName = action.poi.name || action.poiId;
+        const pointCommitted = committedPoints.some((point: any) =>
+          (targetId && (point.gaode_poi_id === targetId || point.poi_id === targetId))
+          || point.name === targetName
+        );
+        const panelCommitted = committedState.panelDays.some(day =>
+          day.slots.some(slot => slot.pois.some((point: any) =>
+            (targetId && (point.gaode_poi_id === targetId || point.poi_id === targetId))
+            || point.name === targetName
+          ))
+        );
+        if (!pointCommitted || !panelCommitted) {
+          throw new Error(`添加地点未同步到完整路线: ${targetName}`);
+        }
+      }
+      setLocalMapRouteData(null);
+      setSelectedRouteSegment(null);
+      setPreviewCandidateMarker(null);
+      setRouteVersion(v => v + 1);
+      message.success(action.type === 'delete' ? '已删除路线地点' : action.type === 'replace' ? '已替换路线地点' : '已添加路线地点');
+    } catch (error) {
+      routeState.setPanelDays(previousPanelDays);
+      console.error('[PlannerPage] POI 操作失败，已回滚:', error);
+      message.error(action.type === 'delete' ? '删除失败，请稍后重试' : action.type === 'replace' ? '替换失败，请稍后重试' : '添加失败，请稍后重试');
+    }
   }, [replanPipelineRoute]);
 
   // v6: 候选 POI 操作回调（本地状态，不触发路线重算）
+  // v20: Unified POI mutation handler — delegates to routeStore.executePoiMutation
   const handleCandidateAction = useCallback((action: {
     type: 'delete' | 'add' | 'replace';
     poiId: string;
     candidateMarker?: any;
     routePoiId?: string;
   }) => {
-    console.log('[PlannerPage] 候选 POI 操作:', action.type, action.poiId);
-    // 仅记录日志，MapContainer 内部已处理本地状态和 API 调用
-    // 不触发 replanPipelineRoute
+    console.log('[PlannerPage] 候选 POI 操作 (unified):', action.type, action.poiId);
+    const { executePoiMutation, mutationStatus } = useRouteStore.getState();
+    if (mutationStatus === 'pending') {
+      message.warning('正在处理上一个操作，请稍候');
+      return;
+    }
+    const cand = action.candidateMarker;
+    if (action.type === 'add' && cand) {
+      const norm = normalizePoiPayload(cand);
+      if (!norm) { message.error('地点坐标无效，无法添加'); return; }
+      executePoiMutation({
+        action: 'add', poiId: action.poiId,
+        candidate: norm, afterPoiId: action.routePoiId,
+      }).catch((err: any) => message.error('添加失败: ' + err.message));
+    } else if (action.type === 'replace' && cand) {
+      const norm = normalizePoiPayload(cand);
+      if (!norm) { message.error('地点坐标无效，无法替换'); return; }
+      executePoiMutation({
+        action: 'replace', poiId: action.poiId,
+        candidate: norm,
+      }).catch((err: any) => message.error('替换失败: ' + err.message));
+    } else if (action.type === 'delete') {
+      executePoiMutation({
+        action: 'remove', poiId: action.poiId,
+      }).catch((err: any) => message.error('删除失败: ' + err.message));
+    }
   }, []);
 
   // v6: 行程 tab POI 点击 → 定位并打开弹窗

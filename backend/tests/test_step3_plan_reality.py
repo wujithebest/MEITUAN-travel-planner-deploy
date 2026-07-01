@@ -131,6 +131,35 @@ def test_full_day_theme_with_3_related_passes():
     print("✅ full day theme with 3 related passes")
 
 
+def test_family_full_day_accepts_real_destination_categories():
+    """亲子主题应识别动物园、海洋馆、科学中心，不要求名称含“亲子”。"""
+    intent = _make_intent(
+        poi_query_type="theme_route",
+        primary_query="",
+        primary_required=[],
+        time_budget=1.0,
+    )
+    intent.theme_profile = "family_child_friendly"
+    intent.search_keywords = ["北京 亲子一日游"]
+    intent.micro_keywords = ["亲子互动"]
+    intent.micro_poi_keywords = []
+    intent.theme_keywords = []
+    intent.raw_keywords = []
+    points = [
+        {"name": "北京动物园", "kind": "anchor_internal", "typecode": "110102",
+         "category": "动物园", "is_display_poi": True, "display_order": 1},
+        {"name": "北京海洋馆", "kind": "anchor_internal", "typecode": "110104",
+         "category": "水族馆", "is_display_poi": True, "display_order": 2},
+        {"name": "北京科学中心", "kind": "anchor_internal", "typecode": "140100",
+         "category": "科技馆", "is_display_poi": True, "display_order": 3},
+    ]
+
+    result = validate_plan_reality(intent, points)
+
+    assert result.valid, result.violations
+    assert result.primary_waypoint_count == 3
+
+
 def test_quarter_day_theme_accepts_1_related():
     """半天以下主题路线 1 个相关点就可以"""
     intent = _make_intent(poi_query_type="theme_route", primary_query="逛街",

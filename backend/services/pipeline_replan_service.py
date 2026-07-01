@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import uuid
 from collections import defaultdict
 from typing import Any
@@ -36,13 +37,32 @@ def _same_point(p: dict[str, Any], op: dict[str, Any]) -> bool:
     return False
 
 
+def _normalize_loc_safe(loc: Any) -> dict[str, float] | None:
+    """Safe version for duplicate detection — returns None on invalid input."""
+    try:
+        return _normalize_loc(loc)
+    except (ValueError, TypeError):
+        return None
+
 def _normalize_loc(loc: Any) -> dict[str, float]:
+    """v20: Strict validation — reject 0,0, NaN, out-of-range coordinates."""
     if isinstance(loc, dict):
-        return {"lng": float(loc.get("lng", 0) or 0), "lat": float(loc.get("lat", 0) or 0)}
-    if isinstance(loc, str) and "," in loc:
-        lng, lat = loc.split(",", 1)
-        return {"lng": float(lng), "lat": float(lat)}
-    return {"lng": 0.0, "lat": 0.0}
+        lng = float(loc.get("lng", loc.get("longitude", 0)) or 0)
+        lat = float(loc.get("lat", loc.get("latitude", 0)) or 0)
+    elif isinstance(loc, str) and "," in loc:
+        lng_str, lat_str = loc.split(",", 1)
+        lng = float(lng_str); lat = float(lat_str)
+    else:
+        raise ValueError(f"Unsupported location format: {loc!r}")
+
+    if lng == 0.0 and lat == 0.0:
+        raise ValueError(f"Invalid coordinates (0,0): {loc!r}")
+    if not (-180 <= lng <= 180) or not (-90 <= lat <= 90):
+        raise ValueError(f"Coordinates out of range: lng={lng} lat={lat}")
+    if not (math.isfinite(lng) and math.isfinite(lat)):
+        raise ValueError(f"Non-finite coordinates: lng={lng} lat={lat}")
+
+    return {"lng": lng, "lat": lat}
 
 
 def _normalize_new_poi(new_poi: dict[str, Any], base: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -69,9 +89,60 @@ def _normalize_new_poi(new_poi: dict[str, Any], base: dict[str, Any] | None = No
     }
 
 
+def _normalize_polyline_order(
+    raw: list[list[float]], loc_from: dict[str, float], loc_to: dict[str, float]
+) -> list[list[float]]:
+    """Auto-detect the provider order and normalize to backend [lat,lng].
+
+    Uses endpoint distance matching: if swapping produces coordinates closer to the
+    known POI locations, the raw data is in [lat,lng] order and must be swapped.
+    """
+    if not raw or len(raw) < 2:
+        return []
+    f0, f1 = float(loc_from.get("lng", 0)), float(loc_from.get("lat", 0))
+    t0, t1 = float(loc_to.get("lng", 0)), float(loc_to.get("lat", 0))
+
+    # Distance from first raw point to from_location in both orderings
+    r0, r1 = raw[0][0], raw[0][1]
+    d_as_lnglat = ((r0 - f0) * 111.32 * abs(math.cos(math.radians((f1 + r1) / 2)))) ** 2 + ((r1 - f1) * 111.32) ** 2
+    d_as_latlng = ((r1 - f0) * 111.32 * abs(math.cos(math.radians((f1 + r0) / 2)))) ** 2 + ((r0 - f1) * 111.32) ** 2
+
+    if d_as_latlng < d_as_lnglat:
+        return [[float(a), float(b)] for a, b in raw]
+    return [[float(b), float(a)] for a, b in raw]
+
+
+def _latlng_distance_m(point: list[float], location: dict[str, float]) -> float:
+    """Distance from a [lat,lng] point to a normalized POI location."""
+    lat1, lng1 = math.radians(point[0]), math.radians(point[1])
+    lat2, lng2 = math.radians(location["lat"]), math.radians(location["lng"])
+    dlat = lat2 - lat1
+    dlng = lng2 - lng1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    return 6371000 * 2 * math.asin(math.sqrt(h))
+
+
 def _insert_add_point(points: list[dict[str, Any]], new_point: dict[str, Any], op: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     if not points:
         return [new_point]
+
+    # v20: Duplicate detection — prevent adding the same POI twice
+    new_pid = str(new_point.get("poi_id") or new_point.get("gaode_poi_id", ""))
+    new_name = str(new_point.get("name", "")).strip()
+    new_loc = _normalize_loc_safe(new_point.get("location"))
+    for pt in points:
+        existing_pid = str(pt.get("poi_id") or pt.get("gaode_poi_id", ""))
+        if new_pid and existing_pid and new_pid == existing_pid:
+            print(f"[PipelineMutationAudit] duplicate poi_id={new_pid} — skipping add")
+            return points  # already present
+        if new_name and str(pt.get("name", "")).strip() == new_name:
+            print(f"[PipelineMutationAudit] duplicate name={new_name} — skipping add")
+            return points
+        if new_loc:
+            existing_loc = _normalize_loc_safe(pt.get("location"))
+            if existing_loc and abs(new_loc["lat"] - existing_loc["lat"]) < 0.0001 and abs(new_loc["lng"] - existing_loc["lng"]) < 0.0001:
+                print(f"[PipelineMutationAudit] duplicate location ({new_loc['lng']},{new_loc['lat']}) — skipping add")
+                return points
 
     target_day = int(new_point.get("day") or 1)
     insert_idx = len(points)
@@ -119,23 +190,55 @@ async def apply_pipeline_replan(
     route_id: str | None = None,
 ) -> dict[str, Any]:
     next_points = [dict(p) for p in points]
+    before_count = len(next_points)
+    audit_log: list[dict[str, Any]] = []
 
     for op in operations:
         action = op.get("action")
+        pre_count = len(next_points)
 
         if action == "remove":
+            prev = len(next_points)
             next_points = [p for p in next_points if not _same_point(p, op)]
+            applied = len(next_points) < prev
+            audit_log.append({
+                "action": action, "requested_target": op.get("poi_id") or op.get("poi_name"),
+                "applied": applied, "before_point_count": prev, "after_point_count": len(next_points),
+                "failure_reason": "" if applied else "target_not_found",
+            })
 
         elif action == "replace":
             new_poi = op.get("poi") or {}
+            found = False
             for i, p in enumerate(next_points):
                 if _same_point(p, op):
                     next_points[i] = _normalize_new_poi(new_poi, p)
+                    found = True
                     break
+            audit_log.append({
+                "action": action, "requested_target": op.get("poi_id") or op.get("poi_name"),
+                "applied": found, "before_point_count": pre_count, "after_point_count": len(next_points),
+                "failure_reason": "" if found else "target_not_found",
+            })
 
         elif action == "add":
             new_poi = op.get("poi") or {}
             next_points = _insert_add_point(next_points, _normalize_new_poi(new_poi), op)
+            added = len(next_points) > pre_count
+            audit_log.append({
+                "action": action, "requested_target": new_poi.get("name") or op.get("poi_id"),
+                "applied": added, "before_point_count": pre_count, "after_point_count": len(next_points),
+                "failure_reason": "" if added else "insert_failed",
+            })
+
+    for entry in audit_log:
+        print(
+            f"[PipelineMutationAudit] route_id={route_id or 'none'} "
+            f"action={entry['action']} applied={entry['applied']} "
+            f"target={entry['requested_target']} "
+            f"before={entry['before_point_count']} after={entry['after_point_count']} "
+            f"failure_reason={entry['failure_reason']}"
+        )
 
     next_points = [p for p in next_points if p.get("kind") != "hint"]
 
@@ -158,6 +261,7 @@ async def apply_pipeline_replan(
             day_waypoints[int(pt.get("day", 1) or 1)].append(pt)
 
     new_segments: list[dict[str, Any]] = []
+    mutation_action = operations[-1].get("action", "unknown") if operations else "unknown"
     for day, waypoints in sorted(day_waypoints.items()):
         # v18: 保持当前列表顺序，不再按旧 route_order 排序
         waypoints = list(waypoints)
@@ -185,7 +289,33 @@ async def apply_pipeline_replan(
             try:
                 route = await gaode_driving_route(origin, destination)
                 if route and route.get("polyline"):
-                    segment["polyline"] = [[c[1], c[0]] for c in route["polyline"]]
+                    _raw = route["polyline"]
+                    # v20: Auto-detect coordinate order by comparing to known endpoints
+                    _norm_pl = _normalize_polyline_order(_raw, loc_from, loc_to)
+                    _first = _norm_pl[0] if _norm_pl else None
+                    _last = _norm_pl[-1] if _norm_pl else None
+                    # Backend polyline contract is [lat,lng], matching api_client.
+                    _first_distance = _latlng_distance_m(_first, loc_from) if _first else float("inf")
+                    _last_distance = _latlng_distance_m(_last, loc_to) if _last else float("inf")
+                    _first_ok = bool(_first and -90 <= _first[0] <= 90 and -180 <= _first[1] <= 180 and math.isfinite(_first[0]) and math.isfinite(_first[1]) and _first_distance <= 2000)
+                    _last_ok = bool(_last and -90 <= _last[0] <= 90 and -180 <= _last[1] <= 180 and math.isfinite(_last[0]) and math.isfinite(_last[1]) and _last_distance <= 2000)
+                    print(
+                        f"[PolylineCoordinateAudit] action={mutation_action} "
+                        f"from_poi={from_pt.get('name','')} to_poi={to_pt.get('name','')} "
+                        f"from_location=({loc_from['lng']},{loc_from['lat']}) to_location=({loc_to['lng']},{loc_to['lat']}) "
+                        f"raw_first=({_raw[0][0]},{_raw[0][1]}) normalized_first=({_first[0]},{_first[1]}) "
+                        f"normalized_last=({_last[0]},{_last[1]}) coordinate_order=lat_lng "
+                        f"first_distance_m={_first_distance:.1f} last_distance_m={_last_distance:.1f} "
+                        f"first_valid={_first_ok} last_valid={_last_ok} "
+                        f"valid={_first_ok and _last_ok}"
+                    )
+                    if _first_ok and _last_ok:
+                        segment["polyline"] = _norm_pl
+                    else:
+                        segment["degraded"] = True
+                        segment["polyline_source"] = "invalid_coordinates"
+                        segment["route_error"] = "polyline coordinates out of valid range"
+                        segment["polyline"] = []
                     segment["duration_min"] = route.get("duration_min", 0)
                     segment["distance_km"] = route.get("distance_km", 0)
                 else:
@@ -200,4 +330,8 @@ async def apply_pipeline_replan(
 
     new_route_id = route_id or str(uuid.uuid4())
     _route_cache[new_route_id] = {"points": next_points, "segments": new_segments}
-    return {"route": {"points": next_points, "segments": new_segments}, "route_id": new_route_id}
+    return {
+        "route": {"points": next_points, "segments": new_segments},
+        "route_id": new_route_id,
+        "mutation_audit": audit_log,
+    }

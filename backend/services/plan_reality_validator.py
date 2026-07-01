@@ -40,6 +40,35 @@ def _theme_evidence_profile(parsed_intent: Any) -> dict[str, list[str]] | None:
     treating every generated waypoint as unrelated.
     """
     values: list[str] = []
+    allowed_typecodes: list[str] = []
+    excluded_terms: list[str] = []
+
+    # Prefer the official theme profile when Step1 resolved one.  This keeps
+    # route validation aligned with macro/micro recall instead of requiring a
+    # POI name to literally contain an abstract phrase such as “亲子互动”.
+    profile_id = getattr(parsed_intent, "theme_profile", None)
+    if isinstance(profile_id, str) and profile_id:
+        from .theme_profiles import build_effective_theme_profile
+
+        profile = build_effective_theme_profile(parsed_intent)
+        if profile.get("active"):
+            for field_name in (
+                "destination_anchor_terms",
+                "allowed_name_terms",
+                "required_terms",
+                "micro_poi_keywords",
+            ):
+                values.extend(str(item or "") for item in (profile.get(field_name, []) or []))
+            allowed_typecodes.extend(
+                str(item or "")
+                for item in (
+                    list(profile.get("allowed_typecode_prefixes", []) or [])
+                    + list(profile.get("typecode_prefixes", []) or [])
+                )
+            )
+            excluded_terms.extend(
+                str(item or "") for item in (profile.get("excluded_terms", []) or [])
+            )
     for field_name in (
         "primary_required_terms",
         "theme_keywords",
@@ -60,7 +89,13 @@ def _theme_evidence_profile(parsed_intent: Any) -> dict[str, list[str]] | None:
             seen.add(clean)
             terms.append(clean)
 
-    return {"required_terms": terms[:24]} if terms else None
+    if not terms and not allowed_typecodes:
+        return None
+    return {
+        "required_terms": terms[:48],
+        "allowed_typecode_prefixes": list(dict.fromkeys(filter(None, allowed_typecodes))),
+        "excluded_terms": list(dict.fromkeys(filter(None, excluded_terms))),
+    }
 
 
 def validate_plan_reality(

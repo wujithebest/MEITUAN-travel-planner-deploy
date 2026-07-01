@@ -283,8 +283,18 @@ def score_poi_against_intent(
                 t = str(term)
                 if len(t) >= 2 and _match_term(poi_id_text, t):
                     theme_hits.append(t)
-
-    # ── Category family expansion ──
+        # v20: Typecode-based theme evidence (e.g. 海洋馆/动物园 for family_child_friendly)
+        _theme_allowed_tc = theme_profile.get("allowed_typecode_prefixes", []) or []
+        if _theme_allowed_tc and not theme_hits:
+            if matches_typecode(poi_typecode, _theme_allowed_tc):
+                theme_hits.append(f"_tc_match:{poi_typecode[:6]}")
+        # v20: Name-based theme evidence from allowed_name_terms (e.g. 海洋馆/动物园)
+        _theme_name_terms = theme_profile.get("allowed_name_terms", []) or []
+        for tn in _theme_name_terms:
+            tns = str(tn)
+            if len(tns) >= 2 and _match_term(poi_id_text, tns):
+                if tns not in theme_hits:
+                    theme_hits.append(tns)
     category_family_hits: list[str] = []
     if primary_query:
         for family_id, family in CATEGORY_FAMILIES.items():
@@ -342,8 +352,10 @@ def score_poi_against_intent(
 
     is_theme = (poi_query_type == "theme_route")
     has_any_positive = bool(identity_hits or theme_hits)
+    # v20: For restaurant queries, typecode match alone is sufficient evidence
+    is_meal_query = (poi_query_type == "poi_category" and explicit_meal and typecode_ok)
     accepted = (
-        (identity_hits or (theme_hits and typecode_ok) or (is_theme and has_any_positive))
+        (identity_hits or is_meal_query or (theme_hits and typecode_ok) or (is_theme and has_any_positive))
         and not rejection_reasons
         and score > 0
     )

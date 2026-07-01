@@ -1686,3 +1686,30 @@
   padding: 1px 4px;
   border-radius: 3px;
 }
+
+/* ── POI short recommendation reason ── */
+.poiShortReason {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+.poiShortReasonIcon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.poiShortReasonText {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

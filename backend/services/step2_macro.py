@@ -795,8 +795,35 @@ def _score_place(
         )
         enrichment_score += feedback_score
 
+    # v20: Lifestyle POI boost for full-day+ routes — increase dining/shopping/entertainment weight
+    _time_budget = float(parsed_intent.time_budget or 0)
+    _lifestyle_boost = 0.0
+    if _time_budget > 0.5 and not fixed:
+        _tc = (place.typecode or "")[:2]
+        _has_lifestyle_terms = any(
+            t in (place.name or "").lower() for t in [
+                "餐厅", "饭店", "小吃", "咖啡", "甜品", "烘焙", "酒吧",
+                "茶饮", "ktv", "桌游", "密室", "轰趴", "演出", "剧场",
+                "购物", "商场", "买手", "集市", "影院",
+            ]
+        )
+        # Type-based boost: dining 05, shopping 06, entertainment 08
+        if _tc == "05" and _has_lifestyle_terms:
+            _lifestyle_boost = 12.0 * min(_time_budget, 3.0) / 3.0
+        elif _tc in ("05", "06", "08") and _has_lifestyle_terms:
+            _lifestyle_boost = 8.0 * min(_time_budget, 3.0) / 3.0
+        elif _tc == "05":
+            _lifestyle_boost = 5.0 * min(_time_budget, 3.0) / 3.0
+
+    # Disable boost if user explicitly rejected dining/entertainment
+    _constraints_text = " ".join(parsed_intent.other_constraints or []).lower()
+    if any(t in _constraints_text for t in ["不吃饭", "不看展", "纯景点", "只看", "不安排餐厅"]):
+        _lifestyle_boost = 0.0
+    if parsed_intent.explicit_meal_intent:
+        _lifestyle_boost = max(_lifestyle_boost, 10.0)  # Stronger for explicit meal queries
+
     penalty = _weather_penalty(place, parsed_intent, fixed=fixed)
-    final_score = (anchor_score + enrichment_score) * penalty
+    final_score = (anchor_score + enrichment_score + _lifestyle_boost) * penalty
 
     return ScoredPlace(
         **place.model_dump(),
@@ -1270,6 +1297,14 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
                     f"[DEBUG macro search] merged theme typecodes for {_theme_id}: "
                     f"{_theme_tc} -> total allowed={len(allowed_types)}"
                 )
+        # v20: Lifestyle POI boost for full-day+ routes — expand typecodes for dining/shopping/entertainment
+        _tb = float(parsed_intent.time_budget or 0)
+        if _tb > 0.5:
+            _lifestyle_tc = ["050000", "050500", "060100", "060900", "080300", "080500"]
+            for _ltc in _lifestyle_tc:
+                if _ltc not in allowed_types:
+                    allowed_types.append(_ltc)
+            print(f"[DEBUG macro search] lifestyle boost: time_budget={_tb:.1f} added_typecodes={_lifestyle_tc}")
         if _has_shopping_intent(parsed_intent):
             allowed_types.extend(["060000", "060100", "060900", "061000", "061100"])
         if _has_eating_activity_intent(parsed_intent) or strong_meal:
@@ -2205,9 +2240,10 @@ def _filter_candidates_by_intent(
         return candidates
 
     filtered: list[ScoredPlace] = []
+    _has_typecodes = bool(getattr(parsed_intent, "allowed_typecode_prefixes", None))
     _has_registered_cat = bool(
         getattr(parsed_intent, "category_id", None)
-        and getattr(parsed_intent, "allowed_typecode_prefixes", None)
+        and _has_typecodes
     )
     for place in candidates:
         evidence = score_poi_against_intent(
@@ -2229,10 +2265,10 @@ def _filter_candidates_by_intent(
         )
         print(f"[DEBUG step2] {audit_msg}")
 
-        # v20: For registered poi_category, accepted=False MUST delete
+        # v20: For poi_category with typecodes, accepted=False MUST delete
         if not evidence.accepted:
-            if _has_registered_cat:
-                print(f"[DEBUG step2] hard reject (registered cat, accepted=False): {place.name}")
+            if _has_typecodes:
+                print(f"[DEBUG step2] hard reject (has typecodes, accepted=False): {place.name}")
                 continue
             if evidence.score <= -80:
                 print(f"[DEBUG step2] hard reject (score<=-80): {place.name} reason={evidence.rejection_reasons}")

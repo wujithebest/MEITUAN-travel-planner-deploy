@@ -340,6 +340,11 @@ const initialState = {
   rawRouteData: null,
   mapRouteData: null,
   panelDays: [],
+  // v20: mutation infrastructure
+  routeRevision: 0,
+  routeGenerationId: '',
+  mutationStatus: 'idle' as 'idle' | 'pending',
+  activeMutationId: null as string | null,
 };
 
 /**
@@ -820,6 +825,57 @@ export const useRouteStore = create<RouteState>((set, get) => ({
         transport_mode: state.transportMode,
         route_id: state.routeId,
       });
+
+      const rejectedMutation = result.mutation_audit?.find(audit => !audit.applied);
+      if (rejectedMutation) {
+        throw new Error(rejectedMutation.failure_reason || '路线地点操作未生效');
+      }
+
+      const previousPoints = ((rawData as any).points || []).filter((point: any) =>
+        point.kind !== 'hint' && point.kind !== 'free_explore'
+      );
+      const returnedPoints = (result.route.points || []).filter((point: any) =>
+        point.kind !== 'hint' && point.kind !== 'free_explore'
+      );
+      const addOperations = operations.filter(operation => operation.action === 'add');
+      if (addOperations.length > 0 && returnedPoints.length !== previousPoints.length + addOperations.length) {
+        throw new Error('添加地点后路线点数量未正确增加');
+      }
+      for (const operation of addOperations) {
+        const target = operation.poi || {};
+        const targetId = target.gaode_poi_id || target.poi_id || operation.poi_id || '';
+        const targetName = target.name || operation.poi_name || '';
+        const matches = returnedPoints.filter((point: any) =>
+          (targetId && (point.gaode_poi_id === targetId || point.poi_id === targetId))
+          || (targetName && point.name === targetName)
+        );
+        if (matches.length !== 1) {
+          throw new Error(matches.length === 0
+            ? `添加地点未进入最终路线: ${targetName || targetId}`
+            : `添加地点在最终路线中重复: ${targetName || targetId}`);
+        }
+      }
+
+      const blockedPolylineSources = new Set([
+        'fallback_straight', 'route_api_failed', 'invalid_geometry',
+        'invalid_coordinates', 'discontinuous_polyline', 'sparse_polyline',
+      ]);
+      const returnedSegments = result.route.segments || [];
+      const invalidSegment = returnedSegments.find((segment: any) => (
+        blockedPolylineSources.has(segment.polyline_source || '')
+        || !Array.isArray(segment.polyline)
+        || segment.polyline.length < 2
+      ));
+      if (returnedSegments.length === 0 || invalidSegment) {
+        console.error('[PoiMutationFrontendAudit] rejected non-drawable route', {
+          segmentCount: returnedSegments.length,
+          invalidSegment: invalidSegment
+            ? `${invalidSegment.from_poi || ''}->${invalidSegment.to_poi || ''}`
+            : 'all_segments_missing',
+        });
+        throw new Error('新路线未生成完整线路，已保留原地图');
+      }
+
       get().convertAndSetRoute({
         ...rawData,
         points: result.route.points,
@@ -830,6 +886,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
     } catch (e) {
       console.error('[Store] 管线重规划失败:', e);
       set({ loading: false });
+      throw e;
     }
   },
 
@@ -863,6 +920,85 @@ export const useRouteStore = create<RouteState>((set, get) => ({
       rawRouteData: data,
       mapRouteData,
     });
+  },
+
+  // v20: Reset all route state when generating a new route
+  resetRouteState: () => {
+    set({
+      rawRouteData: null, mapRouteData: null, panelDays: [],
+      routeId: null, routeRevision: 0, routeGenerationId: '',
+      mutationStatus: 'idle', activeMutationId: null,
+    });
+  },
+
+  // v20: Unified serialized POI mutation — ONLY entry point for add/replace/remove
+  executePoiMutation: async (op) => {
+    const state = get();
+    if (state.mutationStatus === 'pending') {
+      console.warn('[Store] mutation already pending, queuing...');
+      await new Promise(r => setTimeout(r, 200));
+      return get().executePoiMutation(op);
+    }
+    const mutationId = `mut_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    set({ mutationStatus: 'pending', activeMutationId: mutationId });
+
+    try {
+      const cur = get();
+      const ops: any[] = [{
+        action: op.action,
+        poi_id: op.poiId || op.candidate?.poi_id || op.candidate?.gaode_poi_id || '',
+        poi: op.candidate || undefined,
+        after_poi_id: op.afterPoiId || '',
+      }];
+      const result = await replanPipelineRoute({
+        points: (cur.rawRouteData as any)?.points || [],
+        segments: (cur.rawRouteData as any)?.segments || [],
+        operations: ops,
+        transport_mode: cur.transportMode,
+        route_id: cur.routeId,
+      });
+      // v20: Verify the target POI is actually in the final points
+      const newPoints = result.route.points || [];
+      const targetName = op.candidate?.name || op.poiId;
+      const found = newPoints.some((p: any) =>
+        (p.name || '') === targetName
+        || (p.poi_id || '') === op.poiId
+        || (p.gaode_poi_id || '') === op.poiId
+      );
+      if (!found && op.action === 'add') {
+        set({ mutationStatus: 'idle', activeMutationId: null, loading: false });
+        throw new Error(`添加的POI未在最终路线中找到: ${targetName}`);
+      }
+      // Atomic update after success — includes panelDays rebuild
+      const rawData = { ...(cur.rawRouteData || {}), points: newPoints, segments: result.route.segments, route_id: result.route_id } as any;
+      cur.setRawRouteData(rawData);
+      cur.convertAndSetRoute(rawData);
+      // v20: Rebuild panelDays from new points
+      try {
+        const { buildPanelDays } = await import('@/utils/panelPoiReorder');
+        const newPanel = buildPanelDays(newPoints, result.route.segments || []);
+        if (newPanel && newPanel.length > 0) {
+          set({ panelDays: newPanel });
+        }
+      } catch (_) { /* panel rebuild is best-effort */ }
+      set({
+        routeId: result.route_id,
+        routeRevision: cur.routeRevision + 1,
+        mutationStatus: 'idle',
+        activeMutationId: null,
+        loading: false,
+      });
+      console.log('[PoiMutationFrontendAudit]', {
+        mutationId, routeId: result.route_id,
+        routeRevision: cur.routeRevision + 1, action: op.action,
+        responsePointNames: result.route.points?.map((p: any) => p.name),
+        responseApplied: true, responseIgnored: false,
+      });
+    } catch (e: any) {
+      console.error('[Store] mutation failed:', e);
+      set({ mutationStatus: 'idle', activeMutationId: null, loading: false });
+      throw e;
+    }
   },
 
   setPanelDays: (data: PanelDay[]) => {

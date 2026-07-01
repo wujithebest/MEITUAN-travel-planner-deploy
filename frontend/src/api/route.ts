@@ -251,6 +251,14 @@ export interface PipelineReplanResponse {
     segments: any[];
   };
   route_id: string;
+  mutation_audit?: Array<{
+    action: 'remove' | 'replace' | 'add';
+    requested_target?: string;
+    applied: boolean;
+    before_point_count: number;
+    after_point_count: number;
+    failure_reason?: string;
+  }>;
 }
 
 /**
