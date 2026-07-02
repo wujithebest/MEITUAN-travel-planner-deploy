@@ -585,16 +585,27 @@ async def _run_pipeline_stream(
                         return
                 elif dispatch_decision.conversation_mode == "refine_current":
                     print(f"[DEBUG dispatch] decision: refine_current → enriching request with old context")
+                    # v21: Keep structural params separate — do NOT pollute NL parser input.
+                    # Structured JSON params are applied post-step1 on parsed_intent.
                     effective_request = user_request
+                    _structured_params: dict[str, Any] = {}
                     if dispatch_decision.include_constraints:
-                        parts = [user_request]
                         for k, v in dispatch_decision.include_constraints.items():
                             if v and str(v).strip():
-                                parts.append(f"保持{k}={v}")
-                        if dispatch_decision.intent_patch:
-                            patch_str = json.dumps(dispatch_decision.intent_patch, ensure_ascii=False)
-                            parts.append(f"其他不变，按以下参数调整：{patch_str}")
-                        effective_request = "；".join(parts)
+                                _structured_params[k] = v
+                    if dispatch_decision.intent_patch:
+                        _structured_params["intent_patch"] = dispatch_decision.intent_patch
+                    # v21: Only append structural info AFTER a clear separator for LLM context
+                    # but strip them before deterministic parsing
+                    if _structured_params:
+                        _hint = "；".join(
+                            f"保持{k}={v}" for k, v in _structured_params.items()
+                            if k != "intent_patch"
+                        )
+                        if "intent_patch" in _structured_params:
+                            patch_str = json.dumps(_structured_params["intent_patch"], ensure_ascii=False)
+                            _hint += f"；其他不变，按以下参数调整：{patch_str}" if _hint else f"其他不变，按以下参数调整：{patch_str}"
+                        effective_request = f"{user_request}\n<structured_hints>\n{_hint}\n</structured_hints>"
                     step1_request = effective_request
                     print(f"[DEBUG dispatch] refined effective_request={effective_request[:120]}")
                 elif dispatch_decision.conversation_mode == "answer_only":
@@ -615,6 +626,18 @@ async def _run_pipeline_stream(
             )
 
             # Step 2: 宏观规划 + Step 3: 微观规划
+            # v20: Guard — force exploratory if any anchor needs area expansion (步行街逛逛 etc.)
+            _has_expansion = any(
+                getattr(fp, "expansion_required", False)
+                for fp in (getattr(parsed_intent, "fixed_pois", []) or [])
+            )
+            _has_area_stroll = any(
+                getattr(fp, "activity_facet", "") == "shopping_stroll"
+                for fp in (getattr(parsed_intent, "fixed_pois", []) or [])
+            )
+            if _has_expansion:
+                parsed_intent.plan_mode = "exploratory"
+
             # v6 planned fast path: 精准规划模式跳过 step2 宏观搜索，直接走 planned 专用短链路
             is_planned_mode = (
                 getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned'

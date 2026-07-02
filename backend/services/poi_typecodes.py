@@ -388,8 +388,7 @@ def category_for_query(query: str) -> str | None:
     q = query.lower()
     best: tuple[int, str] | None = None
     for cat_id, rule in CATEGORY_RULES.items():
-        if cat_id == "restaurant":
-            continue
+        # v20: allow restaurant matching — used by area-category modifier
         for term in rule.get("semantic_terms", []):
             if term.lower() in q:
                 score = len(term)

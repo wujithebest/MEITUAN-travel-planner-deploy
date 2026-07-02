@@ -283,6 +283,19 @@ class SubAnchor(BaseModel):
     degradation_hint: Optional[str] = None                           # 降级提示文本
     variance_ratio: float = 0.0                                      # PCA方差比，用于判断区域形状
     original_anchor_index: int = 0                                   # 原始锚点在day_anchors中的索引
+    # Preserve Step2 identity/evidence when an anchor has no internal POIs.
+    # Without these fields the visible fallback loses the metadata required by
+    # PlanReality and the frontend detail card.
+    gaode_poi_id: str = ""
+    typecode: str = ""
+    category: str = ""
+    address: str = ""
+    rating: Optional[float] = None
+    avg_cost: Optional[float] = None
+    photo_url: str = ""
+    photo_source: str = ""
+    enrichment_text: str = ""
+    recall_source: str = ""
 
 
 class ParsedIntent(BaseModel):
@@ -400,6 +413,23 @@ class ParsedIntent(BaseModel):
     ranking_intent: Optional[str] = None             # popularity / rating / distance / scale / history
     ranking_direction: Optional[str] = None          # asc / desc
     ranking_raw_terms: list[str] = Field(default_factory=list)  # ["最有名", "最热门"]
+
+    # ── v20: Quiet retreat / solitude / relaxation ──
+    activity_facet: str = ""                         # "quiet_retreat" | "lawn_rest" | "citywalk" | "photo_checkin" | "waterfront_walk" etc.
+    crowd_preference: str = ""                       # "low" | "medium" | "high" — user's crowd density preference
+    privacy_preference: str = ""                     # "soft" | "hard" — need for privacy/not being disturbed
+    quiet_retreat_requested: bool = False            # Set True when quiet_retreat activity_facet is active
+
+    # ── v21: Feature-based intent (lawn_rest, night_view, shade, water_view etc.) ──
+    required_features: list[str] = Field(default_factory=list)  # ["lawn", "sittable", "night_view"] — hard requirements
+    preferred_features: list[str] = Field(default_factory=list) # ["shade", "water_view"] — soft preferences
+    lawn_rest_requested: bool = False                            # Set True when lawn_rest activity_facet is active
+    night_view_requested: bool = False                           # Set True when night_view activity_facet is active
+    open_terrace_requested: bool = False                         # Set True when open_terrace activity_facet is active
+    local_life_requested: bool = False                           # Set True when local_life / market_local_life is active
+    stress_relief_requested: bool = False                        # Set True when stress_relief activity_facet is active
+    stress_relief_mode: str = ""                                 # "quiet" | "active" | "creative" | "mixed"
+    rest_stop_requested: bool = False                            # Set True when rest_stop activity_facet is active
 
     # ── Step2输出 ──
 

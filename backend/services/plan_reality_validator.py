@@ -23,6 +23,7 @@ class PlanRealityResult:
     hidden_primary_target: bool           # primary target exists but is free_explore/hidden
     route_complete: bool                  # route segments exist for primary target
     violations: list[str] = field(default_factory=list)
+    feature_evidence: dict[str, dict] = field(default_factory=dict)  # v21: per-feature evidence
 
 
 _THEME_TERM_STOPWORDS = {
@@ -98,6 +99,91 @@ def _theme_evidence_profile(parsed_intent: Any) -> dict[str, list[str]] | None:
     }
 
 
+# v21: Feature evidence terms — what counts as evidence for each feature type
+_FEATURE_EVIDENCE_TERMS: dict[str, list[str]] = {
+    "lawn": [
+        "草坪", "草地", "绿地", "绿草坪", "大草坪", "开放草坪",
+        "野餐草坪", "野餐区", "公园", "花园", "绿化",
+        "草坪区", "草场", "绿洲", "植物园",
+    ],
+    "sittable": [
+        "座椅", "长椅", "休息区", "可坐", "休息",
+        "有座位", "公共座椅", "石凳", "木椅", "躺椅",
+        "凉亭", "阅读座位", "堂食座位", "休息空间",
+        "座位", "长凳", "藤椅", "沙发",
+    ],
+    "shade": [
+        "树荫", "阴凉", "遮阳", "大树", "林荫", "凉亭",
+        "遮雨棚", "棚", "亭子",
+    ],
+    "night_view": [
+        "夜景", "观景台", "观景平台", "天际线", "俯瞰",
+        "城市灯光", "灯光秀", "滨水夜景", "夜景观景",
+        "城市观景", "夜游", "观夜景", "高层观景",
+        "摩天轮", "观光厅", "观景层", "露台",
+        "灯光", "夜景灯光", "江景观景",
+    ],
+    "open_terrace": [
+        "开放露台", "户外露台", "室外露台", "屋顶露台",
+        "观景露台", "空中露台", "露天平台", "屋顶花园",
+        "rooftop", "roof terrace", "terrace seating",
+        "outdoor terrace", "露台", "露天座", "露台座",
+        "屋顶", "天台", "观景台",
+    ],
+}
+
+
+def _check_feature_evidence(
+    pt: dict[str, Any],
+    required_features: list[str],
+    feature_evidence: dict[str, dict],
+) -> bool:
+    """Check if a route point has evidence for the required features.
+
+    Returns True if ALL required features have evidence in the point's
+    name, address, typecode, enrichment text, or parent anchor name.
+    Updates feature_evidence in-place.
+    """
+    name = str(pt.get("name", "") or "")
+    address = str(pt.get("address", "") or "")
+    typecode = str(pt.get("typecode", "") or "")
+    enrichment = str(pt.get("enrichment_text", "") or "")
+    parent_anchor = str(pt.get("parent_anchor", "") or "")
+    category = str(pt.get("category", "") or "")
+    reason = str(pt.get("recommend_reason", "") or "")
+    annotation = str(pt.get("route_annotation", "") or "")
+    # Combine all text fields
+    text = f"{name} {address} {typecode} {enrichment} {parent_anchor} {category} {reason} {annotation}"
+
+    all_matched = True
+    for rf in required_features:
+        ev_terms = _FEATURE_EVIDENCE_TERMS.get(rf, [rf])
+        matched_terms = [t for t in ev_terms if t in text]
+
+        if matched_terms:
+            if not feature_evidence.get(rf, {}).get("matched"):
+                feature_evidence[rf] = {
+                    "matched": True,
+                    "evidence_source": "name" if any(t in name for t in matched_terms)
+                    else ("address" if any(t in address for t in matched_terms)
+                          else ("parent" if any(t in parent_anchor for t in matched_terms)
+                                else "enrichment_text")),
+                    "evidence_terms": matched_terms,
+                }
+        else:
+            all_matched = False
+            # v21: mark as unknown if no evidence yet
+            fe = feature_evidence.get(rf, {})
+            if not fe.get("matched") and not fe.get("evidence_source"):
+                feature_evidence[rf] = {
+                    "matched": False,
+                    "evidence_source": "unknown",
+                    "evidence_terms": [],
+                }
+
+    return all_matched
+
+
 def validate_plan_reality(
     parsed_intent: Any,
     route_points: list[dict[str, Any]],
@@ -114,6 +200,29 @@ def validate_plan_reality(
     )
     explicit_meal: bool = bool(getattr(parsed_intent, "explicit_meal_intent", False))
     theme_evidence = _theme_evidence_profile(parsed_intent) if poi_query_type == "theme_route" else None
+
+    # v21: Feature-based intent — skip named POI identity check
+    _raw_required_features = getattr(parsed_intent, "required_features", [])
+    _raw_preferred_features = getattr(parsed_intent, "preferred_features", [])
+    required_features: list[str] = (
+        list(_raw_required_features)
+        if isinstance(_raw_required_features, (list, tuple, set))
+        else []
+    )
+    preferred_features: list[str] = (
+        list(_raw_preferred_features)
+        if isinstance(_raw_preferred_features, (list, tuple, set))
+        else []
+    )
+    is_feature_based = bool(
+        getattr(parsed_intent, "lawn_rest_requested", False) is True
+        or required_features
+    )
+
+    # v21: Feature evidence tracking
+    feature_evidence: dict[str, dict] = {}
+    for rf in required_features:
+        feature_evidence[rf] = {"matched": False, "evidence_source": "", "evidence_terms": []}
 
     from .poi_relevance import score_poi_against_intent
 
@@ -140,7 +249,9 @@ def validate_plan_reality(
             )
         )
         typecode = str(pt.get("typecode", "") or "")
-        is_meal = typecode.startswith("05") or kind in ("meal", "restaurant")
+        is_meal = (
+            typecode.startswith("05") or kind in ("meal", "restaurant")
+        ) and not bool(pt.get("local_life_area"))
 
         if is_display:
             visible_count += 1
@@ -152,12 +263,29 @@ def validate_plan_reality(
             poi=pt,
             parsed_intent=parsed_intent,
             theme_profile=theme_evidence,
-            matched_query=primary_query,
+            matched_query=primary_query if not is_feature_based else "",
         )
 
-        if evidence.accepted and is_display:
+        # v21: For feature-based requests, check feature evidence on visible POIs
+        if is_feature_based and is_display and required_features:
+            _has_feature = _check_feature_evidence(pt, required_features, feature_evidence)
+            if _has_feature:
+                primary_count += 1
+                primary_anchors.append(name)
+            elif evidence.accepted:
+                # Intention matches but not for the specific feature — count as partial
+                primary_count += 1
+                primary_anchors.append(name)
+            else:
+                unrelated_count += 1
+        elif (
+            evidence.accepted
+            or (
+                poi_query_type == "theme_route"
+                and pt.get("theme_evidence_accepted") is True
+            )
+        ) and is_display:
             # v20: Only count visible display POIs as primary waypoints
-            # Search area names and hidden points don't count
             primary_count += 1
             primary_anchors.append(name)
         elif evidence.accepted and not is_display and kind in ("free_explore", "hint"):
@@ -173,6 +301,13 @@ def validate_plan_reality(
             violations.append("no_primary_waypoint_found")
         if hidden_primary:
             violations.append("primary_target_marked_free_explore_or_hint")
+
+    # v21: Feature-based invariant checks — don't require named POI, check features instead
+    if is_feature_based:
+        for rf in required_features:
+            fe = feature_evidence.get(rf, {})
+            if not fe.get("matched", False):
+                violations.append(f"required_feature_not_found:{rf}")
 
     # v20: Check that all user-specified fixed POIs are present in route_points
     _user_fixed_names = {
@@ -231,7 +366,11 @@ def validate_plan_reality(
     # ── Theme route minimums ──
     if poi_query_type == "theme_route":
         time_budget = float(getattr(parsed_intent, "time_budget", 1.0) or 1.0)
-        if time_budget <= 0.25 and primary_count < 1:
+        # v21: Feature-based requests only need 1 visible related POI
+        if is_feature_based:
+            if primary_count < 1:
+                violations.append("quarter_day_theme_needs_1_related")
+        elif time_budget <= 0.25 and primary_count < 1:
             violations.append("quarter_day_theme_needs_1_related")
         elif 0.25 < time_budget <= 0.5 and primary_count < 2:
             violations.append("half_day_theme_needs_2_related")
@@ -255,10 +394,22 @@ def validate_plan_reality(
         hidden_primary_target=hidden_primary,
         route_complete=route_complete,
         violations=violations,
+        feature_evidence=feature_evidence,
     )
 
 
-def plan_reality_audit_log(result: PlanRealityResult, primary_query: str = "") -> str:
+def plan_reality_audit_log(
+    result: PlanRealityResult,
+    primary_query: str = "",
+    required_features: list[str] | None = None,
+    feature_evidence: dict[str, dict] | None = None,
+) -> str:
+    extra = ""
+    if required_features:
+        extra += f" required_features={required_features}"
+        if feature_evidence:
+            ev_summary = {k: v.get("matched") for k, v in feature_evidence.items()}
+            extra += f" feature_evidence={ev_summary}"
     return (
         f"[PlanRealityAudit] "
         f"primary_query={primary_query!r} "
@@ -269,4 +420,5 @@ def plan_reality_audit_log(result: PlanRealityResult, primary_query: str = "") -
         f"hidden_primary_target={result.hidden_primary_target} "
         f"violations={result.violations} "
         f"valid={result.valid}"
+        f"{extra}"
     )

@@ -16,6 +16,7 @@ if _backend_dir not in sys.path:
 from . import config
 from .api_client import (
     bocha_search_batch,
+    gaode_around_search,
     gaode_around_search_batch,
     gaode_driving_route,
     gaode_text_search,
@@ -822,6 +823,28 @@ def _score_place(
     if parsed_intent.explicit_meal_intent:
         _lifestyle_boost = max(_lifestyle_boost, 10.0)  # Stronger for explicit meal queries
 
+    # v20: Mountain exclusion for pure waterfront walk requests
+    _has_waterfront = any(
+        "waterfront_walk" in (getattr(parsed_intent, "activity_facets", []) or [])
+        for _ in [None]
+    ) or "waterfront_walk" in str(getattr(parsed_intent, "activity_facets", []) or [])
+    if _has_waterfront:
+        _name_text = (place.name or "").lower()
+        _has_mountain = any(t in _name_text for t in [
+            "登山", "爬山", "山地", "浅山", "山谷", "山峰", "峡谷",
+            "峪", "森林登山", "攀岩", "越野", "登顶", "山",
+        ])
+        if _has_mountain and not any(t in str(getattr(parsed_intent, "raw_keywords", []) or "") for t in ["登山", "山", "爬山", "登"]):
+            enrichment_score -= 40  # Heavy penalty for mountain in pure waterfront request
+
+    # v20: Transit time budget check for short-duration requests
+    _tb = float(parsed_intent.time_budget or 0)
+    if _tb <= 0.25 and transit_min is not None and transit_min > 45:
+        enrichment_score -= 50
+        print(f"[TravelBudgetAudit] duration=quarter_day candidate={place.name} transit_min={transit_min:.0f} max=45 accepted=false")
+    elif _tb <= 0.5 and transit_min is not None and transit_min > 90:
+        enrichment_score -= 40
+
     penalty = _weather_penalty(place, parsed_intent, fixed=fixed)
     final_score = (anchor_score + enrichment_score + _lifestyle_boost) * penalty
 
@@ -1312,6 +1335,94 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
         # v6: 强餐饮意图 — 加入餐饮大类和日料相关 typecode
         if strong_meal:
             allowed_types.extend(["050000", "050100", "050200", "050300"])
+        # v20: Quiet retreat — expand typecodes for libraries, bookstores, cafes, tea houses, parks
+        if getattr(parsed_intent, "quiet_retreat_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "quiet_retreat":
+            _quiet_tc = [
+                "061205",  # 书店
+                "060900",  # 文化用品/文化空间
+                "050400",  # 休闲餐饮 (咖啡馆)
+                "050900",  # 茶艺馆
+                "060100",  # 购物中心 (书店/文化空间可能在商场内)
+                "061000",  # 综合文化场所
+            ]
+            for _qtc in _quiet_tc:
+                if _qtc not in allowed_types:
+                    allowed_types.append(_qtc)
+            print(f"[DEBUG macro search] quiet_retreat typecodes added: {_quiet_tc}")
+        # v21: Lawn rest — expand typecodes for parks, green spaces, gardens
+        if getattr(parsed_intent, "lawn_rest_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "lawn_rest":
+            _lawn_tc = [
+                "110100",  # 公园
+                "110101",  # 城市公园
+                "110200",  # 景点/景区 (可能含绿地)
+                "110000",  # 风景名胜
+            ]
+            for _ltc in _lawn_tc:
+                if _ltc not in allowed_types:
+                    allowed_types.append(_ltc)
+            print(f"[DEBUG macro search] lawn_rest typecodes added: {_lawn_tc}")
+        # v21: Local life / market — expand typecodes for markets, community streets, old streets
+        if getattr(parsed_intent, "local_life_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "local_life":
+            _local_tc = [
+                "061200",  # 综合市场
+                "061100",  # 花鸟鱼虫市场
+                "060202",  # 农贸市场/菜市场
+                "060201",  # 便利店/便民店
+                "060400",  # 文化用品/书店 (用于识别老街/社区商业街)
+                "110200",  # 景点/老街
+            ]
+            for _ltc in _local_tc:
+                if _ltc not in allowed_types:
+                    allowed_types.append(_ltc)
+            print(f"[DEBUG macro search] local_life typecodes added: {_local_tc}")
+        # v21: Rest stop — expand typecodes for cafes, tea houses, bookstores, parks
+        if getattr(parsed_intent, "rest_stop_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "rest_stop":
+            _rest_tc = [
+                "050400",   # 咖啡馆
+                "050900",   # 茶馆
+                "061205",   # 书店
+                "050100",   # 中餐厅 (茶馆)
+                "110100", "110101",  # 公园
+                "060100",   # 购物中心 (休息区)
+                "140500",   # 图书馆
+            ]
+            for _rtc in _rest_tc:
+                if _rtc not in allowed_types:
+                    allowed_types.append(_rtc)
+            print(f"[DEBUG macro search] rest_stop typecodes added: {_rest_tc}")
+        # v21: Stress relief — expand typecodes for all activity categories
+        if getattr(parsed_intent, "stress_relief_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "stress_relief":
+            _stress_tc = [
+                "110100", "110101",  # 公园
+                "110200",            # 景点
+                "061205",            # 书店
+                "050400",            # 咖啡馆
+                "140600",            # 科技馆
+                "080100",            # 运动场馆
+                "080300",            # 娱乐场所 (KTV/游戏厅)
+                "080500", "080600",  # 展览馆/美术馆
+                "060100",            # 购物中心 (手工坊常在商场内)
+            ]
+            for _stc in _stress_tc:
+                if _stc not in allowed_types:
+                    allowed_types.append(_stc)
+            print(f"[DEBUG macro search] stress_relief typecodes added: {_stress_tc}")
+        # v21: Open terrace — expand typecodes for cafes, restaurants, bars, hotels, malls
+        if getattr(parsed_intent, "open_terrace_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "open_terrace":
+            _terrace_tc = [
+                "050400",  # 休闲餐饮 (咖啡馆 — 常有露台)
+                "050100",  # 中餐厅 (可能含露台)
+                "050200",  # 外国餐厅
+                "050900",  # 茶艺馆
+                "060100",  # 购物中心 (屋顶花园/露台)
+                "080304",  # 酒吧 (露台酒吧)
+                "100000",  # 酒店 (可能有露台/rooftop bar)
+                "110200",  # 景点 (观景露台)
+            ]
+            for _ttc in _terrace_tc:
+                if _ttc not in allowed_types:
+                    allowed_types.append(_ttc)
+            print(f"[DEBUG macro search] open_terrace typecodes added: {_terrace_tc}")
     keyword_limit = 8 if ("二次元" in parsed_intent.raw_keywords or _has_shopping_intent(parsed_intent)) else 5
 
     # v6: 强餐饮意图时, meal_search_keywords 优先作为锚点搜索关键词
@@ -2388,6 +2499,770 @@ def _activity_fallback_queries(parsed_intent: ParsedIntent, user_profile: UserPr
     return queries[:4]
 
 
+async def _fallback_rest_stop_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for rest_stop — progressive radius (800m→5km) around search area.
+
+    Prioritizes cafes, tea houses, bookstores, park rest areas with seating.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+    _area_label = getattr(parsed_intent, "search_area_label", "") or ""
+
+    # v21: Rest stop queries
+    rest_queries = [
+        [f"{city_short} 咖啡馆", f"{city_short} 茶馆", f"{city_short} 书店",
+         f"{city_short} 公园休息区", f"{city_short} 甜品店"],
+        [f"{city_short} 阅读空间", f"{city_short} 公共文化空间",
+         f"{city_short} 商场休息区", f"{city_short} 图书馆"],
+    ]
+
+    REST_TYPECODES = ["050400", "050900", "061205", "050100", "110101", "060100", "140500"]
+    EXCLUDE_TERMS = ["石舫", "景观", "构筑物", "停车场", "物业", "私人", "仅会员"]
+
+    _radii = [800, 1500, 3000, 5000]
+    _origin = parsed_intent.search_area_location or parsed_intent.original_location
+
+    found: list[ExtractedPlace] = []
+    seen: set[str] = set()
+
+    for radius in _radii:
+        if len(found) >= 3:
+            break
+        for queries in rest_queries:
+            if len(found) >= 3:
+                break
+            for query in queries[:4]:
+                if len(found) >= 3:
+                    break
+                try:
+                    _loc = coord_to_param(_origin) if _origin else None
+                    if not _loc:
+                        raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+                    else:
+                        _req = {"location": _loc, "keywords": query.replace(f"{city_short} ", ""),
+                                "radius": radius, "show_fields": config.GAODE_SHOW_FIELDS, "offset": 20}
+                        batch = await gaode_around_search_batch([_req])
+                        raws = batch[0] if batch else []
+                except Exception as exc:
+                    print(f"[WARN step2] rest_stop fallback r={radius}m query={query}: {exc}")
+                    continue
+
+                for raw in raws[:8]:
+                    place = _to_extracted(raw)
+                    if not place or not place.location:
+                        continue
+                    if place.name in seen:
+                        continue
+                    if not any(place.typecode.startswith(tc[:4]) for tc in REST_TYPECODES):
+                        continue
+                    name_text = f"{place.name} {place.address or ''}"
+                    if any(t in name_text for t in EXCLUDE_TERMS):
+                        continue
+                    # v21: Sittable evidence
+                    SIT_EV = ["座", "椅", "休息", "茶", "咖啡", "书", "甜品", "堂食"]
+                    if not any(t in name_text for t in SIT_EV):
+                        continue
+
+                    if not place.enrichment_text:
+                        place.enrichment_text = "可休息场所"
+                    place.recall_source = "rest_stop_fallback"
+                    place.poi_role = "route_waypoint"
+                    seen.add(place.name)
+                    found.append(place)
+    if found:
+        print(f"[DEBUG step2] rest_stop fallback found {len(found)}: {[(p.name, p.typecode) for p in found[:6]]}")
+    return found
+
+
+async def _fallback_stress_relief_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for stress_relief — progressive radius (3-15km) across activity categories.
+
+    Searches quiet (parks/books/cafes), active (sports/KTV/games), and creative (crafts/DIY)
+    based on stress_relief_mode. Mixed mode searches all three.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+    _mode = getattr(parsed_intent, "stress_relief_mode", "mixed") or "mixed"
+    is_rainy = "雨天" in parsed_intent.other_constraints or "室内优先" in parsed_intent.other_constraints
+
+    # v21: Build queries per mode
+    all_queries: list[tuple[str, list[str]]] = []
+    if _mode in ("quiet", "mixed"):
+        all_queries.append(("quiet", [
+            f"{city_short} 城市公园", f"{city_short} 滨水步道",
+            f"{city_short} 独立书店", f"{city_short} 安静咖啡馆",
+            f"{city_short} 美术馆", f"{city_short} 茶馆",
+        ]))
+    if _mode in ("active", "mixed"):
+        all_queries.append(("active", [
+            f"{city_short} 保龄球馆", f"{city_short} 攀岩馆",
+            f"{city_short} KTV", f"{city_short} 游戏厅",
+            f"{city_short} 运动体验馆", f"{city_short} 台球",
+        ]))
+    if _mode in ("creative", "mixed"):
+        all_queries.append(("creative", [
+            f"{city_short} 陶艺体验", f"{city_short} 手作体验",
+            f"{city_short} DIY手工坊", f"{city_short} 绘画体验",
+            f"{city_short} 沉浸式体验", f"{city_short} 烘焙体验",
+        ]))
+    if not all_queries:
+        all_queries.append(("quiet", [
+            f"{city_short} 城市公园", f"{city_short} 独立书店",
+            f"{city_short} 安静咖啡馆",
+        ]))
+
+    # v21: Allowed typecodes per mode
+    STRESS_TYPECODES = {
+        "quiet": ["110100", "110101", "110200", "061205", "050400", "140600", "080500", "080600"],
+        "active": ["080100", "080300"],
+        "creative": ["060100", "080500"],
+    }
+
+    # v21: Medical terms to EXCLUDE
+    MEDICAL_EXCLUDE = [
+        "心理咨询", "精神卫生", "医院", "康复中心", "医疗",
+        "诊所", "疗养院", "精神病", "心理科", "卫生站",
+    ]
+
+    STRESS_EV_TERMS = [
+        "公园", "书店", "咖啡", "茶", "美术馆", "步道",
+        "保龄球", "攀岩", "KTV", "游戏", "台球", "运动",
+        "陶艺", "手作", "DIY", "绘画", "烘焙", "沉浸",
+        "花园", "阅读", "体验",
+    ]
+
+    # v21: Progressive radius: 3km, 5km, 10km, 15km
+    _radii = [3000, 5000, 10000, 15000]
+    _origin_loc = parsed_intent.original_location or getattr(parsed_intent, "search_area_location", None)
+    _types_str = ""  # no type filter for stress_relief
+
+    found_places: list[ExtractedPlace] = []
+    seen_names: set[str] = set()
+
+    for radius in _radii:
+        if found_places and len(found_places) >= 3:
+            break
+
+        for mode_label, queries in all_queries:
+            if found_places and len(found_places) >= 3:
+                break
+
+            allowed_tc = STRESS_TYPECODES.get(mode_label, [])
+            for query in queries[:3]:
+                if found_places and len(found_places) >= 3:
+                    break
+                try:
+                    # v21: Use around search with progressive radius
+                    _loc_param = coord_to_param(_origin_loc) if _origin_loc else None
+                    if not _loc_param:
+                        # Fallback to text search
+                        raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+                    else:
+                        _req = {
+                            "location": _loc_param,
+                            "keywords": query.replace(f"{city_short} ", ""),
+                            "radius": radius,
+                            "show_fields": config.GAODE_SHOW_FIELDS,
+                            "offset": 20,
+                        }
+                        _batch_result = await gaode_around_search_batch([_req])
+                        raws = _batch_result[0] if _batch_result else []
+                except Exception as exc:
+                    print(f"[WARN step2] stress_relief fallback r={radius}m query={query}: {exc}")
+                    continue
+
+                for raw in raws[:8]:
+                    place = _to_extracted(raw)
+                    if not place or not place.location:
+                        continue
+                    if place.name in seen_names:
+                        continue
+
+                    tc_ok = any(place.typecode.startswith(tc[:4]) for tc in allowed_tc)
+                    if not tc_ok:
+                        continue
+
+                    name_text = f"{place.name} {place.address or ''}"
+
+                    # v21: Hard reject medical facilities
+                    if any(t in name_text for t in MEDICAL_EXCLUDE):
+                        continue
+
+                    # v21: Evidence check
+                    has_ev = any(t.lower() in name_text.lower() for t in STRESS_EV_TERMS)
+                    if not has_ev:
+                        continue
+
+                    # v21: Distance check for this radius tier
+                    if _origin_loc:
+                        _dist = haversine_km(_origin_loc, place.location)
+                        if _dist > radius * 1.2 / 1000:  # 20% tolerance
+                            continue
+
+                    print(
+                        f"[FeatureIntentAudit] candidate={place.name} "
+                        f"mode={mode_label} radius={radius}m accepted=true "
+                        f"typecode={place.typecode}"
+                    )
+
+                    if not place.enrichment_text:
+                        place.enrichment_text = f"解压活动场所({mode_label})"
+                    place.recall_source = "stress_relief_fallback"
+                    place.poi_role = "route_waypoint"
+
+                    seen_names.add(place.name)
+                    found_places.append(place)
+
+    if found_places:
+        print(
+            f"[DEBUG step2] stress_relief fallback found {len(found_places)} places: "
+            f"{[(p.name, p.typecode) for p in found_places[:8]]}"
+        )
+    else:
+        print("[DEBUG step2] stress_relief fallback found 0 places")
+
+    return found_places
+
+
+async def _fallback_local_life_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for local_life/market when primary theme_route search returns 0.
+
+    Searches for: markets, old streets, community commercial streets, morning/night markets.
+    Uses progressive radius: 3km, 5km, 10km, 15km.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+
+    local_life_queries = [
+        # Stage 1: Direct market/street search
+        [f"{city_short} 菜市场", f"{city_short} 农贸市场", f"{city_short} 便民市场",
+         f"{city_short} 社区商业街", f"{city_short} 老街"],
+        # Stage 2: Broader
+        [f"{city_short} 邻里中心", f"{city_short} 花鸟市场", f"{city_short} 胡同",
+         f"{city_short} 夜市", f"{city_short} 早市"],
+        # Stage 3: Evening/night
+        [f"{city_short} 小吃街", f"{city_short} 社区餐饮街", f"{city_short} 晚市",
+         f"{city_short} 社区菜场", f"{city_short} 熟食市场"],
+        # Stage 4: Wide
+        [f"{city_short} 早餐街", f"{city_short} 集贸市场", f"{city_short} 跳蚤市场",
+         f"{city_short} 古玩市场"],
+    ]
+
+    # Evidence must identify an actual market/neighbourhood destination.  Very
+    # broad tokens such as "铺" or "摊" turn individual shops into false
+    # positives and do not prove that the place itself has a local-life scene.
+    LOCAL_LIFE_EV_TERMS = [
+        "菜市场", "农贸市场", "便民市场", "社区商业", "邻里中心", "老街",
+        "胡同", "早市", "夜市", "晚市", "市集", "熟食市场",
+        "小吃街", "餐饮街", "菜场", "集市", "跳蚤市场", "古玩市场",
+        "早餐街", "集贸市场", "一条街",
+    ]
+
+    # v21: Hard exclusions — NOT local life
+    LOCAL_LIFE_EXCLUDE = [
+        "水族", "宠物", "花鸟", "动物园", "博物馆", "展览馆",
+        "办公楼", "高端购物中心", "写字楼", "景区观光",
+        "高尔夫", "酒店", "停车场", "施工", "私人",
+    ]
+
+    found_places: list[ExtractedPlace] = []
+    seen_names: set[str] = set()
+
+    origin = (
+        getattr(parsed_intent, "search_area_location", None)
+        or getattr(parsed_intent, "original_location", None)
+        or getattr(user_profile, "home_location", None)
+    )
+    origin_param = ""
+    if isinstance(origin, dict) and origin.get("lng") is not None and origin.get("lat") is not None:
+        origin_param = f"{origin['lng']},{origin['lat']}"
+    stage_radii = [3000, 5000, 10000, 15000]
+
+    for stage_idx, queries in enumerate(local_life_queries):
+        if found_places and len(found_places) >= 3:
+            break
+
+        for query in queries[:5]:
+            try:
+                if origin_param:
+                    around_keyword = query
+                    city_prefix = f"{city_short} "
+                    if city_short and around_keyword.startswith(city_prefix):
+                        around_keyword = around_keyword[len(city_prefix):]
+                    raws = await gaode_around_search(
+                        location=origin_param,
+                        keywords=around_keyword,
+                        radius=stage_radii[min(stage_idx, len(stage_radii) - 1)],
+                        show_fields=config.GAODE_SHOW_FIELDS,
+                        offset=20,
+                        sortrule="distance",
+                    )
+                else:
+                    raws = await gaode_text_search(
+                        query,
+                        city=city,
+                        show_fields=config.GAODE_SHOW_FIELDS,
+                        city_limit=True,
+                    )
+            except Exception as exc:
+                print(f"[WARN step2] local_life fallback search failed query={query}: {exc}")
+                continue
+
+            for raw in raws[:10]:
+                place = _to_extracted(raw)
+                if not place or not place.location:
+                    continue
+                if place.name in seen_names:
+                    continue
+
+                # This request asks for a local-life destination, not a single
+                # restaurant whose brand/address happens to mention a market.
+                # Accept shopping/market POIs and area-level old-street POIs;
+                # food shops can be added later as micro POIs.
+                tc_ok = place.typecode.startswith("06") or place.typecode.startswith("1102")
+                if not tc_ok:
+                    continue
+
+                name_text = f"{place.name} {place.address or ''}"
+
+                # v21: Hard reject water/pet/aquarium shops
+                if any(t in name_text for t in ["水族", "宠物", "鱼", "鸟"]):
+                    if not any(t in name_text for t in ["菜市场", "农贸", "便民", "市场", "社区", "邻里", "老街", "餐饮"]):
+                        print(
+                            f"[FeatureIntentAudit] candidate={place.name} "
+                            f"required_features=['local_life'] "
+                            f"feature_hits=[] accepted=false "
+                            f"rejection_reason=pet_aquarium_not_local_life"
+                        )
+                        continue
+
+                # v21: Reject other exclusions
+                if any(t in name_text for t in LOCAL_LIFE_EXCLUDE):
+                    continue
+
+                has_local_ev = any(t.lower() in name_text.lower() for t in LOCAL_LIFE_EV_TERMS)
+
+                if not has_local_ev:
+                    print(
+                        f"[FeatureIntentAudit] candidate={place.name} "
+                        f"required_features=['local_life'] "
+                        f"feature_hits=[] accepted=false "
+                        f"rejection_reason=missing_local_life_evidence"
+                    )
+                    continue
+
+                print(
+                    f"[FeatureIntentAudit] candidate={place.name} "
+                    f"required_features=['local_life'] "
+                    f"feature_hits=['local_life'] accepted=true "
+                    f"evidence_source=name_address typecode={place.typecode}"
+                )
+
+                if not place.enrichment_text:
+                    place.enrichment_text = "本地生活街区/市场"
+                place.recall_source = "local_life_fallback"
+                place.poi_role = "route_waypoint"
+
+                seen_names.add(place.name)
+                found_places.append(place)
+
+                if len(found_places) >= 8:
+                    break
+
+    if found_places:
+        print(
+            f"[DEBUG step2] local_life fallback found {len(found_places)} places: "
+            f"{[(p.name, p.typecode) for p in found_places[:6]]}"
+        )
+    else:
+        print("[DEBUG step2] local_life fallback found 0 places")
+
+    return found_places
+
+
+async def _fallback_open_terrace_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for open_terrace when primary theme_route search returns 0.
+
+    Terraces exist in cafes, restaurants, bars, hotels, malls.
+    Uses progressive radius (3km, 5km, 10km) and tiered category search.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v21: Progressive terrace queries by category
+    terrace_queries = [
+        # Stage 1: Direct terrace search
+        [f"{city_short} 开放露台", f"{city_short} 露台咖啡", f"{city_short} 露台餐厅",
+         f"{city_short} rooftop", f"{city_short} 屋顶花园"],
+        # Stage 2: Venue-level search
+        [f"{city_short} 户外露台", f"{city_short} 空中露台", f"{city_short} 观景露台",
+         f"{city_short} 露台酒吧", f"{city_short} 屋顶餐厅"],
+        # Stage 3: Broader
+        [f"{city_short} 露天咖啡", f"{city_short} 天台", f"{city_short} 观景台",
+         f"{city_short} 酒店屋顶", f"{city_short} 商场露台"],
+    ]
+
+    # v21: Terrace-relevant typecodes
+    TERRACE_TYPECODES = [
+        "050400",  # 休闲餐饮 (咖啡馆常有露台)
+        "050100",  # 中餐厅
+        "050200",  # 外国餐厅
+        "050900",  # 茶艺馆
+        "060100",  # 购物中心
+        "080304",  # 酒吧
+        "100000",  # 酒店
+        "110200",  # 景点/观景台
+    ]
+
+    # v21: Terrace evidence terms
+    TERRACE_EV_TERMS = [
+        "露台", "天台", "屋顶", "rooftop", "terrace",
+        "户外座", "露天座", "观景台", "空中花园",
+        "屋顶花园", "室外平台",
+    ]
+
+    # v21: Exclusions
+    EXCLUDE_TERMS = [
+        "私人", "住宅", "仅住客", "暂停开放", "施工中",
+        "无公开入口", "内部权限", "办公楼",
+    ]
+
+    found_places: list[ExtractedPlace] = []
+    seen_names: set[str] = set()
+
+    for stage_idx, queries in enumerate(terrace_queries):
+        if found_places and len(found_places) >= 3:
+            break
+
+        for query in queries[:5]:
+            try:
+                raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+            except Exception as exc:
+                print(f"[WARN step2] open_terrace fallback search failed query={query}: {exc}")
+                continue
+
+            for raw in raws[:10]:
+                place = _to_extracted(raw)
+                if not place or not place.location:
+                    continue
+                if place.name in seen_names:
+                    continue
+
+                tc_ok = any(place.typecode.startswith(tc[:4]) for tc in TERRACE_TYPECODES)
+                if not tc_ok:
+                    continue
+
+                name_text = f"{place.name} {place.address or ''}"
+                if any(t in name_text for t in EXCLUDE_TERMS):
+                    continue
+
+                has_terrace_ev = any(t.lower() in name_text.lower() for t in TERRACE_EV_TERMS)
+
+                if not has_terrace_ev:
+                    print(
+                        f"[FeatureIntentAudit] candidate={place.name} "
+                        f"required_features=['open_terrace'] "
+                        f"feature_hits=[] accepted=false "
+                        f"rejection_reason=missing_required_open_terrace_evidence"
+                    )
+                    continue
+
+                print(
+                    f"[FeatureIntentAudit] candidate={place.name} "
+                    f"required_features=['open_terrace'] "
+                    f"feature_hits=['open_terrace'] accepted=true "
+                    f"evidence_source=name_address typecode={place.typecode}"
+                )
+
+                if not place.enrichment_text:
+                    place.enrichment_text = "开放露台场所"
+                place.recall_source = "open_terrace_fallback"
+                place.poi_role = "route_waypoint"
+
+                seen_names.add(place.name)
+                found_places.append(place)
+
+                if len(found_places) >= 8:
+                    break
+
+    if found_places:
+        print(
+            f"[DEBUG step2] open_terrace fallback found {len(found_places)} places: "
+            f"{[(p.name, p.typecode) for p in found_places[:6]]}"
+        )
+    else:
+        print("[DEBUG step2] open_terrace fallback found 0 places")
+
+    return found_places
+
+
+async def _fallback_lawn_rest_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for lawn_rest when primary theme_route search returns 0.
+
+    Expands search across parks, green spaces, gardens, pocket parks.
+    Uses progressive radius expansion.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+
+    is_rainy = "雨天" in parsed_intent.other_constraints or "室内优先" in parsed_intent.other_constraints
+    required_features = getattr(parsed_intent, "required_features", []) or []
+
+    # v21: Progressive lawn_rest search queries
+    lawn_queries = [
+        # Stage 1: Direct green space search
+        [f"{city_short} 公园", f"{city_short} 城市绿地", f"{city_short} 草坪公园",
+         f"{city_short} 口袋公园", f"{city_short} 公共花园"],
+        # Stage 2: Broader green space
+        [f"{city_short} 社区绿地", f"{city_short} 植物园", f"{city_short} 滨江绿地",
+         f"{city_short} 花园", f"{city_short} 开放草坪"],
+        # Stage 3: Even broader
+        [f"{city_short} 野餐区", f"{city_short} 休闲广场",
+         f"{city_short} 市民公园", f"{city_short} 街心花园"],
+    ]
+
+    if is_rainy:
+        # Add indoor alternatives
+        lawn_queries.append([f"{city_short} 室内植物园", f"{city_short} 温室花园",
+                             f"{city_short} 带落地窗咖啡馆"])
+
+    # v21: Lawn-relevant typecodes
+    LAWN_TYPECODES = [
+        "110100", "110101",  # 公园/城市公园
+        "110200", "110000",  # 景点/风景名胜
+    ]
+
+    found_places: list[ExtractedPlace] = []
+    seen_names: set[str] = set()
+
+    # v21: Exclusions — NOT lawn/sittable
+    EXCLUDE_LAWN_TERMS = [
+        "高尔夫", "足球场", "篮球场", "网球场", "运动场",
+        "道路隔离", "施工", "私人", "住宅", "封闭",
+        "禁止进入", "不对外开放", "内部使用",
+    ]
+
+    for stage_idx, queries in enumerate(lawn_queries):
+        if found_places and len(found_places) >= 3:
+            break
+
+        for query in queries[:5]:
+            try:
+                raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+            except Exception as exc:
+                print(f"[WARN step2] lawn_rest fallback search failed query={query}: {exc}")
+                continue
+
+            for raw in raws[:10]:
+                place = _to_extracted(raw)
+                if not place or not place.location:
+                    continue
+                if place.name in seen_names:
+                    continue
+
+                # v21: Validate lawn-relevant typecode
+                tc_ok = any(place.typecode.startswith(tc[:4]) for tc in LAWN_TYPECODES)
+                if not tc_ok:
+                    continue
+
+                # v21: Exclude non-lawn places
+                name_text = f"{place.name} {place.address or ''} {place.typecode or ''}"
+                if any(t in name_text for t in EXCLUDE_LAWN_TERMS):
+                    print(
+                        f"[FeatureIntentAudit] candidate={place.name} "
+                        f"required_features={required_features} "
+                        f"feature_hits=[] accepted=false "
+                        f"rejection_reason=excluded_lawn_term"
+                    )
+                    continue
+
+                # v21: Lawn evidence from name/address/typecode
+                has_lawn_evidence = any(
+                    t in name_text for t in [
+                        "草坪", "草地", "绿地", "公园", "花园",
+                        "草坪", "绿化", "绿洲", "植物园", "园",
+                    ]
+                )
+
+                if not has_lawn_evidence:
+                    print(
+                        f"[FeatureIntentAudit] candidate={place.name} "
+                        f"required_features={required_features} "
+                        f"feature_hits=[] accepted=false "
+                        f"rejection_reason=missing_required_lawn_evidence"
+                    )
+                    continue
+
+                # v21: Set lawn enrichment
+                if not place.enrichment_text:
+                    place.enrichment_text = "城市绿地/草坪区域"
+                # Mark as lawn candidate
+                place.recall_source = "lawn_rest_fallback"
+                place.poi_role = "route_waypoint"
+
+                seen_names.add(place.name)
+                found_places.append(place)
+
+                print(
+                    f"[FeatureIntentAudit] candidate={place.name} "
+                    f"required_features={required_features} "
+                    f"feature_hits={['lawn'] if has_lawn_evidence else []} "
+                    f"accepted=true "
+                    f"evidence_source=name_address_typecode "
+                    f"typecode={place.typecode}"
+                )
+
+                if len(found_places) >= 8:
+                    break
+
+    if found_places:
+        print(
+            f"[DEBUG step2] lawn_rest fallback found {len(found_places)} places: "
+            f"{[(p.name, p.typecode) for p in found_places[:6]]}"
+        )
+    else:
+        print("[DEBUG step2] lawn_rest fallback found 0 places")
+
+    return found_places
+
+
+async def _fallback_quiet_retreat_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback for quiet_retreat when primary theme_route search returns 0.
+
+    Expands search across concrete quiet-space categories:
+    libraries, bookstores, quiet cafes, tea houses, small parks, reading spaces.
+    Uses wider radius in stages.
+    """
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v20: Check weather for indoor priority
+    is_rainy = "雨天" in parsed_intent.other_constraints or "室内优先" in parsed_intent.other_constraints
+
+    # v20: Multi-stage recall — start with precise quiet categories, then broaden
+    quiet_fallback_queries = [
+        # Stage 1: Precise quiet-space categories
+        [f"{city_short} 图书馆", f"{city_short} 阅读空间", f"{city_short} 独立书店",
+         f"{city_short} 安静咖啡馆", f"{city_short} 茶馆", f"{city_short} 美术馆"],
+        # Stage 2: Broader quiet-space categories
+        [f"{city_short} 书店", f"{city_short} 咖啡馆", f"{city_short} 自习室",
+         f"{city_short} 茶室", f"{city_short} 展览馆", f"{city_short} 文化空间"],
+        # Stage 3: Outdoor quiet spaces (lower priority in rain)
+        [f"{city_short} 公园", f"{city_short} 口袋公园", f"{city_short} 滨水步道",
+         f"{city_short} 社区绿地", f"{city_short} 花园", f"{city_short} 步道"],
+    ]
+
+    if is_rainy:
+        # Indoors first, outdoors last
+        pass
+    else:
+        # Interleave outdoor with indoor
+        quiet_fallback_queries = [
+            quiet_fallback_queries[0],
+            quiet_fallback_queries[2],  # outdoor earlier in good weather
+            quiet_fallback_queries[1],
+        ]
+
+    from .poi_typecodes import split_typecodes
+    # v20: Quiet retreat relevant typecodes
+    QUIET_RETREAT_TYPECODES = [
+        "061205",  # 书店
+        "050100",  # 中餐厅 (茶馆)
+        "050400",  # 休闲餐饮 (咖啡)
+        "050900",  # 茶艺馆
+        "060100",  # 购物中心 (书店/文化空间可能在商场内)
+        "060900",  # 文化用品
+        "061000",  # 综合文化场所
+        "080500",  # 展览馆
+        "080600",  # 美术馆
+        "110100",  # 公园
+        "110101",  # 城市公园
+        "110200",  # 景点
+        "140100",  # 博物馆
+        "140200",  # 展览
+        "140600",  # 科技馆 (可能安静)
+    ]
+
+    found_places: list[ExtractedPlace] = []
+    seen_names: set[str] = set()
+
+    for stage_idx, queries in enumerate(quiet_fallback_queries):
+        if found_places and len(found_places) >= 3:
+            break  # Enough results
+
+        for query in queries[:5]:
+            try:
+                raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+            except Exception as exc:
+                print(f"[WARN step2] quiet_retreat fallback search failed query={query}: {exc}")
+                continue
+
+            for raw in raws[:10]:
+                place = _to_extracted(raw)
+                if not place or not place.location:
+                    continue
+                if place.name in seen_names:
+                    continue
+
+                # v20: Validate that this is a reasonable quiet retreat candidate
+                tc_ok = any(place.typecode.startswith(tc[:4]) for tc in QUIET_RETREAT_TYPECODES)
+                if not tc_ok:
+                    continue
+
+                # v20: Exclude obviously non-quiet places
+                name_text = f"{place.name} {place.address or ''}"
+                LOUD_TERMS = ["火锅", "烧烤", "KTV", "酒吧", "夜店", "网吧", "游戏厅",
+                              "菜市场", "夜市", "大排档", "批发", "建材", "维修", "洗车"]
+                if any(t in name_text for t in LOUD_TERMS):
+                    continue
+
+                # v20: Rain check — exclude outdoor-only in rain
+                if is_rainy and stage_idx >= 2:
+                    if any(t in place.typecode for t in ["11"]) and not any(
+                        t in name_text for t in ["室内", "博物馆", "展览馆"]
+                    ):
+                        # Outdoor park in rain — still keep but mark as low priority
+                        pass
+
+                # v20: Set enrichment with quiet evidence if available
+                if not place.enrichment_text:
+                    place.enrichment_text = "安静场所"
+
+                seen_names.add(place.name)
+                found_places.append(place)
+
+                if len(found_places) >= 8:
+                    break
+
+    if found_places:
+        print(
+            f"[DEBUG step2] quiet_retreat fallback found {len(found_places)} places: "
+            f"{[(p.name, p.typecode) for p in found_places[:6]]}"
+        )
+    else:
+        print("[DEBUG step2] quiet_retreat fallback found 0 places")
+
+    return found_places
+
+
 async def _fallback_activity_places(
     parsed_intent: ParsedIntent,
     user_profile: UserProfile,
@@ -2708,6 +3583,25 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         capacity_filtered = [place for place in places if place.time_capacity in capacity_rejects]
         places = [place for place in places if place.time_capacity not in capacity_rejects]
         places, deleted = _budget_filter(places, budget_threshold)
+
+        # local_life is a semantic scene rather than a POI name.  Run its
+        # evidence-aware nearby recall even when generic macro search returned
+        # something: non-empty but unrelated results must not suppress the
+        # fallback (the previous behaviour selected aquariums/scenic spots).
+        _pre_activity_facet = getattr(parsed_intent, "activity_facet", "") or ""
+        _pre_is_local_life = bool(getattr(parsed_intent, "local_life_requested", False))
+        if _pre_is_local_life or _pre_activity_facet == "local_life":
+            verified_local_places = await _fallback_local_life_places(parsed_intent, user_profile)
+            if not verified_local_places:
+                raise ZeroOutputError(
+                    "附近暂未找到能够核实为市集、菜市场或本地生活街区的地点，已将搜索范围扩大至15公里。"
+                )
+            places = verified_local_places
+            deleted = []
+            print(
+                f"[DEBUG step2] local_life evidence recall replaced generic candidates: "
+                f"count={len(places)} names={[p.name for p in places[:6]]}"
+            )
         if not places:
             await logger.log_step(
                 "step_2_1_gaode_search",
@@ -2732,7 +3626,85 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
             _poi_qtype = getattr(parsed_intent, "poi_query_type", "") or ""
             _explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
             _primary_q = getattr(parsed_intent, "primary_query", "") or ""
-            if _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
+            _is_quiet_retreat = bool(getattr(parsed_intent, "quiet_retreat_requested", False))
+            _is_lawn_rest = bool(getattr(parsed_intent, "lawn_rest_requested", False))
+            _is_open_terrace = bool(getattr(parsed_intent, "open_terrace_requested", False))
+            _is_local_life = bool(getattr(parsed_intent, "local_life_requested", False))
+            _is_stress_relief = bool(getattr(parsed_intent, "stress_relief_requested", False))
+            _is_rest_stop = bool(getattr(parsed_intent, "rest_stop_requested", False))
+            _activity_facet = getattr(parsed_intent, "activity_facet", "") or ""
+
+            # v21: Rest stop fallback — progressive radius around search area
+            if _is_rest_stop or _activity_facet == "rest_stop":
+                rest_places = await _fallback_rest_stop_places(parsed_intent, user_profile)
+                if rest_places:
+                    places = rest_places
+                    deleted = []
+                    print(f"[DEBUG step2] rest_stop fallback found {len(places)} candidates")
+                else:
+                    _area = getattr(parsed_intent, "search_area_label", "") or "附近"
+                    raise ZeroOutputError(
+                        f"{_area}暂未找到能够核实为可坐、可公开进入的歇脚场所，已将范围扩大至5公里。"
+                        f"你也可以告诉我更偏向咖啡馆、书店还是公园休息区。"
+                    )
+            # v21: Stress relief fallback
+            elif _is_stress_relief or _activity_facet == "stress_relief":
+                stress_places = await _fallback_stress_relief_places(parsed_intent, user_profile)
+                if stress_places:
+                    places = stress_places
+                    deleted = []
+                    print(f"[DEBUG step2] stress_relief fallback found {len(places)} candidates")
+                else:
+                    raise ZeroOutputError(
+                        "附近暂未找到当前可进入的放松或解压活动场所，已将搜索范围扩大至15公里。"
+                        "可以告诉我你更想安静放空、运动发泄，还是做点手工体验。"
+                    )
+            # v21: Local life / market fallback — search for markets, old streets, community commercial
+            elif _is_local_life or _activity_facet == "local_life":
+                local_places = await _fallback_local_life_places(parsed_intent, user_profile)
+                if local_places:
+                    places = local_places
+                    deleted = []
+                    print(f"[DEBUG step2] local_life fallback found {len(places)} candidates")
+                else:
+                    raise ZeroOutputError(
+                        "附近暂未找到能够核实为市集、菜市场或本地生活街区的地点，已将搜索范围扩大至15公里。"
+                    )
+            # v21: Open terrace fallback — expand search with terrace categories
+            elif _is_open_terrace or _activity_facet == "open_terrace":
+                terrace_places = await _fallback_open_terrace_places(parsed_intent, user_profile)
+                if terrace_places:
+                    places = terrace_places
+                    deleted = []
+                    print(f"[DEBUG step2] open_terrace fallback found {len(places)} candidates")
+                else:
+                    raise ZeroOutputError(
+                        "附近暂未找到能够核实为公众开放的露台地点，已将搜索范围扩大至10公里。"
+                    )
+            # v21: Lawn rest fallback — expand search with parks, green spaces
+            elif _is_lawn_rest or _activity_facet == "lawn_rest":
+                lawn_places = await _fallback_lawn_rest_places(parsed_intent, user_profile)
+                if lawn_places:
+                    places = lawn_places
+                    deleted = []
+                    print(f"[DEBUG step2] lawn_rest fallback found {len(places)} candidates")
+                else:
+                    raise ZeroOutputError(
+                        "附近暂未找到有明确开放草坪证据的地点，可为你扩大一点搜索范围再试试。"
+                    )
+            # v20: Quiet retreat fallback — expand search with concrete categories + wider radius
+            elif _is_quiet_retreat or _activity_facet == "quiet_retreat":
+                quiet_places = await _fallback_quiet_retreat_places(parsed_intent, user_profile)
+                if quiet_places:
+                    places = quiet_places
+                    deleted = []
+                    print(f"[DEBUG step2] quiet_retreat fallback found {len(places)} candidates")
+                else:
+                    # Last resort: mention that we couldn't find confirmed quiet spots nearby
+                    raise ZeroOutputError(
+                        "附近暂未找到有明确安静环境证据的场所，可为你扩大一点搜索范围再试试。"
+                    )
+            elif _poi_qtype in ("poi_category", "named_poi") and not _explicit_meal:
                 # Try synonym wide recall once
                 wide_places = await _synonym_wide_recall(parsed_intent, user_profile)
                 if wide_places:

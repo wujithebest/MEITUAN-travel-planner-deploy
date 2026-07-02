@@ -261,6 +261,7 @@ _STYLE_THEME_SYNONYMS = frozenset({
     "艺术感", "艺术氛围", "有艺术感", "有审美",
     "文化气息", "新中式氛围", "新中式风格",
     "小资", "有氛围", "氛围感", "精神漫游", "松弛感",
+    "放空", "发呆", "独处",
     # v20: Abstract social scenario expressions
     "情侣约会", "闺蜜聚会", "团建拓展", "团建", "朋友聚会",
     "多人活动", "轻社交", "仪式感", "惊喜感", "参与感", "共创感",
@@ -269,6 +270,257 @@ _STYLE_THEME_SYNONYMS = frozenset({
     "有仪式感的地方", "有惊喜感的地方", "适合多人活动的地方",
     "有参与感的活动", "可以共创的地方",
 })
+
+# v20: Abstract placeholder terms — when proximity captures these as Y,
+# they must NOT become poi_category. They are scene descriptions, not places.
+_ABSTRACT_PLACEHOLDER_TERMS: frozenset[str] = frozenset({
+    "角落", "地方", "空间", "去处", "一个地方", "个地方",
+    "安静的角落", "清净的地方", "不被打扰的地方",
+})
+
+# v20: Quiet retreat expressions — user wants a quiet, private environment.
+# These map to real POI categories like libraries, bookstores, quiet cafes, parks.
+# Must NOT become: POI names, poi_category names, psychological counseling, social activities.
+_QUIET_RETREAT_EXPRESSIONS: frozenset[str] = frozenset({
+    "安静的角落", "清静一点", "不被打扰", "想一个人待会儿",
+    "找个地方放空", "安静坐坐", "人少一点", "想发会儿呆",
+    "找个清净地方", "想独处一会儿",
+    "想找个安静的", "想找个人少的", "想找个清静",
+    "想自己待着", "想静一静",
+})
+
+# v20: Quiet retreat search keywords — concrete POI categories for quiet retreat
+_QUIET_RETREAT_INDOOR_KEYWORDS = [
+    "图书馆", "阅读空间", "独立书店", "安静咖啡馆",
+    "茶馆", "美术馆", "共享自习室", "公共文化空间",
+]
+
+_QUIET_RETREAT_OUTDOOR_KEYWORDS = [
+    "口袋公园", "小型城市公园", "安静花园", "滨水步道",
+    "社区绿地", "公园休息区", "林荫步道",
+]
+
+_QUIET_RETREAT_MICRO_KEYWORDS = [
+    "图书馆 安静", "书店 阅读", "咖啡馆 安静",
+    "茶馆 品茶", "公园 散步", "美术馆 展览",
+]
+
+# v21: Lawn rest / green space feature intent expressions
+_LAWN_REST_EXPRESSIONS: frozenset[str] = frozenset({
+    "有草坪的地方坐着", "有草坪的地方",
+    "找个草地晒太阳", "找个草地坐",
+    "有长椅的地方休息", "能坐着看湖的地方",
+    "有树荫的公园", "可以野餐的草坪",
+    "能躺一会儿的草地", "有遮雨棚的地方",
+    "找块草坪", "找个草坪", "草地坐着", "草坪坐着",
+    "有草坪的", "找个有草坪", "找片草地",
+})
+
+# v21: Feature terms — indicate a feature-based (not named POI) intent
+_FEATURE_LAWN_TERMS: frozenset[str] = frozenset({
+    "草坪", "草地", "绿地", "绿草坪", "大草坪", "开放草坪",
+    "野餐草坪", "野餐区", "可坐草坪",
+})
+
+_FEATURE_REST_TERMS: frozenset[str] = frozenset({
+    "坐着", "坐坐", "休息", "躺一会儿", "晒太阳",
+    "野餐", "放空", "发呆", "看书",
+})
+
+# A resting activity (for example, sitting on the lawn) does not by itself
+# require dedicated seating infrastructure. Only explicit facility wording
+# should make ``sittable`` a hard feature requirement.
+_FEATURE_SEATING_FACILITY_TERMS: frozenset[str] = frozenset({
+    "长椅", "座椅", "石凳", "木椅", "躺椅", "休息区",
+    "有地方坐", "可坐设施", "能坐的设施",
+})
+
+# v21: Lawn rest search keywords — concrete POI categories for green space
+_LAWN_REST_CATEGORY_KEYWORDS = [
+    "公园", "城市绿地", "草坪公园", "开放草坪",
+    "野餐草坪", "口袋公园", "公共花园", "社区绿地",
+    "滨江绿地", "植物园",
+]
+
+_LAWN_REST_MICRO_KEYWORDS = [
+    "草坪 休息", "公园 草坪", "绿地 野餐",
+    "花园 散步", "草地 晒太阳",
+]
+
+# v21: Indoor rest alternatives for rainy weather
+_INDOOR_REST_ALTERNATIVES = [
+    "带落地窗咖啡馆", "有顶棚公园休息区",
+    "室内植物园", "温室花园",
+]
+
+# v21: Night view / city skyline scene expressions
+_NIGHT_VIEW_EXPRESSIONS: frozenset[str] = frozenset({
+    "看城市夜景", "看夜景", "城市夜景", "城市天际线",
+    "灯光夜景", "夜景观景台", "能俯瞰城市的地方",
+    "晚上看城市灯光", "看城市灯光", "夜景灯光",
+    "城市观景", "夜晚城市", "夜景打卡",
+    "看城市夜景的地方",
+})
+
+_NIGHT_VIEW_FEATURE_TERMS: frozenset[str] = frozenset({
+    "夜景", "城市灯光", "天际线", "俯瞰", "观景台",
+    "灯光秀", "城市夜景", "夜景观景",
+})
+
+_NIGHT_VIEW_CATEGORY_KEYWORDS = [
+    "夜景观景台", "城市观景平台", "天际线观景",
+    "滨水夜景", "高层观景台", "灯光夜景打卡",
+    "城市高点", "夜景观光",
+]
+
+_NIGHT_VIEW_MICRO_KEYWORDS = [
+    "观景台 夜景", "天际线 观景", "滨水 夜景",
+    "城市灯光 打卡", "高层 俯瞰",
+]
+
+# v21: Open terrace / outdoor terrace feature expressions
+_OPEN_TERRACE_EXPRESSIONS: frozenset[str] = frozenset({
+    "开放露台", "户外露台", "室外露台", "屋顶露台",
+    "观景露台", "空中露台", "露天平台", "屋顶花园",
+    "rooftop", "terrace", "有露台的地方",
+    "可以坐在外面的露台", "能吹风的露台", "带露台的地方",
+    "有开放露台的地方", "有露台的",
+})
+
+_OPEN_TERRACE_CATEGORY_KEYWORDS = [
+    "开放露台", "户外露台咖啡馆", "露台餐厅",
+    "屋顶花园", "观景露台", "空中露台",
+    "rooftop", "露台酒吧",
+]
+
+_OPEN_TERRACE_MICRO_KEYWORDS = [
+    "露台 观景", "露台 咖啡", "屋顶 花园",
+    "户外 露台", "露天 座位",
+]
+
+# v21: Feature evidence terms for open_terrace
+_OPEN_TERRACE_EVIDENCE_TERMS: list[str] = [
+    "开放露台", "户外露台", "室外露台", "屋顶露台",
+    "观景露台", "空中露台", "露天平台", "屋顶花园",
+    "rooftop", "roof terrace", "terrace seating",
+    "outdoor terrace", "露台", "露天座", "露台座",
+]
+
+# v21: Exclusions — NOT valid open terrace
+_OPEN_TERRACE_EXCLUSIONS: set[str] = {
+    "私人露台", "住宅露台", "办公楼内部", "仅住客",
+    "暂停开放", "施工中", "无公开入口", "内部权限",
+}
+
+# v21: Stress relief / decompress activity expressions
+_STRESS_RELIEF_EXPRESSIONS: frozenset[str] = frozenset({
+    "解压", "放松一下", "释放压力", "缓解压力",
+    "散散心", "调整心情", "清空脑子", "放空一下",
+    "找点轻松的活动", "想发泄一下", "想做点治愈的事",
+    "最近压力大想出去走走", "减压",
+})
+
+# v21: Stress relief mode indicators
+_STRESS_RELIEF_QUIET_TERMS: frozenset[str] = frozenset({
+    "安静", "一个人", "放空", "清静", "散心", "发呆",
+    "独处", "静一静", "休息", "舒缓",
+})
+
+_STRESS_RELIEF_ACTIVE_TERMS: frozenset[str] = frozenset({
+    "发泄", "释放", "刺激", "动一动", "运动", "出汗",
+    "喊", "蹦", "跑", "跳", "打",
+})
+
+_STRESS_RELIEF_CREATIVE_TERMS: frozenset[str] = frozenset({
+    "手工", "做点", "画画", "涂", "沉浸", "体验",
+    "做东西", "烘焙", "陶艺", "木工", "编织",
+})
+
+# v21: Stress relief search keywords by mode
+_STRESS_RELIEF_QUIET_KW = [
+    "城市公园", "滨水步道", "独立书店", "安静咖啡馆",
+    "公共花园", "美术馆", "茶馆", "阅读空间",
+]
+
+_STRESS_RELIEF_ACTIVE_KW = [
+    "保龄球馆", "攀岩馆", "射箭馆", "蹦床馆",
+    "卡丁车", "运动体验馆", "KTV", "游戏厅",
+    "台球", "飞镖馆",
+]
+
+_STRESS_RELIEF_CREATIVE_KW = [
+    "陶艺体验", "手作体验", "木工体验", "tufting体验",
+    "绘画体验", "烘焙体验", "沉浸式体验", "DIY手工坊",
+]
+
+# v21: Stress relief micro keywords
+_STRESS_RELIEF_MICRO_KW = [
+    "公园 散步", "书店 安静", "咖啡馆 放松",
+    "运动 体验", "手作 工坊", "DIY 体验",
+]
+
+# v21: Medical/psychological terms to EXCLUDE for stress_relief
+_STRESS_RELIEF_EXCLUDE_CATS = {
+    "心理咨询", "精神卫生", "医院", "康复中心", "医疗门诊",
+    "诊所", "卫生站", "疗养院", "精神病", "心理科",
+}
+
+# v21: University / college short-name alias mapping for geocoding
+_UNIVERSITY_ALIAS_MAP: dict[str, str] = {
+    "北大": "北京大学",
+    "北大东门": "北京大学东门",
+    "北大西门": "北京大学西门",
+    "北大南门": "北京大学南门",
+    "北大东南门": "北京大学东南门",
+    "清华": "清华大学",
+    "人大": "中国人民大学",
+    "北航": "北京航空航天大学",
+    "北理工": "北京理工大学",
+    "北师大": "北京师范大学",
+    "北邮": "北京邮电大学",
+    "中传": "中国传媒大学",
+    "中戏": "中央戏剧学院",
+    "央美": "中央美术学院",
+    "北外": "北京外国语大学",
+    "北语": "北京语言大学",
+    "北科": "北京科技大学",
+    "北交": "北京交通大学",
+    "北化": "北京化工大学",
+    "农大": "中国农业大学",
+    "林大": "北京林业大学",
+    "地大": "中国地质大学(北京)",
+    "矿大": "中国矿业大学(北京)",
+    "石油大学": "中国石油大学(北京)",
+    "政法大学": "中国政法大学",
+    "华电": "华北电力大学",
+    "央财": "中央财经大学",
+    "贸大": "对外经济贸易大学",
+    "首师": "首都师范大学",
+    "首医": "首都医科大学",
+    "北体": "北京体育大学",
+    "央音": "中央音乐学院",
+    "国音": "中国音乐学院",
+    "民大": "中央民族大学",
+    "北影": "北京电影学院",
+    "国戏": "中国戏曲学院",
+    "北舞": "北京舞蹈学院",
+}
+
+# v21: Rest stop / short break activity expressions
+_REST_STOP_EXPRESSIONS: frozenset[str] = frozenset({
+    "歇脚", "找地方坐一会", "走累了休息", "走累了歇一会",
+    "找个地方缓缓", "找个能坐的地方", "临时休息一下",
+    "中途停下来休息", "逛累了坐坐", "找个落脚的地方",
+    "找个地方喝口水", "找个可以稍作休息的地方",
+    "适合走累了歇脚", "适合走累了",
+})
+
+# v21: Rest stop category keywords
+_REST_STOP_CATEGORY_KEYWORDS = [
+    "咖啡馆", "茶馆", "独立书店", "阅读空间",
+    "公园休息区", "商场休息区", "公共文化空间",
+    "甜品店", "有座位的地方",
+]
 
 STYLE_ROUTE_TOKENS = [
     "文艺", "文艺感", "艺术氛围", "艺术感",
@@ -1906,16 +2158,47 @@ def _parse_multi_theme_enumeration(user_request: str) -> dict | None:
 
 # v20: Ranking modifier parsing — removes ranking words from search terms
 _RANKING_MODIFIERS: list[tuple[list[str], str, str]] = [
-    (["最有名", "最知名", "最热门", "人气最高", "最受欢迎", "著名的"], "popularity", "desc"),
-    (["评分最高", "口碑最好", "评价最高", "口碑最佳"], "rating", "desc"),
+    (["最有名", "最知名", "最热门", "人气最高", "最受欢迎", "著名的",
+      "有名", "知名", "热门", "人气高", "人气旺", "口碑好",
+      "当地人常去", "老字号", "老牌"], "popularity", "desc"),
+    (["评分最高", "口碑最好", "评价最高", "口碑最佳", "评分高"], "rating", "desc"),
     (["最近", "离我最近", "距离最近", "最近的", "近的", "较近"], "distance", "asc"),
     (["最大", "规模最大", "面积最大"], "scale", "desc"),
-    (["最老", "历史最悠久", "最古老", "老字号"], "history", "desc"),
+    (["最老", "历史最悠久", "最古老"], "history", "desc"),
 ]
 _RANKING_CLEANUP_RE = re.compile(
     r"最(?:有名|知名|热门|受欢迎|高|好|近|大|老|古老)的?"
     r"|人气最高|口碑最好|评价最高|口碑最佳|规模最大|历史最悠久"
-    r"|离我最近|距离最近|著名的"
+    r"|离我最近|距离最近|著名的|有名|知名|热门|人气高|人气旺|口碑好"
+    r"|当地人常去|老牌"
+)
+
+# v20: Novelty detection patterns — "没吃过的" triggers history exclusion, NOT a search keyword
+_NOVELTY_PATTERNS: list[tuple[str, str]] = [
+    ("没吃过的", "restaurant"), ("没去过的", "restaurant"),
+    ("以前没去过", "restaurant"), ("之前没推荐过", "restaurant"),
+    ("换一家新的", "restaurant"), ("别推荐吃过的", "restaurant"),
+    ("不要重复", "restaurant"), ("换个没试过的", "restaurant"),
+    ("换个没吃过的", "restaurant"), ("换家没去过的", "restaurant"),
+]
+_NOVELTY_CLEANUP_RE = re.compile(
+    r"(?:吃点?|换个?|换一家?|尝)?(?:没吃过的|没去过的|以前没去过|没试过的|"
+    r"之前没推荐过|新的|不要重复的|别推荐吃过的|吃过的)"
+)
+
+
+def _detect_novelty_intent(text: str) -> tuple[bool, str]:
+    """Detect if the user wants something they haven't tried before.
+    Returns (novelty_required, novelty_scope)."""
+    for pattern, scope in _NOVELTY_PATTERNS:
+        if pattern in text:
+            return True, scope
+    return False, ""
+
+
+# v20: Meal suffix stripping — remove "吃饭/用餐/就餐" from primary_query
+_MEAL_SUFFIX_CLEANUP_RE = re.compile(
+    r"(?:吃[个顿]?饭|用餐|就餐|吃一顿|尝尝|吃饭|吃东西)[。，,!！]*$"
 )
 
 
@@ -1926,6 +2209,17 @@ _ACTIVITY_EXPRESSIONS: set[str] = {
     "沿江走走", "滨江漫步", "看看风景", "拍照打卡",
     "随便逛逛", "随便逛", "逛一逛", "走一走", "遛一遛",
     "citywalk", "骑行", "骑车逛逛", "遛弯",
+}
+
+# v20: Waterfront terms + mountain competing terms
+_WATERFRONT_TERMS: set[str] = {
+    "江边", "沿江", "滨江", "江畔", "河边", "河畔", "河滨", "沿河",
+    "水岸", "湖边", "湖畔", "湖滨", "环湖", "亲水", "滨水",
+    "湿地", "河道", "湖泊", "堤岸", "水边", "江岸", "湖岸",
+}
+_MOUNTAIN_COMPETING_TERMS: set[str] = {
+    "登山", "爬山", "山地", "浅山", "山谷", "山峰", "峡谷", "峪",
+    "森林登山", "攀岩", "越野", "徒步登高", "观峰", "山路", "登顶",
 }
 
 # v20: Area stroll detection — 步行街/商圈/街区 + 逛逛/逛街 → internal shop expansion
@@ -1948,11 +2242,20 @@ def _is_area_stroll_request(user_request: str, poi_name: str) -> bool:
     return any(poi_name.endswith(t) or t in poi_name for t in _SHOPPABLE_AREA_TERMS)
 
 
-# v20: Preference modifier words — modify ranking, not POI identity
+# v20: Style/quality preference modifiers — ranking words not POI identity
+_STYLE_PREFERENCE_TERMS: set[str] = {
+    "精致", "精致的", "高颜值", "好看", "好吃", "好喝的",
+    "适合拍照", "拍照好看", "出片", "氛围感", "有情调",
+    "浪漫", "温馨", "舒服", "环境好", "安静", "清净",
+    "好的", "好吃的", "好喝的", "靠谱", "不错", "正宗",
+    "地道", "高级", "有档次", "格调",
+}
+# Also extend _PREFERENCE_MODIFIERS with style terms
 _PREFERENCE_MODIFIERS: set[str] = {
     "冷门", "小众", "人少", "清静", "不拥挤", "低拥挤",
     "本地人私藏", "宝藏", "非热门", "避开热门", "避开人流",
     "幽静", "安静", "清净",
+    *_STYLE_PREFERENCE_TERMS,
 }
 
 
@@ -1995,11 +2298,14 @@ _TIME_FUNC_PATTERN = re.compile(
 # v20: Normalize proximity query — strip garbage prefixes/suffixes, keep semantic core
 _QUERY_CLEAN_PREFIX_RE = re.compile(
     r"^(?:我想在|我想|想在|帮我|请帮我|找|找个|找一家|一家|一个|个|"
-    r"获得一些|获得|得到|寻找|寻求|查找)+"
+    r"获得一些|获得|得到|寻找|寻求|查找|"
+    r"吃点|吃个|吃顿|吃一些|喝点|喝个|喝杯|"
+    r"可以|可以找个|可以找|能不能|有没有|哪里有|推荐个)+"
 )
 _QUERY_CLEAN_SUFFIX_RE = re.compile(
     r"(?:中午吃饭|晚上吃饭|去吃饭|吃饭|可以去哪里|哪里有|求推荐|"
-    r"玩一会儿|逛一逛|看一看|耍一耍|玩玩|逛逛)+$"
+    r"玩一会儿|逛一逛|看一看|耍一耍|玩玩|逛逛|"
+    r"的地方吗|的地方|的吗|吗|呢)+$"
 )
 
 # v20: Restaurant/food detection — must generate explicit_meal_intent + restaurant category
@@ -2025,6 +2331,19 @@ def _normalize_primary_query(text: str) -> str:
     t = text.strip()
     t = _QUERY_CLEAN_PREFIX_RE.sub("", t).strip()
     t = _QUERY_CLEAN_SUFFIX_RE.sub("", t).strip()
+    t = _MEAL_SUFFIX_CLEANUP_RE.sub("", t).strip()  # remove 吃饭/用餐/就餐
+    t = _RANKING_CLEANUP_RE.sub("", t).strip()  # remove 有名/知名/热门
+    t = _NOVELTY_CLEANUP_RE.sub("", t).strip()  # remove 没吃过的/没去过的
+    # v21: Strip "有...的地方/吗/呢" patterns ("有开放露台的地方吗" → "开放露台")
+    t = re.sub(r"有(.+?)的(?:地方|去处|空间|角落)(?:吗|呢)?$", r"\1", t).strip()
+    # v20: Strip abstract placeholder residue — "的角落", "的地方", "的空间"
+    t = re.sub(r"的(?:角落|地方|空间|去处|一个地方|个地方)(?:吗|呢)?$", "", t).strip()
+    # v20: Strip bare placeholder container words when they're the only content
+    if t in _ABSTRACT_PLACEHOLDER_TERMS:
+        t = ""
+    # v20: If cleaning stripped everything away, return empty (not original garbage)
+    if not t:
+        return ""
     return t or text.strip()
 
 
@@ -2167,6 +2486,8 @@ def _parse_area_category_modifier(user_request: str) -> dict | None:
         r"(玩一天|逛一天|待一天|玩半天|逛半天|待半天|玩一玩|看一看|看看|逛逛|坐一会儿|走一走|遛一遛|玩|参拜|祈福|拜佛|上香|拜一拜)$"
     )
     target_raw = _ACTION_SUFFIX_RE.sub("", target_raw).strip()
+    # v20: Normalize — strip ranking words + meal suffixes from target
+    target_raw = _normalize_primary_query(target_raw)
 
     # Validate: area must look like a place name
     if len(area_raw) < 2:
@@ -2184,6 +2505,28 @@ def _parse_area_category_modifier(user_request: str) -> dict | None:
     if target_raw in skip_target:
         return None
 
+    # v21: Reject garbage area names — must look like a real geographic name
+    _GARBAGE_AREA_TOKENS = {"附近", "找个", "能看", "想在", "想找", "找一个", "去看"}
+    if any(g in area_raw for g in _GARBAGE_AREA_TOKENS):
+        print(
+            f"[DEBUG area_category] rejected garbage area='{area_raw}' "
+            f"target='{target_raw}' — contains functional words"
+        )
+        return None
+    # v21: Area must not be longer than 12 chars (real district names are short)
+    if len(area_raw) > 12:
+        print(
+            f"[DEBUG area_category] rejected too-long area='{area_raw}' "
+            f"(len={len(area_raw)}) — likely a sentence fragment"
+        )
+        return None
+    # v21: Area must start with a geographic-looking prefix (not "附近找个")
+    if re.match(r"^(?:附近|周边|周围|旁边|找个|想找|去看|能看)", area_raw):
+        print(
+            f"[DEBUG area_category] rejected area='{area_raw}' — starts with proximity/functional prefix"
+        )
+        return None
+
     # Try to find matching category
     from .poi_typecodes import (
         CATEGORY_RULES, category_for_query, get_search_keywords,
@@ -2199,12 +2542,497 @@ def _parse_area_category_modifier(user_request: str) -> dict | None:
         "proximity_requested": False,
         "is_search_center_only": True,
         "category_id": cat_id,
+        "explicit_meal_intent": cat_id == "restaurant",
         "allowed_typecode_prefixes": get_allowed_typecode_prefixes(cat_id) if cat_id else [],
         "excluded_typecode_prefixes": get_excluded_typecode_prefixes(cat_id) if cat_id else [],
         "primary_required_terms": get_semantic_terms(cat_id) if cat_id else [target_raw],
         "primary_excluded_terms": get_negative_terms(cat_id) if cat_id else [],
         "search_keywords": get_search_keywords(cat_id) if cat_id else [target_raw],
         "category_label": rule.get("label", target_raw) if rule else target_raw,
+    }
+
+
+def _detect_lawn_rest_intent(user_request: str) -> tuple[bool, list[str], list[str]]:
+    """Detect lawn/green space feature intent + rest/sit activity.
+
+    Returns (is_lawn_rest, required_features, preferred_features).
+    required_features: explicitly requested physical features such as 'lawn'
+    preferred_features: useful soft features such as seating, shade, lake_view
+    """
+    required: list[str] = []
+    preferred: list[str] = []
+
+    # v21: Check explicit lawn rest expressions
+    has_explicit = any(expr in user_request for expr in _LAWN_REST_EXPRESSIONS)
+    has_lawn = any(t in user_request for t in _FEATURE_LAWN_TERMS)
+    has_rest = any(t in user_request for t in _FEATURE_REST_TERMS)
+
+    is_lawn_rest = has_explicit or (has_lawn and has_rest)
+
+    if is_lawn_rest:
+        if has_lawn:
+            required.append("lawn")
+        has_explicit_seating = any(
+            t in user_request for t in _FEATURE_SEATING_FACILITY_TERMS
+        )
+        if has_explicit_seating:
+            required.append("sittable")
+        elif has_rest:
+            preferred.append("sittable")
+        if any(t in user_request for t in ["树荫", "阴凉", "遮阳"]):
+            preferred.append("shade")
+        if any(t in user_request for t in ["湖", "水边", "河边", "江边"]):
+            preferred.append("water_view")
+
+    return is_lawn_rest, required, preferred
+
+
+def _build_lawn_rest_proximity_result(
+    search_area_label: str | None = None,
+    required_features: list[str] | None = None,
+    preferred_features: list[str] | None = None,
+) -> dict:
+    """Build a theme_route with lawn_rest facet from proximity parsing.
+
+    Concrete search keywords: parks, green spaces, gardens.
+    NOT grass/lawn as POI name.
+    """
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "lawn_rest",
+        "proximity_requested": True,
+        "is_search_center_only": True if search_area_label else False,
+        "search_area_label": search_area_label,
+        "required_features": list(required_features or []),
+        "preferred_features": list(preferred_features or []),
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
+    }
+
+
+def _detect_rest_stop_intent(user_request: str) -> tuple[bool, list[str]]:
+    """Detect rest stop / short break intent.
+
+    Returns (is_rest_stop, required_features).
+    '歇脚' means user needs real sittable, rest-able places.
+    """
+    required: list[str] = []
+    has_explicit = any(expr in user_request for expr in _REST_STOP_EXPRESSIONS)
+    if has_explicit:
+        required.append("sittable")
+    return has_explicit, required
+
+
+def _build_rest_stop_proximity_result(
+    search_area_label: str | None = None,
+    required_features: list[str] | None = None,
+) -> dict:
+    """Build a theme_route with rest_stop facet."""
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "rest_stop",
+        "proximity_requested": True,
+        "is_search_center_only": False,
+        "search_area_label": search_area_label,
+        "required_features": list(required_features or []),
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
+    }
+
+
+def _apply_rest_stop_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "rest_stop") -> None:
+    """Set concrete search keywords for rest stop / short break.
+
+    Prioritizes cafes, tea houses, bookstores, park rest areas with seating.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+    _area = getattr(parsed, "search_area_label", None) or ""
+    _prefix = f"{_area}附近 " if _area else f"{city_short} "
+
+    GARBAGE_TERMS = {"适合走累了歇脚", "歇脚", "走累了", "的地方", "可以稍作休息"}
+    clean_llm_kw = [kw for kw in parsed.search_keywords if not any(g in kw for g in GARBAGE_TERMS)]
+
+    category_keywords = [f"{_prefix}{kw}" for kw in _REST_STOP_CATEGORY_KEYWORDS]
+
+    parsed.search_keywords = _append_unique(category_keywords, clean_llm_kw[:2], limit=10)
+    parsed.micro_keywords = _append_unique(
+        ["咖啡馆 休息", "书店 座位", "茶馆 安静", "公园 长椅", "甜品 休息"],
+        clean_llm_kw[:1], limit=6,
+    )
+
+    parsed.rest_stop_requested = True
+    _req = getattr(parsed, "required_features", []) or []
+    if "sittable" not in _req:
+        _req = list(_req) + ["sittable"]
+    parsed.required_features = _req
+
+    print(
+        f"[DEBUG rest_stop] area={_area} "
+        f"required_features={parsed.required_features} "
+        f"search_kw={parsed.search_keywords[:6]}"
+    )
+
+
+def _detect_stress_relief_intent(user_request: str) -> tuple[bool, str]:
+    """Detect stress relief / decompress activity intent.
+
+    Returns (is_stress_relief, mode): mode is "quiet"|"active"|"creative"|"mixed".
+    Never infers medical/psychological needs.
+    """
+    has_explicit = any(expr in user_request for expr in _STRESS_RELIEF_EXPRESSIONS)
+    if not has_explicit:
+        return False, ""
+
+    # Determine sub-mode
+    has_quiet = any(t in user_request for t in _STRESS_RELIEF_QUIET_TERMS)
+    has_active = any(t in user_request for t in _STRESS_RELIEF_ACTIVE_TERMS)
+    has_creative = any(t in user_request for t in _STRESS_RELIEF_CREATIVE_TERMS)
+
+    if sum([has_quiet, has_active, has_creative]) == 0:
+        mode = "mixed"
+    elif has_quiet and not has_active and not has_creative:
+        mode = "quiet"
+    elif has_active and not has_quiet and not has_creative:
+        mode = "active"
+    elif has_creative and not has_quiet and not has_active:
+        mode = "creative"
+    else:
+        mode = "mixed"
+
+    return True, mode
+
+
+def _build_stress_relief_proximity_result(
+    search_area_label: str | None = None,
+    stress_relief_mode: str = "mixed",
+) -> dict:
+    """Build a theme_route with stress_relief facet."""
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "stress_relief",
+        "stress_relief_mode": stress_relief_mode,
+        "proximity_requested": True,
+        "is_search_center_only": False,
+        "search_area_label": search_area_label,
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
+    }
+
+
+def _apply_stress_relief_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "stress_relief") -> None:
+    """Generate concrete activity search keywords based on stress_relief mode.
+
+    Mode determines which categories: quiet (parks/books/cafes), active (sports),
+    creative (crafts/DIY), mixed (all three).
+    Never searches "解压" itself.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v21: Filter garbage and medical terms
+    GARBAGE_SR_TERMS = {"解压", "放松", "压力", "疗愈", "治愈"}
+    EXCLUDE_MEDICAL = {"心理", "精神", "医院", "康复", "诊所", "医疗"}
+    clean_llm_kw = [
+        kw for kw in parsed.search_keywords
+        if not any(g in kw for g in GARBAGE_SR_TERMS)
+        and not any(m in kw for m in EXCLUDE_MEDICAL)
+    ]
+
+    # v21: Get stress relief mode
+    _mode = getattr(parsed, "stress_relief_mode", "mixed") or "mixed"
+
+    # Build keywords per mode
+    category_keywords: list[str] = []
+    if _mode in ("quiet", "mixed"):
+        category_keywords += [f"{city_short} {kw}" for kw in _STRESS_RELIEF_QUIET_KW[:3]]
+    if _mode in ("active", "mixed"):
+        category_keywords += [f"{city_short} {kw}" for kw in _STRESS_RELIEF_ACTIVE_KW[:3]]
+    if _mode in ("creative", "mixed"):
+        category_keywords += [f"{city_short} {kw}" for kw in _STRESS_RELIEF_CREATIVE_KW[:3]]
+    # Ensure minimum coverage
+    if not category_keywords:
+        category_keywords = [f"{city_short} {kw}" for kw in _STRESS_RELIEF_QUIET_KW[:2]]
+
+    parsed.search_keywords = _append_unique(
+        category_keywords,
+        clean_llm_kw[:2],
+        limit=12,
+    )
+    parsed.micro_keywords = _append_unique(
+        list(_STRESS_RELIEF_MICRO_KW),
+        clean_llm_kw[:1],
+        limit=8,
+    )
+
+    parsed.stress_relief_requested = True
+    parsed.stress_relief_mode = _mode
+
+    # v21: Medical/psychological terms must be in excluded_terms
+    parsed.micro_excluded_terms = _append_unique(
+        getattr(parsed, "micro_excluded_terms", []) or [],
+        list(_STRESS_RELIEF_EXCLUDE_CATS),
+        limit=20,
+    )
+
+    print(
+        f"[DEBUG stress_relief] city={city_short} mode={_mode} "
+        f"search_kw={parsed.search_keywords[:8]} "
+        f"micro_kw={parsed.micro_keywords[:5]}"
+    )
+
+
+def _detect_open_terrace_intent(user_request: str) -> tuple[bool, list[str]]:
+    """Detect open terrace / outdoor terrace feature intent.
+
+    Returns (is_open_terrace, required_features).
+    """
+    required: list[str] = []
+
+    has_explicit = any(expr in user_request for expr in _OPEN_TERRACE_EXPRESSIONS)
+    has_terrace = any(t in user_request for t in ["露台", "rooftop", "terrace", "露天", "屋顶花园"])
+    has_proximity = any(t in user_request for t in ["附近", "周边", "周围", "旁边", "就近", "离我近"])
+
+    is_terrace = has_explicit or (has_terrace and has_proximity)
+
+    if is_terrace:
+        required.append("open_terrace")
+
+    return is_terrace, required
+
+
+def _build_open_terrace_proximity_result(
+    search_area_label: str | None = None,
+    required_features: list[str] | None = None,
+) -> dict:
+    """Build a theme_route with open_terrace facet."""
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "open_terrace",
+        "proximity_requested": True,
+        "is_search_center_only": False,
+        "search_area_label": search_area_label,
+        "required_features": list(required_features or []),
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
+    }
+
+
+def _apply_open_terrace_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "open_terrace") -> None:
+    """Set concrete search keywords for open terrace scenarios.
+
+    Terraces exist in cafes, restaurants, bars, hotels, malls, viewing platforms.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+
+    GARBAGE_TERMS = {"可以找个", "的地方吗", "的地方", "其他不变", "保持theme", "保持location"}
+    clean_llm_kw = [
+        kw for kw in parsed.search_keywords
+        if not any(g in kw for g in GARBAGE_TERMS)
+    ]
+
+    category_keywords = [f"{city_short} {kw}" for kw in _OPEN_TERRACE_CATEGORY_KEYWORDS]
+
+    parsed.search_keywords = _append_unique(
+        category_keywords,
+        clean_llm_kw[:3],
+        limit=10,
+    )
+    parsed.micro_keywords = _append_unique(
+        list(_OPEN_TERRACE_MICRO_KEYWORDS),
+        clean_llm_kw[:2],
+        limit=8,
+    )
+
+    parsed.open_terrace_requested = True
+    _req = getattr(parsed, "required_features", []) or []
+    if "open_terrace" not in _req:
+        _req = list(_req) + ["open_terrace"]
+    parsed.required_features = _req
+
+    print(
+        f"[DEBUG open_terrace] city={city_short} "
+        f"required_features={parsed.required_features} "
+        f"search_kw={parsed.search_keywords[:6]} "
+        f"micro_kw={parsed.micro_keywords[:5]}"
+    )
+
+
+def _detect_night_view_intent(user_request: str) -> tuple[bool, list[str]]:
+    """Detect night view / city skyline scene intent.
+
+    Returns (is_night_view, required_features).
+    These are scene/feature requests, NOT named POI or poi_category.
+    """
+    required: list[str] = []
+
+    has_explicit = any(expr in user_request for expr in _NIGHT_VIEW_EXPRESSIONS)
+    has_night_feature = any(t in user_request for t in _NIGHT_VIEW_FEATURE_TERMS)
+    has_proximity = any(t in user_request for t in ["附近", "周边", "周围", "旁边", "就近", "离我近"])
+
+    is_night_view = has_explicit or (has_night_feature and has_proximity)
+
+    if is_night_view:
+        required.append("night_view")
+
+    return is_night_view, required
+
+
+def _build_night_view_proximity_result(
+    search_area_label: str | None = None,
+    required_features: list[str] | None = None,
+) -> dict:
+    """Build a theme_route with night_view facet."""
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "night_view",
+        "proximity_requested": True,
+        "is_search_center_only": False,
+        "search_area_label": search_area_label,
+        "required_features": list(required_features or []),
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
+        "evening_requested": True,
+    }
+
+
+def _apply_night_view_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "night_view") -> None:
+    """Set concrete search keywords for night view / city skyline scenarios."""
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v21: Filter garbage from LLM
+    GARBAGE_NIGHT_TERMS = {"其他不变", "保持theme", "保持location", "按以下参数"}
+    clean_llm_kw = [
+        kw for kw in parsed.search_keywords
+        if not any(g in kw for g in GARBAGE_NIGHT_TERMS)
+    ]
+
+    category_keywords = [f"{city_short} {kw}" for kw in _NIGHT_VIEW_CATEGORY_KEYWORDS]
+
+    parsed.search_keywords = _append_unique(
+        category_keywords,
+        clean_llm_kw[:3],
+        limit=10,
+    )
+    parsed.micro_keywords = _append_unique(
+        list(_NIGHT_VIEW_MICRO_KEYWORDS),
+        clean_llm_kw[:2],
+        limit=8,
+    )
+
+    # v21: Set evening + night view features
+    parsed.evening_requested = True
+    parsed.night_view_requested = True
+    _req = getattr(parsed, "required_features", []) or []
+    if "night_view" not in _req:
+        _req = list(_req) + ["night_view"]
+    parsed.required_features = _req
+
+    print(
+        f"[DEBUG night_view] city={city_short} "
+        f"evening_requested={parsed.evening_requested} "
+        f"required_features={parsed.required_features} "
+        f"search_kw={parsed.search_keywords[:6]}"
+    )
+
+
+def _detect_quiet_retreat_intent(user_request: str) -> bool:
+    """Detect if user request is a quiet retreat / solitude / relaxation scenario.
+
+    Returns True for expressions like:
+    - 安静的角落, 清静一点, 不被打扰, 想一个人待会儿
+    - 找个地方放空, 安静坐坐, 人少一点, 想发会儿呆
+    - 找个清净地方, 想独处一会儿
+
+    These must NOT become:
+    - POI names, poi_category names, psychological counseling, social activities.
+    """
+    lowered = user_request.lower()
+    for expr in _QUIET_RETREAT_EXPRESSIONS:
+        if expr in user_request:
+            return True
+    # Also detect combination patterns: "安静" / "清静" + "地方" / "角落" / "空间"
+    _has_quiet = any(t in user_request for t in ["安静", "清静", "清净", "幽静", "静谧"])
+    _has_abstract_target = any(t in user_request for t in ["角落", "地方", "空间", "去处"])
+    if _has_quiet and _has_abstract_target:
+        return True
+    # "不被打扰" + proximity context
+    if "不被打扰" in user_request and any(t in user_request for t in ["附近", "周边", "周围", "旁边", "找个"]):
+        return True
+    # "想一个人" + "待"/"坐"
+    if any(t in user_request for t in ["想一个人", "想自己"]) and any(t in user_request for t in ["待", "坐", "静", "呆"]):
+        return True
+    return False
+
+
+def _build_quiet_retreat_proximity_result(
+    search_area_label: str | None = None,
+    pref_terms: list[str] | None = None,
+    crowd_pref: str | None = None,
+) -> dict:
+    """Build a theme_route with quiet_retreat facet from proximity parsing.
+
+    This is NOT a poi_category — it generates concrete search keywords
+    for libraries, bookstores, quiet cafes, parks, etc.
+    """
+    _prefs = list(pref_terms or [])
+    return {
+        "poi_query_type": "theme_route",
+        "primary_query": "",
+        "activity_facet": "quiet_retreat",
+        "proximity_requested": True,
+        "is_search_center_only": True if search_area_label else False,
+        "search_area_label": search_area_label,
+        "preference_terms": _prefs,
+        "crowd_preference": crowd_pref or "low",
+        "privacy_preference": "soft",
+        "time_budget_override": "quarter_day",
+        "category_id": None,
+        "allowed_typecode_prefixes": [],
+        "excluded_typecode_prefixes": [],
+        "primary_required_terms": [],
+        "primary_excluded_terms": [],
+        "category_label": "",
+        "search_keywords_override": [],
+        "explicit_meal_intent": False,
     }
 
 
@@ -2240,6 +3068,28 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
         r"(?:明天|今天|后天|周末)?(?:去|到)?$"
     )
 
+    # v20: Detect if the whole request is a quiet retreat / abstract expression
+    _is_quiet_retreat = _detect_quiet_retreat_intent(user_request)
+    # v21: Detect lawn_rest / green space feature intent
+    _is_lawn_rest, _lawn_required, _lawn_preferred = _detect_lawn_rest_intent(user_request)
+    # v21: Detect night_view / city skyline scene intent
+    _is_night_view, _night_required = _detect_night_view_intent(user_request)
+    # v21: Detect open_terrace / outdoor terrace feature intent
+    _is_open_terrace, _terrace_required = _detect_open_terrace_intent(user_request)
+    # v21: Detect stress_relief / decompress activity intent
+    _is_stress_relief, _stress_mode = _detect_stress_relief_intent(user_request)
+    # v21: Detect rest_stop / short break intent
+    _is_rest_stop, _rest_required = _detect_rest_stop_intent(user_request)
+    # v20: Preference terms, crowd, privacy preferences from the request
+    _pref_terms: list[str] = []
+    if any(t in user_request for t in ["安静", "清静", "清净", "幽静"]):
+        _pref_terms.append("安静")
+    if any(t in user_request for t in ["人少", "人不多", "没人", "不拥挤"]):
+        _pref_terms.append("人少")
+    if any(t in user_request for t in ["不被打扰", "独处", "自己待", "一个人待"]):
+        _pref_terms.append("不被打扰")
+    _crowd_pref = "low" if ("人少" in _pref_terms or "不被打扰" in _pref_terms) else None
+
     # Try patterns with explicit area X
     for pat in _PROXIMITY_PATTERNS:
         m = pat.search(text)
@@ -2274,16 +3124,94 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
             _base_y, _prefs = _split_preference_from_category(y_raw)
             _effective_y = _base_y if _base_y else y_raw
             _effective_y = _normalize_primary_query(_effective_y)
+            # v20: After cleaning, if Y is empty or abstract placeholder → theme_route
+            _y_clean_final = _effective_y.strip()
+            if not _y_clean_final or _y_clean_final in _ABSTRACT_PLACEHOLDER_TERMS:
+                # v21: If rest_stop detected
+                if _is_rest_stop:
+                    return _build_rest_stop_proximity_result(
+                        search_area_label=None,
+                        required_features=_rest_required,
+                    )
+                # v21: If stress_relief detected
+                elif _is_stress_relief:
+                    return _build_stress_relief_proximity_result(
+                        search_area_label=None,
+                        stress_relief_mode=_stress_mode,
+                    )
+                # v21: If open_terrace detected
+                elif _is_open_terrace:
+                    return _build_open_terrace_proximity_result(
+                        search_area_label=None,
+                        required_features=_terrace_required,
+                    )
+                # v21: If night_view detected
+                elif _is_night_view:
+                    return _build_night_view_proximity_result(
+                        search_area_label=None,
+                        required_features=_night_required,
+                    )
+                # v21: If lawn_rest detected
+                elif _is_lawn_rest:
+                    return _build_lawn_rest_proximity_result(
+                        search_area_label=x_clean,
+                        required_features=_lawn_required,
+                        preferred_features=_lawn_preferred,
+                    )
+                # v20: If quiet retreat detected
+                elif _is_quiet_retreat or _pref_terms:
+                    return _build_quiet_retreat_proximity_result(
+                        search_area_label=x_clean,
+                        pref_terms=_pref_terms,
+                        crowd_pref=_crowd_pref,
+                    )
+                # Otherwise, the proximity target is abstract but not recognized
+                print(
+                    f"[DEBUG step1] proximity Y='{_effective_y}' is abstract placeholder "
+                    f"→ theme_route"
+                )
+                return None
+            # v21: Check if Y contains only feature terms
+            _y_lower = _y_clean_final.lower()
+            if _is_rest_stop:
+                return _build_rest_stop_proximity_result(
+                    search_area_label=None,
+                    required_features=_rest_required,
+                )
+            elif _is_stress_relief:
+                return _build_stress_relief_proximity_result(
+                    search_area_label=None,
+                    stress_relief_mode=_stress_mode,
+                )
+            elif _is_open_terrace:
+                return _build_open_terrace_proximity_result(
+                    search_area_label=None,
+                    required_features=_terrace_required,
+                )
+            elif _is_night_view:
+                return _build_night_view_proximity_result(
+                    search_area_label=None,
+                    required_features=_night_required,
+                )
+            elif _is_lawn_rest and not any(
+                t in _y_lower for t in _RESTAURANT_CATEGORY_TOKENS
+            ):
+                return _build_lawn_rest_proximity_result(
+                    search_area_label=x_clean,
+                    required_features=_lawn_required,
+                    preferred_features=_lawn_preferred,
+                )
             # v20: Restaurant detection — check if any restaurant token is in the query
             _is_rest = any(t in _effective_y for t in _RESTAURANT_CATEGORY_TOKENS)
             return {
                 "search_area_label": x_clean,
                 "primary_query": _effective_y if not _is_rest else ("餐厅" if _effective_y in ("饭店", "饭馆", "餐馆") else _effective_y),
-                "preference_terms": _prefs if _prefs else None,
+                "preference_terms": (_prefs if _prefs else None) or _pref_terms or None,
                 "proximity_requested": True,
                 "is_search_center_only": True,
                 "explicit_meal_intent": _is_rest,
                 "restaurant_category": _is_rest,
+                "crowd_preference": _crowd_pref,
             }
 
     # v20: Strip leading quantifier/functional words from captured Y
@@ -2304,16 +3232,132 @@ def _parse_proximity_modifier(user_request: str) -> dict | None:
             _base_y2, _prefs2 = _split_preference_from_category(y_clean)
             _effective_y2 = _base_y2 if _base_y2 else y_clean
             _effective_y2 = _normalize_primary_query(_effective_y2)
+            # v20: After cleaning, if Y is empty or abstract placeholder → theme_route
+            _y_clean_final2 = _effective_y2.strip()
+            if not _y_clean_final2 or _y_clean_final2 in _ABSTRACT_PLACEHOLDER_TERMS:
+                if _is_rest_stop:
+                    return _build_rest_stop_proximity_result(
+                        search_area_label=None,
+                        required_features=_rest_required,
+                    )
+                elif _is_stress_relief:
+                    return _build_stress_relief_proximity_result(
+                        search_area_label=None,
+                        stress_relief_mode=_stress_mode,
+                    )
+                elif _is_open_terrace:
+                    return _build_open_terrace_proximity_result(
+                        search_area_label=None,
+                        required_features=_terrace_required,
+                    )
+                elif _is_night_view:
+                    return _build_night_view_proximity_result(
+                        search_area_label=None,
+                        required_features=_night_required,
+                    )
+                elif _is_lawn_rest:
+                    return _build_lawn_rest_proximity_result(
+                        search_area_label=None,
+                        required_features=_lawn_required,
+                        preferred_features=_lawn_preferred,
+                    )
+                elif _is_quiet_retreat or _pref_terms:
+                    return _build_quiet_retreat_proximity_result(
+                        search_area_label=None,
+                        pref_terms=_pref_terms,
+                        crowd_pref=_crowd_pref,
+                    )
+                print(
+                    f"[DEBUG step1] proximity (no-area) Y='{_effective_y2}' is abstract placeholder "
+                    f"→ theme_route"
+                )
+                return None
+            # v21: Check for feature-only Y
+            _y_lower2 = _effective_y2.lower()
+            if _is_rest_stop:
+                return _build_rest_stop_proximity_result(
+                    search_area_label=None,
+                    required_features=_rest_required,
+                )
+            elif _is_stress_relief:
+                return _build_stress_relief_proximity_result(
+                    search_area_label=None,
+                    stress_relief_mode=_stress_mode,
+                )
+            elif _is_open_terrace:
+                return _build_open_terrace_proximity_result(
+                    search_area_label=None,
+                    required_features=_terrace_required,
+                )
+            elif _is_night_view:
+                return _build_night_view_proximity_result(
+                    search_area_label=None,
+                    required_features=_night_required,
+                )
+            elif _is_lawn_rest and not any(
+                t in _y_lower2 for t in _RESTAURANT_CATEGORY_TOKENS
+            ):
+                return _build_lawn_rest_proximity_result(
+                    search_area_label=None,
+                    required_features=_lawn_required,
+                    preferred_features=_lawn_preferred,
+                )
             _is_rest2 = any(t in _effective_y2 for t in _RESTAURANT_CATEGORY_TOKENS)
             return {
                 "search_area_label": None,
                 "primary_query": _effective_y2 if not _is_rest2 else ("餐厅" if _effective_y2 in ("饭店", "饭馆", "餐馆") else _effective_y2),
-                "preference_terms": _prefs2 if _prefs2 else None,
+                "preference_terms": (_prefs2 if _prefs2 else None) or _pref_terms or None,
                 "proximity_requested": True,
                 "is_search_center_only": False,
                 "explicit_meal_intent": _is_rest2,
                 "restaurant_category": _is_rest2,
+                "crowd_preference": _crowd_pref,
             }
+
+    # v21: Final fallback — rest_stop intent without proximity match
+    if _is_rest_stop:
+        return _build_rest_stop_proximity_result(
+            search_area_label=None,
+            required_features=_rest_required,
+        )
+
+    # v21: Final fallback — stress_relief intent without proximity match
+    if _is_stress_relief:
+        return _build_stress_relief_proximity_result(
+            search_area_label=None,
+            stress_relief_mode=_stress_mode,
+        )
+
+    # v21: Final fallback — open_terrace intent without proximity match
+    if _is_open_terrace:
+        return _build_open_terrace_proximity_result(
+            search_area_label=None,
+            required_features=_terrace_required,
+        )
+
+    # v21: Final fallback — night_view intent without proximity match
+    if _is_night_view:
+        return _build_night_view_proximity_result(
+            search_area_label=None,
+            required_features=_night_required,
+        )
+
+    # v21: Final fallback — lawn_rest intent without proximity match
+    if _is_lawn_rest:
+        return _build_lawn_rest_proximity_result(
+            search_area_label=None,
+            required_features=_lawn_required,
+            preferred_features=_lawn_preferred,
+        )
+
+    # v20: If no proximity pattern matched but quiet retreat expressions detected,
+    # still return a quiet retreat result for theme_route fallback
+    if _is_quiet_retreat or _pref_terms:
+        return _build_quiet_retreat_proximity_result(
+            search_area_label=None,
+            pref_terms=_pref_terms,
+            crowd_pref=_crowd_pref,
+        )
 
     return None
 
@@ -2406,7 +3450,7 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
         return {
             "poi_query_type": "poi_category",
             "primary_query": area_cat["primary_query"],
-            "explicit_meal_intent": False,
+            "explicit_meal_intent": area_cat.get("explicit_meal_intent", False),
             "proximity_requested": False,
             "is_search_center_only": True,
             "search_area_label": area_cat["search_area_label"],
@@ -2422,6 +3466,18 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
     # === Layer 2: Proximity modifier parsing ===
     prox = _parse_proximity_modifier(user_request)
     if prox:
+        # v20: If proximity already set poi_query_type to theme_route (quiet_retreat etc.),
+        # pass through directly with theme_route info
+        _prox_query_type = prox.get("poi_query_type", "poi_category")
+        if _prox_query_type == "theme_route":
+            print(
+                f"[DEBUG step1] proximity parsing returned theme_route: "
+                f"activity_facet={prox.get('activity_facet')} "
+                f"pref_terms={prox.get('preference_terms')} "
+                f"crowd_pref={prox.get('crowd_preference')}"
+            )
+            return prox
+
         search_area_label = prox.get("search_area_label")
         primary_query = prox.get("primary_query", "")
         # Find the best category for the target
@@ -2440,21 +3496,25 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             if best_cat_id:
                 best_cat_rule = CATEGORY_RULES.get(best_cat_id)
 
+        # v20: All fields initialized with defaults — no KeyError on missing keys
         result: dict = {
             "poi_query_type": "poi_category",
             "primary_query": primary_query,
             "explicit_meal_intent": bool(prox.get("explicit_meal_intent", False)),
             "proximity_requested": True,
             "is_search_center_only": prox.get("is_search_center_only", True),
+            "category_id": None,
+            "allowed_typecode_prefixes": [],
+            "excluded_typecode_prefixes": [],
+            "primary_required_terms": [],
+            "primary_excluded_terms": [],
             "category_label": primary_query,
+            "preference_terms": prox.get("preference_terms") or [],
+            "search_keywords_override": [],
         }
-        # v20: Carry forward preference terms from proximity parsing
-        if prox.get("preference_terms"):
-            result["preference_terms"] = prox["preference_terms"]
 
         if search_area_label:
             result["search_area_label"] = search_area_label
-            # Mark: X is a search center, NOT a destination
             result["search_center_label"] = search_area_label
 
         if best_cat_id and best_cat_rule:
@@ -2466,9 +3526,35 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
             result["category_label"] = best_cat_rule.get("label", primary_query)
             if best_cat_id == "restaurant":
                 result["explicit_meal_intent"] = True
+        # v20: Pure meal action verb → force restaurant (e.g. "吃点", "吃个")
+        if primary_query in ("吃点", "吃个", "吃顿", "喝点", "喝个", "喝杯", "来点", "来份"):
+            result["primary_query"] = "餐厅"
+            result["category_id"] = "restaurant"
+            result["explicit_meal_intent"] = True
+            result["allowed_typecode_prefixes"] = get_allowed_typecode_prefixes("restaurant")
+            result["excluded_typecode_prefixes"] = get_excluded_typecode_prefixes("restaurant")
+            result["primary_required_terms"] = get_semantic_terms("restaurant")
+            result["primary_excluded_terms"] = []
+            result["category_label"] = "餐厅"
         # v20: Also set meal intent when strong meal keywords hit (but no registered category)
         elif any(t.lower() in primary_query.lower() for t in STRONG_MEAL_TOKENS):
             result["explicit_meal_intent"] = True
+        # v20: Style-only query → fallback to restaurant if user said "吃/喝"
+        elif primary_query in _STYLE_PREFERENCE_TERMS:
+            if any(t in user_request for t in ["吃", "喝", "食", "餐", "饭"]):
+                result["primary_query"] = "餐厅"
+                result["category_id"] = "restaurant"
+                result["explicit_meal_intent"] = True
+                result["allowed_typecode_prefixes"] = get_allowed_typecode_prefixes("restaurant")
+                result["excluded_typecode_prefixes"] = get_excluded_typecode_prefixes("restaurant")
+                result["primary_required_terms"] = get_semantic_terms("restaurant")
+                result["primary_excluded_terms"] = []
+                result["preference_terms"] = list(result.get("preference_terms", []) or []) + [primary_query]
+                result["category_label"] = "餐厅"
+                print(
+                    f"[DEBUG step1] style preference '{primary_query}' + meal intent → restaurant, "
+                    f"prefs={result.get('preference_terms')}"
+                )
         else:
             # v20: If target looks like a theme/style expression (ends with 路线, or is a style word),
             # return None so it falls through to theme_route.  Don't create a broken poi_category state.
@@ -2582,7 +3668,156 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
     return None
 
 
+def _apply_lawn_rest_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "lawn_rest") -> None:
+    """Set concrete search keywords for lawn_rest / green space scenarios.
+
+    Maps abstract "lawn/grass + sitting" intent to real POI categories:
+    parks, green spaces, gardens, pocket parks.
+    Prioritizes indoor alternatives if it's raining.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v21: Filter garbage from LLM
+    GARBAGE_FEATURE_TERMS = {"草坪的地方", "有草坪的地方坐着", "地方坐着", "草地的地方"}
+    clean_llm_kw = [
+        kw for kw in parsed.search_keywords
+        if not any(g in kw for g in GARBAGE_FEATURE_TERMS)
+    ]
+
+    # v21: Check if rainy
+    is_rainy = "雨天" in parsed.other_constraints or any(
+        t in str((parsed.weather_info or {}).get("day1", {}).get("weather", "") or "") for t in ["雨", "雪"]
+    )
+
+    # v21: Build concrete category keywords
+    category_keywords = [f"{city_short} {kw}" for kw in _LAWN_REST_CATEGORY_KEYWORDS]
+
+    if is_rainy:
+        # Rain: add indoor alternatives
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["雨后草坪可能湿滑"])
+        indoor_kw = [f"{city_short} {kw}" for kw in _INDOOR_REST_ALTERNATIVES]
+        category_keywords = category_keywords + indoor_kw
+
+    # v21: Prepend concrete keywords, then cleaned LLM keywords
+    parsed.search_keywords = _append_unique(
+        category_keywords,
+        clean_llm_kw[:3],
+        limit=10,
+    )
+
+    # v21: Micro keywords for lawn/grass experiences
+    parsed.micro_keywords = _append_unique(
+        list(_LAWN_REST_MICRO_KEYWORDS),
+        clean_llm_kw[:2],
+        limit=8,
+    )
+
+    # v21: Set required features
+    _req_features = getattr(parsed, "required_features", []) or []
+    parsed.required_features = list(_req_features)
+    parsed.lawn_rest_requested = True
+
+    print(
+        f"[DEBUG lawn_rest] city={city_short} rainy={is_rainy} "
+        f"required_features={parsed.required_features} "
+        f"search_kw={parsed.search_keywords[:6]} "
+        f"micro_kw={parsed.micro_keywords[:5]}"
+    )
+
+
+def _apply_quiet_retreat_keywords(parsed: ParsedIntent, city: str, activity_facet: str = "quiet_retreat") -> None:
+    """Set concrete search keywords for quiet retreat / solitude scenarios.
+
+    Maps abstract "quiet corner" intent to real POI categories:
+    libraries, bookstores, quiet cafes, tea houses, small parks, reading spaces.
+    Prioritizes indoor spaces if it's raining; outdoor parks otherwise.
+    Replaces garbage LLM keywords (安静 角落, 静谧 空间) with real category keywords.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+
+    # v20: Check if rainy — prefer indoor spaces
+    is_rainy = "雨天" in parsed.other_constraints or any(
+        t in str((parsed.weather_info or {}).get("day1", {}).get("weather", "") or "") for t in ["雨", "雪"]
+    )
+
+    # v20: For quiet_retreat, replace LLM keywords entirely with concrete category keywords.
+    # The LLM doesn't know about quiet_retreat mapping, so its output is noise.
+    # Only keep LLM keywords that are clearly real quiet-retreat POI categories.
+    QUIET_RETREAT_VALID_TERMS = {
+        "图书馆", "书店", "书局", "咖啡馆", "茶馆", "茶室", "阅读", "自习",
+        "美术馆", "展览", "博物馆", "画廊",
+        "公园", "花园", "绿地", "步道", "滨水", "口袋",
+        "书院", "文化馆", "艺术馆",
+    }
+    GARBAGE_KEYWORD_TERMS = {"角落", "安静的", "静谧", "不被打扰", "清静", "的角"}
+    clean_llm_kw = [
+        kw for kw in parsed.search_keywords
+        if not any(g in kw for g in GARBAGE_KEYWORD_TERMS)
+        and any(v in kw for v in QUIET_RETREAT_VALID_TERMS)
+    ]
+
+    # v20: Build concrete category keywords
+    indoor_kw = [f"{city_short} {kw}" for kw in _QUIET_RETREAT_INDOOR_KEYWORDS]
+    outdoor_kw = [f"{city_short} {kw}" for kw in _QUIET_RETREAT_OUTDOOR_KEYWORDS]
+
+    if is_rainy:
+        # Rain: prioritize indoor spaces
+        category_keywords = indoor_kw + outdoor_kw
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["室内优先"])
+    else:
+        # Good weather: mix indoor and outdoor
+        category_keywords = indoor_kw[:4] + outdoor_kw[:3]
+
+    # v20: Prepend concrete category keywords, then append cleaned LLM keywords
+    parsed.search_keywords = _append_unique(
+        category_keywords,
+        clean_llm_kw[:4],
+        limit=10,
+    )
+
+    # v20: Clean micro keywords too
+    clean_llm_micro = [
+        kw for kw in (parsed.micro_keywords or [])
+        if not any(g in kw for g in GARBAGE_KEYWORD_TERMS)
+    ]
+    parsed.micro_keywords = _append_unique(
+        list(_QUIET_RETREAT_MICRO_KEYWORDS),
+        clean_llm_micro[:3],
+        limit=8,
+    )
+    # v20: Set required terms for quiet evidence
+    parsed.quiet_retreat_requested = True
+    print(
+        f"[DEBUG quiet_retreat] city={city_short} rainy={is_rainy} "
+        f"search_kw={parsed.search_keywords[:6]} "
+        f"micro_kw={parsed.micro_keywords[:5]} "
+        f"garbage_filtered={len(parsed.search_keywords) - len(category_keywords)} llm_kw_left"
+    )
+
+
 async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
+    # v21: Strip structured hints from deterministic parsers — prevent context pollution.
+    # Structured hints like <structured_hints>保持theme=夜景</structured_hints> are for LLM only.
+    _clean_user_request = re.sub(
+        r"<structured_hints>.*?</structured_hints>", "",
+        user_request, flags=re.DOTALL,
+    ).strip()
+    # v21: Also strip stray refine_current control text ("保持theme=...", "；其他不变...", etc.)
+    _clean_user_request = re.sub(
+        r"(?:；|;|,)?\s*(?:保持(?:theme|location|duration|start_time|plan_mode|其他不变)[^；;]*)+",
+        "", _clean_user_request,
+    ).strip()
+    # v21: Strip "按以下参数调整：{...}" and trailing JSON
+    _clean_user_request = re.sub(
+        r"按以下参数调整：\{[^}]+\}", "", _clean_user_request,
+    ).strip()
+    if _clean_user_request != user_request:
+        print(
+            f"[DEBUG step1] stripped structured hints from request: "
+            f"len_before={len(user_request)} len_after={len(_clean_user_request)}"
+        )
+        user_request = _clean_user_request
+
     city = await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
     parsed.resolved_city = city
@@ -2681,72 +3916,141 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     # so that keywords are focused on the target category, not expanded to unrelated ones.
     poi_cat_result = _detect_poi_category_query(_category_query_text)
     if poi_cat_result:
-        # v20: Split preference modifiers from base category (冷门景区 → 景区 + 冷门)
-        poi_cat_result = _apply_preference_modifiers(poi_cat_result)
-        parsed.poi_query_type = poi_cat_result["poi_query_type"]
-        parsed.primary_query = poi_cat_result["primary_query"]
-        parsed.explicit_meal_intent = poi_cat_result["explicit_meal_intent"]
-        parsed.allowed_typecode_prefixes = poi_cat_result["allowed_typecode_prefixes"]
-        parsed.excluded_typecode_prefixes = poi_cat_result["excluded_typecode_prefixes"]
-        parsed.primary_required_terms = poi_cat_result["primary_required_terms"]
-        parsed.primary_excluded_terms = poi_cat_result["primary_excluded_terms"]
-        parsed.container_constraint = poi_cat_result.get("container_constraint")
+        # v20: Handle theme_route result from proximity parsing (quiet_retreat etc.)
+        _result_query_type = poi_cat_result.get("poi_query_type", "poi_category")
+        if _result_query_type == "theme_route":
+            parsed.poi_query_type = "theme_route"
+            parsed.primary_query = ""
+            parsed.category_id = None
+            parsed.allowed_typecode_prefixes = []
+            parsed.excluded_typecode_prefixes = []
+            parsed.primary_required_terms = []
+            parsed.primary_excluded_terms = []
+            parsed.proximity_requested = bool(poi_cat_result.get("proximity_requested", False))
+            parsed.is_search_center_only = bool(poi_cat_result.get("is_search_center_only", False))
+            _activity_facet = poi_cat_result.get("activity_facet", "")
+            parsed.activity_facet = _activity_facet
+            # v20: Apply quiet retreat preferences and crowd constraints
+            _pref_terms = poi_cat_result.get("preference_terms") or []
+            if _pref_terms:
+                for pt in _pref_terms:
+                    if pt not in parsed.other_constraints:
+                        parsed.other_constraints = _append_unique(parsed.other_constraints, [pt])
+            _crowd_pref = poi_cat_result.get("crowd_preference") or ""
+            if _crowd_pref:
+                parsed.crowd_preference = _crowd_pref
+            _privacy_pref = poi_cat_result.get("privacy_preference") or ""
+            if _privacy_pref:
+                parsed.privacy_preference = _privacy_pref
+            # v20: Search area handling
+            search_area_label = poi_cat_result.get("search_area_label") or poi_cat_result.get("search_center_label")
+            if search_area_label:
+                parsed.search_area_label = search_area_label
+            # v21: Set required features from lawn_rest / feature-based intent
+            _req_features = poi_cat_result.get("required_features") or []
+            if _req_features:
+                parsed.required_features = list(_req_features)
+            _pref_features = poi_cat_result.get("preferred_features") or []
+            if _pref_features:
+                parsed.preferred_features = list(_pref_features)
 
-        # v20: Proximity fields
-        parsed.proximity_requested = bool(poi_cat_result.get("proximity_requested", False))
-        parsed.is_search_center_only = bool(poi_cat_result.get("is_search_center_only", False))
-        search_area_label = poi_cat_result.get("search_area_label") or poi_cat_result.get("search_center_label")
-        if search_area_label:
-            parsed.search_area_label = search_area_label
+            # v20/v21: Apply activity-specific keywords
+            if _activity_facet == "rest_stop":
+                _apply_rest_stop_keywords(parsed, city, _activity_facet)
+            elif _activity_facet == "stress_relief":
+                _sr_mode = poi_cat_result.get("stress_relief_mode", "mixed") or "mixed"
+                parsed.stress_relief_mode = _sr_mode
+                _apply_stress_relief_keywords(parsed, city, _activity_facet)
+            elif _activity_facet == "open_terrace":
+                _apply_open_terrace_keywords(parsed, city, _activity_facet)
+            elif _activity_facet == "night_view":
+                _apply_night_view_keywords(parsed, city, _activity_facet)
+            elif _activity_facet == "lawn_rest":
+                _apply_lawn_rest_keywords(parsed, city, _activity_facet)
+            elif _activity_facet == "quiet_retreat":
+                _apply_quiet_retreat_keywords(parsed, city, _activity_facet)
+            else:
+                # Fallback: use quiet_retreat for generic theme_route abstract intents
+                _apply_quiet_retreat_keywords(parsed, city, _activity_facet)
+            _is_area_cat = bool(poi_cat_result.get("search_area_label") and not poi_cat_result.get("proximity_requested"))
+            print(
+                f"[DEBUG {'area_category' if _is_area_cat else 'proximity'}] "
+                f"user_request={user_request[:60]} "
+                f"search_area_label={parsed.search_area_label} "
+                f"proximity_requested={parsed.proximity_requested} "
+                f"activity_facet={_activity_facet} "
+                f"poi_query_type={parsed.poi_query_type} "
+                f"crowd_preference={getattr(parsed, 'crowd_preference', '')} "
+                f"required_features={getattr(parsed, 'required_features', [])} "
+                f"search_keywords={parsed.search_keywords[:6]}"
+            )
+        else:
+            # v20: Split preference modifiers from base category (冷门景区 → 景区 + 冷门)
+            poi_cat_result = _apply_preference_modifiers(poi_cat_result)
+            parsed.poi_query_type = poi_cat_result["poi_query_type"]
+            parsed.primary_query = poi_cat_result["primary_query"]
+            parsed.explicit_meal_intent = poi_cat_result["explicit_meal_intent"]
+            parsed.allowed_typecode_prefixes = poi_cat_result["allowed_typecode_prefixes"]
+            parsed.excluded_typecode_prefixes = poi_cat_result["excluded_typecode_prefixes"]
+            parsed.primary_required_terms = poi_cat_result["primary_required_terms"]
+            parsed.primary_excluded_terms = poi_cat_result["primary_excluded_terms"]
+            parsed.container_constraint = poi_cat_result.get("container_constraint")
 
-        # For direct category queries, search_keywords = city tag + primary_query + synonyms
-        # Do NOT expand into fruit shops, bakeries, etc.
-        city_short = city[:-1] if city.endswith("市") else city
-        cat_id = poi_cat_result.get("category_id")
-        parsed.category_id = cat_id  # v20: persisted for downstream use
-        rule = CATEGORY_RULES.get(cat_id, {}) if cat_id else {}
-        # Use search_keywords_override if present (from area-category parsing)
-        synonyms = poi_cat_result.get("search_keywords_override", []) or (
-            rule.get("semantic_terms", [])[:4] if rule else []
-        )
-        primary_query = poi_cat_result["primary_query"]
-        container_constraint = poi_cat_result.get("container_constraint") or ""
-        focused_search = (
-            [f"{city_short} {container_constraint} {primary_query}", f"{city_short} {primary_query}"]
-            if container_constraint
-            else [f"{city_short} {primary_query}"]
-        )
-        for syn in synonyms:
-            if syn != primary_query:
-                focused_search.append(f"{city_short} {syn}")
-        # For unknown categories, add the raw query term as a keyword
-        if not cat_id and primary_query not in " ".join(focused_search):
-            focused_search.append(f"{city_short} {primary_query}")
-        parsed.search_keywords = _append_unique(
-            focused_search,
-            parsed.search_keywords[:2] if parsed.search_keywords else [],
-            limit=6,
-        )
-        # Also set micro keywords to be category-relevant
-        parsed.micro_keywords = _append_unique(
-            [f"{syn} 打卡" if city_short not in syn else syn for syn in synonyms[:3]] if synonyms else [f"{primary_query} 查询"],
-            [],
-            limit=4,
-        )
-        # v20: area_category debug log
-        _is_area_cat = bool(poi_cat_result.get("search_area_label") and not poi_cat_result.get("proximity_requested"))
-        print(
-            f"[DEBUG {'area_category' if _is_area_cat else 'proximity'}] "
-            f"user_request={user_request[:60]} "
-            f"search_area_label={parsed.search_area_label} "
-            f"proximity_requested={parsed.proximity_requested} "
-            f"primary_query={parsed.primary_query} "
-            f"poi_query_type={parsed.poi_query_type} "
-            f"category_id={cat_id} "
-            f"allowed_typecodes={parsed.allowed_typecode_prefixes[:6] if parsed.allowed_typecode_prefixes else 'none'} "
-            f"fixed_pois_before={[fp.name for fp in parsed.fixed_pois]} "
-            f"search_keywords_override={poi_cat_result.get('search_keywords_override', [])[:4]}"
-        )
+            # v20: Proximity fields
+            parsed.proximity_requested = bool(poi_cat_result.get("proximity_requested", False))
+            parsed.is_search_center_only = bool(poi_cat_result.get("is_search_center_only", False))
+            search_area_label = poi_cat_result.get("search_area_label") or poi_cat_result.get("search_center_label")
+            if search_area_label:
+                parsed.search_area_label = search_area_label
+
+            # For direct category queries, search_keywords = city tag + primary_query + synonyms
+            # Do NOT expand into fruit shops, bakeries, etc.
+            city_short = city[:-1] if city.endswith("市") else city
+            cat_id = poi_cat_result.get("category_id")
+            parsed.category_id = cat_id  # v20: persisted for downstream use
+            rule = CATEGORY_RULES.get(cat_id, {}) if cat_id else {}
+            # Use search_keywords_override if present (from area-category parsing)
+            synonyms = poi_cat_result.get("search_keywords_override", []) or (
+                rule.get("semantic_terms", [])[:4] if rule else []
+            )
+            primary_query = poi_cat_result["primary_query"]
+            container_constraint = poi_cat_result.get("container_constraint") or ""
+            focused_search = (
+                [f"{city_short} {container_constraint} {primary_query}", f"{city_short} {primary_query}"]
+                if container_constraint
+                else [f"{city_short} {primary_query}"]
+            )
+            for syn in synonyms:
+                if syn != primary_query:
+                    focused_search.append(f"{city_short} {syn}")
+            # For unknown categories, add the raw query term as a keyword
+            if not cat_id and primary_query not in " ".join(focused_search):
+                focused_search.append(f"{city_short} {primary_query}")
+            parsed.search_keywords = _append_unique(
+                focused_search,
+                parsed.search_keywords[:2] if parsed.search_keywords else [],
+                limit=6,
+            )
+            # Also set micro keywords to be category-relevant
+            parsed.micro_keywords = _append_unique(
+                [f"{syn} 打卡" if city_short not in syn else syn for syn in synonyms[:3]] if synonyms else [f"{primary_query} 查询"],
+                [],
+                limit=4,
+            )
+            # v20: area_category debug log
+            _is_area_cat = bool(poi_cat_result.get("search_area_label") and not poi_cat_result.get("proximity_requested"))
+            print(
+                f"[DEBUG {'area_category' if _is_area_cat else 'proximity'}] "
+                f"user_request={user_request[:60]} "
+                f"search_area_label={parsed.search_area_label} "
+                f"proximity_requested={parsed.proximity_requested} "
+                f"primary_query={parsed.primary_query} "
+                f"poi_query_type={parsed.poi_query_type} "
+                f"category_id={cat_id} "
+                f"allowed_typecodes={parsed.allowed_typecode_prefixes[:6] if parsed.allowed_typecode_prefixes else 'none'} "
+                f"fixed_pois_before={[fp.name for fp in parsed.fixed_pois]} "
+                f"search_keywords_override={poi_cat_result.get('search_keywords_override', [])[:4]}"
+            )
     else:
         parsed.poi_query_type = getattr(parsed, "poi_query_type", "") or ""
         # v20: Force theme_route when proximity result is a theme expression with no category
@@ -2800,22 +4104,68 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             fp for fp in parsed.fixed_pois
             if _search_area not in fp.name and fp.name not in _search_area
         ]
+        # v21: Normalize university/college short name aliases
+        _resolved_search_area = _search_area
+        if _search_area and _search_area in _UNIVERSITY_ALIAS_MAP:
+            _resolved_search_area = _UNIVERSITY_ALIAS_MAP[_search_area]
+            parsed.search_area_label = _resolved_search_area  # update label to full name
+            print(
+                f"[DEBUG alias] resolved university alias: "
+                f"'{_search_area}' → '{_resolved_search_area}'"
+            )
+
         # Geocode the search area as the search center
+        _search_loc = None
         try:
-            search_loc = await gaode_geocode(_search_area, city=city)
-            if search_loc:
-                parsed.search_area_location = search_loc
-                # v20: Capture adcode for district-level filtering
-                adcode = search_loc.get("adcode", "") or ""
-                if adcode:
-                    parsed.search_area_adcode = adcode
-                print(
-                    f"[DEBUG proximity] geocoded search_area={_search_area} "
-                    f"loc=({search_loc.get('lat','')},{search_loc.get('lng','')}) "
-                    f"adcode={adcode}"
-                )
-        except Exception:
-            pass
+            _search_loc = await gaode_geocode(_resolved_search_area, city=city)
+        except Exception as exc:
+            print(f"[WARN step1] geocode failed for '{_resolved_search_area}': {exc}")
+
+        # v21: If geocode fails, try POI text search as fallback (for universities, landmarks)
+        if not _search_loc or not _search_loc.get("lat"):
+            _poi_fallback_ok = False
+            try:
+                _poi_items = await gaode_text_search(_resolved_search_area, city=city)
+                if _poi_items and len(_poi_items) > 0:
+                    _best = _poi_items[0]
+                    _raw_loc = _best.get("location")
+                    _name = _best.get("name", _resolved_search_area)
+                    if _raw_loc:
+                        if isinstance(_raw_loc, str) and "," in _raw_loc:
+                            _parts = _raw_loc.split(",")
+                            _search_loc = {
+                                "lat": float(_parts[1]),
+                                "lng": float(_parts[0]),
+                                "label": _name,
+                            }
+                        elif isinstance(_raw_loc, dict):
+                            _search_loc = {
+                                "lat": float(_raw_loc.get("lat", 0)),
+                                "lng": float(_raw_loc.get("lng", 0)),
+                                "label": _name,
+                            }
+                    if _search_loc and _search_loc.get("lat") and _search_loc.get("lat") != 0:
+                        _poi_fallback_ok = True
+                    print(
+                        f"[DEBUG alias] geocode failed, POI search fallback: "
+                        f"'{_resolved_search_area}' → name={_name} "
+                        f"ok={_poi_fallback_ok} "
+                        f"loc=({_search_loc.get('lat','') if _search_loc else 'none'},"
+                        f"{_search_loc.get('lng','') if _search_loc else 'none'})"
+                    )
+            except Exception as exc2:
+                print(f"[WARN step1] POI search fallback also failed for '{_resolved_search_area}': {exc2}")
+
+        if _search_loc and _search_loc.get("lat") and _search_loc.get("lat") != 0:
+            parsed.search_area_location = _search_loc
+            adcode = _search_loc.get("adcode", "") or ""
+            if adcode:
+                parsed.search_area_adcode = adcode
+            print(
+                f"[DEBUG proximity] geocoded search_area={_resolved_search_area} "
+                f"loc=({_search_loc.get('lat','')},{_search_loc.get('lng','')}) "
+                f"adcode={adcode}"
+            )
         _fixed_after = [fp.name for fp in parsed.fixed_pois]
         print(
             f"[DEBUG proximity] fixed_pois_before={_fixed_before} "
@@ -2857,6 +4207,8 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         _activity_facets.append("night_view")
     if any(t in _facet_raw for t in ["展览", "看展", "博物馆", "艺术展"]):
         _activity_facets.append("exhibition")
+    if any(t in _facet_raw for t in _WATERFRONT_TERMS):
+        _activity_facets.append("waterfront_walk")
     print(
         f"[FacetIntentAudit] raw_text={user_request!r} "
         f"social_context={'unspecified' if not _has_relation_terms else 'has_relation'} "
@@ -2910,7 +4262,13 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
 
     # v20: Intent coordination — abstract social scenario themes must become theme_route
     _abstract_scenario_themes = {"relationship_group_scenarios", "social_emotional_community"}
-    if (parsed.theme_profile in _abstract_scenario_themes
+    # v21: Vibe/atmosphere themes — abstract, feature-based, NOT poi_category
+    _vibe_atmosphere_themes = {
+        "market_local_life",
+        "local_character",
+    }
+    _all_abstract_themes = _abstract_scenario_themes | _vibe_atmosphere_themes
+    if (parsed.theme_profile in _all_abstract_themes
             and parsed.poi_query_type == "poi_category"
             and not getattr(parsed, "category_id", None)):
         old_type = parsed.poi_query_type
@@ -2918,13 +4276,16 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.poi_query_type = "theme_route"
         parsed.primary_query = ""
         parsed.category_id = None
+        if parsed.theme_profile == "market_local_life":
+            parsed.activity_facet = "local_life"
+            parsed.local_life_requested = True
         print(
             f"[ThemeRoutingAudit] raw_text={user_request!r} "
             f"resolved_profile={parsed.theme_profile} "
             f"old_poi_query_type={old_type} "
             f"new_poi_query_type=theme_route "
             f"primary_query_cleared={old_pq!r} "
-            f"reason=abstract_scenario_not_poi_category"
+            f"reason={'vibe_atmosphere_not_poi_category' if parsed.theme_profile in _vibe_atmosphere_themes else 'abstract_scenario_not_poi_category'}"
         )
 
     if decision.profile_id:
@@ -2946,6 +4307,13 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
                 limit=18,
             )
             macro_terms = profile.get("macro_search_terms", []) or []
+            # v21: For vibe/atmosphere themes, clean garbage abstract keywords first
+            if decision.profile_id in _vibe_atmosphere_themes:
+                _vibe_garbage = {"有烟火气", "烟火气", "市井气", "本地生活路线", "有烟火气的地方"}
+                parsed.search_keywords = [
+                    kw for kw in parsed.search_keywords
+                    if not any(g in kw for g in _vibe_garbage)
+                ]
             parsed.search_keywords = _append_unique(
                 parsed.search_keywords,
                 list(macro_terms),

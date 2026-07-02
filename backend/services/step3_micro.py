@@ -660,6 +660,15 @@ async def _decompose_anchors(
                 degradation_level=level,
                 degradation_hint=hint,
                 original_anchor_index=idx,
+                gaode_poi_id=anchor.gaode_poi_id,
+                typecode=anchor.typecode,
+                address=anchor.address,
+                rating=anchor.gaode_rating,
+                avg_cost=anchor.avg_cost,
+                photo_url=anchor.photo_url,
+                photo_source=anchor.photo_source,
+                enrichment_text=anchor.enrichment_text,
+                recall_source=anchor.recall_source,
             )
             sub_anchors.append(sub)
             continue
@@ -1683,9 +1692,22 @@ def _fill_segment(
 
     poi_query_type = str(getattr(parsed_intent, "poi_query_type", "") or "") if parsed_intent else ""
     is_direct_primary_target = poi_query_type in {"poi_category", "named_poi"}
+    _raw_required_features = getattr(parsed_intent, "required_features", []) if parsed_intent else []
+    is_feature_primary_target = bool(
+        parsed_intent
+        and (
+            getattr(parsed_intent, "lawn_rest_requested", False) is True
+            or (
+                isinstance(_raw_required_features, (list, tuple, set))
+                and bool(_raw_required_features)
+            )
+        )
+    )
 
     def _primary_anchor_point() -> dict[str, Any]:
         """Keep the Step2 target itself executable even when internals are sparse."""
+        recall_source = getattr(sub, "recall_source", "") or ""
+        is_verified_local_life = recall_source == "local_life_fallback"
         return {
             "day": day_index,
             "name": sub.name,
@@ -1700,6 +1722,13 @@ def _fill_segment(
             "avg_cost": getattr(sub, "avg_cost", None),
             "photo_url": getattr(sub, "photo_url", "") or "",
             "photo_source": getattr(sub, "photo_source", "") or "",
+            "enrichment_text": getattr(sub, "enrichment_text", "") or "",
+            "recall_source": recall_source,
+            "theme_evidence_accepted": is_verified_local_life,
+            "theme_evidence_terms": ["local_life"] if is_verified_local_life else [],
+            # AMap sometimes labels an entire night-market/street as 050100.
+            # Keep that area anchor distinct from a meal waypoint.
+            "local_life_area": is_verified_local_life,
             "travel_before": 0,
             "sub_anchor_name": sub.name,
             "parent_name": getattr(sub, "parent_name", "") or "",
@@ -1710,23 +1739,49 @@ def _fill_segment(
             "is_display_poi": True,
         }
 
-    # For direct category/named-POI lookup, the selected Step2 anchor is the
-    # destination. Nearby internals may be useful as later alternatives, but
-    # they must not become route waypoints that dilute or replace the target.
-    if is_direct_primary_target:
+    # For a direct lookup or feature-based nearby request, the Step2 anchor is
+    # already the selected destination. In particular, a feature anchor must
+    # remain a visible waypoint when Step3 cannot find child POIs; converting
+    # it to free_explore makes the frontend hide the only valid result.
+    if is_direct_primary_target or is_feature_primary_target:
         if used_names is not None:
             used_names.add(sub.name)
-        return [_primary_anchor_point()]
+        point = _primary_anchor_point()
+        if is_feature_primary_target:
+            point["feature_anchor_fallback"] = segment.get("degradation") == "free"
+            point["fallback_reason"] = "feature_anchor_preserved_as_visible_waypoint"
+            point["recommend_reason"] = (
+                segment.get("hint", "")
+                or "符合你想停下来休息的环境条件。"
+            )
+        return [point]
 
     if segment.get("degradation") == "free":
         intent_theme_id = str(getattr(parsed_intent, "theme_profile", "") or "") if parsed_intent else ""
         is_themed = bool(intent_theme_id or getattr(parsed_intent, "theme_label", None)) if parsed_intent else False
+        is_local_life_theme = bool(
+            parsed_intent
+            and (
+                intent_theme_id == "market_local_life"
+                or str(getattr(parsed_intent, "activity_facet", "") or "") == "local_life"
+                or getattr(parsed_intent, "local_life_requested", False) is True
+            )
+        )
         is_full_or_half = (
             str(getattr(parsed_intent, "duration", "") or "").lower() in {
                 "a full day", "full_day", "half day", "half_day",
             }
             or float(getattr(parsed_intent, "time_budget", 0) or 0) >= 0.5
         ) if parsed_intent else False
+
+        if is_local_life_theme and (sub.location or start_location):
+            if used_names is not None:
+                used_names.add(sub.name)
+            point = _primary_anchor_point()
+            point["theme_anchor_fallback"] = True
+            point["fallback_reason"] = "local_life_anchor_preserved_as_visible_waypoint"
+            point["recommend_reason"] = "从真实市场、老街或社区生活场景里感受附近的烟火气。"
+            return [point]
 
         if is_themed and is_full_or_half and (sub.location or start_location):
             # v18: 优先从 sub.internal_pois 取真实 POI，避免每半日只有一个 anchor
@@ -5663,11 +5718,32 @@ async def run_step3(
     _primary_query = getattr(parsed_intent, "primary_query", "") or ""
     _time_budget = float(getattr(parsed_intent, "time_budget", 1.0) or 1.0)
 
-    _reality_log = plan_reality_audit_log(_reality, _primary_query)
+    # v21: Feature-based request fields for audit log
+    _required_features = list(getattr(parsed_intent, "required_features", []) or [])
+    _feature_evidence = getattr(_reality, "feature_evidence", {}) or {}
+
+    _reality_log = plan_reality_audit_log(
+        _reality, _primary_query,
+        required_features=_required_features if _required_features else None,
+        feature_evidence=_feature_evidence if _feature_evidence else None,
+    )
     print(f"[DEBUG step3] {_reality_log}")
 
     if not _reality.valid:
         print(f"[WARN step3] Plan reality check failed: {_reality.violations}")
+
+        # v21: Check if feature-based request
+        _raw_feature_requirements = getattr(parsed_intent, "required_features", [])
+        _is_feature_based = bool(
+            getattr(parsed_intent, "lawn_rest_requested", False) is True
+            or (
+                isinstance(_raw_feature_requirements, (list, tuple, set))
+                and bool(_raw_feature_requirements)
+            )
+        )
+        _has_feature_violations_only = all(
+            v.startswith("required_feature_not_found:") for v in _reality.violations
+        )
 
         # v20: Full-day theme routes with critical violations must block output
         _is_full_day_theme = (
@@ -5680,8 +5756,14 @@ async def run_step3(
             or "full_day_theme_needs_3_related" in _reality.violations
         )
 
+        # v21: Feature-based requests — soft warning, don't hard block
+        if _is_feature_based and _has_feature_violations_only:
+            print(
+                f"[WARN step3] Feature-based request with missing features, "
+                f"proceeding: {_reality.violations}"
+            )
         # For poi_category/named_poi: hard block on critical violations
-        if _poi_qtype in ("poi_category", "named_poi") and _critical_violations:
+        elif _poi_qtype in ("poi_category", "named_poi") and _critical_violations:
             raise ZeroOutputError(
                 f"路线验证失败：{'; '.join(_reality.violations)}。"
                 f"请调整搜索条件后重试。"
@@ -5689,7 +5771,7 @@ async def run_step3(
 
         # v20: Supplement recall now happens BEFORE segment generation (see above).
         # If reality still fails here despite pre-sgement supplement, surface a clear error.
-        if _is_full_day_theme and _critical_violations:
+        elif _is_full_day_theme and _critical_violations:
             raise ZeroOutputError(
                 f"当前条件下可组成完整亲子一日路线的地点较少。"
                 f"可以尝试扩大出行范围，或指定动物园、科技馆等主要目的地。"

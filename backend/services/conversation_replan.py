@@ -148,6 +148,15 @@ def classify_conversation_route_change_fast(
                 reason=f"explicit point edit: {ops}",
             )
 
+    # v21: Feature/facility change without explicit edit → need full re-parse
+    if _has_field_edits(text) and has_route:
+        return ConversationRouteDecision(
+            mode="refine_current", confidence=0.78,
+            latest_user_intent_summary=text,
+            earliest_step="step1",
+            reason="feature/facility change detected, need full re-parse",
+        )
+
     if has_continuation:
         return ConversationRouteDecision(
             mode="refine_current", confidence=0.75,
@@ -177,6 +186,15 @@ def _clean_name(text: str) -> str:
 def _has_field_edits(text: str) -> bool:
     field_words = ("预算", "人均", "交通", "打车", "公交", "地铁", "步行", "骑行",
                     "上午", "下午", "晚上", "出发", "时间", "改成", "换成")
+    # v21: Feature/facility changes require full re-parse and re-search
+    feature_add_words = (
+        "有露台", "露台", "开放露台", "户外露台", "rooftop", "terrace",
+        "有草坪", "草坪", "草地", "能坐", "可以坐", "能躺着",
+        "能看夜景", "夜景", "看城市", "观景台",
+        "安静", "不被打扰", "独处", "个人待",
+    )
+    if any(w in text for w in feature_add_words):
+        return True
     return any(w in text for w in field_words)
 
 
@@ -258,20 +276,42 @@ target_plan_mode 定义：
 # ── plan_mode text heuristic ──
 
 def _detect_plan_mode_from_text(text: str) -> str:
-    """Simple heuristic for first-message plan_mode detection (no LLM needed)."""
-    planned_signals = [
-        "先", "再", "然后", "接着", "顺便", "最后",
-        "上午", "下午", "晚上", "中午",
-        "下班", "回家路上", "顺路", "通勤",
-        "买点", "理个", "去个", "坐一会儿",
+    """v20: Distinguish scheduled exploration from closed task chains.
+
+    Time words (上午/下午/晚上) are scheduling signals, NOT planned-mode proof.
+    Only hard task chains (买东西→理发→回家) force planned mode.
+    """
+    # Signals that indicate open-ended exploration (always → exploratory)
+    exploration_signals = [
+        "逛逛", "逛街", "逛", "随便逛", "走走", "溜达", "散步",
+        "游览", "看看", "看", "玩", "拍照", "打卡", "citywalk",
     ]
-    exploratory_signals = [
-        "随便逛逛", "逛逛", "走走", "溜达",
-        "文艺", "路线", "周末出游", "出去玩",
+    # Hard task-chain verbs → planned
+    task_chain_signals = [
+        "买", "取", "送", "办事", "理发", "回家", "下班",
+        "顺路", "接人", "通勤",
     ]
-    planned_score = sum(1 for s in planned_signals if s in text)
-    exploratory_score = sum(1 for s in exploratory_signals if s in text)
-    return "planned" if planned_score > exploratory_score else "exploratory"
+    # Strict sequence connectors (only relevant when paired with task verbs)
+    sequence_signals = ["先", "再", "然后", "接着", "最后"]
+
+    has_exploration = any(s in text for s in exploration_signals)
+    has_tasks = any(s in text for s in task_chain_signals)
+
+    # Rule 1: exploration always wins over pure scheduling
+    if has_exploration:
+        return "exploratory"
+    # Rule 2: task verbs or strong sequence chain → planned
+    if has_tasks:
+        seq_count = sum(1 for s in sequence_signals if s in text)
+        task_count = sum(1 for s in task_chain_signals if s in text)
+        if task_count + seq_count >= 2:
+            return "planned"
+    # Rule 2b: pure "先X再Y最后Z" with no exploration → planned
+    seq_count = sum(1 for s in sequence_signals if s in text)
+    if seq_count >= 2 and not has_exploration:
+        return "planned"
+    # Rule 3: default to exploratory (safest — won't skip Step2)
+    return "exploratory"
 
 
 # ── fast fallback for planning dispatch ──

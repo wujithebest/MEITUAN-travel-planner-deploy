@@ -7,11 +7,12 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.data_schema import SubAnchor
+from services.data_schema import SubAnchor, UserProfile
 from services import api_client
 from services.plan_reality_validator import validate_plan_reality
-from services.step1_intent import _parse_area_category_modifier
+from services.step1_intent import _detect_lawn_rest_intent, _parse_area_category_modifier
 from services.step3_micro import _fill_segment
+from services.step2_macro import _fallback_local_life_places
 
 
 def _mall_intent() -> SimpleNamespace:
@@ -102,6 +103,175 @@ def test_normal_direct_category_keeps_anchor_before_internals() -> None:
     assert points[0]["primary_target"] is True
     assert points[0]["is_display_poi"] is True
     assert validate_plan_reality(intent, points).primary_waypoint_count >= 1
+
+
+def test_lawn_rest_free_anchor_stays_visible() -> None:
+    intent = SimpleNamespace(
+        poi_query_type="theme_route",
+        primary_query="",
+        primary_required_terms=[],
+        primary_excluded_terms=[],
+        allowed_typecode_prefixes=[],
+        excluded_typecode_prefixes=[],
+        explicit_meal_intent=False,
+        time_budget=0.25,
+        duration="a quarter day",
+        lawn_rest_requested=True,
+        required_features=["lawn"],
+        preferred_features=["sittable"],
+    )
+    sub = SubAnchor(
+        parent_name="阳光活动草坪",
+        name="阳光活动草坪",
+        location={"lat": 39.992, "lng": 116.327},
+        time_budget_min=120,
+        capacity="quarter_day",
+        internal_pois=[],
+        degradation_level="free",
+    )
+
+    points = _fill_segment(
+        {
+            "sub_anchor": sub,
+            "degradation": "free",
+            "hint": "周边细分地点较少，可在草坪区域自由休息",
+        },
+        meal_poi_name=None,
+        start_location={"lat": 39.981, "lng": 116.344},
+        time_budget_min=120,
+        day_index=1,
+        parsed_intent=intent,
+    )
+
+    assert len(points) == 1
+    assert points[0]["name"] == "阳光活动草坪"
+    assert points[0]["kind"] == "anchor_internal"
+    assert points[0]["is_display_poi"] is True
+    assert points[0]["is_waypoint"] is True
+    assert points[0]["feature_anchor_fallback"] is True
+    assert validate_plan_reality(intent, points).valid
+
+
+def test_lawn_sitting_treats_seating_as_preference() -> None:
+    matched, required, preferred = _detect_lawn_rest_intent("附近找个有草坪的地方坐着")
+
+    assert matched is True
+    assert required == ["lawn"]
+    assert preferred == ["sittable"]
+
+
+def test_explicit_bench_remains_a_hard_requirement() -> None:
+    matched, required, preferred = _detect_lawn_rest_intent("附近找个有草坪和长椅的地方休息")
+
+    assert matched is True
+    assert required == ["lawn", "sittable"]
+    assert preferred == []
+
+
+def test_quarter_day_local_life_free_anchor_stays_visible() -> None:
+    intent = SimpleNamespace(
+        poi_query_type="theme_route",
+        primary_query="",
+        primary_required_terms=[],
+        primary_excluded_terms=[],
+        allowed_typecode_prefixes=[],
+        excluded_typecode_prefixes=[],
+        explicit_meal_intent=False,
+        time_budget=0.25,
+        duration="a quarter day",
+        theme_profile="market_local_life",
+        theme_label="市集赶集 / 菜市场烟火气 / 社区生活",
+        activity_facet="local_life",
+        local_life_requested=True,
+        required_features=[],
+        raw_keywords=["烟火气"],
+        search_keywords=["北京 菜市场", "北京 老街"],
+        micro_keywords=["早餐摊", "熟食铺", "菜市场"],
+        micro_poi_keywords=["早餐摊", "熟食铺", "菜市场"],
+        theme_keywords=[],
+    )
+    sub = SubAnchor(
+        parent_name="太平洋夜市一条街",
+        name="太平洋夜市一条街",
+        location={"lat": 31.281, "lng": 121.506},
+        time_budget_min=120,
+        capacity="quarter_day",
+        internal_pois=[],
+        degradation_level="free",
+        typecode="050100",
+        enrichment_text="本地生活街区/市场",
+        recall_source="local_life_fallback",
+    )
+
+    points = _fill_segment(
+        {
+            "sub_anchor": sub,
+            "degradation": "free",
+            "hint": "到达该区域后适合自由探索，无需固定路线",
+        },
+        meal_poi_name=None,
+        start_location={"lat": 31.2809, "lng": 121.5011},
+        time_budget_min=120,
+        day_index=1,
+        parsed_intent=intent,
+    )
+
+    assert len(points) == 1
+    assert points[0]["name"] == "太平洋夜市一条街"
+    assert points[0]["kind"] == "anchor_internal"
+    assert points[0]["is_display_poi"] is True
+    assert points[0]["is_waypoint"] is True
+    assert points[0]["theme_anchor_fallback"] is True
+    assert points[0]["enrichment_text"] == "本地生活街区/市场"
+    assert validate_plan_reality(intent, points).valid
+
+
+def test_local_life_fallback_rejects_restaurant_brand_match(monkeypatch) -> None:
+    radii: list[int] = []
+
+    async def fake_around_search(**kwargs):
+        radii.append(kwargs["radius"])
+        return [
+            {
+                "id": "restaurant-1",
+                "name": "乐园夜市场(五道口店)",
+                "typecode": "050203",
+                "location": {"lat": 39.9918, "lng": 116.3368},
+                "address": "五道口酒吧街",
+            },
+            {
+                "id": "market-1",
+                "name": "五道口集贸市场",
+                "typecode": "060200",
+                "location": {"lat": 39.9920, "lng": 116.3370},
+                "address": "成府路",
+            },
+        ]
+
+    monkeypatch.setattr(
+        "services.step2_macro.gaode_around_search",
+        fake_around_search,
+    )
+    intent = SimpleNamespace(
+        original_location={"lat": 39.996548, "lng": 116.3328},
+        search_area_location=None,
+    )
+    profile = UserProfile(
+        nickname="测试用户",
+        gender="男",
+        age=30,
+        activity_pref_tag=[],
+        food_pref_tag=[],
+        permanent_city=["北京市"],
+        permanent_city_coord={"lat": 39.996548, "lng": 116.3328},
+        home_location={"lat": 39.996548, "lng": 116.3328},
+        budget_per_capita=100,
+    )
+
+    places = asyncio.run(_fallback_local_life_places(intent, profile))
+
+    assert [place.name for place in places] == ["五道口集贸市场"]
+    assert 3000 in radii
 
 
 def test_theme_waypoints_are_visible_before_step4_display_order() -> None:
