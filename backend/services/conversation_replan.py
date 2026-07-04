@@ -17,7 +17,7 @@ class PointOperation(BaseModel):
 
 
 class ConversationRouteDecision(BaseModel):
-    mode: Literal["new_plan", "refine_current", "point_edit", "answer_only", "unsupported"] = "new_plan"
+    mode: Literal["new_plan", "refine_current", "point_edit", "answer_only", "unsupported", "follow_up"] = "new_plan"
     confidence: float = 0.0
     latest_user_intent_summary: str = ""
     changed_fields: list[dict[str, Any]] = Field(default_factory=list)
@@ -31,7 +31,7 @@ class ConversationRouteDecision(BaseModel):
 
 class PlanningDispatchDecision(BaseModel):
     """v18: 统一调度决策 — LLM 一次性判断 conversation_mode + target_plan_mode"""
-    conversation_mode: Literal["new_plan", "refine_current", "point_edit", "answer_only", "unsupported"] = "new_plan"
+    conversation_mode: Literal["new_plan", "refine_current", "point_edit", "answer_only", "unsupported", "follow_up"] = "new_plan"
     target_plan_mode: Literal["exploratory", "planned"] = "exploratory"
     previous_plan_mode: str | None = None
     mode_changed: bool = False
@@ -89,11 +89,62 @@ def classify_conversation_route_change_fast(
             reason="no route context available",
         )
 
+    # v21: Resolve "附近" context: previous_destination vs standalone
+    _nearby_ref = _resolve_nearby_reference(text, route_context) if has_route else None
+    print(f"[DEBUG nearby_ref] result={_nearby_ref.get('source') if _nearby_ref else 'None'} label={_nearby_ref.get('label') if _nearby_ref else ''}")
+    if _nearby_ref and _nearby_ref.get("source") == "previous_destination":
+        # Contextual nearby: "附近" refers to previous destination → follow_up
+        return ConversationRouteDecision(
+            mode="follow_up", confidence=_nearby_ref.get("confidence", 0.90),
+            latest_user_intent_summary=text,
+            earliest_step="step1",
+            reason=f"contextual nearby lookup at previous_destination={_nearby_ref.get('label')}",
+            include_constraints={"contextual_search_center": _nearby_ref},
+        )
+
+    # v21: Standalone nearby requests WITHOUT route continuation → new_plan
+    # "想在附近买点伴手礼" / "附近找个卫生间" — NO temporal/spatial continuity
+    if _is_standalone_nearby(text) and has_route:
+        return ConversationRouteDecision(
+            mode="new_plan", confidence=0.88,
+            latest_user_intent_summary=text,
+            earliest_step="step1",
+            reason="standalone nearby request, not route continuation",
+        )
+
+    # v21: Resolve point references before edit detection
+    _resolved_ref = _resolve_point_references(text, route_context)
+    _resolved_text = text
+    if _resolved_ref:
+        _resolved_text = text.replace(
+            re.search(r"(第二个|换一个|不要这个|那里|那个)", text).group(1), _resolved_ref
+        ) if re.search(r"(第二个|换一个|不要这个|那里|那个)", text) else text
+        print(f"[DEBUG point_ref] resolved: '{text[:60]}' → target='{_resolved_ref}'")
+
+    # Detect continuation: must have explicit route-referencing words
+    _has_continuation = any(t in text for t in [
+        "加到当前路线", "加到路线", "路上顺便", "再增加",
+        "在刚才路线", "上个路线", "当前路线", "刚才路线", "沿.*路线",
+        "把.*删", "把.*换", "把.*替", "替换", "删除",
+    ])
+    if re.search(r"(?:加到|路上|沿途|删|换|替|刚才|当前)", text):
+        _has_continuation = True
+
+    _has_shopping_new = any(t in text for t in ["伴手礼", "特产", "文创", "礼物", "纪念品",
+                                                  "买点", "买个", "带回去"])
+    _has_nearby = any(t in text for t in ["附近", "周边", "离我近", "就近"])
+    if _has_nearby and _has_shopping_new and has_route and not _has_continuation:
+        return ConversationRouteDecision(
+            mode="new_plan", confidence=0.88,
+            latest_user_intent_summary=text,
+            earliest_step="step1",
+            reason="standalone nearby shopping request, not route continuation",
+        )
+
     # Clear date + planning intent without continuation → new plan
     has_date = any(t in text for t in _CLEAR_NEW_PLAN_TOKENS)
-    has_continuation = any(t in text for t in _CONTINUATION_TOKENS)
     has_edit_word = any(w in text for w in _EXPLICIT_REPLACE_TOKENS + _EXPLICIT_REMOVE_TOKENS + _EXPLICIT_ADD_TOKENS)
-    if has_date and not has_continuation and not has_edit_word:
+    if has_date and not _has_continuation and not has_edit_word:
         return ConversationRouteDecision(
             mode="new_plan", confidence=0.85,
             latest_user_intent_summary=text,
@@ -128,7 +179,7 @@ def classify_conversation_route_change_fast(
                 if new_name:
                     ops.append({"action": "add", "new_name": new_name})
 
-    if ops and has_continuation:
+    if ops and _has_continuation:
         return ConversationRouteDecision(
             mode="point_edit", confidence=0.88,
             latest_user_intent_summary=text,
@@ -157,7 +208,7 @@ def classify_conversation_route_change_fast(
             reason="feature/facility change detected, need full re-parse",
         )
 
-    if has_continuation:
+    if _has_continuation:
         return ConversationRouteDecision(
             mode="refine_current", confidence=0.75,
             latest_user_intent_summary=text,
@@ -183,9 +234,172 @@ def _clean_name(text: str) -> str:
     return text
 
 
+# v21: Point reference resolution — resolve "第二个", "那里", "换一个", etc.
+def _resolve_point_references(
+    text: str,
+    route_context: dict[str, Any] | None,
+    last_recommendation: str = "",
+) -> str | None:
+    """Resolve positional/situational references to actual POI names.
+    Returns the resolved POI name, or None if no reference detected.
+    """
+    if not route_context or not route_context.get("points"):
+        return None
+    points = route_context.get("points", [])
+    point_names = [p.get("name", "") for p in points if p.get("name")]
+    if not point_names:
+        return None
+
+    # "第二个" → display_order=2
+    m = re.search(r"第([一二三四五六七八九\d]+)个", text)
+    if m:
+        ord_num = m.group(1)
+        ord_map = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+        idx = ord_map.get(ord_num, int(ord_num) if ord_num.isdigit() else 0) - 1
+        if 0 <= idx < len(points):
+            return points[idx].get("name", "")
+        return None
+
+    # "换一个" / "不要这个" → last_recommendation
+    if any(w in text for w in ["换一个", "不要这个", "这个不要", "换一家"]):
+        if last_recommendation:
+            return last_recommendation
+
+    # "那里" / "那个" → previous turn explicit location
+    if any(w in text for w in ["那里", "那个地方", "那儿"]):
+        prev_intent = route_context.get("previous_intent") or {}
+        prev_target = (prev_intent.get("primary_query") or
+                       prev_intent.get("resolved_destination_name") or "")
+        if prev_target:
+            return prev_target
+
+    return None
+
+
+# v21: Detect standalone nearby requests that should NOT inherit route
+def _is_standalone_nearby(text: str) -> bool:
+    """Return True if this is a standalone nearby request, not a route continuation."""
+    _has_nearby = any(t in text for t in ["附近", "周边", "离我近", "就近"])
+    _has_continuation = any(t in text for t in [
+        "加到当前路线", "加到路线", "路上顺便", "沿途", "再增加",
+        "替换", "在刚才路线", "上个路线", "当前路线", "刚才路线",
+        "把.*删", "把.*换", "把.*替",
+    ])
+    return _has_nearby and not _has_continuation
+
+
+# v21: Resolve "附近" reference in multi-turn context
+def _resolve_nearby_reference(
+    current_text: str,
+    route_context: dict[str, Any] | None,
+) -> dict | None:
+    """Resolve '附近' to previous_destination when temporal/spatial continuity exists.
+
+    Returns contextual search center dict or None if no continuity.
+    """
+    if not route_context or not route_context.get("points"):
+        return None
+
+    # Must contain "附近" without explicit location
+    _has_nearby = any(t in current_text for t in ["附近", "周边", "离我近", "就近", "周围"])
+    if not _has_nearby:
+        return None
+
+    # v21: Expand "那附近/那里/那边" as explicit contextual reference
+    _has_demonstrative = any(t in current_text for t in [
+        "那附近", "那里附近", "那边", "那儿附近",
+        "刚才那附近", "刚才那里", "上一个地方附近",
+        "刚才推荐的地方附近", "那家店旁边",
+    ])
+    if _has_demonstrative:
+        # Direct contextual reference — boost confidence
+        pass  # continue to resolve previous destination
+
+    # Must NOT contain explicit new location (unless demonstrative)
+    if not _has_demonstrative:
+        _has_explicit_loc = any(t in current_text for t in [
+            "我现在在", "我在", "我附近", "当前位置",
+            "这附近", "这边",
+        ])
+        if _has_explicit_loc:
+            return None
+
+    # Must NOT be new topic with different temporal scope
+    _new_temporal = any(t in current_text for t in [
+        "下周", "下个月", "周末", "后天", "另一天",
+    ])
+
+    # Check temporal continuity: both turns have same temporal marker
+    prev_intent = route_context.get("previous_intent") or {}
+    prev_req = (route_context.get("previous_user_messages") or [])[-1] if route_context.get("previous_user_messages") else ""
+    if not prev_req:
+        prev_req = str(prev_intent.get("raw_keywords", "") or "")
+
+    _same_temporal = False
+    _temporal_markers = ["明天", "今天", "后天", "周末"]
+    for tm in _temporal_markers:
+        if tm in current_text and tm in prev_req:
+            _same_temporal = True
+            break
+
+    # If no temporal markers in either, also consider it continuous
+    _no_temporal_in_either = not any(tm in current_text for tm in _temporal_markers) and \
+                              not any(tm in prev_req for tm in _temporal_markers)
+
+    if _new_temporal:
+        return None
+    # v21: Demonstrative references ("那附近") skip temporal check — explicit context ref
+    if not _has_demonstrative and not (_same_temporal or _no_temporal_in_either):
+        return None  # different temporal context → standalone
+
+    # Find previous destination or search area
+    _dest = (prev_intent.get("search_area_label") or
+             prev_intent.get("resolved_destination_name") or
+             prev_intent.get("destination") or "")
+    _dest_loc = (prev_intent.get("search_area_location") or
+                 prev_intent.get("original_location") or {})
+
+    if not _dest or not _dest_loc or not _dest_loc.get("lat"):
+        # Try to find destination from route points
+        _points = route_context.get("points", [])
+        for pt in _points:
+            if pt.get("kind") == "destination" or pt.get("role") == "destination":
+                _candidate_dest = pt.get("name", "")
+                _candidate_loc = pt.get("location", {})
+                if _candidate_loc and _candidate_loc.get("lat"):
+                    _dest = _candidate_dest
+                    _dest_loc = _candidate_loc
+                    break
+        if not _dest_loc or not _dest_loc.get("lat"):
+            # Last non-start POI with valid location
+            for pt in reversed(_points):
+                _candidate_loc2 = pt.get("location", {})
+                if pt.get("kind") not in ("start",) and pt.get("name") and _candidate_loc2.get("lat"):
+                    _dest = pt.get("name", "")
+                    _dest_loc = _candidate_loc2
+                    break
+
+    if not _dest or not _dest_loc or not _dest_loc.get("lat"):
+        print(f"[DEBUG nearby_ref] no valid destination: dest={_dest} loc={_dest_loc}")
+        return None
+
+    print(f"[DEBUG nearby_ref] resolved: source=previous_destination label={_dest} same_temporal={_same_temporal}")
+    return {
+        "source": "previous_destination",
+        "label": _dest,
+        "location": _dest_loc,
+        "confidence": 0.92 if _same_temporal else 0.75,
+        "reason": f"temporal continuity ({'same markers' if _same_temporal else 'no markers'}), previous destination={_dest}",
+    }
+
+
 def _has_field_edits(text: str) -> bool:
     field_words = ("预算", "人均", "交通", "打车", "公交", "地铁", "步行", "骑行",
                     "上午", "下午", "晚上", "出发", "时间", "改成", "换成")
+    # v21: Restroom/toilet utility — never answer_only, always utility lookup
+    _restroom_kws = ("厕所", "卫生间", "洗手间", "公厕", "上厕所", "WC", "wc", "如厕")
+    if any(kw in text for kw in _restroom_kws):
+        return True
     # v21: Feature/facility changes require full re-parse and re-search
     feature_add_words = (
         "有露台", "露台", "开放露台", "户外露台", "rooftop", "terrace",

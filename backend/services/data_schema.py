@@ -257,6 +257,20 @@ class PlannedWaypoint(BaseModel):
     search_center_name: Optional[str] = None  # e.g. "首都医科大学" for "首都医科大学旁边的饭馆"
     search_center_location: Optional[dict] = None  # geocoded location of search_center_name
     time_slot: Optional[str] = None  # morning/afternoon/evening/lunch/dinner
+    # v21: Corridor task fields
+    placement: str = ""               # "before_destination" | "after_destination" | ""
+    corridor_search: bool = False     # True if this task needs corridor search
+    role: str = ""                    # "destination" | "corridor_task" | ""
+
+
+# v21: Structured multi-turn conversation context
+class ConversationContext(BaseModel):
+    """Pass structured conversation history to LLM without polluting NL text."""
+    current_user_request: str = ""
+    recent_turns: list[dict] = Field(default_factory=list)  # last N conversation turns
+    current_route: dict = Field(default_factory=dict)        # compact route snapshot
+    previous_intent: dict = Field(default_factory=dict)      # last ParsedIntent key fields
+    structured_params: dict = Field(default_factory=dict)    # include_constraints, intent_patch
 
 
 class PlanSegment(BaseModel):
@@ -430,6 +444,14 @@ class ParsedIntent(BaseModel):
     stress_relief_requested: bool = False                        # Set True when stress_relief activity_facet is active
     stress_relief_mode: str = ""                                 # "quiet" | "active" | "creative" | "mixed"
     rest_stop_requested: bool = False                            # Set True when rest_stop activity_facet is active
+    corridor_requested: bool = False                             # Set True when corridor task detected
+    destination_alias: str = ""                                  # Raw user destination name (e.g., "北航")
+    resolved_destination_name: str = ""                          # Resolved destination (e.g., "北京航空航天大学")
+    utility_lookup_requested: bool = False                       # Set True when restroom utility lookup
+    souvenir_requested: bool = False                             # Set True when souvenir/gift shopping
+    rain_shelter_requested: bool = False                         # Set True when rain_shelter activity_facet
+    area_scope_required: bool = False                            # Set True for area_route district tours
+    heat_shelter_requested: bool = False                         # Set True when heat_shelter activity_facet
 
     # ── Step2输出 ──
 

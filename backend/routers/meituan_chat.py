@@ -197,7 +197,7 @@ from services.step1_intent import run_step1
 from services.step2_macro import run_step2
 from services.step3_micro import run_step3
 from services.step4_output import run_step4
-from services.api_client import gaode_text_search
+from services.api_client import gaode_text_search, gaode_around_search_batch
 from services.pipeline_replan_service import apply_pipeline_replan
 from services.conversation_replan import (
     classify_conversation_route_change,
@@ -539,25 +539,40 @@ async def _run_pipeline_stream(
             plan_mode_for_step1 = "auto"
             step1_request = user_request  # v18: 默认原样传入，refine_current 分支可覆写
             if route_context and route_context.points:
-                try:
-                    dispatch_decision = await classify_planning_dispatch(user_request, conv_ctx)
-                    if dispatch_decision is not None:
-                        plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
-                        print(
-                            f"[DEBUG dispatch] classifier=llm "
-                            f"conversation_mode={dispatch_decision.conversation_mode} "
-                            f"target_plan_mode={dispatch_decision.target_plan_mode} "
-                            f"previous_plan_mode={dispatch_decision.previous_plan_mode} "
-                            f"mode_changed={dispatch_decision.mode_changed} "
-                            f"confidence={dispatch_decision.confidence} "
-                            f"earliest_step={dispatch_decision.earliest_step} "
-                            f"reason={dispatch_decision.reason}"
-                        )
-                except Exception as exc:
-                    print(f"[WARNING dispatch] llm classifier failed, fallback=fast: {exc}")
+                # v21: Run fast classifier FIRST for clear-cut cases.
+                # Only fall back to LLM when fast returns None (ambiguous).
+                fast_decision = classify_conversation_route_change_fast(user_request, conv_ctx)
+                if fast_decision is not None and fast_decision.mode != "refine_current":
+                    # Fast classifier has a clear signal → use it directly
                     dispatch_decision = _planning_dispatch_fast_fallback(user_request, conv_ctx, None)
                     if dispatch_decision is not None:
                         plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
+                    print(
+                        f"[DEBUG dispatch] classifier=fast "
+                        f"conversation_mode={fast_decision.mode} "
+                        f"confidence={fast_decision.confidence} "
+                        f"reason={fast_decision.reason}"
+                    )
+                else:
+                    try:
+                        dispatch_decision = await classify_planning_dispatch(user_request, conv_ctx)
+                        if dispatch_decision is not None:
+                            plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
+                            print(
+                                f"[DEBUG dispatch] classifier=llm "
+                                f"conversation_mode={dispatch_decision.conversation_mode} "
+                                f"target_plan_mode={dispatch_decision.target_plan_mode} "
+                                f"previous_plan_mode={dispatch_decision.previous_plan_mode} "
+                                f"mode_changed={dispatch_decision.mode_changed} "
+                                f"confidence={dispatch_decision.confidence} "
+                                f"earliest_step={dispatch_decision.earliest_step} "
+                                f"reason={dispatch_decision.reason}"
+                            )
+                    except Exception as exc:
+                        print(f"[WARNING dispatch] llm classifier failed, fallback=fast: {exc}")
+                        dispatch_decision = _planning_dispatch_fast_fallback(user_request, conv_ctx, None)
+                        if dispatch_decision is not None:
+                            plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
             else:
                 # No route context: first message, just detect plan_mode from text
                 target_pm = _detect_plan_mode_from_text(user_request)
@@ -583,31 +598,22 @@ async def _run_pipeline_stream(
                     edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
                     if edited:
                         return
-                elif dispatch_decision.conversation_mode == "refine_current":
-                    print(f"[DEBUG dispatch] decision: refine_current → enriching request with old context")
-                    # v21: Keep structural params separate — do NOT pollute NL parser input.
-                    # Structured JSON params are applied post-step1 on parsed_intent.
-                    effective_request = user_request
-                    _structured_params: dict[str, Any] = {}
-                    if dispatch_decision.include_constraints:
-                        for k, v in dispatch_decision.include_constraints.items():
-                            if v and str(v).strip():
-                                _structured_params[k] = v
-                    if dispatch_decision.intent_patch:
-                        _structured_params["intent_patch"] = dispatch_decision.intent_patch
-                    # v21: Only append structural info AFTER a clear separator for LLM context
-                    # but strip them before deterministic parsing
-                    if _structured_params:
-                        _hint = "；".join(
-                            f"保持{k}={v}" for k, v in _structured_params.items()
-                            if k != "intent_patch"
+                elif dispatch_decision.conversation_mode == "follow_up":
+                    # v21: follow_up — contextual nearby lookup at previous destination
+                    _ctx_center = (dispatch_decision.include_constraints or {}).get("contextual_search_center", {})
+                    if _ctx_center:
+                        user_profile._contextual_search_center = _ctx_center
+                        print(
+                            f"[DEBUG dispatch] decision: follow_up → contextual nearby "
+                            f"label={_ctx_center.get('label')} "
+                            f"source={_ctx_center.get('source')} "
+                            f"confidence={_ctx_center.get('confidence')}"
                         )
-                        if "intent_patch" in _structured_params:
-                            patch_str = json.dumps(_structured_params["intent_patch"], ensure_ascii=False)
-                            _hint += f"；其他不变，按以下参数调整：{patch_str}" if _hint else f"其他不变，按以下参数调整：{patch_str}"
-                        effective_request = f"{user_request}\n<structured_hints>\n{_hint}\n</structured_hints>"
-                    step1_request = effective_request
-                    print(f"[DEBUG dispatch] refined effective_request={effective_request[:120]}")
+                    step1_request = user_request
+                elif dispatch_decision.conversation_mode == "refine_current":
+                    print(f"[DEBUG dispatch] decision: refine_current — using clean user text only")
+                    step1_request = user_request
+                    print(f"[DEBUG dispatch] clean step1_request={user_request[:80]}")
                 elif dispatch_decision.conversation_mode == "answer_only":
                     print(f"[DEBUG dispatch] decision: answer_only — answering without replan")
                     await push_output(f"[ROUTE_PLANNER]: {dispatch_decision.reason or '这个问题不需要重新规划路线。'}")
@@ -638,33 +644,61 @@ async def _run_pipeline_stream(
             if _has_expansion:
                 parsed_intent.plan_mode = "exploratory"
 
-            # v6 planned fast path: 精准规划模式跳过 step2 宏观搜索，直接走 planned 专用短链路
-            is_planned_mode = (
-                getattr(parsed_intent, 'plan_mode', 'exploratory') == 'planned'
-                and getattr(parsed_intent, 'planned_waypoints', [])
-            )
-            if is_planned_mode:
-                print(f"[DEBUG meituan_chat] 进入精准规划快速通道，跳过 Step2 宏观搜索")
-                await emit_status("正在为您精准规划路线...")
-                # 调用 planned 专用快速流水线
-                micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
-                    await _run_planned_pipeline_fast(parsed_intent, user_profile, complete_plan, logger_obj)
-            else:
-                # ── 自由探索模式：完整 step2 + step3 ──
-                await emit_status("正在查询天气...")
-                await emit_status("正在查询目的地信息...")
-                complete_plan = await run_step2(
-                    parsed_intent, user_profile, logger_obj
+            # v21: Utility lookup fast path — restroom/toilet nearby search
+            _is_utility = getattr(parsed_intent, 'utility_lookup_requested', False)
+            if _is_utility and getattr(parsed_intent, 'category_id', '') == 'restroom':
+                print(f"[DEBUG meituan_chat] 进入实用设施快速通道 (restroom)")
+                await emit_status("正在搜索附近公共厕所...")
+                micro_pois, route_segments, map_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
+                    await _run_utility_nearby_fast(parsed_intent, user_profile, complete_plan, logger_obj)
+                # Build route_data and emit complete directly (skip step3/step4 for utility)
+                _city = (user_profile.permanent_city[0] if user_profile.permanent_city else "")
+                route_data = {
+                    "points": route_points,
+                    "segments": route_segments,
+                    "hints": {}, "waypoint_annotations": waypoint_annotations,
+                    "route_id": "", "candidate_points": candidate_points,
+                    "plan_mode": "utility", "total_days": 1,
+                    "display_granularity": "short",
+                }
+                await push_output("[ROUTE_PLANNER]: 已完成附近公共厕所查询")
+                await emit_done(
+                    map_paths=[],
+                    full_plan={"summary": f"附近公共厕所查询", "city": _city, "duration": ""},
+                    route_data=route_data,
                 )
+                return
+            else:
+                # v6 planned fast path: 精准规划模式跳过 step2 宏观搜索，直接走 planned 专用短链路
+                # v21: corridor_requested also forces planned fast path
+                _pm = getattr(parsed_intent, 'plan_mode', 'exploratory')
+                _pws = getattr(parsed_intent, 'planned_waypoints', [])
+                _is_corr = getattr(parsed_intent, 'corridor_requested', False)
+                is_planned_mode = (_pm == 'planned' or _is_corr) and bool(_pws)
+                print(f"[DEBUG dispatch] plan_mode_check plan_mode={_pm} pws={len(_pws)} is_planned={is_planned_mode} corridor={_is_corr}")
+                if is_planned_mode:
+                    print(f"[DEBUG meituan_chat] 进入精准规划快速通道，跳过 Step2 宏观搜索")
+                    await emit_status("正在为您精准规划路线...")
+                    # 调用 planned 专用快速流水线
+                    micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
+                        await _run_planned_pipeline_fast(parsed_intent, user_profile, complete_plan, logger_obj)
+                else:
+                    # ── 自由探索模式：完整 step2 + step3 ──
+                    await emit_status("正在查询天气...")
+                    await emit_status("正在查询目的地信息...")
+                    complete_plan = await run_step2(
+                        parsed_intent, user_profile, logger_obj
+                    )
 
-                await emit_status("正在搜索周边好去处...")
-                await emit_status("正在补充目的地详情...")
-                result = await run_step3(parsed_intent, complete_plan, logger_obj)
-                # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
-                micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
+                    await emit_status("正在搜索周边好去处...")
+                    await emit_status("正在补充目的地详情...")
+                    result = await run_step3(parsed_intent, complete_plan, logger_obj)
+                    # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
+                    micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
 
             # v20: Generate per-POI recommendation reasons via DeepSeek (all plan modes)
-            if route_points:
+            # v21: Skip for utility lookups — no reason generation needed
+            if route_points and not getattr(parsed_intent, 'utility_lookup_requested', False):
                 try:
                     from services.reason_generator import generate_exploratory_reasons
                     _city = getattr(parsed_intent, "resolved_city", "") or \
@@ -755,6 +789,197 @@ async def _run_pipeline_stream(
         await asyncio.gather(collector_task, return_exceptions=True)
 
 
+async def _run_utility_nearby_fast(
+    parsed_intent,
+    user_profile,
+    complete_plan,
+    logger_obj,
+) -> tuple[list, list, str, dict, dict, list, list, object]:
+    """v21: Utility nearby fast path — restroom/toilet lookup.
+
+    Skips tourist route planning entirely. Does progressive radius Amap around search.
+    """
+    from services.api_client import gaode_around_search_batch, gaode_walking_route
+    from services.utils import coord_to_param, haversine_km, emit_status
+
+    # Determine search center — priority: explicit_area > contextual_center > device > home
+    _search_area_loc = getattr(parsed_intent, "search_area_location", None)
+    _ctx_center = getattr(user_profile, "_contextual_search_center", None) or {}
+    _device_loc = getattr(user_profile, "current_device_location", None)
+    _home_loc = getattr(user_profile, "home_location", None)
+    if _search_area_loc and _search_area_loc.get("lat"):
+        _origin = _search_area_loc
+        _loc_source = "explicit_search_area"
+    elif _ctx_center.get("location", {}).get("lat"):
+        _origin = _ctx_center["location"]
+        _loc_source = f"contextual_search_center:{_ctx_center.get('label','')}"
+    elif _device_loc and _device_loc.get("lat"):
+        _origin = _device_loc
+        _loc_source = "current_device"
+    elif _home_loc and _home_loc.get("lat"):
+        _origin = _home_loc
+        _loc_source = "home_location"
+    else:
+        _origin = parsed_intent.original_location if parsed_intent.original_location else None
+        _loc_source = "fallback"
+    if not _origin or not _origin.get("lat"):
+        raise ZeroOutputError("无法获取您的位置，请开启定位后重试。")
+    print(f"[DEBUG utility] location_source={_loc_source} loc=({_origin.get('lat','')},{_origin.get('lng','')})")
+
+    city = (user_profile.permanent_city[0] if user_profile.permanent_city else "")
+
+    # Progressive radius search
+    _radii = [300, 500, 1000, 2000]
+    _restroom_kws = ["公共厕所", "公厕", "卫生间", "洗手间"]
+    _allowed_tc = ["200300", "200301", "200302"]
+    EXCLUDE_TERMS = ["施工", "暂停", "关闭", "内部", "员工", "住客", "小区", "办公"]
+
+    found_raws = []
+    for radius in _radii:
+        if found_raws:
+            break
+        for kw in _restroom_kws:
+            if len(found_raws) >= 5:
+                break
+            try:
+                _req = {"location": coord_to_param(_origin), "keywords": kw,
+                        "radius": radius, "offset": 20}
+                _batch = await gaode_around_search_batch([_req])
+                _raws = _batch[0] if _batch else []
+                for r in _raws:
+                    _name = str(r.get("name", ""))
+                    _tc = str(r.get("typecode", "") or "")
+                    if not any(_tc.startswith(tc) for tc in _allowed_tc):
+                        continue
+                    if any(t in _name for t in EXCLUDE_TERMS):
+                        continue
+                    # Dedupe by name
+                    if _name in {str(fr.get("name","")) for fr in found_raws}:
+                        continue
+                    found_raws.append(r)
+                print(f"[DEBUG utility] radius={radius}m kw={kw} raw={len(_raws)} tc_pass={len(found_raws)}")
+            except Exception as exc:
+                print(f"[WARN utility] search failed r={radius}m kw={kw}: {exc}")
+
+    if not found_raws:
+        raise ZeroOutputError(
+            "附近2公里内暂未找到可核实为公开可用的卫生间。"
+            "可以尝试前往最近的商场、公园游客中心或地铁站服务台询问。"
+        )
+
+    # Build route points
+    route_points = []
+    start_pt = {
+        "poi_id": f"start:{_origin.get('lng')},{_origin.get('lat')}",
+        "gaode_poi_id": "",
+        "name": "当前位置" if _loc_source == "current_device" else (_origin.get("label", "出发地") or "出发地"),
+        "location": {"lat": _origin["lat"], "lng": _origin["lng"]},
+        "kind": "start", "day": 1, "typecode": "", "category": "",
+        "address": "", "rating": None, "gaode_rating": None, "avg_cost": None,
+        "photo_url": "", "photo_source": "", "parent_anchor": "", "sub_anchor_name": "",
+        "recommend_reason": "", "is_waypoint": True, "is_passthrough": False,
+        "walk_from_route_min": 0, "route_annotation": "",
+        "route_order": 1, "display_order": 0, "display_slot": "short_trip",
+        "is_display_poi": True, "display_label": "起点",
+    }
+    route_points.append(start_pt)
+
+    candidate_points = []
+    best = found_raws[0]
+    best_loc_raw = best.get("location")
+    best_loc = None
+    if isinstance(best_loc_raw, str) and "," in best_loc_raw:
+        p = best_loc_raw.split(",")
+        best_loc = {"lat": float(p[1]), "lng": float(p[0])}
+    elif isinstance(best_loc_raw, dict):
+        best_loc = {"lat": float(best_loc_raw.get("lat", 0)), "lng": float(best_loc_raw.get("lng", 0))}
+
+    _dist_km = haversine_km(_origin, best_loc) if best_loc else 0
+    _walk_min = round(_dist_km * 15, 1)  # ~4km/h walking
+
+    main_pt = {
+        "poi_id": best.get("id", "") or best.get("uid", "") or str(best.get("name", "")),
+        "gaode_poi_id": best.get("id", "") or best.get("uid", ""),
+        "name": best.get("name", "公共厕所"),
+        "location": best_loc or _origin,
+        "kind": "utility", "day": 1,
+        "typecode": best.get("typecode", "200300"),
+        "category": "restroom",
+        "address": best.get("address", ""),
+        "rating": best.get("rating"),
+        "gaode_rating": best.get("rating"),
+        "avg_cost": None,
+        "photo_url": "", "photo_source": "",
+        "parent_anchor": "", "sub_anchor_name": "",
+        "recommend_reason": f"步行约{_walk_min:.0f}分钟，公共卫生间",
+        "is_waypoint": True, "is_passthrough": False,
+        "walk_from_route_min": 0, "route_annotation": "",
+        "route_order": 2, "display_order": 1, "display_slot": "short_trip",
+        "is_display_poi": True, "display_label": "",
+        "temporary_utility_route": True,
+    }
+    route_points.append(main_pt)
+
+    # Candidates
+    for i, r in enumerate(found_raws[1:5]):
+        rl = r.get("location")
+        rloc = None
+        if isinstance(rl, str) and "," in rl:
+            pp = rl.split(",")
+            rloc = {"lat": float(pp[1]), "lng": float(pp[0])}
+        elif isinstance(rl, dict):
+            rloc = {"lat": float(rl.get("lat", 0)), "lng": float(rl.get("lng", 0))}
+        candidate_points.append({
+            "name": r.get("name", ""), "location": rloc,
+            "kind": "candidate", "candidate_source": "utility_nearby",
+            "poi_id": r.get("id", ""), "gaode_poi_id": r.get("id", ""),
+            "typecode": r.get("typecode", ""), "category": "restroom",
+            "address": r.get("address", ""), "rating": r.get("rating"),
+            "day": 1, "theme_score": 0.0,
+        })
+
+    # Build walking route
+    route_segments = []
+    try:
+        _walk = await gaode_walking_route(coord_to_param(_origin), coord_to_param(best_loc))
+        route_segments.append({
+            "from_poi": start_pt["name"], "to_poi": best.get("name", ""),
+            "day_index": 1, "transport": "步行",
+            "duration_min": _walk.get("duration_min", _walk_min),
+            "distance_km": _walk.get("distance_km", _dist_km),
+            "polyline": _walk.get("polyline", []),
+            "period": "short_trip", "color": "#2980B9", "is_dashed": False,
+            "segment_order": 1, "from_order": 1, "to_order": 2,
+            "from_display_order": 0, "to_display_order": 1,
+            "degraded": False, "polyline_source": "", "route_error": "",
+            "transport_options": [],
+        })
+    except Exception as exc:
+        print(f"[WARN utility] walking route failed: {exc}")
+        route_segments.append({
+            "from_poi": start_pt["name"], "to_poi": best.get("name", ""),
+            "day_index": 1, "transport": "步行",
+            "duration_min": _walk_min, "distance_km": _dist_km,
+            "polyline": [], "period": "short_trip", "color": "#2980B9", "is_dashed": False,
+            "segment_order": 1, "from_order": 1, "to_order": 2,
+            "from_display_order": 0, "to_display_order": 1,
+            "degraded": True, "polyline_source": "route_api_failed", "route_error": "real_route_unavailable",
+            "transport_options": [],
+        })
+
+    # Build minimal complete_plan
+    if not complete_plan:
+        from services.data_schema import CompletePlan, DayPlan
+        complete_plan = CompletePlan(
+            time_budget=0.0, fixed_budget=0.0, remaining_budget=0.0,
+            day_plans=[DayPlan(day_index=1, anchors=[], meal_slots=[])],
+            city=city, transport="步行",
+        )
+
+    print(f"[DEBUG utility] done: main={best.get('name','')} dist={_dist_km:.1f}km walk={_walk_min:.0f}min candidates={len(candidate_points)}")
+    return [], route_segments, "", {}, {}, route_points, candidate_points, complete_plan
+
+
 async def _run_planned_pipeline_fast(
     parsed_intent,
     user_profile,
@@ -821,15 +1046,155 @@ async def _run_planned_pipeline_fast(
     _search_area_loc = getattr(parsed_intent, "search_area_location", None)
     _search_area_label = getattr(parsed_intent, "search_area_label", "") or ""
 
-    resolved_wps, candidate_map = await resolve_planned_waypoints_with_candidates(
-        waypoints,
-        start_location,
-        city,
-        home_location=home_loc if home_loc.get('lat') else None,
-        budget_threshold=planned_budget_threshold,
-        search_area_location=_search_area_loc,
-        search_area_label=_search_area_label,
-    )
+    _is_corridor = bool(getattr(parsed_intent, "corridor_requested", False))
+    if _is_corridor:
+        # v21: Corridor task — resolve destination first, then corridor search
+        import re as _re
+        from services.api_client import gaode_text_search, gaode_driving_route
+        from services.utils import coord_to_param
+        _dest_wp = None
+        _task_wp = None
+        for wp in waypoints:
+            if getattr(wp, "role", "") == "destination" or wp.category == "destination":
+                _dest_wp = wp
+            elif getattr(wp, "corridor_search", False) or getattr(wp, "placement", "") == "before_destination":
+                _task_wp = wp
+        if not _dest_wp or not _task_wp:
+            _dest_wp = waypoints[-1] if len(waypoints) >= 2 else waypoints[0]
+            _task_wp = waypoints[0] if len(waypoints) >= 2 else None
+
+        # Resolve destination
+        _dest_name = getattr(_dest_wp, "name", "") or getattr(_dest_wp, "search_keyword", "") or ""
+        _dest_loc = None
+        try:
+            _dest_pois = await gaode_text_search(_dest_name, city=city)
+            if _dest_pois:
+                _best = _dest_pois[0]
+                _raw_loc = _best.get("location")
+                if isinstance(_raw_loc, str) and "," in _raw_loc:
+                    _p = _raw_loc.split(",")
+                    _dest_loc = {"lat": float(_p[1]), "lng": float(_p[0]), "label": _best.get("name", _dest_name)}
+                elif isinstance(_raw_loc, dict):
+                    _dest_loc = {"lat": float(_raw_loc.get("lat", 0)), "lng": float(_raw_loc.get("lng", 0)), "label": _best.get("name", _dest_name)}
+            if _dest_loc and _dest_loc.get("lat"):
+                _dest_wp.resolved_location = _dest_loc
+                _dest_wp.resolved_name = _dest_loc.get("label", _dest_name)
+                print(f"[DEBUG corridor] destination resolved: {_dest_name} → {_dest_wp.resolved_name} loc=({_dest_loc['lat']},{_dest_loc['lng']})")
+        except Exception as exc:
+            print(f"[WARN corridor] destination resolution failed for '{_dest_name}': {exc}")
+
+        # Resolve corridor task via around-search near the route polyline
+        _task_kw = getattr(_task_wp, "search_keyword", "") or ""
+        _task_cat = getattr(_task_wp, "category", "") or ""
+        _task_req_terms = getattr(_task_wp, "required_terms", []) or []
+        _task_excl_terms = getattr(_task_wp, "excluded_terms", []) or []
+        _is_meal_task = (_task_cat == "meal")
+        _task_loc = None
+        _task_name = ""
+        if _dest_loc and _task_kw:
+            try:
+                # Get base route to find corridor search points
+                _base_route = await gaode_driving_route(
+                    coord_to_param(start_location), coord_to_param(_dest_loc)
+                )
+                _steps = _base_route.get("steps", []) or []
+                _mid_idx = len(_steps) // 2 if _steps else 0
+                _mid_pt = _steps[_mid_idx].get("location", start_location) if _steps else start_location
+                _search_pts = [_steps[len(_steps)//3].get("location", start_location) if len(_steps) >= 3 else start_location,
+                              _mid_pt,
+                              _steps[2*len(_steps)//3].get("location", _dest_loc) if len(_steps) >= 3 else _dest_loc]
+                _corridor_widths = [300, 600, 1000]
+                # v21: Additional widths + destination-area fallback for meal tasks
+                if _is_meal_task:
+                    _corridor_widths = [300, 600, 1000, 1500]
+                _found_task = None
+                for _width in _corridor_widths:
+                    if _found_task:
+                        break
+                    for _pt in _search_pts:
+                        if _found_task:
+                            break
+                        try:
+                            _req = {"location": coord_to_param(_pt), "keywords": _task_kw,
+                                    "radius": _width, "show_fields": "business,photos", "offset": 15}
+                            _batch = await gaode_around_search_batch([_req])
+                            _raws = _batch[0] if _batch else []
+                            for _r in _raws:
+                                _name = str(_r.get("name", ""))
+                                _tc = str(_r.get("typecode", "") or "")
+                                if _task_excl_terms and any(t in _name for t in _task_excl_terms):
+                                    continue
+                                if _task_req_terms and not any(t in _name for t in _task_req_terms):
+                                    continue
+                                # v21: For meal tasks, only accept 05xxxx (food), not 06xxxx (retail)
+                                if _is_meal_task:
+                                    if not _tc.startswith("05"):
+                                        continue
+                                else:
+                                    if not (_tc.startswith("06") or _tc.startswith("05")):
+                                        continue
+                                _rl = _r.get("location")
+                                if isinstance(_rl, str) and "," in _rl:
+                                    _pp = _rl.split(",")
+                                    _task_loc = {"lat": float(_pp[1]), "lng": float(_pp[0])}
+                                elif isinstance(_rl, dict):
+                                    _task_loc = {"lat": float(_rl.get("lat", 0)), "lng": float(_rl.get("lng", 0))}
+                                _task_name = _name
+                                _found_task = _r
+                                break
+                        except Exception as exc:
+                            print(f"[WARN corridor] task search failed w={_width}m: {exc}")
+                # v21: Destination-area fallback for meal tasks (1500m around dest)
+                if not _found_task and _is_meal_task:
+                    try:
+                        _req = {"location": coord_to_param(_dest_loc), "keywords": _task_kw,
+                                "radius": 1500, "show_fields": "business,photos", "offset": 15}
+                        _batch = await gaode_around_search_batch([_req])
+                        for _r in (_batch[0] if _batch else []):
+                            _name = str(_r.get("name", ""))
+                            _tc = str(_r.get("typecode", "") or "")
+                            if _task_excl_terms and any(t in _name for t in _task_excl_terms):
+                                continue
+                            if not _tc.startswith("05"):
+                                continue
+                            _rl = _r.get("location")
+                            if isinstance(_rl, str) and "," in _rl:
+                                _pp = _rl.split(",")
+                                _task_loc = {"lat": float(_pp[1]), "lng": float(_pp[0])}
+                            elif isinstance(_rl, dict):
+                                _task_loc = {"lat": float(_rl.get("lat", 0)), "lng": float(_rl.get("lng", 0))}
+                            _task_name = _name
+                            _found_task = _r
+                            break
+                    except Exception as exc:
+                        print(f"[WARN corridor] dest-area meal fallback failed: {exc}")
+                if _task_loc and _task_loc.get("lat"):
+                    _task_wp.resolved_location = _task_loc
+                    _task_wp.resolved_name = _task_name
+                    _task_wp.resolved_poi = _found_task
+                    print(f"[DEBUG corridor] task resolved: {_task_kw} → {_task_name} loc=({_task_loc['lat']},{_task_loc['lng']})")
+            except Exception as exc:
+                print(f"[WARN corridor] route/task resolution failed: {exc}")
+
+        # Build resolved waypoints list
+        resolved_wps = []
+        candidate_map = {}
+        for wp in waypoints:
+            if getattr(wp, "resolved_location", None):
+                resolved_wps.append(wp)
+            elif getattr(wp, "type", "") == "placeholder" and (_is_meal_task or getattr(wp, "corridor_search", False)):
+                # v21: Don't silently drop required corridor placeholder — error out
+                print(f"[WARN corridor] REQUIRED placeholder '{getattr(wp, 'search_keyword', wp.name or '')}' NOT resolved!")
+    else:
+        resolved_wps, candidate_map = await resolve_planned_waypoints_with_candidates(
+            waypoints,
+            start_location,
+            city,
+            home_location=home_loc if home_loc.get('lat') else None,
+            budget_threshold=planned_budget_threshold,
+            search_area_location=_search_area_loc,
+            search_area_label=_search_area_label,
+        )
     resolved_count = sum(1 for wp in resolved_wps if wp.resolved_location)
     print(f"[DEBUG planned_fast] budget_threshold={planned_budget_threshold} request_budget={getattr(parsed_intent, 'budget_per_capita', None)}")
     print(f"[DEBUG planned_fast] resolved_wps={[(wp.resolved_name or wp.search_keyword, wp.category) for wp in resolved_wps]} num_candidates={sum(len(v) for v in candidate_map.values())}")

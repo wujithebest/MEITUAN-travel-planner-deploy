@@ -96,6 +96,8 @@ def is_valid_route_poi(
     # v20: Theme profile for conditional blacklist bypass (e.g. health_wellness → 按摩/SPA/瑜伽)
     theme_id: str | None = None,
     theme_allowed_name_terms: list[str] | None = None,
+    # v21: Utility lookup bypass — restroom/toilet etc., skip tourist route filtering
+    explicit_utility_intent: bool = False,
 ) -> bool:
     """v20: POI 是否允许进入游览路线。
 
@@ -116,6 +118,22 @@ def is_valid_route_poi(
     # v5.2 r3: 用户明确指定的POI绕过所有过滤（planned意图）
     if bypass_filter:
         return True
+
+    # v21: Utility lookup bypass — restroom requests skip tourist route filtering
+    if explicit_utility_intent and category_id == "restroom":
+        # Allow any 2003xx typecode through for restroom lookups
+        from .poi_typecodes import matches_typecode
+        if matches_typecode(tc, ["200300", "200301", "200302"]):
+            return True
+
+    # v21: Souvenir shopping bypass — allow 06xxxx for souvenir theme_route
+    if (poi_query_type == "theme_route"
+            and tc.startswith("06")
+            and name and any(t in name for t in [
+                "伴手礼", "特产", "礼品", "文创", "茶叶", "糕点",
+                "老字号", "手信", "纪念品", "食品店", "稻香村", "茶",
+            ])):
+        return True  # Souvenir-related shopping is valid for theme_route
 
     # v20: Check if this POI is an explicit user target (e.g., hospital query)
     # If so, validate via category rules and skip the generic blacklist

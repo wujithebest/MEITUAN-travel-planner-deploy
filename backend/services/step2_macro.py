@@ -70,6 +70,7 @@ def _is_valid_route_poi_ctx(typecode: str, name: str, parsed_intent, **extra) ->
         explicit_meal_intent=bool(getattr(parsed_intent, "explicit_meal_intent", False)),
         theme_id=_theme_id,
         theme_allowed_name_terms=_theme_terms,
+        explicit_utility_intent=bool(getattr(parsed_intent, "utility_lookup_requested", False)),
         **extra,
     )
 from .utils import ExternalAPIError, PipelineLogger, ZeroOutputError, capacity_budget, coord_to_param, emit_status, haversine_km
@@ -1375,6 +1376,35 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
                 if _ltc not in allowed_types:
                     allowed_types.append(_ltc)
             print(f"[DEBUG macro search] local_life typecodes added: {_local_tc}")
+        # v21: Souvenir shopping — expand typecodes for gift/specialty stores
+        if getattr(parsed_intent, "souvenir_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "souvenir_shopping":
+            _souv_tc = [
+                "060000", "060100", "060400", "060900", "061000", "061100",
+                "061200",  # 综合市场 / 特产
+            ]
+            for _stc in _souv_tc:
+                if _stc not in allowed_types:
+                    allowed_types.append(_stc)
+            print(f"[DEBUG macro search] souvenir typecodes added: {_souv_tc}")
+        # v21: Rain shelter — expand typecodes for indoor public spaces
+        if getattr(parsed_intent, "rain_shelter_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "rain_shelter":
+            _rain_tc = [
+                "060100",  # 购物中心/商场
+                "050400",  # 咖啡馆
+                "050900",  # 茶馆
+                "061205",  # 书店
+                "140100",  # 博物馆
+                "140200",  # 展览馆
+                "140300",  # 文化宫
+                "140500",  # 图书馆
+                "080600",  # 美术馆
+                "050300",  # 快餐
+                "060200",  # 便利店
+            ]
+            for _rtc in _rain_tc:
+                if _rtc not in allowed_types:
+                    allowed_types.append(_rtc)
+            print(f"[DEBUG macro search] rain_shelter typecodes added: {_rain_tc}")
         # v21: Rest stop — expand typecodes for cafes, tea houses, bookstores, parks
         if getattr(parsed_intent, "rest_stop_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "rest_stop":
             _rest_tc = [

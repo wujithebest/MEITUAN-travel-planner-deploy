@@ -506,6 +506,54 @@ _UNIVERSITY_ALIAS_MAP: dict[str, str] = {
     "北舞": "北京舞蹈学院",
 }
 
+# v21: Heat shelter — "避暑/纳凉/凉快/有空调" expressions
+_HEAT_SHELTER_EXPRESSIONS: frozenset[str] = frozenset({
+    "避暑", "纳凉", "凉快", "凉快点", "有空调", "太热",
+    "找个凉快", "阴凉", "晒", "暴晒", "热得",
+})
+
+_HEAT_SHELTER_KEYWORDS = [
+    "商场", "购物中心", "咖啡馆", "茶馆",
+    "图书馆", "室内书店", "电影院", "博物馆",
+    "美术馆", "文化馆", "室内展馆",
+]
+
+# v21: Area route — district-level tour pattern: "X区一日游", "X区半日游"
+_AREA_TOUR_RE = re.compile(
+    r"([一-龥A-Za-z]{2,8}(?:区|新区|县|镇|街道|商圈))"
+    r"\s*(?:一日游|半日游|玩一天|逛一天|一天游)"
+)
+
+# v21: Noise prefix to strip before area matching
+_AREA_TOUR_NOISE_RE = re.compile(
+    r"^(?:我|我们|想|想去|去|在|推荐|求推荐|求|帮|请|"
+    r"明天|今天|后天|周末|上午|下午|晚上|"
+    r"有没有|哪里有|求介绍|介绍下|"
+    r"帮我|给我|替我|"
+    r"看看|逛逛|玩|找一个|找个)+"
+)
+
+# v21: Rain shelter / indoor refuge expressions
+_RAIN_SHELTER_EXPRESSIONS: frozenset[str] = frozenset({
+    "找个地方避雨", "避雨", "躲雨", "找个室内地方",
+    "下雨", "有雨", "雨天", "要下雨",
+    "找个地方躲", "找个地方待一会",
+})
+
+_RAIN_SHELTER_KEYWORDS = [
+    "商场", "购物中心", "咖啡馆", "茶馆",
+    "图书馆", "室内书店", "博物馆", "美术馆",
+    "文化馆", "室内展馆",
+]
+
+# v21: Souvenir / gift shopping expressions
+_SOUVENIR_EXPRESSIONS: frozenset[str] = frozenset({
+    "伴手礼", "手信", "礼物带", "当地特产",
+    "特产", "买点礼物", "北京特产", "文创店",
+    "买纪念品", "纪念品", "地方特色", "带回去",
+    "买点伴手礼", "伴手礼店",
+})
+
 # v21: Rest stop / short break activity expressions
 _REST_STOP_EXPRESSIONS: frozenset[str] = frozenset({
     "歇脚", "找地方坐一会", "走累了休息", "走累了歇一会",
@@ -514,6 +562,48 @@ _REST_STOP_EXPRESSIONS: frozenset[str] = frozenset({
     "找个地方喝口水", "找个可以稍作休息的地方",
     "适合走累了歇脚", "适合走累了",
 })
+
+# v21: Restroom / toilet utility expressions — keyword-based, not full-phrase matching
+_RESTROOM_KEY_TERMS: frozenset[str] = frozenset({
+    "厕所", "公共厕所", "公厕", "卫生间", "洗手间", "如厕", "WC", "wc",
+    "方便一下", "方便的地方", "方便的厕所", "近的厕所",
+    "附近的厕所", "近一点的卫生间", "近的洗手间",
+})
+
+# v21: Corridor task patterns — "去X的路上顺路Y"
+# Detect route-order tasks with explicit destination + corridor category
+_CORRIDOR_PATTERNS: list[re.Pattern] = [
+    # 去X的路上顺路看看Y / 去X的路上顺路买Y / 去X的路上顺路找Y
+    re.compile(r"去(.{1,20}?)的?路上顺路(?:看看|买点?|找(?:一家|个)?|逛逛?)(.{1,16})"),
+    # 去X途中找一家Y / 去X路上买点Y
+    re.compile(r"去(.{1,20}?)(?:途中|路上|的时候)(?:找(?:一家|个)?|买点?|逛逛?|看看)(.{1,16})"),
+    # 去X时顺便去Y
+    re.compile(r"去(.{1,20}?)时?顺便(?:去|逛逛?|看看|买点?)(.{1,16})"),
+    # 到X之前找个Y / 前往X途中经过Y
+    re.compile(r"(?:到|前往)(.{1,20}?)之前找(?:个|一家)?(.{1,16})"),
+    # 回家路上顺路买Y
+    re.compile(r"回家路上顺路(?:买点?|看看|逛逛?|找(?:一家|个)?)(.{1,16})"),
+    # v21: 想在X的路上找一家Y / 在X的路上找个Y / 从A去B的路上找Y
+    re.compile(r"(?:想|想要|打算|准备)?在(.{1,20}?)的?路上找(?:一家|一个|个)?(.{1,16})"),
+    # 在去X的路上找Y
+    re.compile(r"在去(.{1,20}?)的?路上找(?:一家|一个|个)?(.{1,16})"),
+    # v21: 从A去B的路上找Y → destination=B
+    re.compile(r"从.{1,16}?去(.{1,16}?)的?路上(?:找|买|逛)(?:一家|一个|个)?(.{1,16})"),
+]
+
+# v21: Strip polite/noise suffixes from corridor captures
+_CORRIDOR_POLITE_STRIP_RE = re.compile(
+    r"(?:求推荐|帮我推荐|推荐一下|可以吗|有没有|有什么|行不行|"
+    r"能推荐|好推荐|求介绍|介绍下|我想找|请推荐|"
+    r"谢谢|麻烦了|拜托|，|,|。|！|!)+$"
+)
+
+# v21: Strip polite/noise prefixes from corridor destination
+_CORRIDOR_DEST_STRIP_RE = re.compile(
+    r"^(?:北京|上海|天津|重庆|广州|深圳|成都|武汉|南京|杭州|西安|长沙|"
+    r"就|然后|再|先|想|要|打算|准备|顺便|顺便去|出发去|"
+    r"的|附近|周边|那|那个|这个|一个|一家)+"
+)
 
 # v21: Rest stop category keywords
 _REST_STOP_CATEGORY_KEYWORDS = [
@@ -2334,6 +2424,9 @@ def _normalize_primary_query(text: str) -> str:
     t = _MEAL_SUFFIX_CLEANUP_RE.sub("", t).strip()  # remove 吃饭/用餐/就餐
     t = _RANKING_CLEANUP_RE.sub("", t).strip()  # remove 有名/知名/热门
     t = _NOVELTY_CLEANUP_RE.sub("", t).strip()  # remove 没吃过的/没去过的
+    # v21: Normalize restroom terms — "地方上厕所" / "找个地方上厕所" → "公共厕所"
+    if any(x in t for x in ["厕所", "洗手间", "卫生间", "公厕", "如厕"]):
+        return "公共厕所"
     # v21: Strip "有...的地方/吗/呢" patterns ("有开放露台的地方吗" → "开放露台")
     t = re.sub(r"有(.+?)的(?:地方|去处|空间|角落)(?:吗|呢)?$", r"\1", t).strip()
     # v20: Strip abstract placeholder residue — "的角落", "的地方", "的空间"
@@ -2616,6 +2709,73 @@ def _build_lawn_rest_proximity_result(
         "search_keywords_override": [],
         "explicit_meal_intent": False,
     }
+
+
+def _detect_utility_lookup(user_request: str) -> tuple[bool, str, str]:
+    """Detect restroom/toilet utility lookup requests.
+
+    Uses keyword-based matching (not full-phrase) for broader coverage.
+    Excludes false positives like "方便面".
+    """
+    _lower = user_request.lower()
+    # Exclude false positives
+    if any(t in user_request for t in ["方便面", "方便的话", "顺便方便", "图方便"]):
+        return False, "", ""
+    # Check for restroom key terms
+    has_restroom = any(t in user_request for t in _RESTROOM_KEY_TERMS)
+    if has_restroom:
+        return True, "restroom", "公共厕所"
+    return False, "", ""
+
+
+def _parse_corridor_task(user_request: str) -> tuple[str | None, str | None, str | None]:
+    """Parse "去X的路上顺路Y" corridor task pattern.
+
+    Returns (destination_raw, task_category, task_action) or (None, None, None).
+    destination_raw: e.g., "北航" (will be resolved via alias → geocode)
+    task_category: e.g., "水果店" (the corridor POI category to search)
+    task_action: "看看" | "买点" | "逛逛" (informs stay duration)
+    """
+    text = user_request.strip()
+    for pat in _CORRIDOR_PATTERNS:
+        m = pat.search(text)
+        if not m:
+            continue
+        dest_raw = m.group(1).strip()
+        task_raw = m.group(2).strip() if m.lastindex >= 2 else ""
+        # Clean destination — strip politeness, "的", and noise prefixes
+        dest_raw = dest_raw.strip().rstrip("的了呢吗吧")
+        dest_raw = _CORRIDOR_POLITE_STRIP_RE.sub("", dest_raw).strip()
+        dest_raw = _CORRIDOR_DEST_STRIP_RE.sub("", dest_raw).strip()
+        # Clean task — strip politeness, meal suffixes, ranking, leading "的"
+        task_raw = task_raw.strip().rstrip("的了呢吗吧")
+        task_raw = task_raw.lstrip("的了")  # strip leading "的"/"了" residue
+        task_raw = _CORRIDOR_POLITE_STRIP_RE.sub("", task_raw).strip()
+        # v21: Strip meal action suffixes from task (吃饭→餐厅, 用餐→餐厅)
+        task_raw = re.sub(r"(?:吃饭|用餐|就餐|吃个饭|吃顿饭|吃一顿|吃饭饭)$", "", task_raw).strip()
+        # v21: Normalize meal task to standard keyword
+        task_raw = re.sub(r"^(?:的|一家|一个|个)?\s*(?:餐馆|饭馆|饭店)$", "餐厅", task_raw).strip()
+        # v21: Strip ranking modifiers from task (有名的餐馆→餐馆, 热门餐厅→餐厅)
+        _ranking_terms = ""
+        for _rkw in ["有名", "知名", "热门", "著名", "人气", "口碑好"]:
+            if _rkw in task_raw:
+                _ranking_terms = _rkw
+                task_raw = task_raw.replace(_rkw, "").strip()
+                break
+        if not dest_raw or not task_raw or len(dest_raw) < 2 or len(task_raw) < 2:
+            continue
+        # v21: Detect action type — meal intent from "吃饭/用餐/餐馆/餐厅"
+        action = "browse"
+        if any(w in text for w in ["吃饭", "用餐", "就餐", "吃顿饭", "吃个饭"]):
+            action = "meal"
+        elif any(w in task_raw for w in ["餐馆", "餐厅", "饭店", "饭馆", "美食"]):
+            action = "meal"
+        elif any(w in text for w in ["买", "购买", "采购"]):
+            action = "purchase"
+        elif any(w in text for w in ["逛", "看看"]):
+            action = "browse"
+        return dest_raw, task_raw, action
+    return None, None, None
 
 
 def _detect_rest_stop_intent(user_request: str) -> tuple[bool, list[str]]:
@@ -3821,6 +3981,185 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     city = await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
     parsed.resolved_city = city
+    # v21: Apply contextual search center from follow_up dispatch
+    _ctx_center = getattr(user_profile, "_contextual_search_center", None) or {}
+    if _ctx_center and _ctx_center.get("location", {}).get("lat"):
+        parsed.search_area_label = _ctx_center.get("label", "")
+        parsed.search_area_location = _ctx_center.get("location")
+        # Also set original_location so route starts from the contextual center
+        _ctx_loc = _ctx_center.get("location")
+        _ctx_loc["label"] = _ctx_center.get("label", _ctx_loc.get("label", ""))
+        parsed.original_location = _ctx_loc
+        print(
+            f"[DEBUG step1] contextual_search_center applied: "
+            f"label={parsed.search_area_label} "
+            f"source={_ctx_center.get('source')} "
+            f"loc=({_ctx_loc.get('lat','')},{_ctx_loc.get('lng','')})"
+        )
+
+    # v21: Utility lookup detection — restroom/toilet → utility fast path
+    _is_util, _util_cat, _util_query = _detect_utility_lookup(user_request)
+    if _is_util:
+        parsed.poi_query_type = "utility_nearby"
+        parsed.category_id = _util_cat
+        parsed.primary_query = _util_query
+        parsed.activity_facet = "restroom"
+        parsed.utility_lookup_requested = True
+        parsed.proximity_requested = True
+        parsed.time_budget = 0.0  # zero budget — not a tourist route
+        parsed.allowed_typecode_prefixes = ["200300", "200301", "200302"]
+        parsed.search_keywords = ["公共厕所", "卫生间", "洗手间", "公厕"]
+        parsed.plan_mode = "utility"
+        print(
+            f"[DEBUG utility] restroom detected: cat={_util_cat} "
+            f"query={_util_query} poi_type={parsed.poi_query_type}"
+        )
+
+    # v21: "X附近找Y" pattern — convert X from fixed_poi to search_area
+    # "在小西天牌楼附近找避暑" → 小西天牌楼=search_center, 避暑=feature_lookup
+    _nearby_place_match = re.search(
+        r"(?:在|去|到|离)?(.{2,20}?)(?:的)?(?:附近|周边|旁边|周围|近)(?:找个|找一家|找个地方|找|有没有|推荐)",
+        user_request,
+    )
+    if _nearby_place_match and parsed.fixed_pois:
+        _nearby_place = _nearby_place_match.group(1).strip()
+        _nearby_place = re.sub(r"^(?:在|去|到|离|从)", "", _nearby_place).strip()
+        # Check if this place matches any fixed_poi
+        for fp in list(parsed.fixed_pois):
+            if fp.name in _nearby_place or _nearby_place in fp.name:
+                parsed.search_area_label = fp.name
+                if fp.location:
+                    parsed.search_area_location = fp.location
+                parsed.fixed_pois.remove(fp)
+                parsed.proximity_requested = True
+                parsed.is_search_center_only = True
+                print(
+                    f"[DEBUG X附近Y] converted fixed_poi '{fp.name}' → search_area "
+                    f"loc={fp.location.get('lat','') if fp.location else 'none'}"
+                )
+                break
+
+    # v21: Heat shelter detection — "避暑/纳凉/太热" → feature_lookup
+    _is_hot = any(expr in user_request for expr in _HEAT_SHELTER_EXPRESSIONS)
+    if _is_hot:
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.poi_query_type = "feature_lookup"
+        parsed.primary_query = ""
+        parsed.activity_facet = "heat_shelter"
+        parsed.heat_shelter_requested = True
+        parsed.proximity_requested = True
+        parsed.required_features = ["indoor_or_shaded", "heat_shelter"]
+        parsed.search_keywords = [f"{city_short} {kw}" for kw in _HEAT_SHELTER_KEYWORDS]
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["天气炎热", "室内优先", "不走远"])
+        print(f"[DEBUG heat_shelter] detected: feature_lookup keywords={parsed.search_keywords[:5]}")
+
+    # v21: Area tour detection — "X区一日游" → area_route, not poi_category
+    _area_clean = _AREA_TOUR_NOISE_RE.sub("", user_request.strip())
+    _area_m = _AREA_TOUR_RE.search(_area_clean)
+    if _area_m:
+        _area_name = _area_m.group(1).strip()
+        parsed.poi_query_type = "area_route"
+        parsed.primary_query = ""
+        parsed.search_area_label = _area_name
+        parsed.area_scope_required = True
+        parsed.duration = "a full day" if "一日游" in user_request or "玩一天" in user_request else "a half day"
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{_area_name} 景点", f"{_area_name} 博物馆", f"{_area_name} 公园",
+            f"{_area_name} 历史文化", f"{_area_name} 胡同", f"{_area_name} 商圈",
+        ]
+        parsed.micro_keywords = [f"{_area_name} 打卡", f"{_area_name} 文化", f"{_area_name} 美食"]
+        parsed.plan_mode = "exploratory"
+        print(f"[DEBUG area_route] detected: area={_area_name} duration={parsed.duration}")
+
+    # v21: Rain shelter detection — "避雨/躲雨/下雨" → feature_lookup, not poi_category
+    _is_rain = any(expr in user_request for expr in _RAIN_SHELTER_EXPRESSIONS)
+    if _is_rain:
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.poi_query_type = "feature_lookup"
+        parsed.primary_query = ""
+        parsed.activity_facet = "rain_shelter"
+        parsed.rain_shelter_requested = True
+        parsed.proximity_requested = True
+        parsed.required_features = ["indoor", "rain_shelter"]
+        parsed.search_keywords = [f"{city_short} {kw}" for kw in _RAIN_SHELTER_KEYWORDS]
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["雨天", "室内优先", "不走远"])
+        print(f"[DEBUG rain_shelter] detected: feature_lookup keywords={parsed.search_keywords[:5]}")
+
+    # v21: Souvenir/gift shopping detection
+    _is_souvenir = any(expr in user_request for expr in _SOUVENIR_EXPRESSIONS)
+    if _is_souvenir and "伴手礼" in user_request:
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "souvenir_shopping"
+        parsed.souvenir_requested = True
+        parsed.proximity_requested = True
+        parsed.search_keywords = [f"{city_short} {kw}" for kw in [
+            "伴手礼店", "特产店", "地方特产", "文创商店", "礼品店",
+            "老字号食品店", "茶叶店", "糕点店", "北京特产"
+        ]]
+        parsed.micro_keywords = ["伴手礼 购物", "特产 礼品", "文创 纪念品"]
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["不走远"])
+        print(f"[DEBUG souvenir] detected: activity_facet=souvenir_shopping, proximity=True")
+
+    # v21: Corridor task detection — "去X的路上顺路Y" → planned mode
+    _corr_dest, _corr_task, _corr_action = _parse_corridor_task(user_request)
+    if _corr_dest and _corr_task:
+        # Resolve destination alias
+        _resolved_dest = _UNIVERSITY_ALIAS_MAP.get(_corr_dest, _corr_dest)
+        if _resolved_dest != _corr_dest:
+            parsed.search_area_label = _corr_dest  # store raw name
+        # Build planned waypoints
+        parsed.plan_mode = "planned"
+        parsed.poi_query_type = "corridor_task"
+        parsed.corridor_requested = True
+        parsed.primary_query = ""
+
+        _home_label = getattr(user_profile, "home_location", {}).get("label", "") or ""
+        _dest_wp = PlannedWaypoint(
+            type="fixed", name=_resolved_dest, search_keyword=_resolved_dest,
+            category="destination", stay_minutes=0,
+        )
+        # v21: Build task waypoint with correct category and ranking
+        _task_cat = "visit"
+        _task_stay = 15
+        _task_req_terms = [_corr_task]
+        _task_excl_terms: list[str] = []
+        if _corr_action == "purchase":
+            _task_cat = "purchase"
+            _task_stay = 10
+            if "水果" in _corr_task:
+                _task_req_terms = ["水果", "鲜果", "果品", "生鲜"]
+                _task_excl_terms = ["摄影", "打印", "数码", "批发公司"]
+        elif _corr_action == "meal":
+            _task_cat = "meal"
+            _task_stay = 45
+            _task_req_terms = ["餐厅", "饭店", "餐馆", "美食", "饭馆"]
+            _task_excl_terms = ["咖啡", "奶茶", "甜品", "面包", "便利店"]
+            # v21: Normalize task keyword for meal
+            _corr_task = "餐厅" if _corr_task in ("餐馆", "饭馆", "饭店") else _corr_task
+            parsed.explicit_meal_intent = True
+        _task_wp = PlannedWaypoint(
+            type="placeholder", search_keyword=_corr_task,
+            category=_task_cat,
+            stay_minutes=_task_stay,
+            placement="before_destination", corridor_search=True,
+            search_keywords=[_corr_task],
+            required_terms=_task_req_terms,
+            excluded_terms=_task_excl_terms,
+        )
+        parsed.planned_waypoints = [_task_wp, _dest_wp]
+        parsed.fixed_pois = [FixedPoi(name=_resolved_dest, user_time_budget=None)]
+        parsed.destination_alias = _corr_dest
+        parsed.resolved_destination_name = _resolved_dest
+        parsed.search_keywords = [_corr_task]
+        print(
+            f"[DEBUG corridor] detected: dest_raw='{_corr_dest}'→'{_resolved_dest}' "
+            f"task='{_corr_task}' action={_corr_action} "
+            f"planned_waypoints={[(wp.type, wp.name or wp.search_keyword, wp.category) for wp in parsed.planned_waypoints]}"
+        )
+
     looks_like_route = _looks_like_route_request(user_request)
     if not parsed.is_route_planning_request and not looks_like_route:
         raise ZeroOutputError(INCOMPLETE_REQUEST_TEXT)
@@ -3914,7 +4253,24 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
 
     # v20: Detect direct POI category query BEFORE keyword overrides
     # so that keywords are focused on the target category, not expanded to unrelated ones.
-    poi_cat_result = _detect_poi_category_query(_category_query_text)
+    # v21: Skip poi_category detection for feature-driven intents — already set
+    _skip_cat_detect = (
+        (getattr(parsed, "plan_mode", "") == "planned"
+         and getattr(parsed, "corridor_requested", False))
+        or getattr(parsed, "utility_lookup_requested", False)
+        or getattr(parsed, "souvenir_requested", False)
+        or getattr(parsed, "quiet_retreat_requested", False)
+        or getattr(parsed, "lawn_rest_requested", False)
+        or getattr(parsed, "night_view_requested", False)
+        or getattr(parsed, "open_terrace_requested", False)
+        or getattr(parsed, "local_life_requested", False)
+        or getattr(parsed, "stress_relief_requested", False)
+        or getattr(parsed, "rest_stop_requested", False)
+        or getattr(parsed, "rain_shelter_requested", False)
+        or getattr(parsed, "area_scope_required", False)
+        or getattr(parsed, "heat_shelter_requested", False)
+    )
+    poi_cat_result = _detect_poi_category_query(_category_query_text) if not _skip_cat_detect else None
     if poi_cat_result:
         # v20: Handle theme_route result from proximity parsing (quiet_retreat etc.)
         _result_query_type = poi_cat_result.get("poi_query_type", "poi_category")
@@ -4517,6 +4873,16 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=8)
 
     # [DEBUG-雨天半天] 临时调试日志，确认雨天/半日识别
+    # v21: Force planned mode for corridor tasks — may have been reset by upstream
+    if getattr(parsed, "corridor_requested", False) and getattr(parsed, "plan_mode", "") != "planned":
+        print(f"[DEBUG step1 WARN] plan_mode was reset from planned; forcing back for corridor task")
+        parsed.plan_mode = "planned"
+    # v21: Restore corridor waypoints if cleared by profile/theme processing
+    if getattr(parsed, "corridor_requested", False) and not getattr(parsed, "fixed_pois", []):
+        _dest_name = getattr(parsed, "resolved_destination_name", "") or ""
+        if _dest_name:
+            parsed.fixed_pois = [FixedPoi(name=_dest_name, user_time_budget=None)]
+
     print(f"[DEBUG step1] duration={parsed.duration} time_budget={parsed.time_budget}")
     print(f"[DEBUG step1] other_constraints={parsed.other_constraints}")
     print(f"[DEBUG step1] search_keywords={parsed.search_keywords}")

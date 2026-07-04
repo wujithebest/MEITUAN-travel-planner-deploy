@@ -1703,6 +1703,18 @@ def _fill_segment(
             )
         )
     )
+    # Souvenir lookup is a concrete nearby-shop request even though Step2 uses
+    # theme_route to broaden recall to specialty, gift, tea, pastry, and
+    # cultural-creative shops. Preserve the selected shop as a visible POI
+    # when no child POIs are available.
+    is_souvenir_primary_target = bool(
+        parsed_intent
+        and (
+            getattr(parsed_intent, "souvenir_requested", False) is True
+            or str(getattr(parsed_intent, "activity_facet", "") or "")
+            == "souvenir_shopping"
+        )
+    )
 
     def _primary_anchor_point() -> dict[str, Any]:
         """Keep the Step2 target itself executable even when internals are sparse."""
@@ -1743,10 +1755,16 @@ def _fill_segment(
     # already the selected destination. In particular, a feature anchor must
     # remain a visible waypoint when Step3 cannot find child POIs; converting
     # it to free_explore makes the frontend hide the only valid result.
-    if is_direct_primary_target or is_feature_primary_target:
+    if is_direct_primary_target or is_feature_primary_target or is_souvenir_primary_target:
         if used_names is not None:
             used_names.add(sub.name)
         point = _primary_anchor_point()
+        if is_souvenir_primary_target:
+            point["kind"] = "shopping"
+            point["category"] = "souvenir"
+            point["souvenir_anchor_fallback"] = segment.get("degradation") == "free"
+            point["fallback_reason"] = "souvenir_shop_preserved_as_visible_waypoint"
+            point["recommend_reason"] = "附近可购买地方特色商品，适合作为伴手礼。"
         if is_feature_primary_target:
             point["feature_anchor_fallback"] = segment.get("degradation") == "free"
             point["fallback_reason"] = "feature_anchor_preserved_as_visible_waypoint"

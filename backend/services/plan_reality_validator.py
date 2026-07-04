@@ -123,6 +123,26 @@ _FEATURE_EVIDENCE_TERMS: dict[str, list[str]] = {
         "摩天轮", "观光厅", "观景层", "露台",
         "灯光", "夜景灯光", "江景观景",
     ],
+    "indoor": [
+        "室内", "博物馆", "商场", "购物中心", "咖啡馆", "图书馆",
+        "美术馆", "文化馆", "书店", "展馆", "影院", "剧院",
+        "快餐", "便利店",
+    ],
+    "indoor_or_shaded": [
+        "室内", "空调", "商场", "购物中心", "博物馆", "图书馆",
+        "美术馆", "咖啡馆", "电影院", "树荫", "凉亭",
+        "阴凉", "滨水", "地下",
+    ],
+    "heat_shelter": [
+        "室内", "空调", "避暑", "纳凉", "凉快", "商场",
+        "博物馆", "图书馆", "美术馆", "电影院", "购物中心",
+        "咖啡馆", "茶", "树荫", "凉亭", "滨水",
+    ],
+    "rain_shelter": [
+        "室内", "避雨", "躲雨", "博物馆", "商场", "购物中心",
+        "咖啡馆", "图书馆", "美术馆", "文化馆", "书店", "展馆",
+        "影院", "剧院", "快餐", "便利店", "大厅", "游客中心",
+    ],
     "open_terrace": [
         "开放露台", "户外露台", "室外露台", "屋顶露台",
         "观景露台", "空中露台", "露天平台", "屋顶花园",
@@ -299,6 +319,19 @@ def validate_plan_reality(
     if poi_query_type in ("named_poi", "poi_category"):
         if primary_count == 0:
             violations.append("no_primary_waypoint_found")
+    elif poi_query_type == "area_route":
+        # area_route: only check district coverage, not named POI matching
+        if primary_count < 2 and visible_count < 2:
+            violations.append("area_route_too_sparse")
+        # Check that at least one POI has a valid adcode match
+        _area_label = getattr(parsed_intent, "search_area_label", "") or ""
+        _has_in_area = any(
+            str(pt.get("address", "") or "").find(_area_label) >= 0
+            or str(pt.get("district", "") or "").find(_area_label) >= 0
+            for pt in points if pt.get("is_display_poi")
+        )
+        if _area_label and not _has_in_area:
+            violations.append("area_route_no_in_area_waypoint")
         if hidden_primary:
             violations.append("primary_target_marked_free_explore_or_hint")
 
