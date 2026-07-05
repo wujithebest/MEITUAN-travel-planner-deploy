@@ -1038,7 +1038,6 @@ export function useChat(): UseChatReturn {
     const rawSegments = Array.isArray(rawRouteData?.segments) ? rawRouteData.segments : [];
 
     const sourcePoints = rawPoints.length > 0 ? rawPoints : [];
-    if (!sourcePoints.length) return undefined;
 
     const displayPoints = sourcePoints.filter((pt: any) => {
       const kind = pt.kind || '';
@@ -1077,7 +1076,7 @@ export function useChat(): UseChatReturn {
       exclusions: [],
       recent_user_messages: recentUserMessages,
       // v17: 多轮上下文
-      context_source: 'live',
+      context_source: sourcePoints.length > 0 ? 'live' : 'preplan_chat',
       previous_user_messages: messages
         .filter(m => m.role === 'user')
         .slice(-5)

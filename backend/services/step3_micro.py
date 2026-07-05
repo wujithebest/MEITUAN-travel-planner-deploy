@@ -5791,8 +5791,8 @@ async def run_step3(
         # If reality still fails here despite pre-sgement supplement, surface a clear error.
         elif _is_full_day_theme and _critical_violations:
             raise ZeroOutputError(
-                f"当前条件下可组成完整亲子一日路线的地点较少。"
-                f"可以尝试扩大出行范围，或指定动物园、科技馆等主要目的地。"
+                "当前条件下可组成完整路线的有效地点较少。"
+                "请补充目的地、调整活动偏好或扩大出行范围后重试。"
             )
 
     # Ensure primary query POIs are visible waypoints (not hidden/free_explore)

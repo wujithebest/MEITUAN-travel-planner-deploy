@@ -529,6 +529,46 @@ async def run_step4(
     """Step 4: 生成输出"""
     logger.start_step("step_4_output")
     await emit_status("正在生成行程方案...")
+
+    # v21: Robust visibility check — compatible with both old and new point formats
+    def _is_display_point(p: dict) -> bool:
+        if p.get("kind") in ("hint", "free_explore", "candidate"):
+            return False
+        return bool(p.get("is_display_poi", p.get("is_waypoint", True)))
+
+    _visible_count = 0
+    if route_points:
+        _visible_count = sum(1 for p in route_points
+                            if _is_display_point(p)
+                            and p.get("kind") not in ("start", "hint", "free_explore", "candidate"))
+
+    # v21: Entry log — construct list first to avoid f-string set literal error
+    _pi_plan_mode = getattr(parsed_intent, "plan_mode", "") if parsed_intent else ""
+    try:
+        _point_flags = [
+            {
+                "name": str(p.get("name", "?"))[:12],
+                "is_waypoint": p.get("is_waypoint", "?"),
+                "is_display_poi": p.get("is_display_poi", "?"),
+                "kind": p.get("kind", ""),
+            }
+            for p in (route_points or [])[:5]
+        ]
+        print(
+            f"[DEBUG step4_entry] "
+            f"plan_mode={_pi_plan_mode} "
+            f"route_point_count={len(route_points) if route_points else 0} "
+            f"visible_point_count={_visible_count} "
+            f"point_flags={_point_flags}"
+        )
+    except Exception as _log_err:
+        print(f"[WARNING step4_entry_log_failed] {_log_err}")
+
+    if _visible_count == 0 and route_points:
+        # No visible POIs — do NOT output success card
+        await emit_error("未找到合适的展示POI，请调整条件后重试")
+        return
+
     await emit_status("路线规划完成！")
 
     anchors = _all_anchors(complete_plan)
@@ -632,6 +672,13 @@ async def run_step4(
     print(f"[DEBUG step4] route_data.points count={len(route_data.get('points', []))}")
     print(f"[DEBUG step4] route_data.points names/kinds/slots: {[(p.get('name'), p.get('kind'), p.get('display_slot')) for p in route_data.get('points', [])]}")
 
+    # v21: SSE terminal log
+    print(
+        f"[DEBUG sse_terminal] "
+        f"event=complete "
+        f"route_point_count={len(route_points) if route_points else 0} "
+        f"segment_count={len(route_segments) if route_segments else 0}"
+    )
     await emit_done(map_paths=map_paths, full_plan=full_plan, route_data=route_data)
 
     await logger.log_step("step_4_output", output_count=len(anchors) + len(complete_plan.day_plans) + 1)

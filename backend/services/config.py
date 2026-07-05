@@ -23,8 +23,17 @@ DEEPSEEK_INSTRUCTOR_MODE = "JSON"    # instructor.Mode.JSON
 DEEPSEEK_MAX_RETRIES = 2            # Pydantic校验失败自动重试
 
 # 子步骤max_tokens覆盖
-DEEPSEEK_MAX_TOKENS_STEP_1_1 = 1200  # 意图解析
+DEEPSEEK_MAX_TOKENS_STEP_1_1 = int(os.getenv("DEEPSEEK_MAX_TOKENS_STEP_1_1", "2400"))  # 意图解析
 DEEPSEEK_MAX_TOKENS_STEP_2_3 = 1500  # enrichment提取
+
+# v21: Startup config log
+import sys as _sys
+print(
+    f"[LLMConfig] step1_max_tokens={DEEPSEEK_MAX_TOKENS_STEP_1_1} "
+    f"model={DEEPSEEK_MODEL} "
+    f"config_source=services.config",
+    file=_sys.stderr, flush=True,
+)
 
 # ═══════════════════════════════════════════════════════════════
 # 高德地图 API

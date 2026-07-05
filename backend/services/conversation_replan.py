@@ -127,6 +127,12 @@ def classify_conversation_route_change_fast(
         "在刚才路线", "上个路线", "当前路线", "刚才路线", "沿.*路线",
         "把.*删", "把.*换", "把.*替", "替换", "删除",
     ])
+    # v21: Route continuation patterns — "晚上去图书馆", "下午再去公园" etc.
+    _time_slot_prefix = re.search(r"^(晚上|傍晚|下午|中午|夜里|夜间|接着|然后|再|最后)", text)
+    _has_category_only = bool(re.search(r"(去|找个|找一家|逛|看看)(图书馆|公园|咖啡馆|博物馆|书店|餐厅|商场|夜景)", text))
+    if _time_slot_prefix and _has_category_only:
+        _has_continuation = True
+
     if re.search(r"(?:加到|路上|沿途|删|换|替|刚才|当前)", text):
         _has_continuation = True
 

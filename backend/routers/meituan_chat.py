@@ -52,6 +52,10 @@ class RouteContextSchema(BaseModel):
     previous_intent: dict | None = None
     previous_complete_plan: dict | None = None
     current_route_compact: dict | None = None
+    # v21: 待补充意图 — 澄清阶段保留的partial intent
+    pending_intent: dict | None = None
+    # v21: 上一轮 pipeline 状态标记
+    previous_pipeline_status: str = ""   # "completed" | "failed" | "clarification_needed" | ""
 
 
 class ChatRequest(BaseModel):
@@ -197,8 +201,14 @@ from services.step1_intent import run_step1
 from services.step2_macro import run_step2
 from services.step3_micro import run_step3
 from services.step4_output import run_step4
-from services.api_client import gaode_text_search, gaode_around_search_batch
+from services.api_client import gaode_text_search, gaode_around_search, gaode_around_search_batch
 from services.pipeline_replan_service import apply_pipeline_replan
+from services.poi_typecodes import (
+    category_for_query,
+    get_search_keywords,
+    get_typecodes_for_planned,
+    validate_poi_category,
+)
 from services.conversation_replan import (
     classify_conversation_route_change,
     classify_conversation_route_change_fast,
@@ -206,6 +216,10 @@ from services.conversation_replan import (
     _detect_plan_mode_from_text,
     _planning_dispatch_fast_fallback,
     PlanningDispatchDecision,
+)
+from services.conversation_clarification import (
+    clarification_reply,
+    merge_pending_clarification,
 )
 
 # ═══ v11: 聊天编辑意图分类 ═══
@@ -280,6 +294,49 @@ def _extract_add_place_after(text: str, word: str) -> str:
     return _clean_place_name(tail)
 
 
+_CONTINUATION_SLOT_PREFIXES = {
+    "上午": "morning",
+    "中午": "noon",
+    "下午": "afternoon",
+    "傍晚": "evening",
+    "晚上": "evening",
+    "今晚": "evening",
+    "夜里": "evening",
+    "夜间": "evening",
+}
+
+
+def _extract_temporal_append(text: str) -> tuple[str, str] | None:
+    """识别已有路线后的自然语言续程，如“晚上去电影院”。"""
+    match = re.match(
+        r"^(上午|中午|下午|傍晚|晚上|今晚|夜里|夜间)"
+        r"(?:再|接着|然后|最后|还)?(?:想)?"
+        r"(?:去|到|逛|看|找个|找一家|安排|吃)"
+        r"(.{1,30})$",
+        text.strip(),
+    )
+    if not match:
+        return None
+    target = _clean_place_name(match.group(2))
+    target = re.sub(r"(?:走走|逛逛|看看|转转|玩玩|一下)$", "", target).strip()
+    if not target or not _is_concrete_place_name(target):
+        return None
+    return target, _CONTINUATION_SLOT_PREFIXES[match.group(1)]
+
+
+def _continuation_endpoint(route_context: RouteContextSchema | None) -> dict | None:
+    """返回当前路线最后一个真实游玩点，续程不得重新使用家庭起点。"""
+    if not route_context:
+        return None
+    candidates = [
+        point for point in route_context.points
+        if point.get("kind") not in ("start", "hint")
+        and point.get("is_waypoint", True)
+        and point.get("location")
+    ]
+    return candidates[-1] if candidates else None
+
+
 def _classify_chat_edit(user_request: str, route_context: RouteContextSchema | None) -> dict:
     text = user_request.strip()
     point_names = route_context.point_names if route_context else []
@@ -330,11 +387,79 @@ def _classify_chat_edit(user_request: str, route_context: RouteContextSchema | N
             if new_name and _is_concrete_place_name(new_name):
                 return {"action": "add", "target_name": None, "new_name": new_name, "reason": "short weak add"}
 
+        # v23: 单个后续时段天然表示同一天续程，不要求用户必须说“再/接着”。
+        temporal_append = _extract_temporal_append(text)
+        if temporal_append:
+            new_name, display_slot = temporal_append
+            return {
+                "action": "add",
+                "target_name": None,
+                "new_name": new_name,
+                "display_slot": display_slot,
+                "continuation": True,
+                "reason": "temporal continuation on current route",
+            }
+
     return {"action": "normal", "target_name": None, "new_name": None, "reason": "no edit rule matched"}
 
 
-async def _resolve_poi_for_chat_edit(name: str, city: str = "上海") -> dict | None:
-    items = await gaode_text_search(name, city=city, show_fields="business,photos")
+async def _resolve_poi_for_chat_edit(
+    name: str,
+    city: str = "上海",
+    center: dict | None = None,
+) -> dict | None:
+    """解析新增点；类别型地点优先围绕上一站检索并严格校验类型。"""
+    items: list[dict] = []
+    category_id = category_for_query(name)
+    if center and category_id:
+        lng = center.get("lng", center.get("longitude"))
+        lat = center.get("lat", center.get("latitude"))
+        if lng is not None and lat is not None:
+            location = f"{lng},{lat}"
+            keywords = list(dict.fromkeys([name, *get_search_keywords(category_id)]))[:4]
+            types = get_typecodes_for_planned(category_id)
+            for radius in (3000, 5000, 10000):
+                for keyword in keywords:
+                    try:
+                        nearby = await gaode_around_search(
+                            location=location,
+                            keywords=keyword,
+                            radius=radius,
+                            types=types,
+                            show_fields="business,photos",
+                            offset=10,
+                            sortrule="distance",
+                        )
+                    except Exception as exc:
+                        print(
+                            f"[WARNING chat_edit] nearby lookup failed "
+                            f"keyword={keyword} radius={radius}: {exc}"
+                        )
+                        continue
+                    valid = [
+                        poi for poi in nearby
+                        if validate_poi_category(poi, category_id, require_two_evidence=True)[0]
+                    ]
+                    if valid:
+                        items = valid
+                        break
+                if items:
+                    break
+
+    if not items:
+        try:
+            text_items = await gaode_text_search(
+                name, city=city, show_fields="business,photos", city_limit=True
+            )
+        except Exception as exc:
+            print(f"[WARNING chat_edit] city lookup failed name={name}: {exc}")
+            text_items = []
+        if category_id:
+            text_items = [
+                poi for poi in text_items
+                if validate_poi_category(poi, category_id, require_two_evidence=True)[0]
+            ]
+        items = text_items
     if not items:
         return None
     poi = items[0]
@@ -358,12 +483,82 @@ async def _resolve_poi_for_chat_edit(name: str, city: str = "上海") -> dict | 
     }
 
 
+async def _emit_preserved_route(
+    route_context: RouteContextSchema,
+    user_profile,
+    message: str,
+) -> None:
+    """编辑无法完成时保留当前路线，禁止降级成从家出发的新规划。"""
+    from collections import defaultdict
+
+    days_data: dict[int, list[dict]] = defaultdict(list)
+    for point in route_context.points:
+        days_data[int(point.get("day", 1) or 1)].append(point)
+    days = []
+    for day_idx in sorted(days_data):
+        anchors = [
+            {
+                "name": point.get("name", ""),
+                "recommend_reason": point.get("recommend_reason", ""),
+                "location": point.get("location"),
+            }
+            for point in days_data[day_idx]
+            if point.get("kind") not in ("start", "meal", "hint")
+        ]
+        days.append({"day_index": day_idx, "anchors": anchors, "meal_slots": []})
+
+    previous_plan = route_context.previous_complete_plan or {}
+    city = (
+        user_profile.permanent_city[0]
+        if getattr(user_profile, "permanent_city", None)
+        else "上海"
+    ) or "上海"
+    route_data = {
+        "route_id": route_context.route_id,
+        "points": route_context.points,
+        "segments": route_context.segments,
+        "candidate_points": [],
+        "plan_mode": previous_plan.get("plan_mode") or "chat_edit",
+        "total_days": max(days_data.keys(), default=1),
+        "display_granularity": "day",
+    }
+    await push_output(f"[ROUTE_PLANNER]: {message}")
+    await emit_done(
+        map_paths=[],
+        full_plan={
+            **previous_plan,
+            "summary": message,
+            "city": previous_plan.get("city") or city,
+            "duration": previous_plan.get("duration") or "a full day",
+            "time_budget": previous_plan.get("time_budget") or 1.0,
+            "days": days,
+        },
+        route_data=route_data,
+    )
+
+
 async def _try_chat_edit_replan(
     user_request: str,
     route_context: RouteContextSchema | None,
     user_profile,
+    point_operations: list[dict] | None = None,
 ) -> bool:
     edit = _classify_chat_edit(user_request, route_context)
+    # 调度模型已识别出操作时，将其作为本地规则的确定性兜底。
+    if edit["action"] == "normal" and point_operations:
+        operation = point_operations[0]
+        if operation.get("action") in ("add", "remove", "replace"):
+            edit = {
+                "action": operation.get("action"),
+                "target_name": operation.get("target_name"),
+                "new_name": operation.get("new_name"),
+                "reason": "planning dispatch point operation fallback",
+            }
+            temporal_append = _extract_temporal_append(user_request)
+            if temporal_append and edit["action"] == "add":
+                edit["new_name"] = edit.get("new_name") or temporal_append[0]
+                edit["display_slot"] = temporal_append[1]
+                edit["continuation"] = True
     print(f"[DEBUG chat_edit] action={edit['action']} target={edit['target_name']} new={edit['new_name']} reason={edit['reason']}")
 
     if edit["action"] in ("normal", "new_plan"):
@@ -409,10 +604,36 @@ async def _try_chat_edit_replan(
         if not edit.get("new_name"):
             return False
         city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
-        new_poi = await _resolve_poi_for_chat_edit(edit["new_name"], city=city)
+        endpoint = _continuation_endpoint(route_context)
+        center = endpoint.get("location") if endpoint else None
+        new_poi = await _resolve_poi_for_chat_edit(edit["new_name"], city=city, center=center)
         if not new_poi:
-            return False
-        operations.append({"action": "add", "poi_id": new_poi.get("poi_id") or new_poi["name"], "poi": new_poi})
+            await _emit_preserved_route(
+                route_context,
+                user_profile,
+                f"我保留了当前路线，但暂时没找到合适的{edit['new_name']}。"
+                "可以告诉我具体名称，或让我扩大检索范围。",
+            )
+            print(
+                f"[DEBUG chat_edit] append lookup failed; preserved_current_route=true "
+                f"continuation_origin={(endpoint or {}).get('name', '')}"
+            )
+            return True
+        if endpoint:
+            new_poi["day"] = int(endpoint.get("day", 1) or 1)
+        if edit.get("display_slot"):
+            new_poi["display_slot"] = edit["display_slot"]
+        operations.append({
+            "action": "add",
+            "poi_id": new_poi.get("poi_id") or new_poi["name"],
+            "poi": new_poi,
+            "after_poi_id": (endpoint or {}).get("poi_id") or (endpoint or {}).get("gaode_poi_id"),
+            "after_poi_name": (endpoint or {}).get("name"),
+        })
+        print(
+            f"[DEBUG chat_edit] continuation_origin={(endpoint or {}).get('name', '')} "
+            f"new_poi={new_poi.get('name', '')} display_slot={new_poi.get('display_slot', '')}"
+        )
 
     result = await apply_pipeline_replan(
         points=route_context.points,
@@ -453,13 +674,15 @@ async def _try_chat_edit_replan(
     route_data["display_granularity"] = "day"
 
     await push_output(f"[ROUTE_PLANNER]: {summary}")
+    previous_plan = route_context.previous_complete_plan or {}
+    city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
     await emit_done(
         map_paths=[],
         full_plan={
             "summary": summary,
-            "city": "上海",
-            "duration": "",
-            "time_budget": 0,
+            "city": previous_plan.get("city") or city,
+            "duration": previous_plan.get("duration") or "a full day",
+            "time_budget": previous_plan.get("time_budget") or 1.0,
             "days": days_list,
         },
         route_data=route_data,
@@ -498,6 +721,36 @@ async def _run_pipeline_stream(
         logger_obj = PipelineLogger()
 
         try:
+            # v22: Destination-first clarification must happen before Step 1.
+            # Step 1 post-processing may otherwise inject profile preferences
+            # and turn a vague outing wish into an unrelated full route.
+            _has_existing_route = bool(route_context and route_context.points)
+            # A bare new outing wish remains underspecified even when an older
+            # route is still present in the UI.  Do not let stale route context
+            # bypass the destination question.
+            _clarification = clarification_reply(user_request)
+            if _clarification:
+                print(
+                    f"[DEBUG clarification] action=ask_destination "
+                    f"user_request={user_request[:80]}"
+                )
+                result_data = json.dumps(
+                    {
+                        "type": "clarification",
+                        "content": _clarification,
+                        "reply": _clarification,
+                        "missing_slot": "destination",
+                    },
+                    ensure_ascii=False,
+                )
+                await queue.put(f"event: {SSE_EVENT_RESULT}\ndata: {result_data}\n\n")
+                done_data = json.dumps(
+                    {"type": "done", "clarification": True},
+                    ensure_ascii=False,
+                )
+                await queue.put(f"event: {SSE_EVENT_DONE}\ndata: {done_data}\n\n")
+                return
+
             # 阶段1：发送进度状态消息
             await emit_status("正在加载用户信息...")
 
@@ -534,11 +787,79 @@ async def _run_pipeline_stream(
                 "previous_user_messages": route_context.previous_user_messages if route_context else [],
                 "previous_intent": route_context.previous_intent if route_context else None,
                 "previous_complete_plan": route_context.previous_complete_plan if route_context else None,
+                "pending_intent": route_context.pending_intent if route_context else None,
+                "previous_pipeline_status": getattr(route_context, "previous_pipeline_status", "") if route_context else "",
             }
             dispatch_decision = None
             plan_mode_for_step1 = "auto"
             step1_request = user_request  # v18: 默认原样传入，refine_current 分支可覆写
-            if route_context and route_context.points:
+
+            # v21: Merge pending_intent or recover pending_plan from previous_user_messages
+            _pending = route_context.pending_intent if route_context else None
+            _prev_msgs = route_context.previous_user_messages if route_context else []
+            _can_recover_from_msgs = bool(_prev_msgs) and not _pending
+            if _can_recover_from_msgs and route_context and not route_context.points:
+                _pending = {"destination": "", "duration": "", "raw_keywords": []}
+                # Try to recover destination/duration from previous messages
+                _prev_text = " ".join(_prev_msgs)
+                _city_match = re.search(r"(北京|上海|天津|重庆|广州|深圳|成都|武汉|南京|杭州)", _prev_text)
+                if _city_match:
+                    _pending["destination"] = _city_match.group(1)
+                if "两天" in _prev_text or "两日" in _prev_text or "2天" in _prev_text:
+                    _pending["duration"] = "two days"
+                    _pending["time_budget"] = 2.0
+                elif "一天" in _prev_text or "一日" in _prev_text or "1天" in _prev_text:
+                    _pending["duration"] = "a full day"
+                    _pending["time_budget"] = 1.0
+                if _pending.get("destination") and _pending.get("duration"):
+                    print(f"[DEBUG pending_plan] recovered from messages: {_pending}")
+
+            if _pending and _pending.get("destination") and _pending.get("duration"):
+                _pending_json = json.dumps(_pending, ensure_ascii=False)
+                _prev_msgs_json = json.dumps(_prev_msgs, ensure_ascii=False)
+                step1_request = (
+                    "<pending_intent_context>\n"
+                    "<previous_user_messages>\n"
+                    f"{_prev_msgs_json}\n"
+                    "</previous_user_messages>\n"
+                    "<pending_intent>\n"
+                    f"{_pending_json}\n"
+                    "</pending_intent>\n"
+                    "<latest_user_input>\n"
+                    f"{user_request}\n"
+                    "</latest_user_input>\n"
+                    "</pending_intent_context>\n"
+                    "<merge_instruction>\n"
+                    "请合并 pending_intent 和 latest_user_input 为完整意图。\n"
+                    "- latest_user_input 明确提到的字段覆盖历史值；\n"
+                    "- 未提到的字段（destination/duration/time_budget）继承 pending_intent；\n"
+                    "- 不得将历史字段重置为空或默认值；\n"
+                    "- 信息仍不充分时设置 needs_clarification=true。\n"
+                    "</merge_instruction>"
+                )
+                print(f"[DEBUG pending_intent] merged: dest={_pending.get('destination')} dur={_pending.get('duration')} from={'messages' if _can_recover_from_msgs else 'intent'}")
+
+            if not _has_existing_route:
+                step1_request = merge_pending_clarification(
+                    user_request,
+                    route_context.previous_user_messages if route_context else [],
+                )
+                if step1_request != user_request:
+                    print(
+                        f"[DEBUG clarification] action=resume_with_context "
+                        f"step1_request={step1_request[:120]}"
+                    )
+            # v21: Also run dispatch when previous messages exist (failed previous turn)
+            _has_prev_msgs = bool(route_context and route_context.previous_user_messages)
+            if route_context and (route_context.points or _has_prev_msgs):
+                # v21: Recover pending_plan from previous messages even if route failed
+                if _has_prev_msgs and not route_context.points:
+                    print(
+                        f"[DEBUG dispatch] recovering pending_plan from previous_user_messages: "
+                        f"count={len(route_context.previous_user_messages)} "
+                        f"pending_intent={'yes' if getattr(route_context, 'pending_intent', None) else 'no'}"
+                    )
+
                 # v21: Run fast classifier FIRST for clear-cut cases.
                 # Only fall back to LLM when fast returns None (ambiguous).
                 fast_decision = classify_conversation_route_change_fast(user_request, conv_ctx)
@@ -595,7 +916,12 @@ async def _run_pipeline_stream(
                     print(f"[DEBUG dispatch] decision: new_plan → full pipeline")
                 elif dispatch_decision.conversation_mode == "point_edit" and route_context and route_context.points:
                     print(f"[DEBUG dispatch] decision: point_edit ops={dispatch_decision.point_operations}")
-                    edited = await _try_chat_edit_replan(user_request, route_context, user_profile)
+                    edited = await _try_chat_edit_replan(
+                        user_request,
+                        route_context,
+                        user_profile,
+                        point_operations=dispatch_decision.point_operations,
+                    )
                     if edited:
                         return
                 elif dispatch_decision.conversation_mode == "follow_up":
@@ -611,9 +937,29 @@ async def _run_pipeline_stream(
                         )
                     step1_request = user_request
                 elif dispatch_decision.conversation_mode == "refine_current":
-                    print(f"[DEBUG dispatch] decision: refine_current — using clean user text only")
-                    step1_request = user_request
-                    print(f"[DEBUG dispatch] clean step1_request={user_request[:80]}")
+                    print(f"[DEBUG dispatch] decision: refine_current — merge with previous intent")
+                    # v21: Build conversation_context with previous_intent for merge
+                    _prev_intent = conv_ctx.get("previous_intent") or {}
+                    _intent_patch = dispatch_decision.intent_patch or {}
+                    step1_request = (
+                        "<conversation_context>\n"
+                        "<previous_intent>\n"
+                        f"{json.dumps(_prev_intent, ensure_ascii=False)}\n"
+                        "</previous_intent>\n"
+                        "<latest_user_input>\n"
+                        f"{user_request}\n"
+                        "</latest_user_input>\n"
+                        "</conversation_context>\n"
+                        "<merge_instruction>\n"
+                        "请生成合并后的完整旅行意图。\n"
+                        "- latest_user_input 明确提到的字段覆盖历史值；\n"
+                        "- 未提到的字段继承 previous_intent；\n"
+                        "- 不得将历史字段重置为空；\n"
+                        "- 不得使用默认值覆盖有效历史值；\n"
+                        "- 当前输入是偏好补充时，保留原目的地、时长和路线模式。\n"
+                        "</merge_instruction>"
+                    )
+                    print(f"[DEBUG dispatch] refine_current merge context len={len(step1_request)}")
                 elif dispatch_decision.conversation_mode == "answer_only":
                     print(f"[DEBUG dispatch] decision: answer_only — answering without replan")
                     await push_output(f"[ROUTE_PLANNER]: {dispatch_decision.reason or '这个问题不需要重新规划路线。'}")
@@ -697,8 +1043,9 @@ async def _run_pipeline_stream(
                     micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
 
             # v20: Generate per-POI recommendation reasons via DeepSeek (all plan modes)
-            # v21: Skip for utility lookups — no reason generation needed
-            if route_points and not getattr(parsed_intent, 'utility_lookup_requested', False):
+            # v21: Skip for utility AND planned mode — planned has deterministic reasons
+            _is_planned = getattr(parsed_intent, 'plan_mode', '') == 'planned'
+            if route_points and not getattr(parsed_intent, 'utility_lookup_requested', False) and not _is_planned:
                 try:
                     from services.reason_generator import generate_exploratory_reasons
                     _city = getattr(parsed_intent, "resolved_city", "") or \

@@ -1601,6 +1601,56 @@ def _fallback_origin(parsed: ParsedIntent, user_profile: UserProfile) -> dict | 
     return result
 
 
+def _deterministic_fallback_parsed_intent(
+    user_request: str,
+    plan_mode: str = "auto",
+    city: str = "",
+) -> "ParsedIntent":
+    """Deterministic fallback when LLM fails. Extracts sequential tasks from keywords."""
+    raw_kws = []
+    search_kws = []
+    is_planned = "先" in user_request or "再" in user_request or "然后" in user_request
+
+    # v21: Sequential task extraction — "先买书，再吃饭，然后看电影"
+    _seq_tasks: list = []
+    _action_map = {
+        "买书": ("书店", "purchase", 30),
+        "吃饭": ("餐厅", "meal", 60),
+        "看电影": ("电影院", "visit", 120),
+        "理发": ("理发店", "service", 45),
+        "取蛋糕": ("蛋糕店", "purchase", 15),
+        "逛公园": ("公园", "visit", 90),
+        "喝咖啡": ("咖啡", "cafe", 30),
+        "去图书馆": ("图书馆", "visit", 90),
+    }
+    _seq_match = re.findall(r"(?:先|再|然后|接着|最后)?\s*(买书|吃饭|看电影|理发|取蛋糕|逛公园|喝咖啡|去图书馆)", user_request)
+    for i, action in enumerate(_seq_match):
+        if action in _action_map:
+            kw, cat, stay = _action_map[action]
+            _seq_tasks.append({"type": "placeholder", "search_keyword": kw,
+                              "category": cat, "stay_minutes": stay, "sequence": i + 1})
+
+    for kw in ["书店", "餐厅", "电影院", "公园", "博物馆", "图书馆", "夜景", "咖啡"]:
+        if kw in user_request:
+            raw_kws.append(kw)
+            search_kws.append(kw)
+
+    if city:
+        search_kws = [f"{city} {kw}" for kw in search_kws]
+
+    from .data_schema import ParsedIntent
+    _now = dt.datetime.now()
+    return ParsedIntent(
+        is_route_planning_request=True,
+        duration="a full day" if is_planned else "a half day",
+        start_time=_now,
+        raw_keywords=raw_kws,
+        search_keywords=search_kws,
+        plan_mode="planned" if is_planned else "exploratory",
+        # planned_waypoints set in _postprocess fallback pipeline
+    )
+
+
 async def _llm_parse(
     user_request: str,
     current_time: dt.datetime,
@@ -1663,6 +1713,11 @@ async def _llm_parse(
             '   采购映射：买药→"药店"；买花→"花店"；买蛋糕/面包→"蛋糕店"/"面包店"；买饮料零食→"便利店"；买菜/生鲜→"生鲜超市"/"菜市场"。\n'
             '   餐饮映射：简单吃饭→"餐厅/小吃/面馆/快餐"；夜宵→"夜宵/烧烤/小吃"；明确菜系如日料/火锅/川菜则保留菜系。\n'
             '   休闲映射：看电影→"电影院"；唱歌→"KTV"；散步→"公园/滨江步道"；喝咖啡→category=cafe；喝酒小坐→"酒吧/清吧"。\n'
+            '   夜景映射：看夜景→category="night_view"，search_keyword="城市夜景"，\n'
+            '     search_keywords=["城市夜景","夜景观景台","城市地标夜景","滨水夜景","夜间开放观景平台"]，\n'
+            '     required_terms=["夜景","观景台","城市天际线","灯光夜景"]，\n'
+            '     excluded_terms=["酒店客房","停车场","办公楼","住宅区","仅白天开放"]，\n'
+            '     time_slot="evening"，stay_minutes=90，evening_requested=true。\n'
         )
         planned_waypoints_step = '4.5. 若为精准规划(planned)模式，提取 planned_waypoints：按 然后/再/接着/顺便 等顺序连接词拆分动作序列，并为每个途经点生成 search_keywords、required_terms、excluded_terms\n'
         planned_waypoints_section = (
@@ -1733,14 +1788,28 @@ async def _llm_parse(
                 "所有时间预算计算、餐点窗口判断、POI容量过滤等由后续工具链完成。\n"
                 "</background>\n"
                 "\n"
+                "<clarification_rules>\n"
+                "在提取字段前，先判断信息是否足以规划路线。缺少必要信息时必须先澄清，不得强行生成路线。\n"
+                "必要信息优先级：destination > duration > preference\n"
+                "1. destination：目的城市、区域或具体地点\n"
+                "2. duration：计划游玩的时长\n"
+                "3. preference：可选，包括主题、活动和同行人\n"
+                "缺少destination时只追问目的地，不要一次问多个问题。\n"
+                "用户只说日期或出游意愿但没有说去哪里→只追问目的地。\n"
+                "不得根据用户画像推断目的地、主题或同行人。\n"
+                "用户没有提到孩子/亲子/遛娃→任何回复中不得出现\"亲子\"\"儿童\"\"带娃\"。\n"
+                "用户没有明确时长→不得出现\"一日路线\"\"两日路线\"等确定描述。\n"
+                "信息不足时设置 is_route_planning_request=true 但所有检索字段保持为空。\n"
+                "</clarification_rules>\n"
+                "\n"
                 "<critical_rules>\n"
                 "1. 严禁推断、联想或补全用户未明确表达的内容。用户没说吃的，raw_keywords/food_pref_keywords/meal_search_keywords 必须为空。\n"
-                "2. duration 严格遵守枚举值映射：用户说\"一天/1天/一日/玩一天\"→\"a full day\"，说\"两天/周末\"→\"two days\"。不允许根据\"晚上\"推断多天。\n"
-                "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别；只返回关键词主体，不添加城市名，城市由后端统一拼接。\n"
-                "4. 排除项提取：当用户明确说\"不去XX\"\"不要有XX\"\"排除XX\"\"XX去过了/别再安排\"\"XX不用了\"\"跳过XX\"\"把XX去掉\"\"XX别安排了\"等否定表达时，必须把被排除的地点/景区/餐厅名提取到 delete_list 中。这是强约束——如果漏提 exclude 项，后续路线规划会错误地包含用户明确拒绝的地点。\n"
-                "5. \"文艺\"\"有氛围\"\"精神漫游\"\"城市漫游\"\"松弛感\"\"放空\"等风格或氛围表达属于用户明确意图，必须保留到 raw_keywords，不能丢弃。\n"
-                "6. 对这类风格词只能展开为受控的地点类型或体验词，如文艺街区、历史街区、创意园、独立书店、艺术展览、文化空间、城市慢行；不得编造具体 POI 名称。\n"
-                "7. 用户没有明确提到夜晚、夜景、夜游、酒吧、餐饮时，不得因为\"有氛围\"自动生成夜游、夜景、酒吧或餐饮关键词。\n"
+                "2. duration 严格遵守：\"一会儿/待会儿/逛一圈\"→\"a quarter day\"；\"上午/下午/半天\"→\"a half day\"；\"一天/一日/全天\"→\"a full day\"；\"两天/两日\"→\"two days\"。\"周末\"不自动等于两天，只说\"周末想出去玩\"→duration=null。\"周末两天/整个周末/周六和周日\"→\"two days\"。\n"
+                "3. search_keywords 只能基于 raw_keywords 展开，不能凭空生成用户没提到的类别；只返回关键词主体，不添加城市名。\n"
+                "4. 排除项提取：用户明确否定表达时，把被排除的地点名提取到 delete_list。这是强约束。\n"
+                "5. 风格/氛围词保留到 raw_keywords，但只能展开为受控地点类型词，不得编造具体POI名称。\n"
+                "6. 用户没有提到夜晚/夜景/餐饮时，不得自动生成夜游/酒吧/餐饮关键词。\n"
+                "7. 泛化需求（\"周末想出去玩\"/\"想出门走走\"/\"附近有什么好玩的\"）→所有检索字段为空，不得用用户画像填充主题。\n"
                 "</critical_rules>"
             ),
         },
@@ -1761,13 +1830,22 @@ async def _llm_parse(
                 "<task>从用户输入中提取以下字段，用于后续POI检索和路线规划。</task>\n"
                 "\n"
                 "<field_definitions>\n"
+                "<planning_sufficiency>\n"
+                "提取字段前先判断信息是否足以规划路线。\n"
+                "信息充分：指定了具体地点/区域，或明确了主题（历史建筑/自然风景/博物馆/美食/购物），或给出了有序任务。\n"
+                "信息不足（泛化需求）：\"周末想出去玩\"/\"想出门走走\"/\"附近有什么好玩的\"/\"推荐一个路线\"/只有日期没有地点或主题。\n"
+                "泛化需求处理：is_route_planning_request=true，但所有检索字段（raw_keywords/search_keywords/micro_keywords/fixed_pois）保持空数组，theme_profile=null，duration=null（除非用户明确说了时长）。不得使用用户画像填充主题。\n"
+                "</planning_sufficiency>\n"
+                "\n"
                 "1. is_route_planning_request (bool)\n"
                 "   用户是否在请求出行/游玩/餐饮/路线/行程规划。闲聊、命令、乱码、问候、天气闲聊、事实问答返回 false。\n"
+                "   注意：信息不足的泛化需求仍然为 true（用户确实想出行），但检索字段留空由代码兜底澄清。\n"
                 "\n"
                 "2. duration (string) — 严格枚举值\n"
-                "   a quarter day | a half day | a full day | a day and a half | two days | two and a half days | three days\n"
-                "   判断依据：逛一会儿/转转→a quarter day；半天→a half day；一天/出去玩→a full day；两天/周末→two days\n"
-                '   ⚠️ 多时段组合规则：用户同时提到两个以上时段（如"上午+下午""上午+晚上""下午+晚上"）→a full day，不要拆成多个half_day。\n'
+                "   a quarter day | a half day | a full day | a day and a half | two days | two and a half days | three days | null\n"
+                "   判断依据：逛一会儿/转转→a quarter day；半天→a half day；一天/出去玩/陪你逛一天→a full day；两天→two days\n"
+                '   ⚠️ \"周末\"不自动等于two days。\"周末想出去玩\"→duration=null。只有\"周末两天/整个周末/周六和周日\"→two days。\n'
+                '   ⚠️ 同时提到两个以上时段（上午+下午/上午+晚上）→a full day。\n'
                 "\n"
                 "3. raw_keywords (string[]) — 用户原词 ⚠️ 只提取用户明确说出的，严禁推断\n"
                 '   "逛古镇"→["古镇"]，"二次元"→["二次元"]。只保留实义词，去掉"逛/去/玩玩"等虚词。\n'
@@ -1843,6 +1921,14 @@ async def _llm_parse(
                 + planned_waypoints_field
                 + (
                     "\n"
+                    "<multi_period_rules>\n"
+                    '上午/下午/晚上/傍晚明确两个以上时段→plan_mode="planned", duration="a full day"。\n'
+                    "即使用探索性动词，分时段也必须用planned模式。"
+                    "每个时段独立为一个planned_waypoint，不得合并或丢弃。\n"
+                    '"再、还要、另外、顺便"追加时段→继承已有waypoints末尾追加，不替换。\n'
+                    "morning+afternoon+evening→a full day(固定)。\n"
+                    "</multi_period_rules>\n"
+                    "\n"
                     "15. plan_mode (string) — 路线模式 ⚠️ auto 模式下必须输出\n"
                     '    "planned"：用户给出了有序途经点、通勤链路、上午/下午/晚上分时段安排、先X再Y等连续决策\n'
                     '    "exploratory"：用户只给出了主题/氛围/区域/泛游玩需求，没有明确的时间顺序\n'
@@ -1917,6 +2003,18 @@ async def _llm_parse(
                 "- 只说购物→只生成购物类词；只说吃喝→只生成餐饮类词；两者都提→同时包含\n"
                 "</examples>\n"
                 "\n"
+                "<shopping_route_rules>\n"
+                "商业街、步行街、商圈、逛街、购物中心、商业广场、百货商场→购物类别路线。\n"
+                '用户输入"北京商业街两日游"时，必须输出：\n'
+                'poi_query_type="poi_category", category_id="shopping_mall", primary_query="商业街"\n'
+                'duration="two days", time_budget=2.0（不得因为商业街是单个类别缩短为一天）\n'
+                "search_keywords含：商业街/步行街/商圈/购物中心/商业广场/商业综合体/百货商场\n"
+                "primary_required_terms：商业街/步行街/购物街/商圈/购物中心/商场/百货/商业广场等\n"
+                "primary_excluded_terms：会议中心/国际会议中心/创新中心/会展中心/写字楼/办公楼/产业园/停车场/公交站/培训机构\n"
+                "allowed_typecode：060100/060101/060102/060103/060400/060900/061000\n"
+                "两日购物路线至少选择两个不同区域的购物锚点，不选择会议中心/公园/博物馆作为主锚点\n"
+                "</shopping_route_rules>\n"
+                "\n"
                 "<thinking_steps>\n"
                 "按以下顺序逐步提取：\n"
                 "1. 判断 is_route_planning_request：是否涉及出行/路线/游玩/餐饮\n"
@@ -1927,6 +2025,16 @@ async def _llm_parse(
                 + planned_waypoints_step +
                 "6. 依次提取 start_time、original_location_label、food_pref_keywords、meal_search_keywords、meal_constraints、budget_per_capita、day_poi_constraints\n"
                 "7. 注意：不执行任何计算（时间预算、餐点窗口、容量过滤均交给后续工具）\n"
+                "\n"
+                "<route_continuation_rules>\n"
+                "已有当天路线，用户输入新时段/活动→优先判断为路线续接，不是新路线。\n"
+                '"晚上去图书馆"→refine_current，不是point_edit，不是new_plan。\n'
+                "图书馆是地点类别不是命名POI，类别追加不得使用point_edit。\n"
+                "续接时不得重新使用home_location作为起点。\n"
+                "起点必须从当前路线最后一个可见POI获取。\n"
+                "原上午和下午POI必须保留，duration保持a full day。\n"
+                '"晚上"时段→验证晚间营业，不选晚上关闭的图书馆。\n'
+                "</route_continuation_rules>\n"
                 "</thinking_steps>\n"
                 "\n"
                 "<format>\n"
@@ -1936,13 +2044,33 @@ async def _llm_parse(
             ),
         },
     ]
-    return await call_llm(
-        response_model=ParsedIntent,
-        messages=messages,
-        max_tokens=config.DEEPSEEK_MAX_TOKENS_STEP_1_1,
-        temperature=config.DEEPSEEK_TEMPERATURE,
-        max_retries=config.DEEPSEEK_MAX_RETRIES,
-    )
+    # v21: Try step1 with configured max_tokens; retry at 4096 on IncompleteOutputException
+    _max_tokens = config.DEEPSEEK_MAX_TOKENS_STEP_1_1
+    for _attempt in range(2):
+        try:
+            _result = await call_llm(
+                response_model=ParsedIntent,
+                messages=messages,
+                max_tokens=_max_tokens,
+                temperature=config.DEEPSEEK_TEMPERATURE,
+                max_retries=config.DEEPSEEK_MAX_RETRIES,
+            )
+            return _result
+        except Exception as _exc:
+            _exc_name = type(_exc).__name__
+            if _attempt == 0 and (_exc_name == "IncompleteOutputException" or "incomplete" in str(_exc).lower()):
+                _max_tokens = 4096
+                print(
+                    f"[LLMConfig] step1_max_tokens={config.DEEPSEEK_MAX_TOKENS_STEP_1_1} "
+                    f"truncated, retrying with max_tokens=4096"
+                )
+                continue
+            print(f"[WARN step1] LLM call failed ({_exc_name}): {_exc}")
+            # v21: Fallback — use deterministic rules on final failure
+            from .utils import emit_status
+            await emit_status("正在使用离线规则解析意图...")
+            _city_fb = permanent_city[:-1] if permanent_city.endswith("市") else permanent_city
+            return _deterministic_fallback_parsed_intent(user_request, plan_mode, _city_fb)
 
 
 CATEGORY_TOKENS = {
@@ -4535,8 +4663,15 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         # Will be set later via _fallback_origin; search_area_location will be original_location
         pass
 
+    # v21: Extract latest_user_input from conversation_context XML if present
+    _nl_input = user_request
+    _ctx_match = re.search(r"<latest_user_input>\s*(.+?)\s*</latest_user_input>", user_request, re.DOTALL)
+    if _ctx_match:
+        _nl_input = _ctx_match.group(1).strip()
+        print(f"[DEBUG step1] isolated latest_user_input from conversation_context: len={len(_nl_input)}")
+
     # v19: 主题决策 — 使用 resolve_theme_profile 替代旧版拼接匹配
-    raw_theme_text = user_request
+    raw_theme_text = _nl_input
     auxiliary_theme_text = " ".join([
         " ".join(parsed.raw_keywords or []),
         " ".join(parsed.search_keywords or []),
@@ -4545,8 +4680,8 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         " ".join(getattr(parsed, "micro_poi_keywords", []) or []),
     ])
 
-    # v20: Activity facet detection — prevent "拍照打卡" from hijacking into relationship theme
-    _facet_raw = user_request.lower()
+    # v20: Activity facet detection — use isolated NL input
+    _facet_raw = _nl_input.lower()
     _has_relation_terms = any(t in _facet_raw for t in [
         "情侣", "约会", "对象", "闺蜜", "朋友聚会", "团建", "多人",
         "纪念日", "亲子", "家庭", "和好", "聚会", "par",
@@ -4842,12 +4977,19 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     if _skip_auto_meals:
         parsed.meal_needs = []
     else:
-        meal_overlap_threshold = 1.0 if parsed.time_budget <= 0.25 else 0.5
-        parsed.meal_needs = compute_meal_needs(
-            parsed.start_time,
-            parsed.duration,
-            min_overlap_hours=meal_overlap_threshold,
-        )
+        # v21: Validate duration before dict lookup — empty/invalid → empty meals
+        _valid_durations = {"a quarter day", "a half day", "a full day",
+                           "a day and a half", "two days", "two and a half days", "three days"}
+        if parsed.duration not in _valid_durations or not parsed.duration:
+            print(f"[DEBUG step1 WARN] invalid duration '{parsed.duration}' — skipping meal_needs")
+            parsed.meal_needs = []
+        else:
+            meal_overlap_threshold = 1.0 if parsed.time_budget <= 0.25 else 0.5
+            parsed.meal_needs = compute_meal_needs(
+                parsed.start_time,
+                parsed.duration,
+                min_overlap_hours=meal_overlap_threshold,
+            )
     # 只有确实需要安排餐饮时，才用用户画像偏好作为兜底口味
     if not parsed.food_pref_keywords and user_profile.food_pref_tag and bool(parsed.meal_needs):
         parsed.food_pref_keywords = list(user_profile.food_pref_tag)
