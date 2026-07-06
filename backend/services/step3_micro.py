@@ -5468,6 +5468,17 @@ async def run_step3(
             micro_policy=micro_policy,
             parsed_intent=parsed_intent,
         )
+        # A half-day anchor previously contributed 13+ internal points, which
+        # multiplied segment routing and final reason calls.  Keep a usable,
+        # human-scale number of stops per anchor.
+        _internal_limit = {
+            "quarter_day": 2,
+            "half_day": 4,
+            "full_day": 6,
+        }.get(sub.capacity, 4)
+        if len(filtered) > _internal_limit:
+            filtered = filtered[:_internal_limit]
+            trim_hint = trim_hint or f"已保留最相关的{_internal_limit}个地点"
         sub.internal_pois = filtered
         # 更新prev_end为当前子锚点排序后最后一个POI的位置
         if filtered:

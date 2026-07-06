@@ -124,7 +124,9 @@ async def _enrich_pois_with_bocha(
     city: str = "",
 ) -> None:
     queries = []
-    for poi in pois:
+    # Recommendation prose is optional.  Enrich at most three displayed POIs;
+    # the route itself must never wait on every micro point.
+    for poi in pois[:3]:
         if poi.get("enrichment_text") and len(poi.get("enrichment_text", "")) > 50:
             continue
         name = poi.get("name", "")
@@ -134,7 +136,7 @@ async def _enrich_pois_with_bocha(
     if not queries:
         return
     try:
-        results = await asyncio.wait_for(bocha_search_batch(queries), timeout=15.0)
+        results = await asyncio.wait_for(bocha_search_batch(queries), timeout=5.0)
         for i, items in enumerate(results):
             if i < len(pois) and items:
                 snippet = " ".join(
@@ -321,7 +323,7 @@ async def generate_exploratory_reasons(
                 max_tokens=3000,
                 temperature=0.3,
             ),
-            timeout=25.0,
+            timeout=8.0,
         )
         deepseek_count = 1
 

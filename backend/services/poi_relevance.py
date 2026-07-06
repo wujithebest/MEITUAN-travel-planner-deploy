@@ -327,12 +327,21 @@ def score_poi_against_intent(
                 )
 
     # ── Restaurant detection for non-meal intents (v20: compound code) ──
-    is_restaurant = matches_typecode(poi_typecode, ["05"]) or (
-        any(t in (poi_category + poi_name).lower() for t in [
-            "餐厅", "饭馆", "饭店", "美食", "小吃", "面馆", "火锅",
-            "川菜", "粤菜", "日料", "韩餐", "西餐",
-        ])
+    # v21: Cafe exemption — 0504xx typecode is not restaurant
+    _is_cafe_typecode = matches_typecode(poi_typecode, ["0504"])
+    _is_cafe_query = (
+        str(getattr(parsed_intent, "category_id", "") or "") == "cafe"
+        or any(c in str(getattr(parsed_intent, "primary_query", "") or "") for c in ["咖啡", "cafe", "coffee"])
     )
+    if _is_cafe_query and _is_cafe_typecode:
+        is_restaurant = False  # cafe query + 0504 typecode → not a restaurant
+    else:
+        is_restaurant = matches_typecode(poi_typecode, ["05"]) or (
+            any(t in (poi_category + poi_name).lower() for t in [
+                "餐厅", "饭馆", "饭店", "美食", "小吃", "面馆", "火锅",
+                "川菜", "粤菜", "日料", "韩餐", "西餐",
+            ])
+        )
     explicit_meal = bool(getattr(parsed_intent, "explicit_meal_intent", False))
     if is_restaurant and not explicit_meal and poi_query_type not in ("", None):
         rejection_reasons.append("restaurant_in_non_meal_intent")
@@ -345,7 +354,8 @@ def score_poi_against_intent(
         score += len(theme_hits) * 4.0
     if typecode_ok:
         score += 10.0
-    if is_restaurant and not explicit_meal and poi_query_type not in ("", None):
+    # v21: Cafe no penalty
+    if is_restaurant and not _is_cafe_query and not explicit_meal and poi_query_type not in ("", None):
         score -= 80.0
     if rejection_reasons:
         score -= 50.0

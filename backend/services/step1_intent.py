@@ -11,7 +11,7 @@ from .api_client import call_llm, gaode_geocode, gaode_text_search, gaode_weathe
 from .data_schema import FixedPoi, ParsedIntent, PlannedWaypoint, PlanSegment, UserProfile
 from .day_slots import DURATION_TO_BUDGET, compute_meal_needs, compute_reject_capacities, infer_capacity_from_typecode
 from .utils import PipelineLogger, ZeroOutputError, emit_status, haversine_km
-from .city_context import apply_resolved_city, resolve_departure_city
+from .city_context import apply_resolved_city, city_from_text, resolve_departure_city
 from .theme_profile_matcher import (
     canonicalize_search_keywords,
     rank_theme_profiles,
@@ -553,6 +553,21 @@ _SOUVENIR_EXPRESSIONS: frozenset[str] = frozenset({
     "买纪念品", "纪念品", "地方特色", "带回去",
     "买点伴手礼", "伴手礼店",
 })
+
+# v21: Casual rest stop UGC expressions — "随意自在/不想打扮/不排队/社区店"
+_CASUAL_REST_EXPRESSIONS: frozenset[str] = frozenset({
+    "随意", "自在", "不想打扮", "不用打扮", "穿得随便",
+    "舒服坐着", "松弛", "没人催", "不限时", "不用预约",
+    "不想排队", "不要网红", "社区小店", "街坊",
+    "本地人坐", "不想拍照", "不打卡", "轻松坐",
+    "换个舒服", "随意一点", "自在一点",
+})
+
+_CASUAL_REST_KEYWORDS = [
+    "社区咖啡店", "茶馆", "社区书店", "阅读空间",
+    "面包店", "甜品店", "社区公园", "安静绿地",
+    "文化空间", "社区小吃",
+]
 
 # v21: Rest stop / short break activity expressions
 _REST_STOP_EXPRESSIONS: frozenset[str] = frozenset({
@@ -2194,6 +2209,8 @@ _DIRECT_CATEGORY_PATTERNS: list[tuple[list[str], str]] = [
     (["木材工作坊", "木工坊", "木作体验", "木艺工作室", "木工体验", "木工"], "wood_craft"),
     (["便利店", "附近便利店", "小卖部", "士多"], "convenience_store"),
     (["书店", "城市书房", "书局", "书城"], "bookstore"),
+    # v21: Cafe
+    (["咖啡馆", "咖啡店", "咖啡厅", "咖啡", "coffee", "cafe", "coffee shop"], "cafe"),
     # v20: Healthcare
     (["三甲医院", "综合医院", "专科医院", "社区医院", "妇幼保健院", "中医院", "口腔医院", "眼科医院", "骨科医院"], "hospital"),
     (["医院", "卫生院", "医疗中心", "诊所", "卫生站", "社区卫生"], "hospital_general"),
@@ -2547,6 +2564,15 @@ def _normalize_primary_query(text: str) -> str:
     '一家饭店中午吃饭' → '饭店'
     """
     t = text.strip()
+    # v21: Strip modifier prefixes BEFORE category detection
+    # "适合拍照的饭馆" → "饭馆", "适合约会的餐厅" → "餐厅"
+    t = re.sub(r"^(?:适合|可以|能|好|方便)(?:拍照|约会|打卡|休息|看书|学习|发呆|带娃)的", "", t).strip()
+    # "环境好看的咖啡馆" → "咖啡馆", "安静一点的书店" → "书店"
+    t = re.sub(r"^(?:环境好看|安静一点|氛围好|有氛围|服务好)的?", "", t).strip()
+    # v21: "适合办公的咖啡馆" → "咖啡馆", "能带电脑工作的咖啡店" → "咖啡店"
+    t = re.sub(r"^(?:适合|可以|能|好|方便)(?:办公|学习|工作|远程|久坐|带电脑|上网)的?", "", t).strip()
+    # "有插座的咖啡馆" → "咖啡馆", "能久坐的咖啡厅" → "咖啡厅"
+    t = re.sub(r"^(?:有插座|能久坐|能充电|有WiFi|有Wi-Fi|有wifi|带电源)的", "", t).strip()
     t = _QUERY_CLEAN_PREFIX_RE.sub("", t).strip()
     t = _QUERY_CLEAN_SUFFIX_RE.sub("", t).strip()
     t = _MEAL_SUFFIX_CLEANUP_RE.sub("", t).strip()  # remove 吃饭/用餐/就餐
@@ -2562,6 +2588,14 @@ def _normalize_primary_query(text: str) -> str:
     # v20: Strip bare placeholder container words when they're the only content
     if t in _ABSTRACT_PLACEHOLDER_TERMS:
         t = ""
+    # v21: Strip leading "的" residue after modifier removal ("的饭馆" → "饭馆")
+    t = re.sub(r"^的", "", t).strip()
+    # v21: Normalize "饭馆/餐馆/饭店" → "餐厅"
+    if t in ("饭馆", "餐馆", "饭店"):
+        t = "餐厅"
+    # v21: Normalize "咖啡店/咖啡厅" → "咖啡馆"
+    if t in ("咖啡店", "咖啡厅"):
+        t = "咖啡馆"
     # v20: If cleaning stripped everything away, return empty (not original garbage)
     if not t:
         return ""
@@ -2974,6 +3008,76 @@ def _apply_rest_stop_keywords(parsed: ParsedIntent, city: str, activity_facet: s
         f"[DEBUG rest_stop] area={_area} "
         f"required_features={parsed.required_features} "
         f"search_kw={parsed.search_keywords[:6]}"
+    )
+
+
+def _apply_casual_rest_intent(
+    parsed: ParsedIntent,
+    city: str,
+    user_request: str,
+) -> None:
+    """Lock UGC-style casual sitting requests to the rest-stop pipeline.
+
+    This intentionally runs after generic proximity/category parsing so a phrase
+    such as ``在清华周围找个随意自在的地方坐着`` can first contribute 清华 as
+    the search centre, while ``随意自在的地方坐着`` is never retained as a POI
+    name/category query.
+    """
+    city_short = city[:-1] if city.endswith("市") else city
+    area = getattr(parsed, "search_area_label", None) or ""
+    prefix = f"{area}附近 " if area else f"{city_short} "
+
+    parsed.poi_query_type = "theme_route"
+    parsed.primary_query = ""
+    parsed.category_id = None
+    parsed.activity_facet = "rest_stop"
+    parsed.rest_stop_requested = True
+    parsed.proximity_requested = True
+    parsed.is_search_center_only = bool(area) or parsed.is_search_center_only
+    parsed.allowed_typecode_prefixes = []
+    parsed.excluded_typecode_prefixes = []
+    parsed.primary_required_terms = []
+    parsed.primary_excluded_terms = []
+
+    # "可坐" is verifiable and remains hard. Atmosphere/community/low queue
+    # pressure are subjective preferences and must not zero out recall.
+    parsed.required_features = ["sittable"]
+    parsed.preferred_features = _append_unique(
+        getattr(parsed, "preferred_features", []) or [],
+        ["casual_atmosphere", "community_scale", "low_queue_pressure"],
+    )
+    parsed.other_constraints = _append_unique(
+        [
+            item for item in (parsed.other_constraints or [])
+            if item not in {"不排队", "不用预约", "不走远"} or item in user_request
+        ],
+        ["随意自在", "低社交压力"],
+    )
+
+    # The earlier provisional detector used broad negative terms. Keep only
+    # exclusions that the user actually stated; otherwise they reduce nearby
+    # community-store recall for no reason.
+    injected_exclusions = {"网红", "排队", "预约", "限时", "高端商务", "私人会所"}
+    parsed.micro_excluded_terms = [
+        item for item in (getattr(parsed, "micro_excluded_terms", []) or [])
+        if item not in injected_exclusions or item in user_request
+    ]
+
+    # Use concrete mappable categories, scoped to the already resolved area.
+    # Never send the subjective phrase itself to the map POI endpoint.
+    parsed.search_keywords = [
+        f"{prefix}{keyword}" for keyword in _CASUAL_REST_KEYWORDS[:8]
+    ]
+    parsed.micro_keywords = _append_unique(
+        ["社区咖啡馆 可坐", "书店 阅读座位", "茶馆 安静", "社区公园 长椅"],
+        [],
+        limit=6,
+    )
+
+    print(
+        f"[DEBUG casual_rest_final] area={area} facet={parsed.activity_facet} "
+        f"query_type={parsed.poi_query_type} required={parsed.required_features} "
+        f"preferred={parsed.preferred_features} search_kw={parsed.search_keywords[:6]}"
     )
 
 
@@ -4115,11 +4219,14 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.search_area_label = _ctx_center.get("label", "")
         parsed.search_area_location = _ctx_center.get("location")
         # Also set original_location so route starts from the contextual center
-        _ctx_loc = _ctx_center.get("location")
+        _ctx_loc = dict(_ctx_center.get("location", {}))
         _ctx_loc["label"] = _ctx_center.get("label", _ctx_loc.get("label", ""))
         parsed.original_location = _ctx_loc
+        # v21: Set proximity flags to skip re-geocoding of already-known location
+        parsed.proximity_requested = True
+        parsed.is_search_center_only = True
         print(
-            f"[DEBUG step1] contextual_search_center applied: "
+            f"[DEBUG step1] contextual_search_center applied (skip re-geocode): "
             f"label={parsed.search_area_label} "
             f"source={_ctx_center.get('source')} "
             f"loc=({_ctx_loc.get('lat','')},{_ctx_loc.get('lng','')})"
@@ -4166,6 +4273,79 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
                     f"loc={fp.location.get('lat','') if fp.location else 'none'}"
                 )
                 break
+
+    # v21: Work-friendly cafe detection — "适合办公的咖啡馆" → cafe category
+    _cafe_work_terms = ["适合办公", "可以办公", "适合学习", "适合工作", "适合远程",
+                        "能带电脑", "有插座", "能充电", "有WiFi", "能久坐"]
+    _is_work_cafe = (any(t in user_request for t in _cafe_work_terms)
+                     and any(t in user_request for t in ["咖啡", "cafe", "coffee"]))
+    if _is_work_cafe:
+        parsed.poi_query_type = "poi_category"
+        parsed.category_id = "cafe"
+        parsed.primary_query = "咖啡馆"
+        parsed.proximity_requested = True
+        parsed.allowed_typecode_prefixes = ["050400"]
+        parsed.activity_facet = "work_friendly_cafe"
+        parsed.search_keywords = ["咖啡馆"]
+        # v21: Don't require explicit_meal_intent for cafe (050400 is not restaurant)
+        parsed.explicit_meal_intent = False
+        print(f"[DEBUG work_cafe] detected: cat=cafe primary_query=咖啡馆")
+
+    # v21: Casual rest stop / UGC expression detection
+    _is_casual = any(t in user_request for t in _CASUAL_REST_EXPRESSIONS)
+    _is_casual_compound = ("坐着" in user_request or "坐坐" in user_request or "休息" in user_request)
+    if _is_casual and _is_casual_compound:
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.poi_query_type = "feature_lookup"
+        parsed.primary_query = ""
+        parsed.activity_facet = "casual_rest_stop"
+        parsed.proximity_requested = True
+        parsed.required_features = ["sittable", "casual_atmosphere"]
+        parsed.search_keywords = [f"{city_short} {kw}" for kw in _CASUAL_REST_KEYWORDS]
+        parsed.other_constraints = _append_unique(parsed.other_constraints, ["随意", "不排队", "不用预约", "不走远"])
+        # Negative preferences for this scenario
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            ["网红", "排队", "预约", "限时", "高端商务", "私人会所"],
+            limit=15,
+        )
+        print(f"[DEBUG casual_rest] detected: facet=casual_rest_stop keywords={parsed.search_keywords[:5]}")
+
+    # v21: Cyberpunk / future-tech style detection
+    _cyberpunk_terms = ["赛博朋克", "未来感", "科技感", "霓虹夜景", "数字艺术",
+                        "科幻感", "赛博", "工业风艺术", "沉浸式光影"]
+    _is_cyberpunk = any(t in user_request for t in _cyberpunk_terms)
+    if _is_cyberpunk:
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        # v21: Map to registered future_tech_ai profile (or keep as explicit cyberpunk_future_tech)
+        parsed.theme_profile = "future_tech_ai"  # registered in theme_profile_library.json
+        parsed.activity_facet = "cyberpunk_exploration"
+        parsed.theme_required = True
+        parsed.search_keywords = [
+            f"{city_short} 科技馆", f"{city_short} 数字艺术馆",
+            f"{city_short} 沉浸式光影展", f"{city_short} 未来感建筑",
+            f"{city_short} 现代建筑", f"{city_short} 工业风艺术区",
+            f"{city_short} 城市观景台", f"{city_short} 灯光秀",
+            f"{city_short} 霓虹夜景",
+        ]
+        parsed.micro_keywords = [
+            "数字艺术", "沉浸投影", "光影空间", "玻璃幕墙",
+            "工业结构", "霓虹灯", "城市夜景",
+        ]
+        # v21: Explicit theme exclusion terms for candidate filtering
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            ["会议中心", "会议室", "办公楼", "科研办公区", "培训中心",
+             "普通轰趴馆", "私人会所", "不对外开放", "团建", "年会"],
+            limit=20,
+        )
+        parsed.other_constraints = _append_unique(
+            parsed.other_constraints,
+            ["cyberpunk_style:科技未来感/霓虹都市/数字艺术"],
+        )
+        print(f"[DEBUG cyberpunk] detected: theme mapped to tech/future/neon keywords")
 
     # v21: Heat shelter detection — "避暑/纳凉/太热" → feature_lookup
     _is_hot = any(expr in user_request for expr in _HEAT_SHELTER_EXPRESSIONS)
@@ -4230,6 +4410,114 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.micro_keywords = ["伴手礼 购物", "特产 礼品", "文创 纪念品"]
         parsed.other_constraints = _append_unique(parsed.other_constraints, ["不走远"])
         print(f"[DEBUG souvenir] detected: activity_facet=souvenir_shopping, proximity=True")
+
+    # v21: Text normalization — fix repeated words and colloquial patterns
+    _norm_request = re.sub(r"有没有有", "有没有", user_request)
+    _norm_request = re.sub(r"有没没有", "有没有", _norm_request)
+    # v21: "明天近/明天就近/明天在附近" → normalize proximity word
+    _norm_request = re.sub(r"明天近(?:找个|找|去|在)?", "明天附近找个", _norm_request)
+    _norm_request = re.sub(r"明天就近(?:找个|找|去|在)?", "明天附近找个", _norm_request)
+
+    # v21: Area-constrained exploration — "X里有什么Y" OR "X有没有Y"
+    _container_match = re.search(
+        r"([一-龥A-Za-z·]{2,16}(?:大学|校园|园区|公园|景区|商场|购物中心|博物馆|美术馆|图书馆|胡同|"
+        r"步行街|商圈|街区|古镇|夜市|广场|滨江|步道|文创园))"
+        r"(?:里|里面|内|里边|内部|中|之中|中间|附近|周边|旁边)?"
+        r"(?:有没有|有|有什么|哪有|有.*吗|有没有什么)"
+        r"(?:什么|哪些|哪家|哪个)?"
+        r"(.+)",
+        _norm_request,
+    )
+    # Also match "X有Y吗" / "X哪有Y" — X can be any named place
+    if not _container_match:
+        _container_match = re.search(
+            r"([一-龥A-Za-z·]{2,16}(?:大学|校园|园区|公园|景区|商场|购物中心|博物馆|美术馆|图书馆|胡同|"
+            r"步行街|商圈|街区|古镇|夜市|广场|"
+            r"门|街|路|巷|里|寺|庙|塔|桥|园|苑|庄|村|镇|区|厦))"
+            r"(?:有|哪有|有.*吗|有没有|有啥|有什么)"
+            r"(.+)",
+            _norm_request,
+        )
+    # v21: Last resort — "王府井" (pure area name without suffix) + 有没有/有
+    if not _container_match:
+        _container_match = re.search(
+            r"(王府井|西单|三里屯|前门|后海|南锣鼓巷|五道口|中关村|望京|国贸|CBD|"
+            r"陆家嘴|外滩|南京路|淮海路|静安寺|徐家汇|新天地|人民广场|"
+            r"宽窄巷子|春熙路|解放碑|洪崖洞|"
+            r"海珠|天河|越秀|"
+            r"夫子庙|新街口|"
+            r"中山路|"
+            r"鼓楼|西湖|"
+            r"户部巷|江汉路)"
+            r"(?:有没有|有|哪有|有.*吗|有啥)"
+            r"(.+)",
+            _norm_request,
+        )
+    if _container_match:
+        _container_name = _container_match.group(1).strip()
+        _inner_target = _container_match.group(2).strip()
+        _inner_target = re.sub(r"^(?:适合|可以|能|好|方便|用来)(?:拍照|约会|散步|休息|看书|打卡|遛弯|发[呆待])的(?:地方|场所|地点)?", "", _inner_target).strip()
+        if not _inner_target:
+            _inner_target = "景点"
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.search_area_label = _container_name
+        parsed.search_area_role = "container"
+        parsed.is_search_center_only = True
+        parsed.activity_facet = "container_exploration"
+        parsed.container_constraint = _container_name
+        # Clean fixed_pois: remove container name from destinations
+        parsed.fixed_pois = [
+            fp for fp in (getattr(parsed, "fixed_pois", []) or [])
+            if fp.name not in _container_name and _container_name not in fp.name
+        ]
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{_container_name} {_inner_target}", f"{_container_name} 景点",
+            f"{_container_name} 打卡", f"{_container_name} 内部",
+        ]
+        parsed.micro_keywords = [_inner_target, f"{_container_name} 内部 景点"]
+        parsed.plan_mode = "exploratory"
+        parsed.proximity_requested = True
+        print(
+            f"[DEBUG container] detected: container='{_container_name}' "
+            f"target='{_inner_target}' fixed_pois_cleaned={len(parsed.fixed_pois)}"
+        )
+
+    # v21: Multi-task detection — "一日游，晚上X" → daytime + required evening task
+    _multi_task_match = re.search(
+        r"(?:想|想要|打算|准备|帮我|请)?(?:在|去)?(.+?(?:一日游|玩一天|逛一天|玩一整天|全天|一天|两日游|半日游))"
+        r"[,，]\s*(晚上|傍晚|夜里|夜间)(.+)",
+        user_request,
+    )
+    if _multi_task_match:
+        _daytime_part = _multi_task_match.group(1).strip()
+        _evening_time = _multi_task_match.group(2)
+        _evening_task = _multi_task_match.group(3).strip()
+        # Preserve daytime as exploratory, add evening as required waypoint
+        _daytime_clean = re.sub(r"^(?:想|想要|帮我|请|在|去)", "", _daytime_part).strip()
+        parsed.raw_keywords = list(set(getattr(parsed, "raw_keywords", []) or []))
+        parsed.duration = "a full day"
+        parsed.time_budget = 1.0
+        parsed.evening_requested = True
+        parsed.plan_mode = "hybrid"
+        # Evening task becomes a planned waypoint
+        _evening_kw = re.sub(r"找个|找一个|找个地方|去|看", "", _evening_task).strip()
+        _evening_wp = PlannedWaypoint(
+            type="placeholder", search_keyword=_evening_kw,
+            category="night_view", stay_minutes=90,
+            time_slot="evening",
+            search_keywords=[_evening_kw, "城市夜景", "夜景观景台", "高空观景"],
+            required_terms=["夜景", "观景", "高楼", "屋顶", "露台", "天际线"],
+            excluded_terms=["酒店客房", "办公楼", "住宅", "仅白天"],
+        )
+        if not getattr(parsed, "planned_waypoints", []):
+            parsed.planned_waypoints = []
+        parsed.planned_waypoints.append(_evening_wp)
+        print(
+            f"[DEBUG multi_task] split: daytime='{_daytime_clean}' "
+            f"evening='{_evening_kw}' time={_evening_time}"
+        )
 
     # v21: Corridor task detection — "去X的路上顺路Y" → planned mode
     _corr_dest, _corr_task, _corr_action = _parse_corridor_task(user_request)
@@ -4397,6 +4685,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         or getattr(parsed, "rain_shelter_requested", False)
         or getattr(parsed, "area_scope_required", False)
         or getattr(parsed, "heat_shelter_requested", False)
+        or (getattr(parsed, "search_area_role", "") == "container")
     )
     poi_cat_result = _detect_poi_category_query(_category_query_text) if not _skip_cat_detect else None
     if poi_cat_result:
@@ -4747,9 +5036,21 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
 
     # v20: Multi-theme keeps umbrella profile; don't let single-theme decision override facets
     if not parsed.multi_theme_requested:
-        parsed.theme_profile = decision.profile_id
-        parsed.theme_label = decision.label
-        parsed.theme_confidence = decision.confidence
+        # v21: Force explicit theme when theme_required=True (cyberpunk, etc.)
+        if getattr(parsed, "theme_required", False) and not decision.profile_id:
+            _forced_profile = getattr(parsed, "theme_profile", "") or ""
+            if _forced_profile and _forced_profile in get_all_theme_profiles():
+                parsed.theme_profile = _forced_profile
+                parsed.theme_label = get_all_theme_profiles()[_forced_profile].get("label", _forced_profile)
+                parsed.theme_confidence = 1.0
+                print(
+                    f"[ThemeMatch] forced theme={_forced_profile} "
+                    f"source=deterministic_alias reason=explicit_user_term"
+                )
+        else:
+            parsed.theme_profile = decision.profile_id
+            parsed.theme_label = decision.label
+            parsed.theme_confidence = decision.confidence
 
     # v20: Intent coordination — abstract social scenario themes must become theme_route
     _abstract_scenario_themes = {"relationship_group_scenarios", "social_emotional_community"}
@@ -5010,6 +5311,17 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     if not parsed.crowd_type:
         parsed.crowd_type = "单人"
 
+    # Final intent lock: generic "X附近找Y" parsing is useful for extracting X
+    # (for example 清华), but it can misclassify the subjective Y phrase as a
+    # concrete POI category. Re-apply the casual-rest semantic after every
+    # generic rule branch while preserving the resolved search centre.
+    _is_casual_rest = (
+        any(term in user_request for term in _CASUAL_REST_EXPRESSIONS)
+        and any(term in user_request for term in ("坐着", "坐坐", "休息", "歇脚", "待会儿", "待一会"))
+    )
+    if _is_casual_rest:
+        _apply_casual_rest_intent(parsed, city, user_request)
+
     # LLM and all rule branches produce keyword bodies; the backend is the
     # single authority that adds the departure city's administrative label.
     parsed.search_keywords = canonicalize_search_keywords(parsed.search_keywords, city, limit=8)
@@ -5039,13 +5351,23 @@ async def _fixed_budget(parsed: ParsedIntent, city: str, user_request: str = "")
     if not parsed.fixed_pois:
         return 0.0
     await emit_status("正在查询目的地信息...")
-    searches = await asyncio.gather(*[gaode_text_search(fp.name, city=city) for fp in parsed.fixed_pois])
+    searches = await asyncio.gather(
+        *[gaode_text_search(fp.name, city=city) for fp in parsed.fixed_pois],
+        return_exceptions=True,
+    )
     budget = 0.0
+    destination_cities: list[str] = []
     for fp, items in zip(parsed.fixed_pois, searches):
+        if isinstance(items, Exception):
+            print(f"[WARN step1] fixed POI lookup failed name={fp.name}: {items}")
+            items = []
         if items:
             item = items[0]
             fp.location = item.get("location")
             fp.typecode = item.get("typecode", "")
+            item_city = city_from_text(item.get("cityname") or item.get("pname"))
+            if item_city:
+                destination_cities.append(item_city)
         # v20: Mark shoppable areas for internal shop expansion when user has stroll intent
         if _is_area_stroll_request(str(user_request or ""), fp.name):
             fp.expansion_required = True
@@ -5066,6 +5388,37 @@ async def _fixed_budget(parsed: ParsedIntent, city: str, user_request: str = "")
             {"full_day": "a full day", "half_day": "a half day", "quarter_day": "a quarter day"}[fp.resolved_time_budget],
             0.5,
         )
+
+    # Named destinations are stronger evidence for the itinerary city than the
+    # user's home city.  Without this correction, 上海 landmarks were expanded
+    # with 北京 keywords and generated 1000km local-route calls.
+    if destination_cities:
+        city_counts = {name: destination_cities.count(name) for name in set(destination_cities)}
+        destination_city = max(city_counts, key=city_counts.get)
+        parsed.resolved_city = destination_city
+        print(
+            f"[DEBUG destination_city] fixed_pois={len(parsed.fixed_pois)} "
+            f"hints={city_counts} resolved={destination_city} home_city={city}"
+        )
+
+        # For a destination-city day plan with no explicit departure point,
+        # start locally at the first resolved destination instead of routing
+        # every segment from the user's home hundreds of kilometres away.
+        first_resolved = next((fp for fp in parsed.fixed_pois if fp.location), None)
+        if (
+            first_resolved
+            and parsed.original_location
+            and not getattr(parsed, "original_location_label", None)
+            and haversine_km(parsed.original_location, first_resolved.location) > 100.0
+        ):
+            parsed.original_location = {
+                **first_resolved.location,
+                "label": f"{first_resolved.name}附近",
+            }
+            print(
+                f"[DEBUG destination_city] cross_city_local_start="
+                f"{parsed.original_location['label']}"
+            )
     return budget
 
 
@@ -5730,6 +6083,13 @@ async def run_step1(
     await emit_status("正在查询天气...")
     fixed_budget, weather_info = await asyncio.gather(fixed_task, weather_task)
     parsed.weather_info = weather_info
+    if parsed.resolved_city and parsed.resolved_city != city:
+        city = parsed.resolved_city
+        apply_resolved_city(user_profile, city)
+        parsed.search_keywords = canonicalize_search_keywords(
+            list(parsed.search_keywords or []), city, limit=8,
+        )
+        print(f"[DEBUG step1] destination city override applied: {city}")
     await logger.log_step("step_1_3_fixed_and_weather", output_count=1 if fixed_budget >= 0 else 0)
     # v18: plan_mode postprocessing
     # - "planned": forced planned (backward compat), downgrade if no waypoints

@@ -187,8 +187,16 @@ def is_valid_route_poi(
     prefix2 = (tc[:2] + "0000") if len(tc) >= 2 else ""
 
     # v20: 05xxxx — reject unless explicit_meal_intent
+    # v21: EXCEPT 050400 (休闲餐饮/咖啡厅) for cafe queries (handles compound typecodes 050121|050400)
+    _is_cafe = (
+        (category_id == "cafe")
+        or (primary_query and any(c in str(primary_query) for c in ["咖啡", "cafe", "coffee"]))
+    )
+    _has_0504 = matches_typecode(tc, ["0504"])  # matches both "050400" and compound "050121|050400"
     if matches_typecode(tc, ["05"]):
-        if not explicit_meal_intent:
+        if _is_cafe and _has_0504:
+            pass  # cafe query + 0504 typecode → allow without meal intent
+        elif not explicit_meal_intent:
             return False
 
     # v20: 06xxxx — only allow when user has shopping/service POI intent

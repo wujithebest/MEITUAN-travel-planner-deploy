@@ -895,6 +895,34 @@ async def _route_from_origin(parsed_intent: ParsedIntent, place: ExtractedPlace,
         raise
 
 
+async def _route_from_origin_bounded(
+    parsed_intent: ParsedIntent,
+    place: ExtractedPlace,
+    city: str,
+    timeout_seconds: float = 8.0,
+) -> dict | None:
+    """Bound route-API long tails and fall back to a distance estimate."""
+    try:
+        return await asyncio.wait_for(
+            _route_from_origin(parsed_intent, place, city),
+            timeout=timeout_seconds,
+        )
+    except (asyncio.TimeoutError, ExternalAPIError) as exc:
+        origin = parsed_intent.original_location or {}
+        distance = haversine_km(origin, place.location) if origin and place.location else 0.0
+        estimated_minutes = max(5.0, distance * 4.0) if distance else None
+        print(
+            f"[WARN step2] route degraded name={place.name} distance_km={distance:.1f} "
+            f"timeout={timeout_seconds}s reason={type(exc).__name__}"
+        )
+        return {
+            "duration_min": estimated_minutes,
+            "distance_km": distance,
+            "degraded": True,
+            "polyline_source": "haversine_estimate",
+        }
+
+
 def _clean_reason_text(text: str) -> str:
     text = re.sub(r"https?://\S+", "", text or "")
     text = re.sub(r"\s+", " ", text).strip(" ，。；;")
@@ -1731,10 +1759,17 @@ async def _theme_recall_places(
 
 
 async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[ExtractedPlace]:
-    # v4.1 F7: 仅富化 top-6（从 10 降至 6），节省 bocha 配额和耗时
-    enrich_limit = 6
+    # Enrich only the strongest two candidates.  This runs before final
+    # selection, so enriching six candidates amplified every BoCha long tail.
+    enrich_limit = 2
     queries = [f"{city} {place.name} 推荐 攻略 活动" for place in places[:enrich_limit]]
-    results = await bocha_search_batch(queries)
+    if not queries:
+        return places
+    try:
+        results = await asyncio.wait_for(bocha_search_batch(queries), timeout=7.0)
+    except Exception as exc:
+        print(f"[WARN step2] candidate enrichment degraded: {type(exc).__name__}: {exc}")
+        return places
     for place, web_items in zip(places[:enrich_limit], results):
         snippets = " ".join([f"{item.get('name', '')} {item.get('snippet', '')}" for item in web_items])
         place.enrichment_text = snippets[:500]
@@ -1915,8 +1950,9 @@ def _score_places_prefetched(
 async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedIntent, user_profile: UserProfile) -> list[ScoredPlace]:
     city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
     origin = parsed_intent.original_location
-    # v4.1 F7: 减少 TOP_N_REAL_ROUTE 从 15 → 8，节省 ~5 次 transit API 调用
-    TOP_N_REAL_ROUTE = 8
+    # Four real routes are enough after straight-line pre-ranking.  Remaining
+    # candidates use the existing local estimate.
+    TOP_N_REAL_ROUTE = 4
     if len(places) > TOP_N_REAL_ROUTE and origin:
         pre_ranked = []
         for place in places:
@@ -1926,7 +1962,9 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
         pre_ranked.sort(key=lambda x: x[0], reverse=True)
         top_places = [p for _, p, _ in pre_ranked[:TOP_N_REAL_ROUTE]]
         rest_places = [(p, est) for _, p, est in pre_ranked[TOP_N_REAL_ROUTE:]]
-        top_routes = await asyncio.gather(*[_route_from_origin(parsed_intent, place, city) for place in top_places])
+        top_routes = await asyncio.gather(*[
+            _route_from_origin_bounded(parsed_intent, place, city) for place in top_places
+        ])
         scored = []
         for place, route in zip(top_places, top_routes):
             transit = route.get("duration_min") if route else None
@@ -1934,7 +1972,9 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
         for place, est_transit in rest_places:
             scored.append(_score_place(place, parsed_intent, est_transit, user_profile=user_profile))
     else:
-        routes = await asyncio.gather(*[_route_from_origin(parsed_intent, place, city) for place in places])
+        routes = await asyncio.gather(*[
+            _route_from_origin_bounded(parsed_intent, place, city) for place in places
+        ])
         scored = []
         for place, route in zip(places, routes):
             transit = route.get("duration_min") if route else None
@@ -2405,6 +2445,15 @@ def _filter_candidates_by_intent(
             evidence=evidence,
         )
         print(f"[DEBUG step2] {audit_msg}")
+
+        # v21: Restaurant category enforcement — typecode MUST start with "05"
+        _cat_id = getattr(parsed_intent, "category_id", None) or ""
+        if _cat_id == "restaurant" and not (place.typecode or "").startswith("05"):
+            print(
+                f"[DEBUG step2] restaurant category reject (typecode not 05): "
+                f"{place.name} typecode={place.typecode}"
+            )
+            continue
 
         # v20: For poi_category with typecodes, accepted=False MUST delete
         if not evidence.accepted:
@@ -3481,7 +3530,15 @@ def _assemble_plan(
 
 
 async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logger: PipelineLogger) -> CompletePlan:
+    # v21: Preserve city from previous route context if home differs
+    _prev_city = getattr(parsed_intent, "resolved_city", "") or ""
     resolved_city = await _resolve_city_from_profile(user_profile)
+    if _prev_city and resolved_city != _prev_city:
+        _city_short = lambda c: c[:-1] if c.endswith("市") else c
+        if _city_short(resolved_city) != _city_short(_prev_city):
+            # Previous context has a different city — preserve it
+            resolved_city = _prev_city
+            print(f"[DEBUG step2] preserved previous city: {resolved_city} (home={await _resolve_city_from_profile(user_profile)})")
     _apply_resolved_city(user_profile, resolved_city)
     parsed_intent.resolved_city = resolved_city
     parsed_intent.search_keywords = canonicalize_search_keywords(
@@ -3783,7 +3840,7 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         # v4.1 F7: 并行启动 bocha enrich 和 transit route 预查询
         # 1. haversine-only 预排，选出 top-8 供 route API 调用
         city_name = user_profile.permanent_city[0] if user_profile.permanent_city else ""
-        TOP_N_REAL_ROUTE = 8
+        TOP_N_REAL_ROUTE = 4
         origin_loc = parsed_intent.original_location
         if origin_loc and len(places) > TOP_N_REAL_ROUTE:
             pre_ranked = []
@@ -3799,7 +3856,10 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         enrich_task = asyncio.create_task(_enrich_places(places, city_name))
 
         async def _fetch_routes():
-            return await asyncio.gather(*[_route_from_origin(parsed_intent, p, city_name) for p in top_places_for_route])
+            return await asyncio.gather(*[
+                _route_from_origin_bounded(parsed_intent, p, city_name)
+                for p in top_places_for_route
+            ])
 
         route_task = asyncio.create_task(_fetch_routes())
         places_enriched, top_routes = await asyncio.gather(enrich_task, route_task)

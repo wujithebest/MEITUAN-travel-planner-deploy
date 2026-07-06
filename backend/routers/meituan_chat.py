@@ -937,29 +937,50 @@ async def _run_pipeline_stream(
                         )
                     step1_request = user_request
                 elif dispatch_decision.conversation_mode == "refine_current":
-                    print(f"[DEBUG dispatch] decision: refine_current — merge with previous intent")
-                    # v21: Build conversation_context with previous_intent for merge
-                    _prev_intent = conv_ctx.get("previous_intent") or {}
-                    _intent_patch = dispatch_decision.intent_patch or {}
-                    step1_request = (
-                        "<conversation_context>\n"
-                        "<previous_intent>\n"
-                        f"{json.dumps(_prev_intent, ensure_ascii=False)}\n"
-                        "</previous_intent>\n"
-                        "<latest_user_input>\n"
-                        f"{user_request}\n"
-                        "</latest_user_input>\n"
-                        "</conversation_context>\n"
-                        "<merge_instruction>\n"
-                        "请生成合并后的完整旅行意图。\n"
-                        "- latest_user_input 明确提到的字段覆盖历史值；\n"
-                        "- 未提到的字段继承 previous_intent；\n"
-                        "- 不得将历史字段重置为空；\n"
-                        "- 不得使用默认值覆盖有效历史值；\n"
-                        "- 当前输入是偏好补充时，保留原目的地、时长和路线模式。\n"
-                        "</merge_instruction>"
-                    )
-                    print(f"[DEBUG dispatch] refine_current merge context len={len(step1_request)}")
+                    _earliest = dispatch_decision.earliest_step or "step1"
+                    if _earliest in ("step3", "local_replan") and route_context and route_context.points:
+                        # v21: Incremental refine — skip Step1+Step2, search around last route point
+                        _last_pt = None
+                        for _p in reversed(route_context.points):
+                            if _p.get("kind") not in ("start", "hint", "free_explore", "candidate") and _p.get("location", {}).get("lat"):
+                                _last_pt = _p
+                                break
+                        if _last_pt:
+                            print(
+                                f"[IncrementalRefine] mode=refine_current earliest_step={_earliest} "
+                                f"search_center={_last_pt.get('name','')} skip_step1=true skip_step2=true"
+                            )
+                            await emit_status("正在为您补充附近推荐...")
+                            micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
+                                await _run_incremental_refine(
+                                    parsed_intent, user_profile, complete_plan, logger_obj,
+                                    last_point=_last_pt, user_request=user_request,
+                                    route_context=route_context,
+                                )
+                    else:
+                        # v21: Full refine_current — merge with previous intent
+                        print(f"[DEBUG dispatch] decision: refine_current — merge with previous intent")
+                        _prev_intent = conv_ctx.get("previous_intent") or {}
+                        _intent_patch = dispatch_decision.intent_patch or {}
+                        step1_request = (
+                            "<conversation_context>\n"
+                            "<previous_intent>\n"
+                            f"{json.dumps(_prev_intent, ensure_ascii=False)}\n"
+                            "</previous_intent>\n"
+                            "<latest_user_input>\n"
+                            f"{user_request}\n"
+                            "</latest_user_input>\n"
+                            "</conversation_context>\n"
+                            "<merge_instruction>\n"
+                            "请生成合并后的完整旅行意图。\n"
+                            "- latest_user_input 明确提到的字段覆盖历史值；\n"
+                            "- 未提到的字段继承 previous_intent；\n"
+                            "- 不得将历史字段重置为空；\n"
+                            "- 不得使用默认值覆盖有效历史值；\n"
+                            "- 当前输入是偏好补充时，保留原目的地、时长和路线模式。\n"
+                            "</merge_instruction>"
+                        )
+                        print(f"[DEBUG dispatch] refine_current merge context len={len(step1_request)}")
                 elif dispatch_decision.conversation_mode == "answer_only":
                     print(f"[DEBUG dispatch] decision: answer_only — answering without replan")
                     await push_output(f"[ROUTE_PLANNER]: {dispatch_decision.reason or '这个问题不需要重新规划路线。'}")
@@ -1050,12 +1071,15 @@ async def _run_pipeline_stream(
                     from services.reason_generator import generate_exploratory_reasons
                     _city = getattr(parsed_intent, "resolved_city", "") or \
                             (user_profile.permanent_city[0] if user_profile.permanent_city else "")
-                    route_points = await generate_exploratory_reasons(
-                        route_points=route_points,
-                        parsed_intent=parsed_intent,
-                        user_profile=user_profile,
-                        city=_city,
-                        user_request=user_request,
+                    route_points = await asyncio.wait_for(
+                        generate_exploratory_reasons(
+                            route_points=route_points,
+                            parsed_intent=parsed_intent,
+                            user_profile=user_profile,
+                            city=_city,
+                            user_request=user_request,
+                        ),
+                        timeout=10.0,
                     )
                 except Exception as _re:
                     print(f"[ReasonGen] generation failed (non-blocking): {_re}")
@@ -1285,24 +1309,29 @@ async def _run_utility_nearby_fast(
             "day": 1, "theme_score": 0.0,
         })
 
-    # Build walking route
+    # Build walking route — non-blocking, use estimate on failure
     route_segments = []
+    _walk = None
     try:
         _walk = await gaode_walking_route(coord_to_param(_origin), coord_to_param(best_loc))
+    except Exception as _w_e:
+        print(f"[WARN utility] walking route failed (using estimate): {_w_e}")
+    try:
         route_segments.append({
             "from_poi": start_pt["name"], "to_poi": best.get("name", ""),
             "day_index": 1, "transport": "步行",
-            "duration_min": _walk.get("duration_min", _walk_min),
-            "distance_km": _walk.get("distance_km", _dist_km),
-            "polyline": _walk.get("polyline", []),
+            "duration_min": (_walk or {}).get("duration_min", _walk_min),
+            "distance_km": (_walk or {}).get("distance_km", _dist_km),
+            "polyline": (_walk or {}).get("polyline", []),
             "period": "short_trip", "color": "#2980B9", "is_dashed": False,
             "segment_order": 1, "from_order": 1, "to_order": 2,
             "from_display_order": 0, "to_display_order": 1,
-            "degraded": False, "polyline_source": "", "route_error": "",
+            "degraded": _walk is None, "polyline_source": "" if _walk else "route_api_failed",
+            "route_error": "" if _walk else "real_route_unavailable",
             "transport_options": [],
         })
-    except Exception as exc:
-        print(f"[WARN utility] walking route failed: {exc}")
+    except Exception as _seg_exc:
+        print(f"[WARN utility] segment construction failed: {_seg_exc}")
         route_segments.append({
             "from_poi": start_pt["name"], "to_poi": best.get("name", ""),
             "day_index": 1, "transport": "步行",
@@ -1325,6 +1354,132 @@ async def _run_utility_nearby_fast(
 
     print(f"[DEBUG utility] done: main={best.get('name','')} dist={_dist_km:.1f}km walk={_walk_min:.0f}min candidates={len(candidate_points)}")
     return [], route_segments, "", {}, {}, route_points, candidate_points, complete_plan
+
+
+async def _run_incremental_refine(
+    parsed_intent,
+    user_profile,
+    complete_plan,
+    logger_obj,
+    last_point: dict,
+    user_request: str = "",
+    route_context=None,
+) -> tuple:
+    """v21: Incremental refine — skip Step1+Step2, search around last route point only.
+    Appends a new waypoint (meal/coffee/snack) near the last route endpoint.
+    Time-bounded: max 25s total, 5s per API call.
+    """
+    from services.api_client import gaode_around_search_batch, gaode_walking_route
+    from services.utils import coord_to_param, haversine_km
+    import time as _time
+    _start = _time.monotonic()
+
+    _origin = last_point.get("location", {})
+    _origin_name = last_point.get("name", "上一站")
+    # v21: Normalize meal keywords + set explicit_meal_intent
+    _task_kw = (getattr(parsed_intent, "primary_query", "") or
+                " ".join(getattr(parsed_intent, "search_keywords", [])[:2]) or "餐厅")
+    if "饭馆" in _task_kw:
+        _task_kw = _task_kw.replace("饭馆", "餐厅")
+    parsed_intent.explicit_meal_intent = True
+    # v21: "适合拍照" → sorting preference only, not new theme
+    parsed_intent.photo_preference = "适合拍照" in user_request if user_request else False
+    if not _origin.get("lat"):
+        _origin = getattr(parsed_intent, "original_location", None) or {}
+    if not _origin.get("lat"):
+        return [], [], "", {}, {}, [], [], complete_plan
+
+    _radii = [500, 1000, 2000, 3000]
+    _kws = getattr(parsed_intent, "search_keywords", []) or [_task_kw]
+    _found_raw = None
+    for _r in _radii:
+        if _time.monotonic() - _start > 20:
+            break
+        if _found_raw:
+            break
+        for _kw in _kws[:3]:
+            if _time.monotonic() - _start > 20 or _found_raw:
+                break
+            try:
+                _req = {"location": coord_to_param(_origin), "keywords": _kw,
+                        "radius": _r, "offset": 10}
+                _batch = await gaode_around_search_batch([_req])
+                for _raw in (_batch[0] if _batch else []):
+                    _tc = str(_raw.get("typecode", "") or "")
+                    if _tc.startswith("05"):  # restaurant/food
+                        _found_raw = _raw
+                        break
+            except Exception as _exc:
+                print(f"[IncrementalRefine] search r={_r}m kw={_kw}: {_exc}")
+
+    if not _found_raw:
+        await emit_error("当前路线已保留，但附近小吃/餐厅检索暂时超时，请稍后重试")
+        return [], [], "", {}, {}, [], [], complete_plan
+
+    _name = str(_found_raw.get("name", "餐厅"))
+    _loc_raw = _found_raw.get("location")
+    _loc = {}
+    if isinstance(_loc_raw, str) and "," in _loc_raw:
+        _p = _loc_raw.split(",")
+        _loc = {"lat": float(_p[1]), "lng": float(_p[0])}
+    elif isinstance(_loc_raw, dict):
+        _loc = {"lat": float(_loc_raw.get("lat", 0)), "lng": float(_loc_raw.get("lng", 0))}
+    _elapsed = (_time.monotonic() - _start) * 1000
+
+    # Build route points: preserve existing + append new
+    _existing_points = route_context.points if route_context else []
+    route_points = list(_existing_points)
+    _new_order = max((p.get("display_order") or 0 for p in route_points), default=0) + 1
+    _new_pt = {
+        "poi_id": _found_raw.get("id", "") or _found_raw.get("uid", ""),
+        "gaode_poi_id": _found_raw.get("id", "") or _found_raw.get("uid", ""),
+        "name": _name,
+        "location": _loc,
+        "kind": "meal",
+        "day": 1,
+        "typecode": _found_raw.get("typecode", ""),
+        "category": "meal",
+        "address": _found_raw.get("address", ""),
+        "rating": _found_raw.get("rating"),
+        "is_waypoint": True,
+        "is_display_poi": True,
+        "display_order": _new_order,
+        "display_slot": "",
+        "is_passthrough": False,
+        "photo_url": "",
+    }
+    route_points.append(_new_pt)
+
+    # Build segment: origin → new POI
+    route_segments = route_context.segments if route_context else []
+    try:
+        _walk = None
+        try:
+            _walk = await gaode_walking_route(coord_to_param(_origin), coord_to_param(_loc))
+        except Exception as _w_exc:
+            print(f"[WARN] walking route failed (using estimate): {_w_exc}")
+        _dist_est = haversine_km(_origin, _loc) if _origin and _loc else 1.0
+        _dur_est = round(_dist_est * 15, 1)  # ~4 km/h walking
+        _seg = {
+            "from_poi": _origin_name, "to_poi": _name,
+            "day_index": 1, "transport": "步行",
+            "duration_min": _walk.get("duration_min", 5),
+            "distance_km": _walk.get("distance_km", 0.5),
+            "polyline": _walk.get("polyline", []),
+            "degraded": False, "segment_order": len(route_segments) + 1,
+            "is_dashed": False, "period": "",
+        }
+        route_segments.append(_seg)
+    except Exception:
+        pass
+
+    print(
+        f"[IncrementalRefineDone] "
+        f"selected_poi={_name} "
+        f"elapsed_ms={_elapsed:.0f} "
+        f"terminal_event=complete"
+    )
+    return [], route_segments, "", {}, {}, route_points, [], complete_plan
 
 
 async def _run_planned_pipeline_fast(

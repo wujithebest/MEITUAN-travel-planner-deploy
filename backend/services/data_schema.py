@@ -451,7 +451,9 @@ class ParsedIntent(BaseModel):
     souvenir_requested: bool = False                             # Set True when souvenir/gift shopping
     rain_shelter_requested: bool = False                         # Set True when rain_shelter activity_facet
     area_scope_required: bool = False                            # Set True for area_route district tours
+    search_area_role: str = ""                                   # "container" | "destination" | ""
     heat_shelter_requested: bool = False                         # Set True when heat_shelter activity_facet
+    theme_required: bool = False                                 # v21: True when theme must not fallback to generic
 
     # ── Step2输出 ──
 

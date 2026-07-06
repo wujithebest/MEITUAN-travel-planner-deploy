@@ -69,6 +69,15 @@ CATEGORY_RULES: dict[str, dict[str, Any]] = {
         },
         "note": "060400 is bookstore/stationery; only accept if name contains convenience terms",
     },
+    "cafe": {
+        "label": "咖啡馆",
+        "allowed": ["050400"],  # Gaode: 0504xx = 休闲餐饮/咖啡馆
+        "wide_fallback": ["050000"],
+        "semantic_terms": ["咖啡", "咖啡馆", "咖啡店", "咖啡厅", "coffee", "cafe", "拿铁", "美式", "卡布奇诺"],
+        "excluded": ["110000", "140000"],
+        "note": "cafe is not restaurant; does not require explicit_meal_intent",
+        "exempt_from_restaurant_filter": True,
+    },
     "antique_market": {
         "label": "古玩/收藏品市场",
         "allowed": ["061200", "190700"],
