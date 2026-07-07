@@ -29,7 +29,7 @@ interface HeaderWeatherProps {
   onSetLocationClick?: () => void;
 }
 
-const HeaderWeather: React.FC<HeaderWeatherProps> = ({ location, onSetLocationClick: _onSetLocationClick }) => {
+const HeaderWeather: React.FC<HeaderWeatherProps> = ({ location, onSetLocationClick }) => {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -133,78 +133,77 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ location, onSetLocationCl
     };
   }, [location.lat, location.lng, location.label]);
 
-  const displayLabel = location.label || '路线出发地';
+  const displayLabel = location.label || '请选择';
+  const prefix = weather?.city || displayLabel;
 
-  // 加载中（无旧数据）
+  // ── weather node (loading / data / error) ──
+  let weatherNode: React.ReactNode;
   if (loading && !weather) {
-    return (
-      <div className={`${styles.container} ${styles.loading}`}>
+    weatherNode = (
+      <div className={styles.weatherStatus}>
         <Loader size={16} className={styles.spinner} />
         <span>天气加载中...</span>
       </div>
     );
-  }
-
-  // 天气数据显示
-  if (weather) {
-    const prefix = weather.city || displayLabel;
+  } else if (weather) {
     const hasTemp = weather.temperature !== '' && weather.temperature != null;
     const hasCond = weather.condition && weather.condition !== '';
     const hasHumidity = weather.humidity !== '' && weather.humidity != null;
-    const hasWind = (weather.winddirection || weather.windpower);
-
-    if (!hasTemp && !hasCond && !hasHumidity && !hasWind) {
-      return (
-        <div className={`${styles.container} ${styles.noLocation}`}>
+    const hasWind = !!(weather.winddirection || weather.windpower);
+    weatherNode = (
+      <div className={styles.weatherContent}>
+        <div className={styles.cityInfo}>
           <MapPin size={14} className={styles.cityIcon} />
-          <span className={styles.setText}>{displayLabel} 天气暂不可用</span>
+          <span className={styles.cityName}>{prefix}</span>
         </div>
-      );
-    }
-
-    return (
-      <div className={styles.container} style={{ backgroundColor: '#fffde7' }}>
-        <div className={styles.weatherContent}>
-          <div className={styles.cityInfo}>
-            <MapPin size={14} className={styles.cityIcon} />
-            <span className={styles.cityName}>{prefix}</span>
-          </div>
-          <div className={styles.tempInfo}>
-            <WeatherIcon condition={weather.condition} />
-            {hasTemp && <span className={styles.temperature}>{weather.temperature}°</span>}
-            {hasCond && <span className={styles.conditionText}>{weather.condition}</span>}
-          </div>
-          {hasHumidity && (
-            <div className={styles.extraInfo}>
-              <Droplets size={12} />
-              <span className={styles.extraText}>湿度{weather.humidity}%</span>
-            </div>
-          )}
-          {hasWind && (
-            <div className={styles.extraInfo}>
-              <Wind size={12} />
-              <span className={styles.extraText}>
-                {weather.winddirection || ''}
-                {weather.windpower ? `${weather.windpower}级` : ''}
-              </span>
-            </div>
-          )}
+        <div className={styles.tempInfo}>
+          <WeatherIcon condition={weather.condition} />
+          {hasTemp && <span className={styles.temperature}>{weather.temperature}°</span>}
+          {hasCond && <span className={styles.conditionText}>{weather.condition}</span>}
         </div>
+        {hasHumidity && (
+          <span className={styles.extraStat}>
+            <Droplets size={12} /> {weather.humidity}%
+          </span>
+        )}
+        {hasWind && (
+          <span className={styles.extraStat}>
+            <Wind size={12} /> {weather.winddirection}{weather.windpower || ''}
+          </span>
+        )}
+      </div>
+    );
+  } else {
+    weatherNode = (
+      <div className={styles.weatherStatus}>
+        <Cloud size={16} />
+        <span>天气暂不可用</span>
       </div>
     );
   }
 
-  // error 但没有 weather 数据
-  if (error) {
-    return (
-      <div className={`${styles.container} ${styles.noLocation}`}>
-        <MapPin size={14} className={styles.cityIcon} />
-        <span className={styles.setText}>{displayLabel} 天气暂不可用</span>
-      </div>
-    );
-  }
+  // ── unified layout: departure button | weather ──
+  return (
+    <div className={styles.container}>
+      <button
+        type="button"
+        className={styles.departureButton}
+        onClick={onSetLocationClick}
+        title={`路线出发点：${displayLabel}`}
+        aria-label={`修改路线出发点，当前为${displayLabel}`}
+      >
+        <MapPin size={16} />
+        <span className={styles.departureTitle}>路线出发点</span>
+        <span className={styles.departureValue}>{displayLabel}</span>
+      </button>
 
-  return null;
+      <div className={styles.divider} aria-hidden="true" />
+
+      <div className={styles.weatherArea}>
+        {weatherNode}
+      </div>
+    </div>
+  );
 };
 
 export default HeaderWeather;

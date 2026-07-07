@@ -501,6 +501,19 @@ def _detect_plan_mode_from_text(text: str) -> str:
     Time words (上午/下午/晚上) are scheduling signals, NOT planned-mode proof.
     Only hard task chains (买东西→理发→回家) force planned mode.
     """
+    # Normalize frequent spoken task verbs before counting.  Step1's planned
+    # waypoint parser already performs the same normalization; dispatch must
+    # agree with it or the planned parser and its rule hints are never enabled.
+    normalized_text = str(text or "")
+    for source, target in {
+        "理个发": "理发",
+        "剪个头": "剪发",
+        "剪头发": "剪发",
+        "做头发": "美发",
+        "洗剪吹": "理发",
+    }.items():
+        normalized_text = normalized_text.replace(source, target)
+
     # Signals that indicate open-ended exploration (always → exploratory)
     exploration_signals = [
         "逛逛", "逛街", "逛", "随便逛", "走走", "溜达", "散步",
@@ -514,20 +527,20 @@ def _detect_plan_mode_from_text(text: str) -> str:
     # Strict sequence connectors (only relevant when paired with task verbs)
     sequence_signals = ["先", "再", "然后", "接着", "最后"]
 
-    has_exploration = any(s in text for s in exploration_signals)
-    has_tasks = any(s in text for s in task_chain_signals)
+    has_exploration = any(s in normalized_text for s in exploration_signals)
+    has_tasks = any(s in normalized_text for s in task_chain_signals)
 
     # Rule 1: exploration always wins over pure scheduling
     if has_exploration:
         return "exploratory"
     # Rule 2: task verbs or strong sequence chain → planned
     if has_tasks:
-        seq_count = sum(1 for s in sequence_signals if s in text)
-        task_count = sum(1 for s in task_chain_signals if s in text)
+        seq_count = sum(1 for s in sequence_signals if s in normalized_text)
+        task_count = sum(1 for s in task_chain_signals if s in normalized_text)
         if task_count + seq_count >= 2:
             return "planned"
     # Rule 2b: pure "先X再Y最后Z" with no exploration → planned
-    seq_count = sum(1 for s in sequence_signals if s in text)
+    seq_count = sum(1 for s in sequence_signals if s in normalized_text)
     if seq_count >= 2 and not has_exploration:
         return "planned"
     # Rule 3: default to exploratory (safest — won't skip Step2)

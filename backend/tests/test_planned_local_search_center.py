@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.data_schema import PlannedWaypoint
+from services.conversation_replan import _detect_plan_mode_from_text
 from services.step1_intent import (
     _bind_planned_waypoint_search_centers,
     _duration_from_request,
@@ -15,6 +16,7 @@ from services.step1_intent import (
 
 
 REQUEST = "明早去故宫，明天中午去天坛公园，明天晚上去首都医科大学旁边的饭馆吃饭"
+LIFE_SERVICE_REQUEST = "回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿"
 
 
 def test_local_reference_binds_to_meal_waypoint_only():
@@ -43,3 +45,20 @@ def test_request_is_full_day_and_evening_meal_is_dinner():
     constraints = _meal_constraints_from_request(REQUEST)
     assert any(item["meal"] == "dinner" for item in constraints)
     assert all(item.get("fixed_poi_name") != "首都医科大学旁边的饭馆" for item in constraints)
+
+
+def test_spoken_haircut_and_optional_cafe_is_planned_mode():
+    assert _detect_plan_mode_from_text(LIFE_SERVICE_REQUEST) == "planned"
+
+
+def test_life_service_fallback_keeps_haircut_then_cafe_without_home():
+    waypoints = _fallback_planned_waypoints_from_request(
+        LIFE_SERVICE_REQUEST,
+        include_generic=False,
+    )
+
+    assert [(wp.search_keyword, wp.category) for wp in waypoints] == [
+        ("理发店", "service"),
+        ("咖啡", "cafe"),
+    ]
+    assert all(wp.name != "家" for wp in waypoints)

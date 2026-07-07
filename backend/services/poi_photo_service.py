@@ -61,8 +61,10 @@ async def resolve_poi_photo(
     poi_name: str = "",
     location: dict[str, Any] | None = None,
     category: str = "",
+    city: str = "",
 ) -> dict[str, str]:
     """Resolve a display photo for a POI, preferring Gaode and falling back to Bocha."""
+    _search_city = city or "上海"  # v21: use provided city, not hardcoded Shanghai
     key = _cache_key(poi_id, poi_name, location)
     cached = _photo_cache.get(key)
     if cached:
@@ -85,7 +87,7 @@ async def resolve_poi_photo(
         # 2. Gaode text search with photos, useful when route points only have name.
         if poi_name:
             try:
-                matches = await gaode_text_search(poi_name, city="上海", show_fields="business,photos")
+                matches = await gaode_text_search(poi_name, city=_search_city, show_fields="business,photos")
             except Exception:
                 matches = []
             for match in matches:
@@ -113,16 +115,15 @@ async def resolve_poi_photo(
         return result
 
 
-async def enrich_points_with_photos(points: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def enrich_points_with_photos(points: list[dict[str, Any]], city: str = "") -> list[dict[str, Any]]:
+    _photo_city = city or ""
     async def _one(point: dict[str, Any]) -> dict[str, Any]:
-        # Strip any existing fallback/default image URLs from the point
         existing_photo = point.get("photo_url", "")
         existing_source = point.get("photo_source", "")
         if existing_photo and not _looks_usable_image_url(str(existing_photo)):
             point["photo_url"] = ""
             point["photo_source"] = ""
         elif existing_photo:
-            # Has a usable photo already, keep it
             point.setdefault("photo_source", existing_source or "gaode")
             return point
         if point.get("kind") in {"start", "hint", "free_explore"}:
@@ -132,6 +133,7 @@ async def enrich_points_with_photos(points: list[dict[str, Any]]) -> list[dict[s
             poi_name=str(point.get("name") or ""),
             location=point.get("location") or {},
             category=str(point.get("category") or point.get("typecode") or ""),
+            city=_photo_city,
         )
         # Only apply if a real photo was found
         if photo.get("photo_url") and photo.get("photo_source"):

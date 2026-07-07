@@ -36,6 +36,8 @@ class GuestProfileSchema(BaseModel):
     current_device_location: dict | None = None
     home_location: dict | None = None
     budget_per_capita: float = 100.0
+    # v21: Structured preference profile
+    preference_profile: dict | None = None
 
 
 class RouteContextSchema(BaseModel):
@@ -1092,6 +1094,7 @@ async def _run_pipeline_stream(
                 map_file_path, logger_obj, anchor_hints, waypoint_annotations,
                 route_points=route_points,  # 传递路线点用于前端验证
                 candidate_points=candidate_points,  # v6: 传递候选 POI 点
+                user_request=user_request,
             )
 
         except ZeroOutputError as exc:

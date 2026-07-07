@@ -505,6 +505,7 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
   return (
     <aside
       data-guide="itinerary-sidebar"
+      data-plan-mode={planMode || 'unknown'}
       className={`${styles.sidebar} ${isVisible ? styles.sidebarVisible : styles.sidebarHidden}`}
       onTransitionEnd={() => {
         if (!isVisible) {
@@ -536,6 +537,15 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
           {'>'}
         </button>
         <h2 className={styles.title}>路线地点</h2>
+        {planMode && (
+          <span
+            className={`${styles.planModeBadge} ${
+              planMode === 'planned' ? styles.planModePlanned : styles.planModeExploratory
+            }`}
+          >
+            {planMode === 'planned' ? '精准规划' : '自由探索'}
+          </span>
+        )}
         <Tooltip title={!hasRoute ? '暂无可收藏路线' : isFavorited ? '已收藏' : '收藏路线'}>
           <button
             className={styles.starBtn}

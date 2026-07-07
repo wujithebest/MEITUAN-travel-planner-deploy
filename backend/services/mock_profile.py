@@ -188,4 +188,31 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
         current_device_location=None,
         home_location=resolved_home,
         budget_per_capita=guest.get("budget_per_capita", 100.0),
+        # v21: Structured preference profile
+        preference_profile=_build_preference_profile(guest),
+    )
+
+
+def _build_preference_profile(guest: dict) -> "UserPreferenceProfile | None":
+    """Build UserPreferenceProfile from guest dict, with backward compat."""
+    from .data_schema import UserPreferenceProfile
+    pp = guest.get("preference_profile") or {}
+    if isinstance(pp, UserPreferenceProfile):
+        return pp
+    if not isinstance(pp, dict) or not pp:
+        # Fallback: convert old array preferences to interests
+        old_prefs = guest.get("preferences") or guest.get("activity_pref_tag") or []
+        if old_prefs and isinstance(old_prefs, list):
+            return UserPreferenceProfile(interests=list(old_prefs))
+        return None
+    return UserPreferenceProfile(
+        interests=list(pp.get("interests", []) or []),
+        cuisine_preferences=list(pp.get("cuisine_preferences", []) or []),
+        dietary_restrictions=list(pp.get("dietary_restrictions", []) or []),
+        ambience_preferences=list(pp.get("ambience_preferences", []) or []),
+        travel_pace=str(pp.get("travel_pace", "moderate") or "moderate"),
+        crowd_tolerance=str(pp.get("crowd_tolerance", "moderate") or "moderate"),
+        walking_tolerance=str(pp.get("walking_tolerance", "moderate") or "moderate"),
+        companion_types=list(pp.get("companion_types", []) or []),
+        avoid_tags=list(pp.get("avoid_tags", []) or []),
     )

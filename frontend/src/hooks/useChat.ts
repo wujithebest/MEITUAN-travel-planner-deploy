@@ -1212,6 +1212,25 @@ export function useChat(): UseChatReturn {
 
               completeDataRef.current = data;
 
+              // v21: Update planMode from authoritative backend response
+              const completedRequestId = activeRequestIdRef.current;
+              const backendPlanMode =
+                (backendRouteData as any)?.planning_state?.plan_mode ??
+                (backendRouteData as any)?.plan_mode ??
+                (data as any)?.plan_mode ??
+                null;
+              const prevMode = planMode;
+              if (backendPlanMode === 'exploratory' || backendPlanMode === 'planned') {
+                setPlanMode(backendPlanMode);
+              }
+              console.log('[PlanModeFrontendAudit]', {
+                requestId: completedRequestId,
+                previousPlanMode: prevMode,
+                backendRoutePlanMode: (backendRouteData as any)?.plan_mode,
+                planningStatePlanMode: (backendRouteData as any)?.planning_state?.plan_mode,
+                appliedPlanMode: backendPlanMode,
+              });
+
               // v9: 追加 pipeline 资源统计到输出内容末尾
               const pipelineStats = (data as any).stats;
               if (pipelineStats && typeof pipelineStats === 'object') {

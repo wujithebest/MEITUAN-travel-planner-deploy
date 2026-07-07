@@ -11,24 +11,70 @@
  * 7. 显示 SSE status 事件的进度消息
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { SendOutlined, MenuOutlined } from '@ant-design/icons';
 import { Trash2, History, Star, MessageCircle } from 'lucide-react';
 import { Input, Tooltip, Modal as AntModal } from 'antd';
 import { ChatMessage } from '@/hooks/useChat';
 import { useRouteStore } from '@/store/routeStore';
+import { useUserStore, type User } from '@/store/userStore';
 import styles from './ChatPanel.module.css';
 
 const { TextArea } = Input;
 
-const QUICK_PROMPTS: string[] = [
-  '我明天想去外滩玩一整天，帮我规划一下路线',
-  '上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方',
-  '还有两个小时，我在杨浦滨江附近随便走走',
+// v21: City-based example prompts (first 3 only)
+const EXAMPLES_BY_CITY: Record<string, string[]> = {
+  Beijing: [
+    '我明天想去故宫玩一整天，帮我规划一下路线',
+    '上午去王府井步行街逛逛，下午想去国贸，晚上找个好吃的地方',
+    '想去奥林匹克公园逛一逛',
+  ],
+  Shanghai: [
+    '我明天想去外滩玩一整天，帮我规划一下路线',
+    '上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方',
+    '还有两个小时，我在杨浦滨江附近随便走走',
+  ],
+};
+
+// Fallback examples (prompts 4-6, city-independent)
+const FALLBACK_PROMPTS: string[] = [
   '待会儿下班，在附近找一家日料店，然后回家',
   '下班路上想顺便买点水果，再找个地方简单吃晚饭',
   '回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿',
 ];
+
+export function detectDepartureCity(user: User | null): 'Beijing' | 'Shanghai' {
+  const homeLocation = user?.home_location;
+  const homeAddress = user?.location?.home_address;
+  const combined = [
+    user?.city,
+    user?.location?.city,
+    homeLocation?.label,
+    homeAddress?.name,
+    homeAddress?.full_address,
+  ].filter(Boolean).join(' ');
+
+  if (/北京/.test(combined)) return 'Beijing';
+  if (/上海/.test(combined)) return 'Shanghai';
+
+  // Address result labels may contain only a POI name (for example "国贸").
+  // In that case, use the saved route-departure coordinates.  These bounds
+  // intentionally cover the supported Beijing/Shanghai search regions.
+  const lng = Number(homeLocation?.lng ?? homeAddress?.lng ?? user?.location?.longitude);
+  const lat = Number(homeLocation?.lat ?? homeAddress?.lat ?? user?.location?.latitude);
+  if (Number.isFinite(lng) && Number.isFinite(lat)) {
+    if (lng >= 115.4 && lng <= 117.7 && lat >= 39.3 && lat <= 41.2) return 'Beijing';
+    if (lng >= 120.7 && lng <= 122.3 && lat >= 30.5 && lat <= 32.1) return 'Shanghai';
+  }
+
+  return 'Shanghai'; // default fallback
+}
+
+export function getQuickPrompts(user: User | null): string[] {
+  const city = detectDepartureCity(user);
+  const cityExamples = EXAMPLES_BY_CITY[city] || EXAMPLES_BY_CITY.Shanghai;
+  return [...cityExamples, ...FALLBACK_PROMPTS];
+}
 
 interface ChatPanelProps {
   /** 聊天消息列表 */
@@ -115,6 +161,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackDetail, setFeedbackDetail] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // v21: Dynamic city-based quick prompts
+  // The user profile is nested at state.user.  Subscribing to root-level
+  // home_location/permanent_city never updated when SettingsModal saved.
+  const departureUser = useUserStore((state) => state.user);
+  const quickPrompts = useMemo(
+    () => getQuickPrompts(departureUser),
+    [departureUser],
+  );
   const inputRef = useRef<any>(null);
   const prevIsLoadingRef = useRef<boolean>(false);
   const hasTriggeredCompleteRef = useRef<boolean>(false);
@@ -817,7 +871,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           <div className={styles.quickPrompts} data-guide="quick-prompts">
             <div className={styles.quickPromptsTitle}>例如</div>
             <div className={styles.quickPromptsList}>
-              {QUICK_PROMPTS.map((prompt, idx) => (
+              {quickPrompts.map((prompt, idx) => (
                 <button
                   key={idx}
                   className={styles.quickPromptBtn}

@@ -1287,7 +1287,13 @@ def _filter_and_sort_internal_pois(
     # 大面积场景：估算容量，top-N 截断后再空间排序
     trim_hint: str | None = theme_trim_hint
     prefilt = valid
-    if is_large_area and len(prefilt) > 8:
+    _area_stroll = _is_area_stroll_intent(parsed_intent) if parsed_intent else False
+    if _area_stroll:
+        # v21: Area stroll uses light visit times and stays at 6 POIs
+        est_capacity = min(6, len(valid))
+        if len(prefilt) > est_capacity:
+            prefilt = prefilt[:est_capacity]
+    elif is_large_area and len(prefilt) > 8:
         avg_visit = config.DEFAULT_VISIT_DURATION_MIN
         avg_travel = 25 if is_large_area else 8
         est_capacity = max(3, time_budget_min // (avg_visit + avg_travel))
@@ -1351,8 +1357,14 @@ def _filter_and_sort_internal_pois(
             else:
                 result.append(deep)
 
-    if len(result) < 2 and len(sorted_pois) >= 2:
-        result = sorted_pois[:2]
+    # v21: Area stroll needs at least 5 POIs
+    _area_min = 5 if _is_area_stroll_intent(parsed_intent) else 2
+    if len(result) < _area_min and len(sorted_pois) >= _area_min:
+        for p in sorted_pois:
+            if p not in result:
+                result.append(p)
+            if len(result) >= _area_min:
+                break
         trim_hint = None
 
     return result, trim_hint
@@ -1674,6 +1686,29 @@ def _micro_in_corridor(
     return dist_deg <= corridor_width_deg
 
 
+# v21: Module-level area stroll intent helper — avoids NameError across functions
+def _is_area_stroll_intent(parsed_intent: ParsedIntent | None) -> bool:
+    if parsed_intent is None:
+        return False
+    if (getattr(parsed_intent, "plan_mode", "") == "exploratory"
+            and getattr(parsed_intent, "area_scope_required", False)):
+        return True
+    for fp in getattr(parsed_intent, "fixed_pois", None) or []:
+        expansion_required = (
+            fp.get("expansion_required", False)
+            if isinstance(fp, dict)
+            else getattr(fp, "expansion_required", False)
+        )
+        activity_facet = (
+            fp.get("activity_facet", "")
+            if isinstance(fp, dict)
+            else getattr(fp, "activity_facet", "")
+        )
+        if expansion_required and activity_facet == "area_stroll":
+            return True
+    return False
+
+
 def _fill_segment(
     segment: dict,
     meal_poi_name: str | None,
@@ -1751,11 +1786,14 @@ def _fill_segment(
             "is_display_poi": True,
         }
 
+    # v21: Area exploration check — use module-level helper
+    area_stroll_requested = _is_area_stroll_intent(parsed_intent)
+
     # For a direct lookup or feature-based nearby request, the Step2 anchor is
     # already the selected destination. In particular, a feature anchor must
     # remain a visible waypoint when Step3 cannot find child POIs; converting
     # it to free_explore makes the frontend hide the only valid result.
-    if is_direct_primary_target or is_feature_primary_target or is_souvenir_primary_target:
+    if (is_direct_primary_target or is_feature_primary_target or is_souvenir_primary_target) and not area_stroll_requested:
         if used_names is not None:
             used_names.add(sub.name)
         point = _primary_anchor_point()
@@ -3347,12 +3385,186 @@ async def _build_origin_transport_options(parsed_intent: ParsedIntent, origin: s
     return options
 
 
+# v21: Spatial reorder — nearest-neighbor + 2-opt for scenic area internal POIs
+def _apply_planned_time_slots(
+    points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> list[dict[str, Any]]:
+    """Propagate explicit waypoint periods to their expanded child POIs."""
+    slot_rules: list[tuple[str, str]] = []
+    for wp in list(getattr(parsed_intent, "planned_waypoints", None) or []):
+        slot = str(getattr(wp, "time_slot", "") or "").lower()
+        name = str(getattr(wp, "name", None) or getattr(wp, "resolved_name", None) or "").strip()
+        if name and slot in {"morning", "afternoon", "evening"}:
+            slot_rules.append((name, slot))
+
+    if not slot_rules:
+        return points
+
+    for point in points:
+        if point.get("kind") in {"start", "meal", "hint", "free_explore"}:
+            continue
+        identity = " ".join(
+            str(point.get(key) or "")
+            for key in ("parent_anchor", "parent_name", "sub_anchor_name", "name")
+        )
+        for anchor_name, slot in slot_rules:
+            if anchor_name in identity or identity.strip() in anchor_name:
+                point["display_slot"] = slot
+                break
+    return points
+
+
+def _reorder_by_proximity(
+    points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent | None = None,
+) -> list[dict[str, Any]]:
+    """Reorder display POIs by spatial proximity, respecting entrance→internal→exit.
+    Start point stays first. Supplements are inserted at optimal positions, not appended.
+    """
+    if len(points) <= 2:
+        return list(points)
+
+    # The sequence produced by _route_planning is already the canonical
+    # timeline for multi-area and meal-constrained requests.  A global TSP-like
+    # reorder destroys explicit semantics such as
+    # 王府井(morning) -> lunch -> 国贸(afternoon) -> dinner by moving every meal
+    # behind all activity POIs.  Spatial optimization is therefore limited to
+    # a single scenic-area block without timeline boundaries.
+    fixed_pois = list(getattr(parsed_intent, "fixed_pois", None) or []) if parsed_intent is not None else []
+    parent_anchors = {
+        str(p.get("parent_anchor") or p.get("parent_name") or "").strip()
+        for p in points
+        if str(p.get("parent_anchor") or p.get("parent_name") or "").strip()
+    }
+    has_timeline_boundary = any(
+        p.get("kind") == "meal"
+        or str(p.get("display_slot") or "").lower() in {"lunch", "dinner", "evening"}
+        for p in points
+    )
+    if len(fixed_pois) >= 2 or len(parent_anchors) >= 2 or has_timeline_boundary:
+        print(
+            "[CanonicalOrderAudit] preserve_timeline_order=True "
+            f"fixed_pois={len(fixed_pois)} parent_anchors={sorted(parent_anchors)} "
+            f"has_timeline_boundary={has_timeline_boundary}"
+        )
+        return list(points)
+
+    # Keep start point
+    start = points[0] if points and points[0].get("kind") == "start" else None
+    # v21: Only exclude non-routable kinds — is_display_poi is set AFTER sorting
+    _skip_kinds = {"hint", "free_explore", "route_only", "traffic", "empty"}
+    rest = [p for p in points if p is not start and p.get("kind") not in _skip_kinds]
+    if len(rest) <= 1:
+        return list(points)
+    # Separate special points: meals kept at their time slots, entrances/exits identified
+    fixed_order: list[dict] = []
+    internal_pois: list[dict] = []
+    exit_points: list[dict] = []
+    # v21: Supplements merged into internal_pois for global 2-opt, NOT inserted separately after
+    for p in rest:
+        name = str(p.get("name", ""))
+        # Exit nodes — must come after all internals
+        if any(t in name for t in ["神武门", "出口", "北门", "东华门", "西华门"]):
+            exit_points.append(p)
+        elif p.get("kind") == "meal":
+            fixed_order.append(p)  # meals stay in time order
+        else:
+            # Supplement points participate in the same global optimization as
+            # the original scenic POIs; they must not be appended afterwards.
+            internal_pois.append(p)
+    # With no explicit exit, the already-classified internal list is used as
+    # is.  Replacing it with ``rest`` would re-add meals and supplements.
+    # Nearest-neighbor for internal POIs
+    from services.utils import haversine_km
+    ordered_internal: list[dict] = []
+    remaining = list(internal_pois)
+    if remaining:
+        current = remaining.pop(0)
+        ordered_internal.append(current)
+        while remaining:
+            current_loc = current.get("location", {})
+            c_lat = current_loc.get("lat", 0) if isinstance(current_loc, dict) else 0
+            c_lng = current_loc.get("lng", 0) if isinstance(current_loc, dict) else 0
+            best_idx, best_dist = 0, float("inf")
+            for i, p in enumerate(remaining):
+                ploc = p.get("location", {})
+                p_lat = ploc.get("lat", 0) if isinstance(ploc, dict) else 0
+                p_lng = ploc.get("lng", 0) if isinstance(ploc, dict) else 0
+                dist = haversine_km({"lat": c_lat, "lng": c_lng}, {"lat": p_lat, "lng": p_lng})
+                if dist < best_dist:
+                    best_dist, best_idx = dist, i
+            current = remaining.pop(best_idx)
+            ordered_internal.append(current)
+    # 2-opt optimization for internal POIs (limited to N≤10)
+    if 3 <= len(ordered_internal) <= 10:
+        improved = True
+        while improved:
+            improved = False
+            n = len(ordered_internal)
+            for i in range(n - 2):
+                for j in range(i + 2, n):
+                    if j == n - 1 and i == 0:
+                        continue  # don't reverse whole route
+                    a, b = ordered_internal[i], ordered_internal[i + 1]
+                    c, d = ordered_internal[j], ordered_internal[min(j + 1, n - 1)]
+                    aloc = a.get("location", {}); bloc = b.get("location", {})
+                    cloc = c.get("location", {}); dloc = d.get("location", {})
+                    if not all(isinstance(x, dict) and x.get("lat") for x in [aloc, bloc, cloc, dloc]):
+                        continue
+                    dist_ab = haversine_km(aloc, bloc)
+                    dist_cd = haversine_km(cloc, dloc)
+                    dist_ac = haversine_km(aloc, cloc)
+                    dist_bd = haversine_km(bloc, dloc)
+                    if dist_ac + dist_bd < dist_ab + dist_cd:
+                        # Reverse i+1 through j
+                        ordered_internal[i+1:j+1] = reversed(ordered_internal[i+1:j+1])
+                        improved = True
+    # v21: Supplements ARE internal_pois — already included in ordered_internal + 2-opt
+    # Build final order: start → ordered_internals → exits → meals
+    result_internals = list(ordered_internal)
+    result = []
+    if start:
+        result.append(start)
+    result.extend(result_internals)
+    result.extend(exit_points)
+    result.extend(fixed_order)
+    return result
+
+
+def _preserve_explicit_day_route_waypoints(
+    parsed_intent: ParsedIntent,
+    points: list[dict[str, Any]],
+) -> bool:
+    """Keep every selected POI routable for a compact, explicit day trip.
+
+    Waypoint simplification is useful for dense indoor POIs, but it must not
+    turn a named scenic-area itinerary into markers without connecting route
+    segments.  Step3 already caps the selected POIs, so routing all of them is
+    bounded here.
+    """
+    time_budget = float(getattr(parsed_intent, "time_budget", 0) or 0)
+    duration = str(getattr(parsed_intent, "duration", "") or "").lower()
+    is_day_trip = time_budget >= 0.75 or "full day" in duration
+    has_explicit_destination = bool(getattr(parsed_intent, "fixed_pois", None))
+    scenic_points = [
+        p for p in points
+        if p.get("kind") in {"anchor_internal", "micro"}
+        and p.get("kind") not in {"hint", "free_explore"}
+    ]
+    return is_day_trip and has_explicit_destination and 3 <= len(scenic_points) <= 12
+
+
 async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, points: list[dict[str, Any]]) -> tuple[list[RouteSegment], dict[str, dict[str, Any]]]:
+    # v21: Spatial reorder happens BEFORE this function is called (on canonical points)
     # 过滤掉非路线点（hint/free_explore 不参与路线连线）
     routable = [p for p in points if p.get("kind") not in ("hint", "free_explore")]
+    preserve_explicit_route = _preserve_explicit_day_route_waypoints(parsed_intent, routable)
 
     # ── v5.2: 同建筑POI聚类 — 同组内不画步行路线，只标注 ──
-    _building_groups = _cluster_same_building_pois(routable)
+    # A large named scenic area is not one indoor building.  Collapsing its
+    # halls/gardens here leaves visible POIs disconnected on the map.
+    _building_groups = {} if preserve_explicit_route else _cluster_same_building_pois(routable)
     # 反向映射：group_id → [names]
     _group_members: dict[str, list[str]] = {}
     for name, gid in _building_groups.items():
@@ -3447,7 +3659,19 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
                 j += 1
             stretch = routable[i:j]
 
-            if len(stretch) > 2:
+            if preserve_explicit_route and len(stretch) <= 12:
+                # Every POI shown in this bounded day route must also be a
+                # navigation waypoint, otherwise the frontend gets markers
+                # that are absent from route_segments.
+                wps, passing = list(stretch), {}
+                optimized.extend(wps)
+                for wp in wps:
+                    waypoint_annotations[wp["name"]] = {
+                        "is_waypoint": True,
+                        "walk_from_route_min": 0,
+                        "day": wp.get("day", 0),
+                    }
+            elif len(stretch) > 2:
                 wps, passing = _compute_waypoints(stretch)
                 wps, passing = _promote_theme_waypoints(stretch, wps, passing)
 
@@ -3473,6 +3697,12 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
             optimized.append(routable[i])
             waypoint_annotations[routable[i]["name"]] = {"is_waypoint": True, "walk_from_route_min": 0, "day": point_day}
             i += 1
+
+    print(
+        "[SegmentAudit] "
+        f"input={len(points)} routable={len(routable)} optimized={len(optimized)} "
+        f"preserve_explicit_route={preserve_explicit_route}"
+    )
 
     # 生成精简后的路线对
     pairs = [(optimized[k], optimized[k + 1]) for k in range(len(optimized) - 1) if optimized[k]["day"] == optimized[k + 1]["day"]]
@@ -5471,11 +5701,24 @@ async def run_step3(
         # A half-day anchor previously contributed 13+ internal points, which
         # multiplied segment routing and final reason calls.  Keep a usable,
         # human-scale number of stops per anchor.
+        # v21: Use user's explicit time_budget when larger than anchor capacity
+        _user_tb = float(getattr(parsed_intent, "time_budget", 0.25) or 0.25)
+        _user_cap = "full_day" if _user_tb >= 1.0 else ("half_day" if _user_tb >= 0.5 else "quarter_day")
+        _effective_cap = _user_cap if (
+            {"quarter_day": 1, "half_day": 2, "full_day": 3}.get(_user_cap, 1) >
+            {"quarter_day": 1, "half_day": 2, "full_day": 3}.get(sub.capacity, 1)
+        ) else sub.capacity
         _internal_limit = {
             "quarter_day": 2,
             "half_day": 4,
-            "full_day": 6,
-        }.get(sub.capacity, 4)
+            "full_day": 8,  # v21: single large scenic area full day → up to 8
+        }.get(_effective_cap, 4)
+        # v21: Area stroll needs 5-6 internal POIs for a walking route
+        if _is_area_stroll_intent(parsed_intent):
+            _internal_limit = {"quarter_day": 6, "half_day": 6, "full_day": 8}.get(_effective_cap, 6)
+            _area_min = {"quarter_day": 5, "half_day": 5, "full_day": 6}.get(_effective_cap, 5)
+        print(f"[RouteDensityAudit] sub={sub.name} anchor_capacity={sub.capacity} "
+              f"user_tb={_user_tb} effective_cap={_effective_cap} limit={_internal_limit}")
         if len(filtered) > _internal_limit:
             filtered = filtered[:_internal_limit]
             trim_hint = trim_hint or f"已保留最相关的{_internal_limit}个地点"
@@ -5607,6 +5850,7 @@ async def run_step3(
     logger.start_step("step_3_5_route_planning")
     await emit_status("正在规划详细路线...")
     points = _route_planning(sub_anchors, micro_pois, parsed_intent, complete_plan)
+    points = _apply_planned_time_slots(points, parsed_intent)
 
     # v6: 调试日志 — 路线点
     print(f"[DEBUG step3] route_points before injection names/kinds: {[(p.get('name'), p.get('kind')) for p in points]}")
@@ -5657,7 +5901,8 @@ async def run_step3(
     _primary_query = getattr(parsed_intent, "primary_query", "") or ""
     _is_full_day_theme = (
         parsed_intent.duration in ("a full day", "two days", "three days")
-        and (not _poi_qtype or _poi_qtype == "theme_route")
+        and _poi_qtype == "theme_route"
+        and len(getattr(parsed_intent, "fixed_pois", None) or []) <= 1
     )
     if _is_full_day_theme:
         _pre_reality = validate_plan_reality(parsed_intent, points, route_segments=[])
@@ -5677,6 +5922,8 @@ async def run_step3(
                 if _added_names:
                     print(f"[DEBUG step3] supplement recall added {len(_added_names)} points (before segments): {_added_names}")
 
+    # v21: Canonical spatial reorder — modifies points in place, used by segments AND Step4
+    points = _reorder_by_proximity(points, parsed_intent)
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
     # 将waypoint标注信息注入points，供地图渲染和输出使用

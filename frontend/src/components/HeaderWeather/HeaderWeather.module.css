@@ -3,60 +3,142 @@
 .container {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  border-radius: 8px;
+  width: min(100%, 700px);
+  min-width: 600px;
+  max-width: 760px;
+  padding: 6px 12px;
+  gap: 12px;
+  overflow: hidden;
+  flex-wrap: nowrap;
   background: #fffde7;
-  min-width: 200px;
-  max-width: 450px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
 }
 
-.container:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* 无位置状态 */
-.noLocation {
-  background: #f5f5f5;
-  color: #999;
-  gap: 8px;
+.departureButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 240px;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #333;
   cursor: pointer;
+  font-family: inherit;
 }
 
-.noLocation:hover {
-  background: #eee;
+.departureButton:hover {
+  background: rgba(255, 209, 0, 0.18);
 }
 
-.setText {
+.departureButton:focus-visible {
+  outline: 2px solid #e6b800;
+  outline-offset: 2px;
+}
+
+.departureTitle {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.departureValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #666;
+}
+
+.departureValue::before {
+  content: '· ';
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.weatherArea {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.weatherContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.weatherStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: #666;
   font-size: 13px;
 }
 
-.setBtn {
-  padding: 4px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fff;
-  color: #666;
+.cityInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cityIcon {
+  color: #e6b800;
+  flex-shrink: 0;
+}
+
+.cityName {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tempInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.temperature {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.conditionText {
+  font-size: 13px;
+  color: #555;
+}
+
+.extraStat {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.setBtn:hover {
-  background: #FFD100;
-  border-color: #FFD100;
-  color: #333;
-}
-
-/* 加载状态 */
-.loading {
-  background: #f5f5f5;
-  color: #999;
-  gap: 8px;
+  color: #888;
+  flex-shrink: 0;
 }
 
 .spinner {
   animation: spin 1s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -64,105 +146,18 @@
   to { transform: rotate(360deg); }
 }
 
-/* 天气内容 */
-.weatherContent {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  flex-wrap: nowrap;
-  overflow: hidden;
-}
-
-/* 湿度/风向等额外信息 */
-.extraInfo {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: #666;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.extraText {
-  font-size: 12px;
-  color: #555;
-  white-space: nowrap;
-}
-
-/* 城市信息 */
-.cityInfo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cityIcon {
-  color: #666;
-}
-
-.cityName {
-  font-size: 13px;
-  font-weight: 500;
-  color: #333;
-  white-space: nowrap;
-}
-
-/* 温度信息 */
-.tempInfo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.temperature {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* AQI 信息 */
-.aqiInfo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-left: auto;
-}
-
-.aqiLabel {
-  font-weight: 500;
-  opacity: 0.8;
-}
-
-.aqiValue {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.aqiLevel {
-  font-weight: 500;
-}
-
-/* 响应式 */
-@media (max-width: 768px) {
+@media (max-width: 1200px) {
   .container {
-    min-width: 150px;
-    max-width: 280px;
-    padding: 6px 10px;
+    width: min(100%, 620px);
+    min-width: 520px;
   }
 
-  .cityName {
+  .departureButton {
+    flex-basis: 210px;
+    max-width: 220px;
+  }
+
+  .extraStat {
     display: none;
-  }
-
-  .extraInfo {
-    display: none;
-  }
-
-  .aqiInfo {
-    padding: 2px 6px;
   }
 }

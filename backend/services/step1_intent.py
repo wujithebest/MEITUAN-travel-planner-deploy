@@ -2457,24 +2457,43 @@ _MOUNTAIN_COMPETING_TERMS: set[str] = {
     "森林登山", "攀岩", "越野", "徒步登高", "观峰", "山路", "登顶",
 }
 
-# v20: Area stroll detection — 步行街/商圈/街区 + 逛逛/逛街 → internal shop expansion
+# v20: Area stroll detection — named area + 逛逛/走走/转转 → internal POI expansion
 _SHOPPABLE_AREA_TERMS: set[str] = {
     "步行街", "商圈", "街区", "古镇", "夜市", "商场", "购物中心",
     "创意园", "文创园", "滨江街区", "天地", "商厦", "百货",
 }
+# v21: Extended area terms for parks, scenic areas, campuses, waterfronts
+_EXPLORABLE_AREA_SUFFIXES: set[str] = {
+    "公园", "景区", "风景区", "植物园", "动物园", "游乐园",
+    "大学", "校园", "学院", "校区",
+    "滨江", "滨河", "绿地", "湿地", "森林公园",
+    "文化园", "艺术区", "创意园区", "产业园",
+    "奥体", "奥森", "体育公园", "生态园",
+}
 _STROLL_INTENT_VERBS: set[str] = {
     "逛逛", "逛街", "随便逛", "走走", "citywalk",
     "买东西", "购物", "逛一下", "逛一逛", "溜达", "逛",
+    # v21: Extended stroll verbs
+    "转转", "散散步", "散步", "随便走走", "逛一逛", "走一走",
 }
 
 
 def _is_area_stroll_request(user_request: str, poi_name: str) -> bool:
-    """Check if user wants to explore shops inside a named area vs just visiting."""
+    """Check if user wants to explore internal POIs inside a named area vs just visiting.
+    Extended to parks, scenic areas, campuses, waterfronts — not just shopping streets."""
     lowered = user_request.lower()
     has_stroll = any(v in lowered for v in _STROLL_INTENT_VERBS)
     if not has_stroll:
         return False
-    return any(poi_name.endswith(t) or t in poi_name for t in _SHOPPABLE_AREA_TERMS)
+    # Check shopping area terms first
+    if any(poi_name.endswith(t) or t in poi_name for t in _SHOPPABLE_AREA_TERMS):
+        return True
+    # v21: Extended check — parks, scenic areas, campuses
+    if any(poi_name.endswith(t) or t in poi_name for t in _EXPLORABLE_AREA_SUFFIXES):
+        return True
+    # v21: Typecode-based check — parks (11xxxx), scenic (11xxxx), campuses (1412xx)
+    _area_typecodes = {"110100", "110101", "110200", "141200"}
+    return False
 
 
 # v20: Style/quality preference modifiers — ranking words not POI identity
@@ -5368,18 +5387,28 @@ async def _fixed_budget(parsed: ParsedIntent, city: str, user_request: str = "")
             item_city = city_from_text(item.get("cityname") or item.get("pname"))
             if item_city:
                 destination_cities.append(item_city)
-        # v20: Mark shoppable areas for internal shop expansion when user has stroll intent
+        # v20/v21: Mark named areas for internal POI expansion when user has stroll intent
         if _is_area_stroll_request(str(user_request or ""), fp.name):
             fp.expansion_required = True
-            fp.activity_facet = "shopping_stroll"
+            # v21: Distinguish shopping stroll from area exploration
+            _is_park = any(t in fp.name for t in _EXPLORABLE_AREA_SUFFIXES)
+            fp.activity_facet = "area_stroll" if _is_park else "shopping_stroll"
             print(
                 f"[AreaStroll] named_area={fp.name} expansion_required=True "
+                f"facet={fp.activity_facet}"
                 f"user_request={user_request[:60]}"
             )
         # v3新增：回填resolved_time_budget（未从user_time_budget解析到的用typecode兜底）
         if fp.resolved_time_budget is None:
             typecode = fp.typecode or ""
             capacity = infer_capacity_from_typecode(typecode, fp.name)
+            # v21: Don't let typecode override user's explicit full-day intent for single large scenic areas
+            if (getattr(parsed, "duration", "") == "a full day"
+                and len(parsed.fixed_pois) <= 1
+                and capacity in ("quarter_day", "half_day")):
+                capacity = "full_day"
+                print(f"[CapacityAudit] fixed_poi={fp.name} typecode={typecode} "
+                      f"capacity_overridden={capacity} reason=user_explicit_full_day")
             fp.resolved_time_budget = capacity
         # 兜底的兜底
         if fp.resolved_time_budget is None:

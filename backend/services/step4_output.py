@@ -514,6 +514,60 @@ def _weather_warning_needed(complete_plan: CompletePlan) -> bool:
     return bool(outdoor) and all(anchor.final_score < WEATHER_LOW_SCORE_THRESHOLD for anchor in outdoor)
 
 
+async def _generate_deepseek_fallback_reason(
+    parsed_intent,
+    route_points: list[dict],
+    user_request: str = "",
+) -> str:
+    """DeepSeek fallback for recommendation reason generation."""
+    try:
+        from services.api_client import call_llm
+        from pydantic import BaseModel
+
+        class ReasonResult(BaseModel):
+            reason: str = ""
+
+        _poi_names = [p.get("name", "") for p in route_points[:5]
+                      if p.get("kind") not in ("start", "hint", "free_explore")]
+        _prefs = ", ".join(getattr(parsed_intent, "other_constraints", []) or []) or "无特定偏好"
+        _theme = getattr(parsed_intent, "theme_label", "") or getattr(parsed_intent, "activity_facet", "") or "自由探索"
+
+        prompt = (
+            "你是本地旅游路线推荐理由生成器。请根据用户偏好和最终路线生成一段80-150字的中文推荐理由。\n"
+            "要求：1. 说明路线为何符合用户偏好 2. 说明至少两个真实路线优点 3. 只能使用给定的最终POI "
+            "4. 不要逐点罗列，不要输出标题 5. 不要使用空泛营销语言 6. 直接输出推荐理由正文\n\n"
+            f"用户需求：{user_request}\n"
+            f"用户偏好：{_prefs}\n"
+            f"路线主题：{_theme}\n"
+            f"最终路线：{', '.join(_poi_names[:6])}\n"
+        )
+        result = await call_llm(
+            response_model=ReasonResult,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300, temperature=0.7, max_retries=1,
+        )
+        if result and getattr(result, "reason", "").strip():
+            return str(result.reason).strip()
+    except Exception as exc:
+        print(f"[ReasonFallback] DeepSeek failed: {exc}")
+    return ""
+
+
+def _generate_template_reason(parsed_intent, route_points: list[dict]) -> str:
+    """Local template fallback for recommendation reason."""
+    _poi_names = [p.get("name", "") for p in route_points[:4]
+                  if p.get("kind") not in ("start", "hint", "free_explore")]
+    _prefs = ", ".join(getattr(parsed_intent, "other_constraints", []) or []) or "探索"
+    if not _poi_names:
+        _poi_names = ["推荐地点"]
+    _p1 = _poi_names[0] if _poi_names else ""
+    _p2 = _poi_names[1] if len(_poi_names) > 1 else (_poi_names[0] if _poi_names else "")
+    return (
+        f"这条路线结合了你对{_prefs}的兴趣，串联{_p1}、{_p2}等地点。"
+        f"各站点空间相对集中、游览顺序较为顺畅，适合按照当前时间安排轻松探索。"
+    )
+
+
 async def run_step4(
     parsed_intent: ParsedIntent,
     complete_plan: CompletePlan,
@@ -525,6 +579,7 @@ async def run_step4(
     waypoint_annotations: dict[str, dict[str, Any]] | None = None,
     route_points: list[dict[str, Any]] | None = None,
     candidate_points: list[dict[str, Any]] | None = None,
+    user_request: str = "",
 ) -> None:
     """Step 4: 生成输出"""
     logger.start_step("step_4_output")
@@ -643,12 +698,37 @@ async def run_step4(
                 _route_rec_reason = rr
             if pt.get("recommend_reason", "").strip():
                 _point_reason_count += 1
+    # v21: Validate recommendation reason for exploratory mode
+    _is_exploratory = getattr(parsed_intent, "plan_mode", "") != "planned"
+    _reason_valid = bool(_route_rec_reason and len(str(_route_rec_reason)) >= 40
+                         and not any(t in str(_route_rec_reason) for t in
+                                     ["作为AI", "根据系统提示", "无法提供", "没有足够信息"]))
+    if not _reason_valid and _is_exploratory:
+        print("[RouteReasonAudit] recommendation_reason_primary_invalid, attempting DeepSeek fallback")
+        try:
+            _route_rec_reason = await _generate_deepseek_fallback_reason(
+                parsed_intent=parsed_intent,
+                route_points=route_points,
+                user_request=str(user_request or ""),
+            )
+        except Exception as _exc:
+            print(f"[RouteReasonAudit] recommendation_reason_fallback_failed: {type(_exc).__name__}")
+            _route_rec_reason = ""
+        if _route_rec_reason:
+            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_success")
+        else:
+            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_failed, using template")
+            try:
+                _route_rec_reason = _generate_template_reason(parsed_intent, route_points)
+            except Exception:
+                _route_rec_reason = "这条路线兼顾游览体验与通行效率，地点之间衔接较为顺畅，适合按照当前时间安排轻松探索。"
+
     if _route_rec_reason:
         route_data["route_recommend_reason"] = _route_rec_reason
     print(
         f"[RouteReasonTransportAudit] "
         f"generated={bool(_route_rec_reason)} "
-        f"length={len(_route_rec_reason)} "
+        f"length={len(str(_route_rec_reason)) if _route_rec_reason else 0} "
         f"route_data_has_reason={bool(route_data.get('route_recommend_reason'))} "
         f"point_reason_count={_point_reason_count}"
     )
@@ -1003,7 +1083,8 @@ async def _build_route_data(
 
     try:
         from services.poi_photo_service import enrich_points_with_photos
-        points = await enrich_points_with_photos(points)
+        _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
+        points = await enrich_points_with_photos(points, city=_photo_city)
     except Exception:
         pass
     

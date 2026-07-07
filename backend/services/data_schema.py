@@ -11,6 +11,19 @@ from .day_slots import (
 
 ###step0 用户个人信息
 
+# v21: Structured user preference profile for UGC reranking
+class UserPreferenceProfile(BaseModel):
+    interests: list[str] = Field(default_factory=list)          # 历史/自然/美食/购物/艺术/夜景/摄影/城市漫游等
+    cuisine_preferences: list[str] = Field(default_factory=list) # 川菜/粤菜/日料/咖啡甜品等
+    dietary_restrictions: list[str] = Field(default_factory=list) # 素食/清真/忌辣/低糖等
+    ambience_preferences: list[str] = Field(default_factory=list) # 安静松弛/烟火气/浪漫/适合拍照/社区感等
+    travel_pace: str = "moderate"                                 # relaxed / moderate / intensive
+    crowd_tolerance: str = "moderate"                             # avoid_crowds / moderate / popular_ok
+    walking_tolerance: str = "moderate"                           # low / moderate / high
+    companion_types: list[str] = Field(default_factory=list)      # 独自/情侣/朋友/亲子/陪父母
+    avoid_tags: list[str] = Field(default_factory=list)           # 网红排队店/嘈杂/高消费/过度商业化等
+
+
 '''用户个人信息，部分变量作为poi筛选的一个参考值'''
 class UserProfile(BaseModel):
     nickname: str
@@ -19,21 +32,24 @@ class UserProfile(BaseModel):
     activity_pref_tag: list[str]  #这里提供兴趣标签类型，如："二次元""拍照""美食""户外""热门景点""安静""文化"等等。不能填写"亲子""宠物"，这些需要显式地在用户request中提出。
     #如未能从用户request中提取到有效活动标签，则自动传入activity_pref_tag。
     #这里在后面产品完成的时候，要做成固定标签供用户点击选择的方式，而不是让用户自己输入。
-    
+
     food_pref_tag: list[str]
     #当用户未在request中显示传入其他口味偏好的时候，在搜索餐饮相关poi时，主动传入food_pref_tag。
-    
-    permanent_city: list[str]  
+
+    permanent_city: list[str]
     #这里提供自动定位，取城市所在地，取到县/区一级。也提供用户自己选择相应的地址。
     #当意图识别为nearby_visit时，传入permanent_city。
-    
+
     permanent_city_coord: dict[str, float]
     #异步处理：这里基于高德api读取permanent_city的经纬度信息，只读取一次，自动读取并存储。只有当用户主动在设置中进行修改的时候才修改。
-    
+
     current_device_location: Optional[dict[str, float | str]] = None
     # v18: 保留字段但不再参与路线出发地决策。用户未显式指定出发地时，original_location 固定由 user_profile.home_location 注入。
     home_location: Optional[dict[str, float | str]] = None
     # v18: 唯一路线出发地来源。用户长期规划的默认出发点（家/常驻地址）。未指定时统一由此字段注入 original_location。
+
+    # v21: Structured preference profile
+    preference_profile: Optional[UserPreferenceProfile] = None
 
     #transport_pref这个变量就不需要了，默认公共交通，除非用户在request中说"自驾"或其他驾驶方式，否则默认公共交通。
     

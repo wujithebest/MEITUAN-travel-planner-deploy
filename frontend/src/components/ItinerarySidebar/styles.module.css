@@ -112,6 +112,25 @@
   margin: 0;
 }
 
+.planModeBadge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.planModeExploratory {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.planModePlanned {
+  color: #92400e;
+  background: #fef3c7;
+}
+
 .moreBtn {
   display: flex;
   align-items: center;
