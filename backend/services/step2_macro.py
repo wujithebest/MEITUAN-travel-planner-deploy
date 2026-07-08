@@ -1247,7 +1247,14 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
                 fp.gaode_poi_id = str(best_item.get("id", "") or best_item.get("uid", ""))
                 fp.address = str(best_item.get("address", "") or "")
                 fp.district = str(best_item.get("adname", "") or best_item.get("district", "") or "")
-                fp.poi_rating = best_item.get("rating") or best_item.get("biz_ext", {}).get("rating")
+                _biz = best_item.get("biz_ext")
+                _rating = best_item.get("rating")
+                if _rating in (None, "") and isinstance(_biz, dict):
+                    _rating = _biz.get("rating")
+                try:
+                    fp.poi_rating = float(_rating) if _rating not in (None, "") else None
+                except (TypeError, ValueError):
+                    fp.poi_rating = None
                 fp.photo_url = _extract_photo_from_raw(best_item)
                 print(
                     f"[FixedAnchorAudit] name={fp.name} "
@@ -1481,7 +1488,11 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
                 if _ttc not in allowed_types:
                     allowed_types.append(_ttc)
             print(f"[DEBUG macro search] open_terrace typecodes added: {_terrace_tc}")
-    keyword_limit = 8 if ("二次元" in parsed_intent.raw_keywords or _has_shopping_intent(parsed_intent)) else 5
+    # v21: Multi-day optimization — reduce keyword limit for scoped recall
+    _is_multi_day_opt = getattr(parsed_intent, "optimization_profile", "") == "multi_day_fixed_anchor_enhanced"
+    keyword_limit = 8 if ("二次元" in parsed_intent.raw_keywords or _has_shopping_intent(parsed_intent)) else (
+        3 if _is_multi_day_opt else 5
+    )
 
     # v6: 强餐饮意图时, meal_search_keywords 优先作为锚点搜索关键词
     search_kws = list(parsed_intent.search_keywords[:keyword_limit])

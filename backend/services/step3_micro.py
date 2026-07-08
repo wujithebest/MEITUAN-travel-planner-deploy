@@ -5922,8 +5922,14 @@ async def run_step3(
                 if _added_names:
                     print(f"[DEBUG step3] supplement recall added {len(_added_names)} points (before segments): {_added_names}")
 
-    # v21: Canonical spatial reorder — modifies points in place, used by segments AND Step4
+    # v21: Canonical spatial reorder + timeline completion before segments
     points = _reorder_by_proximity(points, parsed_intent)
+    try:
+        from .timeline_completion import complete_route_timeline
+        _pts_city = getattr(parsed_intent, "resolved_city", "") or ""
+        points = await complete_route_timeline(points, parsed_intent, None, _pts_city)
+    except Exception as _te:
+        print(f"[WARN] timeline_completion failed (non-blocking): {_te}")
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
     # 将waypoint标注信息注入points，供地图渲染和输出使用

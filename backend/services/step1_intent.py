@@ -4293,6 +4293,67 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
                 )
                 break
 
+    # v21: Fixed anchor enumeration detection — "A、B、C都想去" vs "先去A，再去B"
+    # Only set planned when explicit sequence markers exist
+    _has_sequence = any(w in user_request for w in ["先", "然后", "再", "接着", "最后"])
+    _has_enum_list = bool(re.search(r"[、，,].*[、，,]", user_request))
+    _no_sequence_verbs = any(w in user_request for w in [
+        "都想去", "都走到", "都想看", "都逛逛", "都玩", "都去",
+        "怎么安排", "怎么走", "如何安排", "路线怎么", "怎么排",
+    ])
+    _time_prefix = re.search(r"^(?:只有|只有|就)\s*(.{1,8}?(?:天|日|小时))", user_request)
+    if _has_enum_list and _no_sequence_verbs and not _has_sequence:
+        # Enumeration without sequence → exploratory with fixed anchor optimization
+        parsed.plan_mode = "exploratory"
+        if not getattr(parsed, "planned_waypoints", []):
+            parsed.planned_waypoints = []
+        # v21: Multi-day fixed anchor optimization profile
+        _req_days = 1
+        if parsed.time_budget > 1.0 and len(parsed.fixed_pois) >= 2:
+            _req_days = max(2, int(parsed.time_budget))
+        if _req_days >= 2:
+            parsed.optimization_profile = "multi_day_fixed_anchor_enhanced"
+            parsed.requested_days = _req_days
+            parsed.preserve_requested_days = True
+            print(
+                f"[MultiDayOptimizationAudit] enabled=true "
+                f"requested_days={_req_days} fixed_pois={len(parsed.fixed_pois)}"
+            )
+        print(
+            f"[WaypointExtractionAudit] raw={user_request[:60]} "
+            f"plan_mode=exploratory route_strategy=fixed_anchor_optimization "
+            f"reason=enumeration_without_sequence_markers"
+        )
+
+    # v21: Spring Festival / Chinese New Year theme detection
+    _spring_festival_terms = ["春节", "过年", "新春", "年味", "年俗", "庙会", "灯会",
+                               "花灯", "年货", "年市", "舞龙舞狮", "老北京年味"]
+    _is_spring = any(t in user_request for t in _spring_festival_terms)
+    if _is_spring:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.theme_profile = "spring_festival_culture"
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 春节庙会", f"{city_short} 新春灯会",
+            f"{city_short} 年货市集", f"{city_short} 民俗活动",
+            f"{city_short} 非遗体验", f"{city_short} 胡同年味",
+            f"{city_short} 老字号", f"{city_short} 传统小吃",
+        ]
+        parsed.micro_keywords = [
+            "庙会 春节", "灯会 花灯", "年货 市集",
+            "非遗 民俗", "胡同 年味", "老字号 小吃",
+        ]
+        # Exclude sports/entertainment unrelated to spring festival
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            ["篮球馆", "足球场", "跆拳道", "攀岩", "冲浪", "卡丁车", "健身房"],
+            limit=15,
+        )
+        print(f"[DEBUG spring_festival] detected: theme=spring_festival_culture")
+
     # v21: Work-friendly cafe detection — "适合办公的咖啡馆" → cafe category
     _cafe_work_terms = ["适合办公", "可以办公", "适合学习", "适合工作", "适合远程",
                         "能带电脑", "有插座", "能充电", "有WiFi", "能久坐"]

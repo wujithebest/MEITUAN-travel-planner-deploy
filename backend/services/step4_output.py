@@ -676,6 +676,16 @@ async def run_step4(
         ],
     }
     
+    # v21: Enrich final route points before route_data is materialized.  The
+    # previous ordering enriched route_points after route_data had already been
+    # copied, so the SSE response could never contain UGC fields.
+    _ugc_city = getattr(parsed_intent, "resolved_city", "") or complete_plan.city or ""
+    try:
+        from .ugc_enrichment import enrich_route_with_network_ugc
+        route_points = await enrich_route_with_network_ugc(route_points or [], city=_ugc_city)
+    except Exception as _ugc_exc:
+        print(f"[WARN] UGC enrichment failed (non-blocking): {_ugc_exc}")
+
     # 构建路线数据（用于前端验证）
     # v6: 提取 plan_mode
     _plan_mode = getattr(parsed_intent, 'plan_mode', 'exploratory') or 'exploratory'
@@ -1040,6 +1050,16 @@ async def _build_route_data(
                 "parent_anchor": point.get("parent_name") or point.get("parent_anchor", ""),
                 "sub_anchor_name": point.get("sub_anchor_name", ""),
                 "recommend_reason": point.get("recommend_reason", ""),
+                "ugc_review_summary": point.get("ugc_review_summary", ""),
+                "ugc_source": point.get("ugc_source", ""),
+                "ugc_source_type": point.get("ugc_source_type", ""),
+                "ugc_source_url": point.get("ugc_source_url", ""),
+                "ugc_evidence_count": point.get("ugc_evidence_count", 0),
+                "ugc_match_confidence": point.get("ugc_match_confidence", 0.0),
+                "ugc_status": point.get("ugc_status", "not_found"),
+                "ugc_scope": point.get("ugc_scope", ""),
+                "ugc_source_name": point.get("ugc_source_name", ""),
+                "ugc_label": point.get("ugc_label", "大众点评搜索摘要"),
                 "visit_duration_min": point.get("visit_duration_min") or point.get("visit_min"),
                 "is_waypoint": is_waypoint,
                 "is_passthrough": point.get("is_passthrough", False),

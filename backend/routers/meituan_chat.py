@@ -19,7 +19,11 @@ import time
 logger = logging.getLogger(__name__)
 
 SSE_HEARTBEAT_SECONDS = float(os.getenv("SSE_HEARTBEAT_SECONDS", "15"))
-SSE_STREAM_MAX_SECONDS = float(os.getenv("SSE_STREAM_MAX_SECONDS", "240"))
+SSE_STREAM_HARD_LIMIT_SECONDS = 300.0
+SSE_STREAM_MAX_SECONDS = min(
+    float(os.getenv("SSE_STREAM_MAX_SECONDS", "300")),
+    SSE_STREAM_HARD_LIMIT_SECONDS,
+)
 
 router = APIRouter(prefix="/api/meituan", tags=["美团AI对话"])
 
@@ -1114,17 +1118,26 @@ async def _run_pipeline_stream(
 
     try:
         while True:
-            # 全局超时保护
-            if time.monotonic() - stream_started_at > SSE_STREAM_MAX_SECONDS:
+            # 全局超时保护：应用层严格控制在 5 分钟以内。等待队列时也只
+            # 等待到剩余期限，避免 heartbeat 轮询让实际超时多出最多 15 秒。
+            elapsed_seconds = time.monotonic() - stream_started_at
+            remaining_seconds = SSE_STREAM_MAX_SECONDS - elapsed_seconds
+            if remaining_seconds <= 0:
                 timeout_data = json.dumps(
-                    {"error": "路线规划响应超时，请稍后重试"},
+                    {
+                        "error": "路线规划响应超时，请稍后重试",
+                        "timeout_seconds": int(SSE_STREAM_MAX_SECONDS),
+                    },
                     ensure_ascii=False,
                 )
                 yield f"event: {SSE_EVENT_ERROR}\ndata: {timeout_data}\n\n"
                 break
 
             try:
-                msg = await asyncio.wait_for(queue.get(), timeout=SSE_HEARTBEAT_SECONDS)
+                msg = await asyncio.wait_for(
+                    queue.get(),
+                    timeout=min(SSE_HEARTBEAT_SECONDS, remaining_seconds),
+                )
             except asyncio.TimeoutError:
                 # 超时后检查收集器是否已完成
                 if collector_task.done():
@@ -1755,7 +1768,15 @@ async def _run_planned_pipeline_fast(
     if not complete_plan.day_plans:
         complete_plan.day_plans = [DayPlan(day_index=1, anchors=[], meal_slots=[])]
 
-    # 6. 生成 route_segments
+    # 6. v21: Timeline completion — auto-insert meals/gaps before segments
+    from services.timeline_completion import complete_route_timeline
+    _city = getattr(parsed_intent, "resolved_city", "") or (
+        user_profile.permanent_city[0] if user_profile.permanent_city else "")
+    route_points = await complete_route_timeline(
+        route_points, parsed_intent, user_profile, _city,
+    )
+
+    # 7. 生成 route_segments
     await emit_status("正在规划路线...")
     route_segments, waypoint_annotations = await _build_segments(
         parsed_intent, getattr(parsed_intent, 'transport_hint', '公共交通') or '公共交通', route_points

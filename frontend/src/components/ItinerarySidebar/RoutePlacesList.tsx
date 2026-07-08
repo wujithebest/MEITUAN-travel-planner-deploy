@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { MapPin, Heart, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
-import { message, Tooltip } from 'antd';
+import { message } from 'antd';
 import { getPoiAlternatives } from '@/api/poi';
 import styles from './styles.module.css';
 
@@ -27,6 +27,79 @@ interface PanelPoiData {
   display_slot?: string;
   sub_anchor_name?: string;
   candidate_score?: number;
+  // v21: Commerce action fields
+  commerce_eligible?: boolean;
+  commerce_action?: 'group_deal' | 'ticket' | '';
+  deal_type?: string;
+  meal_type?: string;
+  meal?: string;
+  time_slot?: string;
+  ugc_review_summary?: string;
+  ugc_source?: string;
+  ugc_source_type?: string;
+  ugc_source_url?: string;
+  ugc_evidence_count?: number;
+  ugc_match_confidence?: number;
+  ugc_status?: 'verified' | 'not_found' | 'timeout' | string;
+  ugc_scope?: 'poi' | 'parent_poi' | string;
+  ugc_source_name?: string;
+  ugc_label?: string;
+}
+
+// v21: Unified commerce action detection
+type CommerceAction = 'group_deal' | 'ticket' | null;
+
+function getCommerceAction(poi: PanelPoiData): CommerceAction {
+  const explicitAction =
+    poi.commerce_action ||
+    poi.deal_type ||
+    (poi.commerce_eligible ? 'group_deal' : '');
+  if (explicitAction === 'group_deal') return 'group_deal';
+  if (explicitAction === 'ticket') return 'ticket';
+
+  const typecode = String(poi.typecode || '');
+  const category = String(poi.category || '');
+  const kind = String(poi.kind || '');
+  const name = String(poi.name || '');
+
+  const isDining =
+    kind === 'meal' ||
+    typecode.startsWith('05') ||
+    /餐饮|美食|餐厅|饭店|咖啡|甜品|小吃|茶饮/.test(category);
+  if (isDining) return 'group_deal';
+
+  const isEntertainment =
+    typecode.startsWith('08') ||
+    typecode.startsWith('11') ||
+    typecode.startsWith('14') ||
+    /娱乐|休闲|影院|电影|剧场|运动|游乐|景区|博物馆|展览|演出/.test(category) ||
+    /电影院|剧场|游乐园|景区|博物馆|展览馆/.test(name);
+  if (isEntertainment) return 'ticket';
+
+  return null;
+}
+
+type MealPeriodLabel = '早餐' | '午餐' | '晚餐' | null;
+
+function getMealPeriodLabel(poi: PanelPoiData): MealPeriodLabel {
+  // Meal-period badges must come from structured scheduling fields.  A
+  // restaurant is not automatically lunch or dinner unless the route assigned
+  // it to that period.
+  const period = [
+    poi.display_slot,
+    poi.slot,
+    poi.time_slot,
+    poi.meal_type,
+    poi.meal,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (/breakfast|早餐|早饭|早间/.test(period)) return '早餐';
+  if (/lunch|午餐|午饭|中餐|中午/.test(period)) return '午餐';
+  if (/dinner|晚餐|晚饭|正餐|傍晚/.test(period)) return '晚餐';
+  return null;
 }
 
 interface PanelSlotData {
@@ -186,6 +259,16 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             gaode_poi_id: poi.gaode_poi_id || enriched.gaode_poi_id || '',
             display_slot: poi.display_slot || enriched.display_slot || slot.type,
             sub_anchor_name: poi.sub_anchor_name || enriched.sub_anchor_name || '',
+            ugc_review_summary: poi.ugc_review_summary || enriched.ugc_review_summary || '',
+            ugc_source: poi.ugc_source || enriched.ugc_source || '',
+            ugc_source_type: poi.ugc_source_type || enriched.ugc_source_type || '',
+            ugc_source_url: poi.ugc_source_url || enriched.ugc_source_url || '',
+            ugc_evidence_count: poi.ugc_evidence_count ?? enriched.ugc_evidence_count ?? 0,
+            ugc_match_confidence: poi.ugc_match_confidence ?? enriched.ugc_match_confidence ?? 0,
+            ugc_status: poi.ugc_status || enriched.ugc_status || 'not_found',
+            ugc_scope: poi.ugc_scope || enriched.ugc_scope || '',
+            ugc_source_name: poi.ugc_source_name || enriched.ugc_source_name || '',
+            ugc_label: poi.ugc_label || enriched.ugc_label || '大众点评搜索摘要',
           });
         }
       }
@@ -400,6 +483,8 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             const loc = parseLocation(poi.location);
             const distKm = originLoc && loc ? haversineKm(originLoc, loc) : null;
             const isStart = poi.is_start || poi.kind === 'start' || poi.kind === 'origin';
+            const commerceAction = getCommerceAction(poi);
+            const mealPeriodLabel = getMealPeriodLabel(poi);
 
             // Find segment after this POI
             const nextPoi = idx < pois.length - 1 ? pois[idx + 1] : null;
@@ -416,7 +501,15 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                 {!isStart && (
                   <div className={styles.routePlaceRow}>
                     <div className={styles.routePlaceIndex}>{idx}</div>
-                    <div className={styles.routePlaceCardWrap}>
+                    <div className={[styles.routePlaceCardWrap, commerceAction ? styles.routePlaceCardCommerce : ''].filter(Boolean).join(' ')} data-commerce-poi={commerceAction ? 'true' : 'false'}>
+                      {mealPeriodLabel && (
+                        <span
+                          className={styles.mealPeriodBadge}
+                          aria-label={`餐段：${mealPeriodLabel}`}
+                        >
+                          {mealPeriodLabel}
+                        </span>
+                      )}
                       <div className={styles.routePlaceContent}>
                         <div className={styles.routePlaceMedia}>
                           <button type="button" className={styles.routePlaceThumbButton} onClick={() => onPOIClick(poi.name)}>
@@ -430,13 +523,13 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                               )}
                             </div>
                           </button>
-                          {/* Commerce CTA — below thumbnail */}
-                          {(String(poi.typecode||'').startsWith('05') || categoryLabel(poi.kind, poi.typecode) === '餐饮') && (
+                          {/* Commerce CTA — uses pre-computed commerceAction */}
+                          {commerceAction === 'group_deal' && (
                             <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
                               团购优惠
                             </button>
                           )}
-                          {(String(poi.typecode||'').startsWith('11') || String(poi.typecode||'').startsWith('14') || /景区|博物馆|展览/.test(poi.name||'') || /景区|博物馆|展览/.test(poi.category||'')) && (
+                          {commerceAction === 'ticket' && (
                             <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
                               点击购票
                             </button>
@@ -447,6 +540,9 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                             <div className={styles.routePlaceMain}>
                               <div className={styles.routePlaceTitleRow}>
                                 <span className={styles.routePlaceName}>{poi.name}</span>
+                                {commerceAction && (
+                                  <span className={styles.commerceBadge}>美团优惠</span>
+                                )}
                                 {distKm != null && (
                                   <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
                                 )}
@@ -481,22 +577,35 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                           </div>
                         </div>
                       </div>
-                      {/* v20: Short witty recommendation — below card content, above transport */}
-                      {(poi.short_recommend_reason?.trim() || poi.recommend_reason?.trim()) ? (
-                        <Tooltip
-                          title={poi.recommend_reason?.length > 20 ? poi.recommend_reason : undefined}
-                          placement="top"
-                          overlayStyle={{ maxWidth: 320 }}
-                          overlayInnerStyle={{ color: '#fff', fontSize: 13, lineHeight: 1.5 }}
-                        >
-                          <div className={styles.poiShortReason}>
-                            <span className={styles.poiShortReasonIcon}>💡</span>
-                            <span className={styles.poiShortReasonText}>
-                              {(poi.short_recommend_reason?.trim() || (poi.recommend_reason || '').trim()).slice(0, 20)}
-                            </span>
+                      <div className={styles.ugcReviewBlock} data-ugc-status={poi.ugc_status || 'not_found'}>
+                        <div className={styles.ugcReviewHeader}>
+                          <span>{poi.ugc_label || '大众点评搜索摘要'}</span>
+                          {poi.ugc_status === 'verified' && poi.ugc_source_url && (
+                            <a
+                              className={styles.ugcReviewLink}
+                              href={poi.ugc_source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              查看来源
+                            </a>
+                          )}
+                        </div>
+                        <div className={styles.ugcReviewText}>
+                          {poi.ugc_status === 'verified' && poi.ugc_review_summary?.trim()
+                            ? poi.ugc_review_summary.trim()
+                            : '暂未检索到可靠的大众点评摘要'}
+                        </div>
+                        {poi.ugc_status === 'verified' && (
+                          <div className={styles.ugcReviewSource}>
+                            来源：大众点评 · 博查搜索
+                            {poi.ugc_scope === 'parent_poi' && poi.ugc_source_name
+                              ? ` · ${poi.ugc_source_name}`
+                              : ''}
                           </div>
-                        </Tooltip>
-                      ) : null}
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

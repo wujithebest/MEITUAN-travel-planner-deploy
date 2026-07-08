@@ -251,6 +251,13 @@ class FixedPoi(BaseModel):
     # v20: Area stroll expansion
     expansion_required: bool = False                                  # 步行街/商圈 + 逛逛 → 展开内部店铺
     activity_facet: Optional[str] = None                              # "shopping_stroll" | "citywalk" etc.
+    # v21: Gaode search backfill fields
+    gaode_poi_id: str = ""                                            # 高德POI ID
+    address: str = ""                                                 # 高德地址
+    district: str = ""                                                # 行政区
+    poi_rating: Optional[float] = None                                # 高德评分
+    photo_url: str = ""                                               # 高德照片URL
+    photo_source: str = ""                                            # 照片来源
 
 
 class PlannedWaypoint(BaseModel):
@@ -470,6 +477,9 @@ class ParsedIntent(BaseModel):
     search_area_role: str = ""                                   # "container" | "destination" | ""
     heat_shelter_requested: bool = False                         # Set True when heat_shelter activity_facet
     theme_required: bool = False                                 # v21: True when theme must not fallback to generic
+    optimization_profile: str = ""                               # v21: "multi_day_fixed_anchor_enhanced" or ""
+    requested_days: int = 1                                      # v21: user-requested day count
+    preserve_requested_days: bool = False                        # v21: don't compress to fewer days
 
     # ── Step2输出 ──
 

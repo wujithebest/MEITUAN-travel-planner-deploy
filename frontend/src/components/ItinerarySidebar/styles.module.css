@@ -1457,6 +1457,7 @@
 /* ── v18: POI actions and candidate mode ── */
 
 .routePlaceCardWrap {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1660,75 +1661,191 @@
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-.poiCommerceBtn {
-  width: 100%;
-  height: 34px;
-  border: none;
-  border-radius: 8px;
-  background: #ffd100;
-  color: #222;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
+.routePlaceCardCommerce {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 209, 0, 0.09) 0%,
+      rgba(255, 245, 204, 0.04) 100%
+    );
+  border: 1px solid rgba(224, 175, 0, 0.28);
+  box-shadow:
+    0 2px 8px rgba(126, 94, 0, 0.07),
+    inset 3px 0 0 rgba(255, 209, 0, 0.48);
 }
 
-.poiCommerceBtn:hover {
-  background: #ffe033;
+.routePlaceCardCommerce:hover {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 209, 0, 0.13) 0%,
+      rgba(255, 245, 204, 0.07) 100%
+    );
+  border-color: rgba(224, 175, 0, 0.40);
+  box-shadow:
+    0 4px 12px rgba(126, 94, 0, 0.11),
+    inset 3px 0 0 rgba(255, 209, 0, 0.62);
+  transform: translateY(-1px);
 }
 
-.mapPoiBadge {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
-  background: #FFD100;
-  color: #333;
-  font-size: 16px;
-  font-weight: 800;
-  display: flex;
+.commerceBadge {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-.mapPoiName {
-  font-size: 11px;
-  color: #333;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fff6cf;
+  border: 1px solid #f0d46a;
+  color: #7a5a00;
+  font-size: 10px;
   font-weight: 600;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 1px 2px #fff;
-  background: rgba(255,255,255,0.85);
-  padding: 1px 4px;
-  border-radius: 3px;
+  margin-left: 4px;
 }
 
-/* ── POI short recommendation reason ── */
-.poiShortReason {
-  width: 100%;
+.mealPeriodBadge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 8px 0 8px 0;
+  background: rgba(255, 209, 0, 0.92);
+  color: #443400;
+  box-shadow: 0 1px 4px rgba(96, 71, 0, 0.14);
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+/* v21: Commerce card styles — very light warm yellow */
+.routePlaceCardCommerce {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 209, 0, 0.025) 0%,
+      rgba(255, 248, 220, 0.015) 100%
+    );
+  border: 1px solid rgba(224, 175, 0, 0.16);
+  box-shadow:
+    0 1px 4px rgba(126, 94, 0, 0.04),
+    inset 3px 0 0 rgba(255, 209, 0, 0.30);
+}
+.routePlaceCardCommerce:hover {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 209, 0, 0.06) 0%,
+      rgba(255, 248, 220, 0.04) 100%
+    );
+  border-color: rgba(224, 175, 0, 0.28);
+  box-shadow:
+    0 2px 8px rgba(126, 94, 0, 0.06),
+    inset 3px 0 0 rgba(255, 209, 0, 0.38);
+  transform: translateY(-1px);
+}
+.commerceBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fffaf0;
+  border: 1px solid #f2df9b;
+  color: #745b12;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+.poiCommerceBtn {
+  background: #fffaf0;
+  border: 1px solid #f2df9b;
+  color: #745b12;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.poiCommerceBtn:hover {
+  background: #fff4cf;
+  border-color: #e2c96b;
+  color: #5a4009;
+}
+.recommendedStay {
+  font-size: 12px;
+  color: #776a47;
+  background: #fffaf0;
+  border: 1px solid #f2e7bd;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-top: 6px;
+  display: inline-block;
+}
+.mealPeriodBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: #fffaf0;
+  border: 1px solid #f2df9b;
+  color: #745b12;
+}
+
+.ugcReviewBlock {
+  margin: 6px 10px 10px 108px;
+  padding: 8px 10px;
+  border: 1px solid #eeeeee;
+  border-radius: 6px;
+  background: #fafafa;
   min-width: 0;
-  box-sizing: border-box;
+}
+
+.ugcReviewHeader {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 2px;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 4px;
-  padding: 0 12px;
-}
-.poiShortReasonIcon {
+  color: #555;
   font-size: 12px;
-  flex-shrink: 0;
+  font-weight: 600;
 }
-.poiShortReasonText {
-  flex: 1;
-  min-width: 0;
+
+.ugcReviewText {
+  color: #555;
   font-size: 12px;
-  line-height: 18px;
-  color: #666;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.ugcReviewSource {
+  margin-top: 4px;
+  color: #999;
+  font-size: 11px;
+}
+
+.ugcReviewLink {
+  color: #8a6a00;
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
   white-space: nowrap;
+}
+
+.ugcReviewLink:hover {
+  text-decoration: underline;
 }

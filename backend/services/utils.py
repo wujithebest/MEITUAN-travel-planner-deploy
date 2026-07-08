@@ -264,10 +264,48 @@ def safe_float(value: Any) -> float | None:
         return None
 
 
-def coord_to_param(location: dict[str, Any] | None) -> str:
-    if not location:
+def normalize_location(value: Any) -> dict[str, float] | None:
+    """Normalize location to {"lat": float, "lng": float} from various formats.
+    Returns None if invalid."""
+    if value is None:
+        return None
+    # dict format
+    if isinstance(value, dict):
+        lat = value.get("lat") or value.get("latitude")
+        lng = value.get("lng") or value.get("longitude")
+    # string format "lng,lat"
+    elif isinstance(value, str):
+        parts = value.split(",")
+        if len(parts) >= 2:
+            lng, lat = parts[0], parts[1]
+        else:
+            return None
+    # list/tuple format [lng, lat] or (lng, lat)
+    elif isinstance(value, (list, tuple)) and len(value) >= 2:
+        lng, lat = value[0], value[1]
+    else:
+        return None
+    try:
+        lat_f = float(lat)
+        lng_f = float(lng)
+    except (TypeError, ValueError):
+        return None
+    # Reject invalid values
+    if not (math.isfinite(lat_f) and math.isfinite(lng_f)):
+        return None
+    if lat_f == 0 and lng_f == 0:
+        return None
+    if not (-90 <= lat_f <= 90) or not (-180 <= lng_f <= 180):
+        return None
+    return {"lat": lat_f, "lng": lng_f}
+
+
+def coord_to_param(location: Any) -> str:
+    """Convert location to "lng,lat" string for Gaode API. Returns "" if invalid."""
+    loc = normalize_location(location)
+    if not loc:
         return ""
-    return f"{location.get('lng')},{location.get('lat')}"
+    return f"{loc['lng']},{loc['lat']}"
 
 
 def parse_coord_param(value: str) -> dict[str, float] | None:
