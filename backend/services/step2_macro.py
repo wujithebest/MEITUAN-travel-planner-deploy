@@ -471,6 +471,31 @@ def _to_extracted(raw: dict[str, Any]) -> ExtractedPlace | None:
         return None
 
 
+def _campus_canteen_university_name(parsed_intent: ParsedIntent) -> str:
+    if (getattr(parsed_intent, "activity_facet", "") or "") != "campus_canteen_visit":
+        return ""
+    for fp in getattr(parsed_intent, "fixed_pois", []) or []:
+        name = str(getattr(fp, "name", "") or "").strip()
+        if name and ("大学" in name or name in ("北大", "清华", "人大")):
+            return "北京大学" if name == "北大" else name
+    for constraint in getattr(parsed_intent, "meal_constraints", []) or []:
+        name = str(constraint.get("fixed_poi_name") or "").strip()
+        if name and ("大学" in name or name in ("北大", "清华", "人大")):
+            return "北京大学" if name == "北大" else name
+    text = " ".join(
+        list(getattr(parsed_intent, "search_keywords", []) or [])
+        + list(getattr(parsed_intent, "micro_keywords", []) or [])
+        + list(getattr(parsed_intent, "raw_keywords", []) or [])
+    )
+    if "北大" in text or "北京大学" in text:
+        return "北京大学"
+    if "清华" in text:
+        return "清华大学"
+    if "人大" in text:
+        return "中国人民大学"
+    return ""
+
+
 def _dedupe_places(places: list[ExtractedPlace]) -> list[ExtractedPlace]:
     by_id: dict[str, ExtractedPlace] = {}
     for place in places:
@@ -1421,6 +1446,29 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
                 if _stc not in allowed_types:
                     allowed_types.append(_stc)
             print(f"[DEBUG macro search] souvenir typecodes added: {_souv_tc}")
+        # v21: Fruit picking — expand typecodes for agritourism/farm
+        if getattr(parsed_intent, "fruit_picking_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "fruit_picking_combo":
+            _farm_tc = [
+                "080503",  # 采摘园/农业观光
+                "110103",  # 农业观光园
+                "110000", "110100", "110200",  # 景区/公园 (for combo)
+            ]
+            for _ftc in _farm_tc:
+                if _ftc not in allowed_types:
+                    allowed_types.append(_ftc)
+            print(f"[DEBUG macro search] fruit_picking typecodes added: {_farm_tc}")
+        # v21: No-reservation flexible trip — open streets, parks, public
+        # spaces and low-reservation-risk cultural venues.
+        if (getattr(parsed_intent, "activity_facet", "") or "") == "no_reservation_flexible_trip":
+            _no_res_tc = [
+                "110000", "110100", "110101", "110105", "110200", "110209", "110210",
+                "060100", "061000", "061200",
+                "140100", "140200", "140300", "140400", "140500",
+            ]
+            for _ntc in _no_res_tc:
+                if _ntc not in allowed_types:
+                    allowed_types.append(_ntc)
+            print(f"[DEBUG macro search] no_reservation typecodes added: {_no_res_tc}")
         # v21: Rain shelter — expand typecodes for indoor public spaces
         if getattr(parsed_intent, "rain_shelter_requested", False) or (getattr(parsed_intent, "activity_facet", "") or "") == "rain_shelter":
             _rain_tc = [
@@ -3402,6 +3450,76 @@ async def _fallback_activity_places(
     return fallback_places
 
 
+async def _fallback_campus_canteen_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """Fallback anchor for "X大学食堂 + 校园游览".
+
+    The route anchor must be the requested campus, not an arbitrary nearby
+    attraction. Around-search can return many internal facilities that fail
+    generic route validation, so this fallback preserves the campus itself or
+    highly recognizable campus landmarks.
+    """
+    if (getattr(parsed_intent, "activity_facet", "") or "") != "campus_canteen_visit":
+        return []
+    university = _campus_canteen_university_name(parsed_intent)
+    if not university:
+        return []
+    city = user_profile.permanent_city[0] if user_profile.permanent_city else ""
+    campus_terms = {
+        university,
+        university.replace("北京大学", "北大"),
+        "未名湖" if university == "北京大学" else "",
+        "博雅塔" if university == "北京大学" else "",
+    }
+    campus_terms = {term for term in campus_terms if term}
+    queries = [
+        university,
+        f"{university} 校园",
+        f"{university} 西门",
+        f"{university} 未名湖" if university == "北京大学" else f"{university} 校内",
+        f"{university} 博雅塔" if university == "北京大学" else f"{university} 食堂",
+    ]
+
+    results: list[ExtractedPlace] = []
+    seen: set[str] = set()
+    for query in queries:
+        try:
+            raws = await gaode_text_search(query, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+        except Exception as exc:
+            print(f"[WARN step2] campus_canteen fallback search failed query={query}: {exc}")
+            continue
+        for raw in raws[:8]:
+            place = _to_extracted(raw)
+            if not place or not place.location:
+                continue
+            text = f"{place.name} {place.address or ''}"
+            if not any(term in text for term in campus_terms):
+                continue
+            if any(bad in text for bad in ["附属医院", "培训", "驾校", "家教", "东北大馅"]):
+                continue
+            if place.name in seen:
+                continue
+            seen.add(place.name)
+            data = place.model_dump()
+            data["time_capacity"] = "quarter_day" if parsed_intent.time_budget <= 0.25 else "half_day"
+            data["recall_source"] = "campus_canteen_fallback"
+            data["poi_role"] = "destination_anchor"
+            data["enrichment_text"] = data.get("enrichment_text") or "用户指定的校园食堂游览锚点"
+            results.append(ExtractedPlace(**data))
+            if len(results) >= 4:
+                break
+        if results:
+            break
+
+    print(
+        f"[DEBUG step2] campus_canteen fallback university={university} "
+        f"found={[(p.name, p.typecode) for p in results[:4]]}"
+    )
+    return results
+
+
 def _infer_meal_from_time(parsed_intent: ParsedIntent) -> str | None:
     """v6: 根据 start_time 推断 meal 类型"""
     st = parsed_intent.start_time
@@ -3815,15 +3933,21 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                     else:
                         raise ZeroOutputError(f"未找到符合您需求的路线地点，请尝试调整搜索范围")
             else:
-                fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
-                if fallback_places:
-                    places = fallback_places
+                campus_places = await _fallback_campus_canteen_places(parsed_intent, user_profile)
+                if campus_places:
+                    places = campus_places
                     deleted = []
-                    print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
-                elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
-                    print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
+                    print("[DEBUG step2] macro places empty, using campus_canteen fallback")
                 else:
-                    raise ZeroOutputError("宏观 POI 搜索结果为空或全部被过滤")
+                    fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
+                    if fallback_places:
+                        places = fallback_places
+                        deleted = []
+                        print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
+                    elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
+                        print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
+                    else:
+                        raise ZeroOutputError("宏观 POI 搜索结果为空或全部被过滤")
         delete_list.extend(deleted)
         await logger.log_step(
             "step_2_1_gaode_search",

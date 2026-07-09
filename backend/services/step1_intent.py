@@ -620,6 +620,20 @@ _CORRIDOR_DEST_STRIP_RE = re.compile(
     r"的|附近|周边|那|那个|这个|一个|一家)+"
 )
 
+# v21: Landmark/POI alias mapping for famous locations
+_LANDMARK_ALIAS_MAP: dict[str, str] = {
+    "军事博物馆": "中国人民革命军事博物馆",
+    "军博": "中国人民革命军事博物馆",
+    "新文化运动纪念馆": "北京新文化运动纪念馆",
+    "北大红楼": "北京大学红楼",
+    "抗日战争纪念馆": "中国人民抗日战争纪念馆",
+    "环球影城": "北京环球度假区",
+    "北京环球影城": "北京环球度假区",
+    "环球度假区": "北京环球度假区",
+    "Universal Beijing Resort": "北京环球度假区",
+    "北环影": "北京环球度假区",
+}
+
 # v21: Rest stop category keywords
 _REST_STOP_CATEGORY_KEYWORDS = [
     "咖啡馆", "茶馆", "独立书店", "阅读空间",
@@ -4206,6 +4220,161 @@ def _apply_quiet_retreat_keywords(parsed: ParsedIntent, city: str, activity_face
     )
 
 
+_DAY_MARKER_RE_V2 = re.compile(
+    r"(?:\u7b2c\s*([\u4e00\u4e8c\u4e09123])\s*[\u5929\u65e5]|D\s*([123])|Day\s*([123]))",
+    re.IGNORECASE,
+)
+_TWO_DAY_REQUEST_RE_V2 = re.compile(
+    r"(?:[\u4e24\u4e8c2]\s*[\u5929\u65e5](?:\u6e38)?)|(?:two\s+days?)",
+    re.IGNORECASE,
+)
+_PERIOD_TOKENS_V2 = [
+    ("\u4e0a\u5348", "morning"),
+    ("\u4e0b\u5348", "afternoon"),
+    ("\u665a\u4e0a", "evening"),
+    ("\u591c\u95f4", "evening"),
+    ("\u508d\u665a", "evening"),
+]
+_TRANSPORT_PATTERNS_V2 = [
+    (re.compile(r"\u5730\u94c1|\u8f68\u9053\u4ea4\u901a"), "transit_subway", "\u5730\u94c1"),
+    (re.compile(r"\u516c\u4ea4|\u5df4\u58eb|\u516c\u5171\u6c7d\u8f66"), "bus", "\u516c\u4ea4"),
+    (re.compile(r"\u6253\u8f66|\u51fa\u79df|\u7f51\u7ea6\u8f66|taxi", re.IGNORECASE), "taxi", "\u6253\u8f66"),
+    (re.compile(r"\u9a91\u8f66|\u9a91\u884c|\u5355\u8f66|\u81ea\u884c\u8f66"), "bicycle", "\u9a91\u8f66"),
+    (re.compile(r"\u6b65\u884c|\u8d70\u8def"), "walking", "\u6b65\u884c"),
+]
+
+
+def _extract_period_transport_constraints_v2(user_request: str) -> list[dict[str, Any]]:
+    """Parse explicit day/period transport constraints from raw Chinese text.
+
+    The legacy block below is kept for compatibility, but the source file has
+    seen mojibake in several Chinese regex literals.  This parser uses unicode
+    escapes so requests such as "第一天上午地铁，第一天下午公交，第二天上午打车，
+    第二天下午骑车" remain deterministic.
+    """
+    day_num_map = {
+        "\u4e00": 1,
+        "\u4e8c": 2,
+        "\u4e09": 3,
+        "1": 1,
+        "2": 2,
+        "3": 3,
+    }
+
+    day_matches = list(_DAY_MARKER_RE_V2.finditer(user_request or ""))
+    constraints: list[dict[str, Any]] = []
+    seen: set[tuple[int, str, str]] = set()
+
+    def _find_transport(text: str) -> tuple[str, str]:
+        for pattern, mode, label in _TRANSPORT_PATTERNS_V2:
+            if pattern.search(text):
+                return mode, label
+        return "", ""
+
+    for idx, match in enumerate(day_matches):
+        day_token = next((g for g in match.groups() if g), "1")
+        day_index = day_num_map.get(day_token, 1)
+        chunk_start = match.end()
+        chunk_end = day_matches[idx + 1].start() if idx + 1 < len(day_matches) else len(user_request)
+        chunk = user_request[chunk_start:chunk_end]
+
+        period_hits = []
+        for token, period in _PERIOD_TOKENS_V2:
+            pos = chunk.find(token)
+            if pos >= 0:
+                period_hits.append((pos, token, period))
+        period_hits.sort(key=lambda item: item[0])
+
+        if period_hits:
+            for pidx, (pos, token, period) in enumerate(period_hits):
+                start = pos + len(token)
+                end = period_hits[pidx + 1][0] if pidx + 1 < len(period_hits) else len(chunk)
+                mode, label = _find_transport(chunk[start:end])
+                if not mode:
+                    continue
+                key = (day_index, period, mode)
+                if key in seen:
+                    continue
+                seen.add(key)
+                constraints.append({
+                    "day_index": day_index,
+                    "period": period,
+                    "transport": label,
+                    "transport_mode": mode,
+                })
+        else:
+            mode, label = _find_transport(chunk)
+            if mode:
+                key = (day_index, "all_day", mode)
+                if key not in seen:
+                    seen.add(key)
+                    constraints.append({
+                        "day_index": day_index,
+                        "period": "all_day",
+                        "transport": label,
+                        "transport_mode": mode,
+                    })
+
+    return constraints
+
+
+def _looks_like_multi_day_transport_request_v2(user_request: str) -> bool:
+    constraints = _extract_period_transport_constraints_v2(user_request)
+    if any(c.get("day_index", 1) >= 2 for c in constraints):
+        return True
+    return bool(_TWO_DAY_REQUEST_RE_V2.search(user_request or "") and constraints)
+
+
+_NO_RESERVATION_TERMS_V2 = [
+    "没有预约", "没预约", "没抢到票", "临时安排", "临时出发",
+    "不用预约", "免预约", "不需要预约", "没约上", "当天能去",
+]
+
+
+def _is_no_reservation_request_v2(user_request: str) -> bool:
+    return any(term in (user_request or "") for term in _NO_RESERVATION_TERMS_V2)
+
+
+def _apply_no_reservation_flexible_trip_v2(parsed: ParsedIntent, city: str) -> None:
+    city_short = city[:-1] if city.endswith("市") else city
+    parsed.poi_query_type = "theme_route"
+    parsed.primary_query = ""
+    parsed.category_id = None
+    parsed.allowed_typecode_prefixes = []
+    parsed.excluded_typecode_prefixes = []
+    parsed.primary_required_terms = []
+    parsed.primary_excluded_terms = []
+    parsed.activity_facet = "no_reservation_flexible_trip"
+    parsed.plan_mode = "exploratory"
+    parsed.theme_required = False
+    if float(getattr(parsed, "time_budget", 0) or 0) >= 2.0:
+        parsed.requested_days = max(2, int(float(parsed.time_budget)))
+        parsed.preserve_requested_days = True
+    parsed.other_constraints = _append_unique(parsed.other_constraints, [
+        "无需预约", "可当天前往", "优先开放街区/公园/公共空间",
+        "避开强预约制热门景点",
+    ])
+    parsed.search_keywords = [
+        f"{city_short} 无需预约 景点", f"{city_short} 免预约 景点",
+        f"{city_short} 可现场购票 景点", f"{city_short} 开放街区 游玩",
+        f"{city_short} 公园 免预约", f"{city_short} 城市公园",
+        f"{city_short} 文化街区", f"{city_short} 滨水步道",
+        f"{city_short} 老街 漫步", f"{city_short} 夜景街区",
+    ]
+    parsed.micro_keywords = [
+        "开放街区 漫步", "公园 散步", "城市公园",
+        "文化街区", "滨水步道", "可现场购票", "无需预约",
+    ]
+    parsed.micro_excluded_terms = _append_unique(
+        getattr(parsed, "micro_excluded_terms", []) or [],
+        [
+            "故宫博物院", "国家博物馆", "天安门城楼", "人民大会堂",
+            "实名预约", "需提前预约", "预约", "限流", "抢票",
+        ],
+        limit=20,
+    )
+
+
 async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
     # v21: Strip structured hints from deterministic parsers — prevent context pollution.
     # Structured hints like <structured_hints>保持theme=夜景</structured_hints> are for LLM only.
@@ -4232,6 +4401,13 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     city = await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
     parsed.resolved_city = city
+    # v21: Resolve landmark aliases in fixed_pois
+    for fp in getattr(parsed, "fixed_pois", []) or []:
+        if fp.name in _LANDMARK_ALIAS_MAP:
+            _old = fp.name
+            fp.name = _LANDMARK_ALIAS_MAP[_old]
+            print(f"[DEBUG alias] resolved landmark: '{_old}' → '{fp.name}'")
+
     # v21: Apply contextual search center from follow_up dispatch
     _ctx_center = getattr(user_profile, "_contextual_search_center", None) or {}
     if _ctx_center and _ctx_center.get("location", {}).get("lat"):
@@ -4324,6 +4500,461 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             f"plan_mode=exploratory route_strategy=fixed_anchor_optimization "
             f"reason=enumeration_without_sequence_markers"
         )
+
+    # v21: Multi-day transport constraint detection — "第一天上午地铁，第二天下午骑车"
+    _multi_day_match = re.search(r"第[一二三]天|D\s*[123]|Day\s*[123]", user_request, re.IGNORECASE)
+    if _multi_day_match:
+        # Force two days when explicit day markers exist
+        parsed.duration = "two days"
+        parsed.time_budget = 2.0
+        parsed.requested_days = 2
+        parsed.preserve_requested_days = True
+        # Extract per-period transport constraints
+        _transport_map = {"地铁": "transit_subway", "公交": "bus", "巴士": "bus",
+                          "打车": "taxi", "出租": "taxi", "网约车": "taxi",
+                          "骑车": "bicycle", "骑行": "bicycle", "单车": "bicycle",
+                          "步行": "walking", "走路": "walking"}
+        _day_map = {"一": 1, "二": 2, "三": 3, "1": 1, "2": 2, "3": 3}
+        _period_map = {"上午": "morning", "下午": "afternoon", "晚上": "evening"}
+        _constraints = []
+        for _dm in re.finditer(r"第([一二三123])天\s*(上午|下午|晚上)?\s*([地铁公交巴士打车出租网约车骑车骑行单车步行走路]{2,3})", user_request):
+            _d = _day_map.get(_dm.group(1), 1)
+            _p = _period_map.get(_dm.group(2) or "", "")
+            _t = _transport_map.get(_dm.group(3), "")
+            if _t:
+                _constraints.append({"day_index": _d, "period": _p or "all_day", "transport": _dm.group(3), "transport_mode": _t})
+        if _constraints:
+            parsed.transport_constraints = _constraints
+            parsed.transport_hint = _constraints[0].get("transport", "") if _constraints else None
+            print(f"[DEBUG multi_day_transport] days=2 constraints={len(_constraints)}")
+
+    # v21: Walking cluster detection — "景点之间走路不超过X分钟"
+    _walk_cluster_match = re.search(r"(?:景点|站|地点)之间.*?(\d+)\s*分钟", user_request)
+    if not _walk_cluster_match:
+        _walk_cluster_match = re.search(r"走路不(?:超过|要超过|多于).*?(\d+)\s*分", user_request)
+    if _walk_cluster_match:
+        _max_walk = int(_walk_cluster_match.group(1))
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.walking_cluster_requested = True
+        parsed.max_walk_between_pois_min = _max_walk
+        parsed.route_strategy = "walking_cluster_multi_day"
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        if parsed.time_budget >= 2.0:
+            parsed.requested_days = max(2, int(parsed.time_budget))
+            parsed.preserve_requested_days = True
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 什刹海 景点", f"{city_short} 南锣鼓巷 周边",
+            f"{city_short} 北海公园 景山", f"{city_short} 前门 大栅栏",
+            f"{city_short} 奥森 步行", f"{city_short} 798 艺术区 步行",
+            f"{city_short} 颐和园 圆明园", f"{city_short} 胡同 漫步",
+        ]
+        parsed.other_constraints = _append_unique(parsed.other_constraints,
+            [f"景点间步行≤{_max_walk}分钟"])
+        print(f"[DEBUG walking_cluster] detected: max_walk={_max_walk}min days={parsed.requested_days}")
+
+    # v21: Fruit picking + scenic combo detection
+    _picking_terms = ["采摘", "摘水果", "果园", "梨园", "苹果", "葡萄",
+                      "柿子", "枣", "栗子", "草莓", "樱桃", "秋天采摘", "秋季采摘"]
+    _combo_terms = ["景点结合", "和景点结合", "顺便玩", "去哪一区", "哪个区", "区县推荐"]
+    _is_picking = any(t in user_request for t in _picking_terms)
+    _is_combo = any(t in user_request for t in _combo_terms)
+    if _is_picking and (_is_combo or "采摘" in user_request):
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.activity_facet = "fruit_picking_combo"
+        parsed.fruit_picking_requested = True
+        parsed.scenic_combo_requested = _is_combo
+        parsed.district_recommendation_requested = "哪个区" in user_request or "去哪一区" in user_request
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a full day"
+            parsed.time_budget = 1.0
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 秋季采摘园", f"{city_short} 果园 采摘",
+            f"{city_short} 苹果采摘", f"{city_short} 梨园采摘",
+            f"{city_short} 农业观光园", f"{city_short} 采摘园 景点",
+            f"{city_short} 昌平 采摘园", f"{city_short} 顺义 采摘园",
+        ]
+        parsed.micro_keywords = ["采摘园 体验", "果园 采摘", "农庄 亲子"]
+        print(f"[DEBUG fruit_picking] detected: combo={_is_combo} district_req={parsed.district_recommendation_requested}")
+
+    # v21: Handcraft intangible heritage detection — 景泰蓝/掐丝珐琅/毛猴/非遗手作
+    _handcraft_terms = ["景泰蓝", "掐丝珐琅", "珐琅厂", "毛猴", "北京毛猴",
+                        "非遗", "传统工艺", "手工艺", "手作", "工坊", "体验课"]
+    _is_handcraft = any(t in user_request for t in _handcraft_terms)
+    if _is_handcraft:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.theme_profile = "handcraft_intangible_heritage"
+        parsed.activity_facet = "handcraft_workshop"
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        if parsed.time_budget < 0.25:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 景泰蓝 体验", f"{city_short} 掐丝珐琅 体验",
+            f"{city_short} 毛猴 制作体验", f"{city_short} 非遗体验馆",
+            f"{city_short} 传统工艺体验", f"{city_short} 手作工坊",
+            f"{city_short} 景泰蓝艺术博物馆", f"{city_short} 非遗手作",
+        ]
+        parsed.micro_keywords = [
+            "景泰蓝 制作体验", "掐丝珐琅 DIY", "毛猴 制作体验",
+            "非遗 手作体验", "传统工艺 工坊",
+        ]
+        print(f"[DEBUG handcraft] detected: theme=handcraft_intangible_heritage")
+
+    # v21: No-reservation flexible trip detection
+    _is_no_reservation = _is_no_reservation_request_v2(user_request)
+    if _is_no_reservation:
+        _apply_no_reservation_flexible_trip_v2(parsed, city)
+        print(f"[DEBUG no_reservation] detected: activity=no_reservation_flexible_trip")
+
+    # v21: Campus canteen visit detection — "北大食堂/清华食堂"
+    _canteen_match = re.search(r"(北大|清华大学|清华|北航|人大|北师大|北京航空航天大学)\s*食堂", user_request)
+    if _canteen_match:
+        _uni_raw = _canteen_match.group(1)
+        _uni_full = _UNIVERSITY_ALIAS_MAP.get(_uni_raw, _uni_raw)
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "campus_canteen_visit"
+        parsed.explicit_meal_intent = True
+        parsed.plan_mode = "exploratory"
+        if _uni_full not in [fp.name for fp in (getattr(parsed, "fixed_pois", []) or [])]:
+            parsed.fixed_pois.append(FixedPoi(name=_uni_full))
+        _existing_meals = getattr(parsed, "meal_constraints", []) or []
+        _existing_meals.append({"meal": "lunch", "fixed_poi_name": _uni_full,
+                                "keywords": [f"{_uni_full} 食堂", f"{_uni_raw} 食堂"]})
+        parsed.meal_constraints = _existing_meals[:3]
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{_uni_full} 校园游览", f"{_uni_full} 未名湖",
+            f"{_uni_full} 食堂", f"{_uni_raw} 食堂",
+        ]
+        parsed.micro_keywords = ["校园游览", "大学食堂", f"{_uni_raw} 校园"]
+        print(f"[DEBUG campus_canteen] detected: uni={_uni_full}")
+
+    # v21: Park boating detection — "北海或颐和园划船/游船"
+    _boating_terms = ["划船", "游船", "泛舟", "租船", "脚踏船", "电瓶船", "船码头", "湖面"]
+    _is_boating = any(t in user_request for t in _boating_terms)
+    if _is_boating:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "park_boating"
+        parsed.plan_mode = "exploratory"
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        # Detect park candidates
+        _park_kws = []
+        if "北海" in user_request: _park_kws.append("北海公园")
+        if "颐和园" in user_request: _park_kws.append("颐和园")
+        if "昆明湖" in user_request: _park_kws.append("昆明湖")
+        _both = "和" in user_request and "都" in user_request
+        if _both and len(_park_kws) >= 2:
+            for pk in _park_kws[:2]:
+                if pk not in [fp.name for fp in (getattr(parsed, "fixed_pois", []) or [])]:
+                    parsed.fixed_pois.append(FixedPoi(name=pk))
+        elif _park_kws:
+            parsed.optional_anchor_candidates = _park_kws[:2]
+        parsed.search_keywords = [
+            f"{city_short} 北海公园 划船", f"{city_short} 颐和园 划船",
+            f"{city_short} 北海公园 游船", f"{city_short} 颐和园 游船",
+            f"{city_short} 北海公园 码头", f"{city_short} 颐和园 码头",
+            f"{city_short} 昆明湖 游船",
+        ] if _park_kws else [f"{city_short} 公园 划船", f"{city_short} 游船 码头"]
+        parsed.micro_keywords = ["划船 游船", "公园 码头", "湖面 泛舟"]
+        print(f"[DEBUG park_boating] detected: parks={_park_kws} both={_both}")
+
+    # v21: Hot spring relaxation detection — "温泉/泡汤/汤泉/汗蒸/SPA"
+    _hotspring_terms = ["温泉", "泡温泉", "泡汤", "汤泉", "汤池", "私汤", "洗浴", "汗蒸", "SPA", "水疗"]
+    _is_hotspring = any(t in user_request for t in _hotspring_terms)
+    if _is_hotspring:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = "温泉"
+        parsed.activity_facet = "hot_spring_after_trip"
+        parsed.plan_mode = "exploratory"
+        _is_after_trip = any(t in user_request for t in ["玩累了", "行程结束", "一天行程", "结束后", "晚上去"])
+        if _is_after_trip:
+            parsed.evening_requested = True
+            parsed.relaxation_after_route = True
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 温泉", f"{city_short} 汤泉",
+            f"{city_short} 泡汤", f"{city_short} 温泉酒店",
+            f"{city_short} 私汤", f"{city_short} 洗浴 汤泉",
+            f"{city_short} 汗蒸 温泉", f"{city_short} 周边 温泉",
+        ]
+        parsed.micro_keywords = ["温泉 泡汤", "汤泉 洗浴", "私汤 度假"]
+        print(f"[DEBUG hotspring] detected: after_trip={_is_after_trip}")
+
+    # v21: Anti-group-tour / low-crowd local route detection
+    _low_crowd_terms = ["不想去旅行团", "避开旅行团", "不要游客团", "人少一点",
+                        "别太商业化", "避开热门景区", "不要人挤人", "小众",
+                        "非热门", "冷门", "不扎堆", "不要景区", "避开景区"]
+    _is_low_crowd = any(t in user_request for t in _low_crowd_terms)
+    if _is_low_crowd:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "low_crowd_local_route"
+        parsed.plan_mode = "exploratory"
+        parsed.crowd_preference = "low"
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 小众路线", f"{city_short} 本地人推荐",
+            f"{city_short} 人少 景点", f"{city_short} 胡同 漫步",
+            f"{city_short} 老街 区域", f"{city_short} 社区博物馆",
+            f"{city_short} 小众公园", f"{city_short} 安静 文化空间",
+        ]
+        parsed.micro_keywords = [
+            "本地生活街区", "胡同漫步", "小众文化点",
+            "社区博物馆", "安静公园", "老街散步",
+        ]
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            ["旅行团", "团队游", "网红打卡扎堆", "热门景区", "游客中心", "排队", "人流拥挤"],
+            limit=15,
+        )
+        print(f"[DEBUG low_crowd] detected: crowd_pref=low")
+
+    # v21: Hotel hopping / multi-area lodging detection
+    _hotel_hop_terms = ["体验不同区域的酒店", "每天换酒店", "一天住一个区", "换着住",
+                        "酒店怎么匹配行程", "staycation", "多区域住宿", "每天换一家酒店"]
+    _is_hotel_hop = any(t in user_request for t in _hotel_hop_terms)
+    if _is_hotel_hop:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "multi_area_lodging_route"
+        parsed.theme_profile = "lodging_campus_staycation"
+        parsed.lodging_required = True
+        parsed.hotel_hopping_requested = True
+        parsed.plan_mode = "exploratory"
+        _req_days = max(2, int(parsed.time_budget) if parsed.time_budget > 0 else 3)
+        parsed.requested_days = _req_days
+        parsed.preserve_requested_days = True
+        parsed.duration = "two days" if _req_days == 2 else "three days"
+        parsed.time_budget = float(_req_days)
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 精品酒店", f"{city_short} 设计酒店",
+            f"{city_short} 四合院酒店", f"{city_short} 胡同酒店",
+            f"{city_short} 国贸 酒店", f"{city_short} 三里屯 酒店",
+            f"{city_short} 后海 酒店", f"{city_short} 前门 酒店",
+        ]
+        parsed.micro_keywords = ["精品酒店", "设计酒店", "四合院民宿", "区域住宿体验"]
+        print(f"[DEBUG hotel_hop] detected: days={_req_days}")
+
+    # v21: New Year / flag-raising trip detection
+    _newyear_terms = ["元旦", "跨年", "跨年夜", "12月31", "1月1", "升旗", "天安门升旗"]
+    _is_newyear = any(t in user_request for t in _newyear_terms)
+    if _is_newyear:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "new_year_flag_raising_trip"
+        parsed.plan_mode = "exploratory"
+        parsed.evening_requested = True
+        parsed.early_morning_event_required = True
+        parsed.duration = "two days" if "跨年" in user_request or "12月31" in user_request else "a full day"
+        parsed.time_budget = 2.0 if parsed.duration == "two days" else 1.0
+        if "升旗" in user_request:
+            if not getattr(parsed, "fixed_pois", []):
+                parsed.fixed_pois = []
+            parsed.fixed_pois.append(FixedPoi(name="天安门广场"))
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 跨年夜 三里屯", f"{city_short} 跨年夜 蓝色港湾",
+            f"{city_short} 元旦 升旗 天安门广场", f"{city_short} 元旦 故宫",
+            f"{city_short} 元旦 天坛", f"{city_short} 中轴线 元旦游览",
+        ]
+        parsed.other_constraints = _append_unique(parsed.other_constraints, [
+            "跨年需提前查开放时间", "升旗需查官方时间+安检排队",
+            "元旦严寒注意保暖", "提前确认故宫预约"
+        ])
+        print(f"[DEBUG newyear_flag] detected: duration={parsed.duration}")
+
+    # v21: Graduation fun trip / Universal Resort detection
+    _grad_terms = ["大学毕业旅行", "毕业游", "毕业旅行", "嗨玩", "环球影城", "环球度假区"]
+    _is_grad = any(t in user_request for t in _grad_terms)
+    if _is_grad:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "graduation_fun_trip"
+        parsed.plan_mode = "exploratory"
+        parsed.crowd_type = "朋友"
+        if parsed.time_budget < 1.0:
+            parsed.duration = "a full day"
+            parsed.time_budget = 1.0
+        _group_match = re.search(r"(\d+)个?人", user_request)
+        if _group_match:
+            parsed.other_constraints = _append_unique(parsed.other_constraints or [],
+                [f"{_group_match.group(1)}人同行"])
+        if not parsed.budget_per_capita:
+            parsed.budget_per_capita = 1500.0
+        if "环球影城" in user_request or "环球度假区" in user_request:
+            _uni_name = _LANDMARK_ALIAS_MAP.get("环球影城", "北京环球度假区")
+            if _uni_name not in [fp.name for fp in (getattr(parsed, "fixed_pois", []) or [])]:
+                parsed.fixed_pois.append(FixedPoi(name=_uni_name))
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 环球度假区", f"{city_short} 环球影城",
+            f"{city_short} 年轻人 嗨玩", f"{city_short} 夜生活",
+            f"{city_short} 密室 KTV", f"{city_short} 聚餐",
+        ]
+        parsed.micro_keywords = ["毕业旅行", "环球影城", "嗨玩", "朋友聚会"]
+        print(f"[DEBUG grad_trip] detected: crowd=朋友 budget={parsed.budget_per_capita}")
+
+    # v21: Romantic couple weekend route detection
+    _couple_terms = ["女朋友", "男朋友", "对象", "情侣", "约会", "纪念日", "浪漫"]
+    _photo_night_terms = ["拍照", "出片", "夜景"]
+    _is_couple = any(t in user_request for t in _couple_terms)
+    _is_photo_night = any(t in user_request for t in _photo_night_terms)
+    if _is_couple or (_is_photo_night and ("周末" in user_request or "约会" in user_request)):
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "romantic_couple_weekend_route"
+        parsed.theme_profile = "relationship_group_scenarios"
+        parsed.crowd_type = "情侣"
+        parsed.evening_requested = True
+        parsed.plan_mode = "exploratory"
+        if parsed.time_budget < 1.0:
+            parsed.duration = "a full day"
+            parsed.time_budget = 1.0
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 情侣约会 路线", f"{city_short} 浪漫约会",
+            f"{city_short} 夜景约会", f"{city_short} 适合情侣 拍照",
+            f"{city_short} 约会餐厅 夜景", f"{city_short} 亮马河 夜景",
+            f"{city_short} 798 拍照", f"{city_short} 景山 傍晚",
+        ]
+        parsed.micro_keywords = [
+            "情侣拍照", "浪漫散步", "夜景观赏", "约会餐厅", "出片街区",
+        ]
+        print(f"[DEBUG romantic_couple] detected: crowd=情侣 evening=True")
+
+    # v21: Overnight Great Wall stargazing detection
+    _overnight_terms = ["夜宿", "住一晚", "过夜", "住宿", "露营", "民宿",
+                        "星空", "观星", "看星星", "银河", "夜空"]
+    _great_wall_terms = ["长城", "八达岭", "慕田峪", "古北水镇", "司马台",
+                          "金山岭", "怀柔长城", "延庆长城"]
+    _is_overnight = any(t in user_request for t in _overnight_terms)
+    _is_great_wall = any(t in user_request for t in _great_wall_terms)
+    if _is_overnight and _is_great_wall:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "great_wall_overnight_stargazing"
+        parsed.overnight_stay_requested = True
+        parsed.lodging_required = True
+        parsed.stargazing_requested = "星空" in user_request or "观星" in user_request
+        parsed.great_wall_anchor_requested = True
+        parsed.evening_requested = True
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        parsed.duration = "a full day"
+        parsed.time_budget = 1.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 慕田峪长城", f"{city_short} 八达岭长城",
+            f"{city_short} 古北水镇", f"{city_short} 司马台长城",
+            f"{city_short} 长城脚下民宿", f"{city_short} 长城露营地",
+            f"{city_short} 星空民宿 怀柔", f"{city_short} 长城 观星",
+        ]
+        parsed.micro_keywords = ["长城 日出", "古北水镇 夜景", "长城 观星"]
+        parsed.other_constraints = _append_unique(parsed.other_constraints,
+            ["overnight:夜宿长城脚下", "stargazing:视天气而定", "建议自驾或包车"])
+        print(f"[DEBUG great_wall_overnight] detected: overnight=True stargazing={parsed.stargazing_requested}")
+
+    # v21: Courtyard/hutong heritage detection — "真正的四合院，不是商业化那种"
+    _courtyard_terms = ["四合院", "院子", "传统民居", "胡同院落", "老北京院落",
+                        "真正的四合院", "不是商业化", "原生态", "能进去看看",
+                        "开放参观", "非商业化", "想进.*四合院"]
+    _is_courtyard = any(
+        t in user_request if ".*" not in t else re.search(t, user_request)
+        for t in _courtyard_terms
+    )
+    if _is_courtyard or "四合院" in user_request:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.theme_profile = "history_heritage"
+        parsed.activity_facet = "courtyard_visit"
+        parsed.courtyard_visit_requested = True
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        if "非商业化" in user_request or "不是商业化" in user_request:
+            parsed.non_commercial_requested = True
+        # Don't default to quarter_day
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 史家胡同博物馆", f"{city_short} 胡同博物馆",
+            f"{city_short} 四合院博物馆", f"{city_short} 名人故居",
+            f"{city_short} 老舍纪念馆", f"{city_short} 茅盾故居",
+            f"{city_short} 传统民居 参观", f"{city_short} 胡同文化 展览馆",
+        ]
+        parsed.micro_keywords = ["四合院 参观", "胡同 漫步", "故居 纪念馆"]
+        # Exclude commercial venues
+        parsed.micro_excluded_terms = _append_unique(
+            getattr(parsed, "micro_excluded_terms", []) or [],
+            ["餐厅", "咖啡馆", "酒吧", "酒店", "民宿", "网红", "写真", "剧本杀",
+             "售楼处", "摄影基地", "商业街"],
+            limit=15,
+        )
+        print(f"[DEBUG courtyard] detected: activity=courtyard_visit non_commercial={parsed.non_commercial_requested}")
+
+    # v21: Revolutionary/red history theme detection — "革命历史景点，比如军事博物馆"
+    _red_history_terms = ["革命历史", "红色景点", "红色文化", "红色路线",
+                          "党史", "抗战", "五四", "新文化运动", "革命旧址",
+                          "红色旅游", "爱国教育", "革命纪念馆"]
+    _is_red_history = any(t in user_request for t in _red_history_terms)
+    if _is_red_history:
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.theme_profile = "history_heritage"
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        parsed.red_history_requested = True
+        # v21: Don't default to quarter_day for theme exploration with fixed anchors
+        if parsed.time_budget < 0.5 and parsed.fixed_pois:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 革命历史 纪念馆", f"{city_short} 红色文化路线",
+            f"{city_short} 党史旧址", f"{city_short} 抗战纪念馆",
+            f"{city_short} 名人故居 纪念馆",
+        ]
+        print(f"[DEBUG red_history] detected: theme_route, fixed_pois={len(parsed.fixed_pois)}")
+
+    # v21: Fix: when primary_query is generic "景点/景区/名胜" and theme is active, clear it
+    _generic_pq = getattr(parsed, "primary_query", "") or ""
+    _active_theme = getattr(parsed, "theme_profile", "") or ""
+    if _generic_pq in ("景点", "景区", "名胜", "风景区") and _active_theme:
+        parsed.primary_query = ""
+        print(f"[DEBUG step1] cleared generic primary_query='{_generic_pq}' for theme={_active_theme}")
 
     # v21: Spring Festival / Chinese New Year theme detection
     _spring_festival_terms = ["春节", "过年", "新春", "年味", "年俗", "庙会", "灯会",
@@ -4671,10 +5302,47 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     _has_afternoon = bool(re.search(r"下午|一下午", user_request))
     _has_evening = bool(re.search(r"晚上|夜里|夜间|傍晚", user_request))
     _period_count = sum([_has_morning, _has_afternoon, _has_evening])
-    if _period_count >= 2 and parsed.duration != "a full day":
+    if (
+        _period_count >= 2
+        and parsed.duration not in ("a full day", "two days", "two and a half days", "three days")
+        and not getattr(parsed, "preserve_requested_days", False)
+    ):
         # 防御：即使 LLM 或覆盖逻辑未正确设置，强制纠正
         print(f"[DEBUG step1 WARN] 多时段({_period_count})但 duration={parsed.duration}，强制修正为 a full day")
         parsed.duration = "a full day"
+
+    _transport_constraints_v2 = _extract_period_transport_constraints_v2(user_request)
+    _explicit_multi_day_transport_v2 = (
+        bool(_transport_constraints_v2)
+        and (
+            bool(_TWO_DAY_REQUEST_RE_V2.search(user_request or ""))
+            or any(c.get("day_index", 1) >= 2 for c in _transport_constraints_v2)
+        )
+    )
+    if _explicit_multi_day_transport_v2:
+        parsed.duration = "two days"
+        parsed.time_budget = 2.0
+        parsed.requested_days = 2
+        parsed.preserve_requested_days = True
+        parsed.transport_constraints = _transport_constraints_v2
+        parsed.transport_hint = _transport_constraints_v2[0].get("transport_mode", "") if _transport_constraints_v2 else None
+        parsed.plan_mode = "exploratory"
+        parsed.search_keywords = _append_unique(
+            [
+                "\u5317\u4eac \u7ecf\u5178\u666f\u70b9",
+                "\u5317\u4eac \u5fc5\u53bb\u666f\u70b9",
+                "\u5317\u4eac \u5386\u53f2\u6587\u5316\u666f\u70b9",
+                "\u5317\u4eac \u57ce\u5e02\u5730\u6807",
+                "\u5317\u4eac \u516c\u56ed \u666f\u70b9",
+                "\u5317\u4eac \u535a\u7269\u9986",
+            ],
+            list(getattr(parsed, "search_keywords", []) or []),
+            limit=10,
+        )
+        print(
+            f"[DEBUG multi_day_transport_v2] days=2 "
+            f"constraints={len(_transport_constraints_v2)} data={_transport_constraints_v2}"
+        )
 
     # v5.3: evening_requested 识别增强 — 仅显式夜间关键词 + 晚上餐饮意图
     night_trigger = ""
@@ -4766,6 +5434,13 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         or getattr(parsed, "area_scope_required", False)
         or getattr(parsed, "heat_shelter_requested", False)
         or (getattr(parsed, "search_area_role", "") == "container")
+        or getattr(parsed, "red_history_requested", False)
+        or getattr(parsed, "overnight_stay_requested", False)
+        or getattr(parsed, "fruit_picking_requested", False)
+        or getattr(parsed, "courtyard_visit_requested", False)
+        or getattr(parsed, "walking_cluster_requested", False)
+        or (getattr(parsed, "activity_facet", "") == "no_reservation_flexible_trip")
+        or _is_no_reservation_request_v2(user_request)
     )
     poi_cat_result = _detect_poi_category_query(_category_query_text) if not _skip_cat_detect else None
     if poi_cat_result:
@@ -4944,6 +5619,12 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed = _apply_keyword_overrides(parsed, user_request, city)
     parsed = _append_fixed_poi_from_request(parsed, user_request)
     parsed = _exclude_pois_from_request(parsed, user_request)
+
+    # v21: final guard.  Generic category detection/keyword overrides must not
+    # turn "no reservation / tomorrow flexible trip" back into primary_query=景点.
+    if _is_no_reservation_request_v2(user_request) or getattr(parsed, "activity_facet", "") == "no_reservation_flexible_trip":
+        _apply_no_reservation_flexible_trip_v2(parsed, city)
+        print("[DEBUG no_reservation] final guard reapplied")
 
     # v20: Move search_area_label out of fixed_pois and geocode it as search center
     # This prevents "朝阳区"/"西直门" from being treated as a destination when user says

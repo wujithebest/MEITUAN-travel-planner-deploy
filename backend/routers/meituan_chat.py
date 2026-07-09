@@ -184,6 +184,89 @@ def _extract_intent_data(parsed_intent):
     return intent_data
 
 
+def _restore_parsed_intent_from_context(intent_data, user_profile=None):
+    """Best-effort restore of previous ParsedIntent for incremental replans."""
+    if not isinstance(intent_data, dict) or not intent_data:
+        return None
+    data = dict(intent_data)
+    data.setdefault("duration", "a full day")
+    data.setdefault("raw_keywords", [])
+    data.setdefault("search_keywords", [])
+    data.setdefault("micro_keywords", [])
+    data.setdefault("food_pref_keywords", [])
+    data.setdefault("meal_search_keywords", [])
+    data.setdefault("fixed_pois", [])
+    data.setdefault("other_constraints", [])
+    data.setdefault("meal_constraints", [])
+    data.setdefault("poi_query_type", data.get("poi_query_type") or "theme_route")
+    data.setdefault("primary_query", data.get("primary_query") or "")
+    data.setdefault("plan_mode", data.get("plan_mode") or "exploratory")
+
+    start_time = data.get("start_time")
+    if isinstance(start_time, str) and start_time:
+        try:
+            data["start_time"] = dt.datetime.fromisoformat(start_time)
+        except Exception:
+            data["start_time"] = None
+
+    if not data.get("original_location") and user_profile is not None:
+        data["original_location"] = (
+            getattr(user_profile, "home_location", None)
+            or getattr(user_profile, "current_device_location", None)
+            or getattr(user_profile, "permanent_city_coord", None)
+        )
+
+    try:
+        return ParsedIntent(**data)
+    except Exception as exc:
+        print(f"[WARN restore_intent] failed to parse previous_intent: {exc}")
+        try:
+            return ParsedIntent(
+                duration=data.get("duration") or "a full day",
+                raw_keywords=list(data.get("raw_keywords") or []),
+                search_keywords=list(data.get("search_keywords") or []),
+                micro_keywords=list(data.get("micro_keywords") or []),
+                transport_hint=data.get("transport_hint"),
+                evening_requested=bool(data.get("evening_requested", False)),
+                original_location=data.get("original_location"),
+                plan_mode=data.get("plan_mode") or "exploratory",
+                poi_query_type=data.get("poi_query_type") or "theme_route",
+                primary_query=data.get("primary_query") or "",
+            )
+        except Exception as fallback_exc:
+            print(f"[WARN restore_intent] minimal fallback failed: {fallback_exc}")
+            return None
+
+
+def _requires_full_refine(user_request: str) -> bool:
+    """Requests that alter route theme/time/transport must not use local add-on refine."""
+    text = user_request or ""
+    full_refine_terms = [
+        "\u591c\u666f", "\u591c\u6e38", "\u665a\u4e0a", "\u508d\u665a",
+        "\u957f\u5b89\u8857", "\u4e2d\u8f74\u7ebf", "\u5929\u9645\u7ebf",
+        "\u516c\u4ea4", "\u5730\u94c1", "\u9a91\u884c", "\u9a91\u8f66", "\u5355\u8f66",
+        "\u767d\u5929\u884c\u7a0b", "\u7ed3\u5408", "\u600e\u4e48\u7ed3\u5408",
+        "\u52a0\u5165\u4e00\u65e5\u6e38", "\u4e00\u65e5\u6e38",
+    ]
+    return any(term in text for term in full_refine_terms)
+
+
+def _is_local_meal_incremental_request(user_request: str) -> bool:
+    """Only tiny nearby food/coffee add-ons should use _run_incremental_refine."""
+    text = user_request or ""
+    if _requires_full_refine(text):
+        return False
+    local_terms = [
+        "\u9644\u8fd1", "\u5468\u8fb9", "\u65c1\u8fb9", "\u987a\u8def",
+        "\u6700\u540e\u4e00\u7ad9", "\u4e0a\u4e00\u7ad9", "\u90a3\u91cc",
+    ]
+    meal_terms = [
+        "\u5403", "\u9910\u5385", "\u996d", "\u5496\u5561", "\u5976\u8336",
+        "\u5c0f\u5403", "\u591c\u5bb5", "\u751c\u54c1", "\u559d",
+    ]
+    return any(term in text for term in local_terms) and any(term in text for term in meal_terms)
+
+
 # 导入 backend/services 中的模块
 from services.utils import (
     PipelineLogger,
@@ -201,7 +284,7 @@ from services.utils import (
     SSE_EVENT_DONE,
     SSE_EVENT_ERROR,
 )
-from services.data_schema import CompletePlan, MicroPOI, RouteSegment
+from services.data_schema import CompletePlan, MicroPOI, RouteSegment, ParsedIntent
 from services.mock_profile import get_mock_profile, build_profile_from_guest
 from services.step1_intent import run_step1
 from services.step2_macro import run_step2
@@ -944,13 +1027,32 @@ async def _run_pipeline_stream(
                     step1_request = user_request
                 elif dispatch_decision.conversation_mode == "refine_current":
                     _earliest = dispatch_decision.earliest_step or "step1"
-                    if _earliest in ("step3", "local_replan") and route_context and route_context.points:
+                    if _requires_full_refine(user_request) and _earliest in ("step3", "local_replan"):
+                        print(
+                            f"[DEBUG dispatch] override earliest_step {_earliest} -> step1 "
+                            f"reason=route_time_transport_or_night_view_refine"
+                        )
+                        _earliest = "step1"
+                    if (
+                        _earliest in ("step3", "local_replan")
+                        and route_context
+                        and route_context.points
+                        and _is_local_meal_incremental_request(user_request)
+                    ):
                         # v21: Incremental refine — skip Step1+Step2, search around last route point
                         _last_pt = None
                         for _p in reversed(route_context.points):
                             if _p.get("kind") not in ("start", "hint", "free_explore", "candidate") and _p.get("location", {}).get("lat"):
                                 _last_pt = _p
                                 break
+                        if _last_pt:
+                            _incremental_intent = parsed_intent or _restore_parsed_intent_from_context(
+                                conv_ctx.get("previous_intent") or {},
+                                user_profile,
+                            )
+                            if _incremental_intent is None:
+                                print("[DEBUG dispatch] incremental refine skipped: no parsed_intent context")
+                                _last_pt = None
                         if _last_pt:
                             print(
                                 f"[IncrementalRefine] mode=refine_current earliest_step={_earliest} "
@@ -959,7 +1061,7 @@ async def _run_pipeline_stream(
                             await emit_status("正在为您补充附近推荐...")
                             micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
                                 await _run_incremental_refine(
-                                    parsed_intent, user_profile, complete_plan, logger_obj,
+                                    _incremental_intent, user_profile, complete_plan, logger_obj,
                                     last_point=_last_pt, user_request=user_request,
                                     route_context=route_context,
                                 )
@@ -1389,6 +1491,14 @@ async def _run_incremental_refine(
     from services.utils import coord_to_param, haversine_km
     import time as _time
     _start = _time.monotonic()
+    if parsed_intent is None:
+        parsed_intent = _restore_parsed_intent_from_context({}, user_profile) or ParsedIntent(
+            duration="a quarter day",
+            poi_query_type="poi_category",
+            primary_query="餐厅",
+            search_keywords=["餐厅"],
+            micro_keywords=["餐厅"],
+        )
 
     _origin = last_point.get("location", {})
     _origin_name = last_point.get("name", "上一站")

@@ -1797,6 +1797,15 @@ def _fill_segment(
         if used_names is not None:
             used_names.add(sub.name)
         point = _primary_anchor_point()
+        # v21: Fruit picking combo anchor — preserve as visible waypoint
+        _is_fruit_picking = getattr(parsed_intent, "fruit_picking_requested", False) if parsed_intent else False
+        if _is_fruit_picking:
+            point["kind"] = "anchor_internal"
+            point["is_display_poi"] = True
+            point["is_waypoint"] = True
+            point["fruit_picking_anchor"] = True
+            point["fallback_reason"] = "fruit_picking_anchor_preserved"
+            point["recommend_reason"] = "秋季采摘体验，周边景点可到达景区后再探索。"
         if is_souvenir_primary_target:
             point["kind"] = "shopping"
             point["category"] = "souvenir"
@@ -3100,8 +3109,32 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
         except Exception:
             return await gaode_walking_route(origin, destination)
 
-    if transport_hint == "步行" or _is_late_nearby_walk_request(parsed_intent):
+    _hint_norm = str(transport_hint or "").strip().lower()
+    _explicit_transport_label = {
+        "transit_subway": "地铁",
+        "subway": "地铁",
+        "metro": "地铁",
+        "bus": "公交",
+        "taxi": "打车",
+        "driving": "打车",
+        "car": "打车",
+        "ride_hailing": "打车",
+        "bicycle": "骑行",
+        "bike": "骑行",
+        "cycling": "骑行",
+        "riding": "骑行",
+        "walking": "步行",
+        "walk": "步行",
+    }.get(_hint_norm)
+
+    if _hint_norm in {"walking", "walk"} or transport_hint == "步行" or _is_late_nearby_walk_request(parsed_intent):
         result = await gaode_walking_route(origin, destination)
+    elif _hint_norm in {"bicycle", "bike", "cycling", "riding"} and not involves_meal and straight_km >= 0.05:
+        result = await bicycling_first_route()
+    elif _hint_norm in {"taxi", "driving", "car", "ride_hailing"}:
+        result = await driving_first_route()
+    elif _hint_norm in {"transit_subway", "subway", "metro", "bus", "transit", "public_transit"}:
+        result = await non_walking_route()
     elif transport_hint == "骑行" and not involves_meal and straight_km >= 0.05:
         # v18: 显式骑行模式 → 优先骑行，失败降级步行 → driving
         try:
@@ -3132,6 +3165,10 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
             result = await non_walking_route()
     else:
         result = await non_walking_route()
+
+    if result and _explicit_transport_label:
+        result["transport"] = _explicit_transport_label
+        result["requested_transport_mode"] = _hint_norm
 
     # v3.1 F4：长途段对polyline做Douglas-Peucker简化，去除冗余转折点
     # transit/驾车路线常有数百个冗余点，用较大epsilon；步行路线保留更多细节
@@ -3555,6 +3592,60 @@ def _preserve_explicit_day_route_waypoints(
     return is_day_trip and has_explicit_destination and 3 <= len(scenic_points) <= 12
 
 
+def _transport_hint_for_segment(
+    parsed_intent: ParsedIntent,
+    default_hint: str,
+    a: dict[str, Any],
+    b: dict[str, Any],
+) -> str:
+    constraints = list(getattr(parsed_intent, "transport_constraints", []) or [])
+    if not constraints:
+        return default_hint
+
+    def _as_day(point: dict[str, Any]) -> int:
+        try:
+            return int(point.get("day") or point.get("day_index") or 1)
+        except Exception:
+            return 1
+
+    def _slot_to_period(point: dict[str, Any]) -> str:
+        raw = str(
+            point.get("display_slot")
+            or point.get("slot")
+            or point.get("period")
+            or point.get("time_slot")
+            or ""
+        ).lower()
+        if raw in {"morning", "am", "上午"} or "上午" in raw:
+            return "morning"
+        if raw in {"afternoon", "pm", "下午"} or "下午" in raw:
+            return "afternoon"
+        if raw in {"evening", "night", "晚上", "夜间", "傍晚"} or any(token in raw for token in ("晚上", "夜间", "傍晚")):
+            return "evening"
+        if "lunch" in raw or "午餐" in raw:
+            return "afternoon"
+        if "dinner" in raw or "晚餐" in raw:
+            return "evening"
+        return ""
+
+    day = _as_day(a) or _as_day(b)
+    period = _slot_to_period(a) or _slot_to_period(b)
+
+    same_day_constraints = [
+        c for c in constraints
+        if int(c.get("day_index") or c.get("day") or 1) == day
+    ]
+    if not same_day_constraints:
+        return default_hint
+
+    for c in same_day_constraints:
+        c_period = str(c.get("period") or "all_day")
+        if c_period == "all_day" or (period and c_period == period):
+            return str(c.get("transport_mode") or c.get("transport") or default_hint)
+
+    return str(same_day_constraints[0].get("transport_mode") or same_day_constraints[0].get("transport") or default_hint)
+
+
 async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, points: list[dict[str, Any]]) -> tuple[list[RouteSegment], dict[str, dict[str, Any]]]:
     # v21: Spatial reorder happens BEFORE this function is called (on canonical points)
     # 过滤掉非路线点（hint/free_explore 不参与路线连线）
@@ -3706,7 +3797,15 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
 
     # 生成精简后的路线对
     pairs = [(optimized[k], optimized[k + 1]) for k in range(len(optimized) - 1) if optimized[k]["day"] == optimized[k + 1]["day"]]
-    routes = await asyncio.gather(*[_route_between(parsed_intent, transport_hint, a, b) for a, b in pairs])
+    routes = await asyncio.gather(*[
+        _route_between(
+            parsed_intent,
+            _transport_hint_for_segment(parsed_intent, transport_hint, a, b),
+            a,
+            b,
+        )
+        for a, b in pairs
+    ])
 
     # 计算途经点到所属路段polyline的步行时间
     for (a, b), route in zip(pairs, routes):

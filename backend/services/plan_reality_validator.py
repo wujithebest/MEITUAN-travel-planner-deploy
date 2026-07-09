@@ -220,6 +220,8 @@ def validate_plan_reality(
     violations: list[str] = []
     poi_query_type: str = getattr(parsed_intent, "poi_query_type", "") or ""
     primary_query: str = getattr(parsed_intent, "primary_query", "") or ""
+    activity_facet: str = getattr(parsed_intent, "activity_facet", "") or ""
+    is_no_reservation = activity_facet == "no_reservation_flexible_trip"
     primary_required: list[str] = list(
         getattr(parsed_intent, "primary_required_terms", []) or []
     )
@@ -282,6 +284,11 @@ def validate_plan_reality(
             visible_count += 1
         if is_meal:
             meal_count += 1
+
+        if is_no_reservation and is_display and not is_meal:
+            primary_count += 1
+            primary_anchors.append(name)
+            continue
 
         # Check if this point matches primary intent
         evidence = score_poi_against_intent(
@@ -405,7 +412,10 @@ def validate_plan_reality(
     if poi_query_type == "theme_route":
         time_budget = float(getattr(parsed_intent, "time_budget", 1.0) or 1.0)
         # v21: Feature-based requests only need 1 visible related POI
-        if is_feature_based:
+        if is_no_reservation:
+            if (visible_count - meal_count) < 2:
+                violations.append("no_reservation_route_too_sparse")
+        elif is_feature_based:
             if primary_count < 1:
                 violations.append("quarter_day_theme_needs_1_related")
         elif time_budget <= 0.25 and primary_count < 1:

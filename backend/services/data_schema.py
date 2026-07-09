@@ -480,6 +480,24 @@ class ParsedIntent(BaseModel):
     optimization_profile: str = ""                               # v21: "multi_day_fixed_anchor_enhanced" or ""
     requested_days: int = 1                                      # v21: user-requested day count
     preserve_requested_days: bool = False                        # v21: don't compress to fewer days
+    red_history_requested: bool = False                          # v21: revolutionary/red history theme
+    courtyard_visit_requested: bool = False                      # v21: courtyard/hutong visit
+    non_commercial_requested: bool = False                       # v21: non-commercial preference
+    overnight_stay_requested: bool = False                       # v21: overnight lodging required
+    lodging_required: bool = False                               # v21: lodging/hotel anchor required
+    stargazing_requested: bool = False                           # v21: stargazing activity requested
+    great_wall_anchor_requested: bool = False                    # v21: Great Wall anchor required
+    fruit_picking_requested: bool = False                        # v21: fruit picking requested
+    scenic_combo_requested: bool = False                         # v21: scenic combo with picking
+    district_recommendation_requested: bool = False              # v21: district recommendation needed
+    walking_cluster_requested: bool = False                      # v21: walking cluster route
+    max_walk_between_pois_min: int = 0                           # v21: max walking minutes between POIs
+    route_strategy: str = ""                                     # v21: "walking_cluster_multi_day" / etc.
+    transport_constraints: list[dict] = Field(default_factory=list)  # v21: per-period transport constraints
+    optional_anchor_candidates: list[str] = Field(default_factory=list)  # v21: optional park/resort anchors
+    relaxation_after_route: bool = False                             # v21: hot spring after main itinerary
+    hotel_hopping_requested: bool = False                           # v21: multi-area hotel hopping
+    early_morning_event_required: bool = False                      # v21: flag-raising/early morning event
 
     # ── Step2输出 ──
 
