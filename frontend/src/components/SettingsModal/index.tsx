@@ -242,7 +242,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         )
       );
 
-      // 合并两个城市的结果，标记来源城市
       const allItems: (Record<string, any> & { _city: string })[] = [];
       results.forEach((result, i) => {
         if (result.status === 'fulfilled') {
@@ -255,7 +254,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
       });
 
-      // 按「名称 + 经纬度」去重
       const seen = new Set<string>();
       const uniqueItems = allItems.filter(item => {
         const key = [
@@ -379,7 +377,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const values = await form.validateFields();
       setLoading(true);
 
-      // v18: 拆分为 UI id 和后端中文 tag
       const finalPrefs = travelPrefs.slice(0, MAX_ACTIVITY_PREFS);
       const finalActivityTags = finalPrefs
         .map(id => ACTIVITY_PREFERENCES.find(pref => pref.id === id)?.tag)
@@ -503,33 +500,37 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <Input placeholder="请输入昵称" prefix={<User size={14} color="#999" />} />
             </Form.Item>
 
-            {isGuest && (
-              <>
-                <div className={styles.inlineRow}>
-                  <Form.Item name="gender" label="性别" className={styles.inlineItem}>
-                    <Select
-                      placeholder="选择性别"
-                      options={[
-                        { value: '男', label: '男' },
-                        { value: '女', label: '女' },
-                        { value: '其他', label: '其他' },
-                      ]}
-                    />
-                  </Form.Item>
-                  <Form.Item name="age" label="年龄" className={styles.inlineItem}>
-                    <InputNumber min={1} max={120} placeholder="年龄" style={{ width: '100%' }} />
-                  </Form.Item>
-                </div>
+            <div className={styles.inlineRow}>
+              <Form.Item name="gender" label="性别" className={styles.inlineItem}>
+                <Select
+                  placeholder="选择性别"
+                  options={[
+                    { value: '男', label: '男' },
+                    { value: '女', label: '女' },
+                    { value: '其他', label: '其他' },
+                  ]}
+                />
+              </Form.Item>
+              <Form.Item name="age" label="年龄" className={styles.inlineItem}>
+                <InputNumber min={1} max={120} placeholder="年龄" style={{ width: '100%' }} />
+              </Form.Item>
+            </div>
 
-                <Form.Item name="budget_per_capita" label="人均预算（元）" tooltip="用于筛选餐厅和消费场所">
-                  <InputNumber
-                    min={0} max={10000} step={10}
-                    placeholder="人均消费预算"
-                    style={{ width: '100%' }}
-                    addonAfter="元"
-                  />
-                </Form.Item>
-              </>
+            {isGuest && (
+              <Form.Item
+                name="budget_per_capita"
+                label="人均预算（元）"
+                tooltip="用于筛选餐厅和消费场所"
+              >
+                <InputNumber
+                  min={0}
+                  max={10000}
+                  step={10}
+                  placeholder="人均消费预算"
+                  style={{ width: '100%' }}
+                  addonAfter="元"
+                />
+              </Form.Item>
             )}
           </div>
 
