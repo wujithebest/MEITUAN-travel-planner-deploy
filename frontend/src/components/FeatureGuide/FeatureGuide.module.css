@@ -23,7 +23,6 @@
   box-shadow: 0 0 24px rgba(255, 209, 0, 0.28);
   pointer-events: none;
   z-index: 10000;
-  transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease;
 }
 
 /* ── SVG polyline connector layer ── */

@@ -3,34 +3,51 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, MapPin, Calendar, Camera } from 'lucide-react';
 import BackgroundHero from '../../components/BackgroundHero';
-import { useUserStore } from '../../store/userStore';
+import { useUserStore, clearClientSessionCache } from '../../store/userStore';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { ensureGuestSession } = useUserStore();
 
+  const [showGuestEntry, setShowGuestEntry] = useState(false);
+
   useEffect(() => {
-    // v18: 封锁登录 — 直接进入游客模式并跳转
+    // Clean any stale logout marker
+    sessionStorage.removeItem('just-logged-out');
+
+    // If already authenticated (valid token), redirect straight to planner
+    const { isLoggedIn, token } = useUserStore.getState();
+    if (isLoggedIn || token) {
+      navigate('/app', { replace: true });
+      return;
+    }
+
+    // Otherwise stay on landing page — user must click guest entry
+    setShowGuestEntry(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleGuestEnter = async () => {
+    await clearClientSessionCache();
     ensureGuestSession();
     navigate('/app', { replace: true });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  };
 
   // v18: 所有入口统一走游客模式，不再展示 AuthCard
   return (
     <BackgroundHero>
-      {/* 主标题区域 */}
+      {/* 主标题区域 — 四行内容统一 flex-column 居中 */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.1 }}
-        className="text-center mb-12"
+        className="flex flex-col items-center text-center"
       >
         {/* AI 标签 */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-20 md:mb-24"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-28 md:mb-32"
         >
           <Sparkles className="w-4 h-4 text-white/80" />
           <span className="text-sm text-white/80 font-medium tracking-wide">
@@ -43,7 +60,7 @@ const LandingPage: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-6xl md:text-7xl lg:text-8xl font-bold text-white tracking-wider mb-12 md:mb-16"
+          className="text-6xl md:text-7xl lg:text-8xl font-bold text-white tracking-wider mb-20 md:mb-24"
           style={{
             fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif',
             letterSpacing: '0.05em',
@@ -58,10 +75,32 @@ const LandingPage: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="text-lg md:text-xl text-white/60 font-light tracking-wide max-w-xl mx-auto mt-10 pt-6"
+          className="text-lg md:text-xl text-white/60 font-light tracking-wide max-w-xl mb-28 md:mb-32"
         >
           智能规划 · 沉浸体验 · 未来旅行
         </motion.p>
+
+        {/* 退出登录后的游客入口按钮 */}
+        {showGuestEntry && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <button
+              onClick={handleGuestEnter}
+              className="px-8 py-3 rounded-xl text-lg font-bold text-gray-900"
+              style={{
+                background: 'linear-gradient(135deg, #FFD100 0%, #FFE033 100%)',
+                boxShadow: '0 4px 24px rgba(255, 209, 0, 0.45)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              游客模式进入
+            </button>
+          </motion.div>
+        )}
       </motion.div>
 
       {/* v18: 认证卡片已移除 — 统一游客模式 */}

@@ -2,7 +2,22 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { authApi } from '../api/auth';
 import { userApi } from '../api/user';
+import { useRouteStore } from './routeStore';
+import { useChatStore } from './chatStore';
 import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION } from '@/utils/locationDefaults';
+
+/** localStorage keys to purge on logout */
+const AUTH_KEYS = [
+  'token', 'user', 'isGuest', 'guestUser',
+  'userPreferences', 'preferenceCompleted', 'hasCompletedPreferences',
+];
+const APP_STATE_KEYS = [
+  'guest-profile-initialized-v2',
+  'local-life-route-feature-guide-seen-v2',
+  'user-storage',
+  'travel-planner-route-histories-v1',
+  'travel-planner-route-favorites-v1',
+];
 
 export interface HomeAddress {
   name: string;
@@ -34,6 +49,7 @@ export interface User {
   age?: number;
   food_preferences?: string[];
   budget_per_capita?: number;
+  trip_start_time?: string;
   activity_pref_tag?: string[];
   /** v6: 常住地址（用于路线规划 home_location），格式 { lat, lng, label } */
   home_location?: { lat: number; lng: number; label: string } | null;
@@ -60,7 +76,7 @@ interface UserState {
 
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   guestLogin: () => void;
   /** v18: 幂等保障 — 确保当前是游客会话，补齐缺失字段，不覆盖已有偏好 */
   ensureGuestSession: () => void;
@@ -210,19 +226,29 @@ export const useUserStore = create<UserState>()(
         }
       },
 
-      logout: () => {
-        localStorage.removeItem('token');
+      logout: async () => {
+        // Reset cross-store state (route + chat) before clearing persistence
+        useRouteStore.getState().reset();
+        useChatStore.getState().reset();
+
         set({
           user: null,
           token: null,
           isLoggedIn: false,
           isGuest: false,
         });
-        console.log('[UserStore] 已登出');
+
+        // Purge all client-side storage
+        await clearClientSessionCache();
+        console.log('[UserStore] 已登出，所有状态已清除');
       },
 
       guestLogin: () => {
         localStorage.removeItem('token');
+        // Clear guest onboarding flag so preferences flow re-triggers
+        localStorage.removeItem('guest-profile-initialized-v2');
+        localStorage.removeItem('preferenceCompleted');
+        localStorage.removeItem('hasCompletedPreferences');
         set({
           user: {
             id: 'guest',
@@ -359,3 +385,45 @@ export const useUserStore = create<UserState>()(
 
 // 导出工具函数供其他模块使用
 export { isValidJWT, isTokenExpired };
+
+/** 彻底清除客户端所有会话缓存（localStorage / sessionStorage / CacheStorage / IndexedDB） */
+export async function clearClientSessionCache(): Promise<void> {
+  // ── localStorage: remove everything ──
+  localStorage.clear();
+
+  // ── sessionStorage: remove everything ──
+  sessionStorage.clear();
+
+  // ── CacheStorage (service-worker caches) ──
+  try {
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
+  } catch (e) {
+    console.warn('[clearClientSessionCache] caches.delete failed', e);
+  }
+
+  // ── IndexedDB databases ──
+  try {
+    if ('indexedDB' in window && 'databases' in indexedDB) {
+      const dbs = await (indexedDB as any).databases();
+      await Promise.all(
+        dbs
+          .map((db: any) => db.name)
+          .filter(Boolean)
+          .map(
+            (name: string) =>
+              new Promise<void>(resolve => {
+                const req = indexedDB.deleteDatabase(name);
+                req.onsuccess = () => resolve();
+                req.onerror = () => resolve();
+                req.onblocked = () => resolve();
+              }),
+          ),
+      );
+    }
+  } catch (e) {
+    console.warn('[clearClientSessionCache] indexedDB.deleteDatabase failed', e);
+  }
+}

@@ -13,23 +13,23 @@ import { useUserStore } from '@/store/userStore';
 import styles from './UserMenu.module.css';
 
 const UserMenu: React.FC = () => {
+  const navigate = useNavigate();
   const { user, isLoggedIn, logout, ensureGuestSession } = useUserStore();
   const [open, setOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     setOpen(false);
-    ensureGuestSession();  // v18: 退出后重新进入游客模式
+    window.location.replace('/');
   };
 
-  const handleLogin = () => {
-    // v18: 统一走游客模式
+  const handleGuestEnter = () => {
+    // Explicit guest mode entry — reset onboarding flags so preferences re-trigger
+    localStorage.removeItem('guest-profile-initialized-v2');
+    localStorage.removeItem('preferenceCompleted');
+    localStorage.removeItem('hasCompletedPreferences');
     ensureGuestSession();
-  };
-
-  const handleRegister = () => {
-    // v18: 统一走游客模式
-    ensureGuestSession();
+    navigate('/app');
   };
 
   // v18: 封锁注册/登录 — 未登录时仅显示游客入口
@@ -39,7 +39,7 @@ const UserMenu: React.FC = () => {
         <Button
           type="text"
           icon={<LogIn size={16} />}
-          onClick={handleLogin}
+          onClick={handleGuestEnter}
           className={styles.authBtn}
         >
           游客进入

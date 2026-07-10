@@ -11,6 +11,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useUserStore } from '@/store/userStore';
 import styles from './TopBar.module.css';
 
 interface TopBarProps {
@@ -25,6 +26,7 @@ const TopBar: React.FC<TopBarProps> = ({
   isRightPanelVisible 
 }) => {
   const navigate = useNavigate();
+  const logout = useUserStore(state => state.logout);
 
   const userMenuItems = [
     {
@@ -57,8 +59,10 @@ const TopBar: React.FC<TopBarProps> = ({
         // navigate('/settings');
         break;
       case 'logout':
-        localStorage.removeItem('token');
-        navigate('/login');
+        (async () => {
+          await logout();
+          window.location.replace('/');
+        })();
         break;
     }
   };

@@ -301,6 +301,7 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
   const rafRef = useRef<number>(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
   const measuredHeights = useRef<number[]>([]);
+  const initialMeasureDone = useRef(false);
 
   const getTargetRectRaw = useCallback((target: string): Rect | null => {
     const el = document.querySelector(`[data-guide="${target}"]`) as HTMLElement | null;
@@ -437,7 +438,10 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
 
   // Recompute on resize/scroll
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      initialMeasureDone.current = false;
+      return;
+    }
     computeLayouts();
     const onResize = () => {
       cancelAnimationFrame(rafRef.current);
@@ -459,6 +463,8 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
   // Measure card heights after render + generate stacked connectors
   useEffect(() => {
     if (!open || layouts.length === 0) return;
+    // Only re-measure once after initial layout to avoid flicker loop
+    if (initialMeasureDone.current) return;
     const raf = requestAnimationFrame(() => {
       const heights: number[] = [];
       stepRefs.current.forEach((el, i) => {
@@ -467,48 +473,27 @@ export const FeatureGuide: React.FC<FeatureGuideProps> = ({ open, onClose }) => 
       const changed = heights.some((h, i) => h !== (measuredHeights.current[i] || DEFAULT_CARD_HEIGHT));
       if (changed) {
         measuredHeights.current = heights;
+        initialMeasureDone.current = true;
         computeLayouts();
-      }
-
-      // 桌面 stacked 模式补充 connector 折线
-      const stackedNow = window.innerWidth <= 768 || window.innerWidth < 1180 || window.innerHeight < 760 || forceStacked;
-      if (stackedNow && window.innerWidth > 768) {
-        setLayouts(prev => prev.map((layout, idx) => {
-          // 第 6 项地图中心说明不画引线
-          if (idx === 5) {
-            return { ...layout, connectorPoints: [] };
-          }
-          const targetRect = layout.targetRect || getGuideTargetRect(STEPS[idx]);
-          const stepEl = stepRefs.current[idx];
-          const badgeEl = stepEl?.querySelector('[data-guide-badge="true"]') as HTMLElement | null;
-          if (!targetRect || !badgeEl) {
-            return { ...layout, targetRect, connectorPoints: [] };
-          }
-          const badgeRect = badgeEl.getBoundingClientRect();
-          const badgeCenter = {
-            x: badgeRect.left + badgeRect.width / 2,
-            y: badgeRect.top + badgeRect.height / 2,
-          };
-          return {
-            ...layout,
-            targetRect,
-            // 第 4 项用户菜单用右侧绕行引线
-            connectorPoints: idx === 3
-              ? buildRightBiasedConnector(targetRect, badgeCenter, window.innerWidth).points
-              : buildConnectorToPoint(targetRect, badgeCenter).points,
-          };
-        }));
       }
     });
     return () => cancelAnimationFrame(raf);
-  }, [open, layouts.length, computeLayouts, forceStacked, getGuideTargetRect]);
+  }, [open, layouts.length, computeLayouts, getGuideTargetRect]);
 
-  // Lock body scroll
+  // Lock body scroll (with scrollbar-width compensation to avoid resize-triggered recompute)
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
   }, [open]);
 
   // Escape to close
