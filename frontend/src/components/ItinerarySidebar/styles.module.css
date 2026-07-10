@@ -1484,22 +1484,26 @@
 
 .routePlaceContent {
   display: flex;
-  align-items: stretch;
-  gap: 12px;
+  flex-direction: column;
+  width: 100%;
+}
+
+.routePlaceTop {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  column-gap: 12px;
   width: 100%;
 }
 
 .routePlaceMedia {
-  --route-media-width: 96px;
-  width: var(--route-media-width);
-  flex: 0 0 var(--route-media-width);
+  width: 96px;
+  min-width: 96px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
 .routePlaceInfo {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1521,6 +1525,28 @@
   font-family: inherit;
   cursor: pointer;
   flex: 1;
+}
+
+.preferenceTagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  min-height: 0;
+}
+
+.preferenceTag {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 20px;
+  color: #8a5a00;
+  background: rgba(255, 209, 0, 0.16);
+  border: 1px solid rgba(255, 209, 0, 0.45);
+  white-space: nowrap;
 }
 
 .routePlaceActions {
@@ -1803,7 +1829,9 @@
 }
 
 .ugcReviewBlock {
-  margin: 6px 10px 10px 108px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 6px 0 10px 0;
   padding: 8px 10px;
   border: 1px solid #eeeeee;
   border-radius: 6px;

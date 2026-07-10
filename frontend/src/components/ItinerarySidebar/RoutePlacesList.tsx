@@ -2,7 +2,86 @@ import React, { useMemo, useRef, useState } from 'react';
 import { MapPin, Heart, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
 import { message } from 'antd';
 import { getPoiAlternatives } from '@/api/poi';
+import { useUserStore } from '@/store/userStore';
 import styles from './styles.module.css';
+
+const UGC_REVIEW_LABEL = '网络UGC数据聚合摘要';
+
+// ── Preference tag matching ──
+
+/** Keywords mapped to preference display labels */
+const PREFERENCE_KEYWORD_MAP: { label: string; keywords: string[] }[] = [
+  { label: '历史文化', keywords: ['历史', '文化', '博物馆', '纪念馆', '古迹', '故宫', '胡同', '故居', '寺庙', '考古', '遗址', '遗产'] },
+  { label: '自然风光', keywords: ['公园', '湖', '山', '江', '河', '绿地', '园林', '森林', '湿地', '岛屿', '海滩', '峡谷', '瀑布', '花海', '草原'] },
+  { label: '购物娱乐', keywords: ['购物', '商场', '商业街', '步行街', '娱乐', '影院', 'KTV', '电玩', '购物中心'] },
+  { label: '艺术展览', keywords: ['艺术', '美术馆', '展览', '画廊', '剧场', '音乐厅', '画展', '雕塑', '装置'] },
+  { label: '美食探店', keywords: ['餐厅', '小吃', '咖啡', '火锅', '烧烤', '甜品', '茶饮', '面包', '糕点', '料理', '寿司', '牛排', '海鲜', '自助'] },
+  { label: '拍照打卡', keywords: ['拍照', '打卡', '夜景', '观景', '网红', '出片', '灯光', '日落', '全景'] },
+  { label: '亲子游玩', keywords: ['亲子', '儿童', '乐园', '游乐园', '动物园', '海洋馆', '科技馆', '植物园'] },
+  { label: '户外探险', keywords: ['登山', '徒步', '骑行', '滑雪', '攀岩', '露营', '越野', '漂流'] },
+  { label: '城市漫游', keywords: ['citywalk', '漫步', '街区', '弄堂', '老城', '老街', '市集', '创意园'] },
+  { label: '在地市井', keywords: ['市井', '本地', '特色', '传统', '民俗', '非遗', '手工', '花鸟'] },
+  { label: '康养疗愈', keywords: ['温泉', 'SPA', 'spa', '瑜伽', '冥想', '养生', '疗愈', '禅修'] },
+  { label: '夜生活', keywords: ['酒吧', '夜店', 'live', 'Live', '演出', '驻唱', '精酿'] },
+];
+
+/** Match preference id → display label */
+const PREF_ID_TO_LABEL: Record<string, string> = {
+  history: '历史文化', food: '美食探店', nature: '自然风光', shopping: '购物娱乐',
+  art: '艺术展览', nightlife: '夜生活', photography: '拍照打卡', family: '亲子游玩',
+  adventure: '户外探险', citywalk: '城市漫游', local: '在地市井', wellness: '康养疗愈',
+};
+
+/** Match activity_pref_tag 中文 → display label */
+const ACTIVITY_TAG_TO_LABEL: Record<string, string> = {
+  '历史文化': '历史文化', '美食': '美食探店', '自然风光': '自然风光', '购物娱乐': '购物娱乐',
+  '文艺': '艺术展览', '夜生活': '夜生活', '拍照': '拍照打卡', '亲子': '亲子游玩',
+  '户外': '户外探险', '城市漫游': '城市漫游', '本地特色': '在地市井', '康养疗愈': '康养疗愈',
+};
+
+function getMatchedPreferenceTags(poi: PanelPoiData): string[] {
+  const user = useUserStore.getState().user;
+  if (!user) return [];
+
+  // Collect user's active preference labels
+  const userLabels = new Set<string>();
+  (user.preferences || []).forEach(id => {
+    const label = PREF_ID_TO_LABEL[id];
+    if (label) userLabels.add(label);
+  });
+  (user.activity_pref_tag || []).forEach(tag => {
+    const label = ACTIVITY_TAG_TO_LABEL[tag];
+    if (label) userLabels.add(label);
+  });
+  (user.food_preferences || []).forEach(fp => { userLabels.add(fp); });
+
+  if (userLabels.size === 0) return [];
+
+  // Build POI text corpus
+  const texts = [
+    poi.name || '',
+    poi.category || '',
+    poi.kind || '',
+    categoryLabel(poi.kind, poi.typecode),
+    poi.recommend_reason || '',
+    poi.ugc_review_summary || '',
+    poi.parent_anchor || '',
+    poi.sub_anchor_name || '',
+    poi.address || '',
+  ];
+  const corpus = texts.join(' ');
+
+  // Match: for each user preference, check if any keyword hits the POI text
+  const matched: string[] = [];
+  for (const { label, keywords } of PREFERENCE_KEYWORD_MAP) {
+    if (!userLabels.has(label)) continue;
+    if (keywords.some(kw => corpus.includes(kw))) {
+      matched.push(label);
+      if (matched.length >= 3) break;
+    }
+  }
+  return matched;
+}
 
 // ── types ──
 
@@ -268,7 +347,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             ugc_status: poi.ugc_status || enriched.ugc_status || 'not_found',
             ugc_scope: poi.ugc_scope || enriched.ugc_scope || '',
             ugc_source_name: poi.ugc_source_name || enriched.ugc_source_name || '',
-            ugc_label: poi.ugc_label || enriched.ugc_label || '大众点评搜索摘要',
+            ugc_label: poi.ugc_label || enriched.ugc_label || UGC_REVIEW_LABEL,
           });
         }
       }
@@ -511,75 +590,88 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                         </span>
                       )}
                       <div className={styles.routePlaceContent}>
-                        <div className={styles.routePlaceMedia}>
-                          <button type="button" className={styles.routePlaceThumbButton} onClick={() => onPOIClick(poi.name)}>
-                            <div className={styles.routePlaceThumb}>
-                              {poi.photo_url ? (
-                                <img src={poi.photo_url} alt={poi.name} />
-                              ) : (
-                                <div className={styles.routePlaceThumbPlaceholder}>
-                                  <MapPin size={22} color="#ccc" />
+                        <div className={styles.routePlaceTop}>
+                          <div className={styles.routePlaceMedia}>
+                            <button type="button" className={styles.routePlaceThumbButton} onClick={() => onPOIClick(poi.name)}>
+                              <div className={styles.routePlaceThumb}>
+                                {poi.photo_url ? (
+                                  <img src={poi.photo_url} alt={poi.name} />
+                                ) : (
+                                  <div className={styles.routePlaceThumbPlaceholder}>
+                                    <MapPin size={22} color="#ccc" />
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                            {/* Commerce CTA — uses pre-computed commerceAction */}
+                            {commerceAction === 'group_deal' && (
+                              <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
+                                团购优惠
+                              </button>
+                            )}
+                            {commerceAction === 'ticket' && (
+                              <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
+                                点击购票
+                              </button>
+                            )}
+                          </div>
+                          <div className={styles.routePlaceInfo}>
+                            <button type="button" className={styles.routePlaceTextButton} onClick={() => onPOIClick(poi.name)}>
+                              <div className={styles.routePlaceMain}>
+                                <div className={styles.routePlaceTitleRow}>
+                                  <span className={styles.routePlaceName}>{poi.name}</span>
+                                  {commerceAction && (
+                                    <span className={styles.commerceBadge}>美团优惠</span>
+                                  )}
+                                  {distKm != null && (
+                                    <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </button>
-                          {/* Commerce CTA — uses pre-computed commerceAction */}
-                          {commerceAction === 'group_deal' && (
-                            <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('团购功能开发中'); }}>
-                              团购优惠
-                            </button>
-                          )}
-                          {commerceAction === 'ticket' && (
-                            <button type="button" className={styles.poiCommerceBtn} onClick={(e) => { e.stopPropagation(); message.info('购票功能开发中'); }}>
-                              点击购票
-                            </button>
-                          )}
-                        </div>
-                        <div className={styles.routePlaceInfo}>
-                          <button type="button" className={styles.routePlaceTextButton} onClick={() => onPOIClick(poi.name)}>
-                            <div className={styles.routePlaceMain}>
-                              <div className={styles.routePlaceTitleRow}>
-                                <span className={styles.routePlaceName}>{poi.name}</span>
-                                {commerceAction && (
-                                  <span className={styles.commerceBadge}>美团优惠</span>
-                                )}
-                                {distKm != null && (
-                                  <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
-                                )}
+                                <div className={styles.routePlaceMeta}>
+                                  <span className={styles.routePlaceRating}>
+                                    {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
+                                  </span>
+                                  <span className={styles.routePlaceType}>
+                                    {categoryLabel(poi.kind, poi.typecode)}
+                                  </span>
+                                  {poi.address && (
+                                    <span className={styles.routePlaceAddress}>{poi.address}</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className={styles.routePlaceMeta}>
-                                <span className={styles.routePlaceRating}>
-                                  {poi.rating ? `${Number(poi.rating).toFixed(1)}星` : '暂无评分'}
-                                </span>
-                                <span className={styles.routePlaceType}>
-                                  {categoryLabel(poi.kind, poi.typecode)}
-                                </span>
-                                {poi.address && (
-                                  <span className={styles.routePlaceAddress}>{poi.address}</span>
-                                )}
-                              </div>
+                            </button>
+                            {/* Preference match tags — below address, above actions */}
+                            {(() => {
+                              const tags = getMatchedPreferenceTags(poi);
+                              if (tags.length === 0) return null;
+                              return (
+                                <div className={styles.preferenceTagRow}>
+                                  {tags.map(tag => (
+                                    <span key={tag} className={styles.preferenceTag}>{tag}</span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                            {/* Action buttons — inside info column below text */}
+                            <div className={styles.routePlaceActions}>
+                              <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
+                                <Heart size={15} />
+                              </button>
+                              <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
+                                <ArrowLeftRight size={15} />
+                              </button>
+                              <button type="button" className={styles.poiActionBtn} title="增加" onClick={() => handlePoiActionClick(poi, 'add')}>
+                                <Plus size={15} />
+                              </button>
+                              <button type="button" className={styles.poiActionBtn} title="删除" onClick={() => handlePoiActionClick(poi, 'delete')}>
+                                <Trash2 size={15} />
+                              </button>
                             </div>
-                          </button>
-                          {/* Action buttons — inside info column below text */}
-                          <div className={styles.routePlaceActions}>
-                            <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
-                              <Heart size={15} />
-                            </button>
-                            <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
-                              <ArrowLeftRight size={15} />
-                            </button>
-                            <button type="button" className={styles.poiActionBtn} title="增加" onClick={() => handlePoiActionClick(poi, 'add')}>
-                              <Plus size={15} />
-                            </button>
-                            <button type="button" className={styles.poiActionBtn} title="删除" onClick={() => handlePoiActionClick(poi, 'delete')}>
-                              <Trash2 size={15} />
-                            </button>
                           </div>
                         </div>
-                      </div>
                       <div className={styles.ugcReviewBlock} data-ugc-status={poi.ugc_status || 'not_found'}>
                         <div className={styles.ugcReviewHeader}>
-                          <span>{poi.ugc_label || '大众点评搜索摘要'}</span>
+                          <span>{poi.ugc_label || UGC_REVIEW_LABEL}</span>
                           {poi.ugc_status === 'verified' && poi.ugc_source_url && (
                             <a
                               className={styles.ugcReviewLink}
@@ -595,16 +687,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                         <div className={styles.ugcReviewText}>
                           {poi.ugc_status === 'verified' && poi.ugc_review_summary?.trim()
                             ? poi.ugc_review_summary.trim()
-                            : '暂未检索到可靠的大众点评摘要'}
+                            : '暂未检索到可靠的网络UGC评论摘要'}
                         </div>
                         {poi.ugc_status === 'verified' && (
                           <div className={styles.ugcReviewSource}>
-                            来源：大众点评 · 博查搜索
+                            来源：网络UGC · 博查搜索
                             {poi.ugc_scope === 'parent_poi' && poi.ugc_source_name
                               ? ` · ${poi.ugc_source_name}`
                               : ''}
                           </div>
                         )}
+                      </div>
                       </div>
                     </div>
                   </div>
