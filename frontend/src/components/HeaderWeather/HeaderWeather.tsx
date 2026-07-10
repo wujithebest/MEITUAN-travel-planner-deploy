@@ -133,7 +133,8 @@ const HeaderWeather: React.FC<HeaderWeatherProps> = ({ location, onSetLocationCl
     };
   }, [location.lat, location.lng, location.label]);
 
-  const displayLabel = location.label || '请选择';
+  const rawLabel = (location.label || '').trim();
+  const displayLabel = rawLabel && rawLabel !== '.' && rawLabel !== '·' ? rawLabel : '请选择出发点';
   const prefix = weather?.city || displayLabel;
 
   // ── weather node (loading / data / error) ──

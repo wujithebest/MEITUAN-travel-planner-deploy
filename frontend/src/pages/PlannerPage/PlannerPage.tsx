@@ -13,7 +13,7 @@
  * → 规划完成后右侧栏滑入显示行程详情
  */
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, User, Settings, LogOut, ChevronDown, Heart, Clock3, HelpCircle } from 'lucide-react';
 import { Avatar, message } from 'antd';
@@ -31,7 +31,13 @@ import SettingsModal from '@/components/SettingsModal';
 import RouteHistoryModal from '@/components/RouteHistoryModal';
 import FeatureGuide from '@/components/FeatureGuide';
 import routeHistoryService, { type RouteHistory } from '@/services/routeHistory';
-import { FALLBACK_HOME_LOCATION, FALLBACK_HOME_ADDRESS } from '@/utils/locationDefaults';
+import {
+  getUserDepartureLabel,
+  getUserDepartureCoords,
+  makeDeviceHomeAddress,
+  makeLocationPayload,
+  shouldAutoLocateDeparture,
+} from '@/utils/locationDefaults';
 import { applyPanelPoiMutation } from '@/utils/panelPoiReorder';
 import axios from 'axios';
 import { buildApiUrl } from '@/config/api.config';
@@ -105,12 +111,14 @@ function normalizeCandidateToMarker(c: any): any | null {
 
 const PlannerPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, logout, isGuest, ensureGuestSession } = useUserStore();
+  const { user, logout, isGuest, ensureGuestSession, updateUser, updateGuestProfile } = useUserStore();
+  const autoLocateAttemptedRef = useRef(false);
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [autoLocatingDeparture, setAutoLocatingDeparture] = useState(false);
   // v18: 单一发送状态，不再按模式隔离
   const [hasSentInSession, setHasSentInSession] = useState(false);
 
@@ -122,6 +130,66 @@ const PlannerPage: React.FC = () => {
   useEffect(() => {
     ensureGuestSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user || autoLocateAttemptedRef.current || !shouldAutoLocateDeparture(user)) return;
+
+    autoLocateAttemptedRef.current = true;
+
+    if (!navigator.geolocation) {
+      return;
+    }
+
+    setAutoLocatingDeparture(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        let name = '当前设备位置';
+
+        try {
+          const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${lng}&lat=${lat}`));
+          const addr = res.data?.data || res.data;
+          name = addr?.address || addr?.formatted_address || name;
+        } catch (err) {
+          console.warn('[PlannerPage] 设备位置反查地址失败，使用当前位置标签:', err);
+        }
+
+        const homeAddr = { ...makeDeviceHomeAddress(lat, lng), name, full_address: name };
+        const homeLocation = makeLocationPayload(lat, lng, name);
+        const current = useUserStore.getState().user;
+        if (!current) {
+          setAutoLocatingDeparture(false);
+          return;
+        }
+
+        const nextLocation = {
+          ...current.location,
+          latitude: lat,
+          longitude: lng,
+          home_address: homeAddr,
+        };
+
+        if (useUserStore.getState().isGuest) {
+          updateGuestProfile({
+            location: nextLocation,
+            home_location: homeLocation,
+          });
+        } else {
+          updateUser({
+            ...current,
+            location: nextLocation,
+            home_location: homeLocation,
+          });
+        }
+        setAutoLocatingDeparture(false);
+      },
+      (err) => {
+        console.warn('[PlannerPage] 读取设备位置失败:', err);
+        setAutoLocatingDeparture(false);
+      },
+      { timeout: 8000, enableHighAccuracy: false },
+    );
+  }, [user, updateGuestProfile, updateUser]);
 
   // ── 功能指引 → 游客偏好弹窗 顺序状态机 ──
   const GUIDE_STORAGE_KEY = 'local-life-route-feature-guide-seen-v2';
@@ -163,6 +231,14 @@ const PlannerPage: React.FC = () => {
     setGuestOnboardingOpen(false);
     setGuidePhase('showing');
   }, []);
+
+  // 当 onboarding 打开时，自动关闭 guide（优先保证偏好弹窗可见）
+  useEffect(() => {
+    if (guestOnboardingOpen && guidePhase === 'showing') {
+      localStorage.setItem(GUIDE_STORAGE_KEY, '1');
+      setGuidePhase('done');
+    }
+  }, [guestOnboardingOpen, guidePhase]);
 
   const [recentHistories, setRecentHistories] = useState<RouteHistory[]>([]);
 
@@ -302,39 +378,12 @@ const PlannerPage: React.FC = () => {
 
   // v18: 从"我的设置 → 路线出发地"获取保存坐标作为初始地图中心
   const savedDepartureLocation = useMemo<[number, number]>(() => {
-    const candidates = [
-      { lng: user?.home_location?.lng, lat: user?.home_location?.lat },
-      { lng: user?.location?.home_address?.lng, lat: user?.location?.home_address?.lat },
-      { lng: user?.location?.longitude, lat: user?.location?.latitude },
-    ];
-
-    for (const candidate of candidates) {
-      const lng = Number(candidate.lng);
-      const lat = Number(candidate.lat);
-
-      // 中国陆地范围校验（含上海、北京）
-      if (
-        Number.isFinite(lng) && Number.isFinite(lat) &&
-        lng >= 73 && lng <= 136 &&
-        lat >= 18 && lat <= 54
-      ) {
-        console.log('[PlannerPage] 初始地图中心使用路线出发地:', [lng, lat]);
-        return [lng, lat];
-      }
-    }
-
-    console.log('[PlannerPage] 无有效保存坐标，使用兜底:', [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat]);
-    return [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat];
+    return getUserDepartureCoords(user);
   }, [user]);
 
   // 路线出发地 label：供 HeaderWeather 显示
   const savedDepartureLabel = useMemo(() => {
-    return (
-      user?.home_location?.label ||
-      user?.location?.home_address?.name ||
-      user?.location?.home_address?.full_address ||
-      '路线出发地'
-    );
+    return getUserDepartureLabel(user);
   }, [user]);
 
   // 计算地图中心点：路线数据优先 -> 保存的路线出发地 -> 兜底地址
@@ -665,7 +714,7 @@ const PlannerPage: React.FC = () => {
             location={{
               lng: savedDepartureLocation[0],
               lat: savedDepartureLocation[1],
-              label: savedDepartureLabel,
+              label: autoLocatingDeparture ? '正在定位...' : savedDepartureLabel,
             }}
             onSetLocationClick={handleSetLocation}
           />
@@ -754,10 +803,10 @@ const PlannerPage: React.FC = () => {
               <div className={styles.dropdownDivider} />
               <div
                 className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
-                onClick={() => {
+                onClick={async () => {
                   setDropdownOpen(false);
-                  logout();
-                  navigate('/login');
+                  await logout();
+                  window.location.replace('/');
                 }}
               >
                 <LogOut size={14} />
@@ -919,16 +968,17 @@ const PlannerPage: React.FC = () => {
         onLoadFavorite={handleLoadFavorite}
       />
 
-      {/* 设置弹窗 */}
+      {/* 设置弹窗 — 统一使用三步 onboarding 布局 */}
       <SettingsModal
+        mode="onboarding"
         open={settingsModalOpen}
         onClose={() => setSettingsModalOpen(false)}
       />
 
-      {/* v18: 游客首次身份定制（不可关闭/跳过） */}
+      {/* v18: 游客首次身份定制（不可关闭/跳过）— 优先于功能指引 */}
       <SettingsModal
         mode="onboarding"
-        open={guestOnboardingOpen && !guideOpen}
+        open={guestOnboardingOpen}
         closable={false}
         onClose={() => setGuestOnboardingOpen(false)}
         onSaved={() => {

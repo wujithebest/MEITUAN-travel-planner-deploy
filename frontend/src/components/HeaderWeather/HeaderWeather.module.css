@@ -18,9 +18,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 0 1 240px;
-  min-width: 150px;
-  max-width: 260px;
+  flex: 0 0 300px;
+  min-width: 260px;
+  max-width: 340px;
   padding: 6px 10px;
   border: 0;
   border-radius: 6px;
@@ -46,16 +46,14 @@
 }
 
 .departureValue {
+  display: block;
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
   color: #666;
-}
-
-.departureValue::before {
-  content: '· ';
 }
 
 .divider {
@@ -153,8 +151,9 @@
   }
 
   .departureButton {
-    flex-basis: 210px;
-    max-width: 220px;
+    flex-basis: 260px;
+    min-width: 230px;
+    max-width: 280px;
   }
 
   .extraStat {
