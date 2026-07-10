@@ -1059,7 +1059,7 @@ async def _build_route_data(
                 "ugc_status": point.get("ugc_status", "not_found"),
                 "ugc_scope": point.get("ugc_scope", ""),
                 "ugc_source_name": point.get("ugc_source_name", ""),
-                "ugc_label": point.get("ugc_label", "大众点评搜索摘要"),
+                "ugc_label": point.get("ugc_label", "网络UGC数据聚合摘要"),
                 "visit_duration_min": point.get("visit_duration_min") or point.get("visit_min"),
                 "is_waypoint": is_waypoint,
                 "is_passthrough": point.get("is_passthrough", False),

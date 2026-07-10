@@ -9,6 +9,13 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
+from pydantic import BaseModel
+
+
+class UgcSummaryResponse(BaseModel):
+    summary: str = ""
+
+
 # ── Platform config ──
 UGC_SOURCE_CONFIG: dict[str, dict] = {
     "dianping": {
@@ -102,8 +109,26 @@ def _has_review_evidence(snippet: str, terms: list[str]) -> bool:
     return any(t in snippet for t in terms)
 
 
+# ── Activity keywords extractable from child POI names ──
+_CHILD_ACTIVITY_TERMS = [
+    "码头", "游船", "湖", "夜景", "观景台", "食堂", "咖啡", "餐厅", "展览", "拍照",
+    "灯光", "剧场", "演出", "登山", "徒步", "骑行", "滑雪", "温泉", "沙滩",
+    "观鸟", "花园", "草坪", "广场", "喷泉", "寺庙", "教堂", "塔", "桥",
+    "老街", "胡同", "弄堂", "市集", "夜市", "早市", "集市", "缆车", "索道",
+    "栈道", "步道", "骑行道", "古道", "城墙", "宫殿", "陵园", "故居", "书院",
+    "画展", "摄影", "手工", "陶艺", "茶室", "酒吧", "露台", "阳台",
+]
+
+
+def _extract_child_activity_keywords(name: str) -> str:
+    """Extract activity-related terms from a child POI name for parent+child searches."""
+    found = [t for t in _CHILD_ACTIVITY_TERMS if t in name]
+    return " ".join(found) if found else ""
+
+
 async def _search_one_platform(
-    platform_key: str, name: str, city: str, district: str, address: str
+    platform_key: str, name: str, city: str, district: str, address: str,
+    parent_name: str = "", extra_terms: str = "",
 ) -> dict:
     from .api_client import bocha_search
     cfg = UGC_SOURCE_CONFIG.get(platform_key, {})
@@ -111,7 +136,16 @@ async def _search_one_platform(
     label = cfg.get("label", platform_key)
     review_terms = cfg.get("review_terms", [])
     short_city = city.replace("市", "") if city else ""
-    query = f'site:{domains[0]} "{name}" {short_city} {district} {address[:20]}'
+    # Build query based on search context
+    if extra_terms:
+        # Tier 2: parent name + child keywords
+        query = f'site:{domains[0]} "{parent_name or name}" "{name}" {extra_terms} {short_city} 评论 体验 推荐 真实评价'
+    elif parent_name:
+        # Tier 1: child POI with parent context
+        query = f'site:{domains[0]} "{name}" "{parent_name}" {short_city} {district} 评论 体验 推荐 真实评价'
+    else:
+        # Tier 3: standalone (parent pure fallback or no parent)
+        query = f'site:{domains[0]} "{name}" {short_city} {district} 评论 体验 推荐 真实评价'
     raw = 0
     domain_results = []
     try:
@@ -174,10 +208,16 @@ async def enrich_route_with_network_ugc(
             poi_type = _classify_ugc_poi_type(poi)
             platforms = _PLATFORM_PRIORITY.get(poi_type, ["ctrip", "mafengwo", "xiaohongshu"])
 
-            # If it's an internal POI with a parent, search parent first
-            search_targets = [(name, "poi")]
+            # ── 3-tier search: child-first, then parent+keywords, then parent pure fallback ──
+            child_keywords = _extract_child_activity_keywords(name) if parent_name and parent_name != name else ""
+            search_tiers: list[tuple[str, str, str, str]] = [
+                # (query_name, scope, parent_arg, extra_terms)
+                (name, "poi", parent_name if parent_name != name else "", ""),
+            ]
             if parent_name and parent_name != name:
-                search_targets.insert(0, (parent_name, "parent_poi"))
+                if child_keywords:
+                    search_tiers.append((name, "parent_with_child_hint", parent_name, child_keywords))
+                search_tiers.append((parent_name, "parent_poi", "", ""))
 
             all_hits = []
             selected_platform = ""
@@ -185,14 +225,17 @@ async def enrich_route_with_network_ugc(
             attempts = 0
             outcome = "no_search_result"
 
-            for target_name, scope in search_targets:
+            for target_name, scope, parent_arg, extra_terms in search_tiers:
                 if all_hits:
                     break
                 for pk in platforms[:3]:
                     attempts += 1
                     try:
                         res = await asyncio.wait_for(
-                            _search_one_platform(pk, target_name, city, district, addr),
+                            _search_one_platform(
+                                pk, target_name, city, district, addr,
+                                parent_name=parent_arg, extra_terms=extra_terms,
+                            ),
                             timeout=5.0,
                         )
                     except asyncio.TimeoutError:
@@ -226,7 +269,7 @@ async def enrich_route_with_network_ugc(
             if all_hits:
                 best = sorted(all_hits, key=lambda x: -x["score"])[:2]
                 snippets = [b["result"].get("snippet", "")[:200] for b in best]
-                summary = await _summarize_snippets(name, snippets)
+                summary = await _summarize_snippets(name, snippets, selected_scope)
                 platform_label = UGC_SOURCE_CONFIG.get(selected_platform, {}).get("label", selected_platform)
                 poi["ugc_review_summary"] = summary or ""
                 poi["ugc_label"] = "网络UGC数据聚合摘要"
@@ -237,7 +280,9 @@ async def enrich_route_with_network_ugc(
                 poi["ugc_match_confidence"] = round(best[0]["score"], 2)
                 poi["ugc_scope"] = selected_scope
                 if selected_scope == "parent_poi" and summary:
-                    poi["ugc_review_summary"] = f"所属景区的网络评价提到：{summary}"
+                    poi["ugc_review_summary"] = f"所属景区评论提到：{summary}"
+                elif selected_scope == "parent_with_child_hint" and summary:
+                    poi["ugc_review_summary"] = f"所属景区中与该子点相关的评论提到：{summary}"
             else:
                 poi["ugc_review_summary"] = ""
                 poi["ugc_status"] = outcome
@@ -260,15 +305,104 @@ async def enrich_route_with_network_ugc(
     return route_points
 
 
-async def _summarize_snippets(poi_name: str, snippets: list[str]) -> str:
+def _prefilter_snippets(snippets: list[str]) -> list[str]:
+    """快速预过滤：剔除明显非评论型 snippet，减少无效 LLM 调用。"""
+    REVIEW_SIGNALS = [
+        "评论", "评价", "体验", "游记", "避坑", "推荐", "不推荐",
+        "排队", "服务", "环境", "口味", "拍照", "游客", "用户",
+        "亲测", "好吃", "好玩", "好看", "值得", "不建议",
+        "感觉", "适合", "不太", "很", "非常", "特别",
+    ]
+    INVALID_DOMINATORS = [
+        "地址", "电话", "营业时间", "公交", "地铁", "导航", "地图",
+        "门票价格", "人均", "工商注册", "注册资本", "经营范围",
+        "查看地图", "立即预订", "附近商户", "展开全文",
+    ]
+    valid: list[str] = []
+    for s in snippets:
+        has_review = any(sig in s for sig in REVIEW_SIGNALS)
+        invalid_count = sum(1 for sig in INVALID_DOMINATORS if sig in s)
+        if has_review and invalid_count <= 2:
+            valid.append(s)
+    return valid
+
+
+_UGC_SUMMARIZE_SYSTEM_PROMPT = """你是旅游产品中的 UGC 评论清洗与摘要助手。
+
+输入是一组搜索结果摘要 snippets。请只提取"真实用户评论/体验"相关内容，并生成前端展示用的"网络UGC数据聚合摘要"。
+
+严格规则：
+1. 只保留评论、游记、体验、避坑、推荐、不推荐、排队、服务、环境、口味、拍照、亲子、情侣、交通体验等用户感受。
+2. 必须删除以下信息：
+   - 地址、电话、营业时间、门票价格、等级、评分、人均消费
+   - 公交/地铁线路、导航、地图信息
+   - 商户简介、百科介绍、工商注册、经营范围
+   - 平台按钮文案，例如"查看地图""展开全文""立即预订""附近商户"
+   - SEO 摘要、黄页信息、行政区划信息
+3. 如果没有足够评论证据，返回空字符串，不要编造。
+4. 不要输出"地址""电话""等级""评分""营业时间"等字段。
+5. 不要复述 POI 基础信息，只总结用户怎么评价。
+6. 摘要控制在 40-90 字，语气自然，适合展示在路线右侧卡片。
+
+在生成 UGC 摘要前，先判断每条 snippet 是否有效：
+- 有效 snippet 必须至少满足一个条件：包含"评论/评价/体验/游记/避坑/推荐/不推荐/排队/服务/环境/口味/拍照/游客/用户/亲测"等评论信号；明显来自用户体验表达，例如"去了之后""感觉""适合""不太建议""排队很久""拍照好看""服务不错"。
+- 无效 snippet 命中任一条件即丢弃：主要内容是"地址、电话、营业时间、公交、地铁、导航、地图、路线、门票、价格、等级、评分、人均"；主要内容是"公司、工商、注册资本、经营范围、许可、法人"；主要内容是"景点介绍、百科、开放时间、官方公告"；没有任何主观体验表达。
+
+如果过滤后没有有效评论，返回空字符串。
+
+输出格式：只输出一段中文摘要，不要标题，不要项目符号，不要 JSON。"""
+
+
+async def _summarize_snippets(poi_name: str, snippets: list[str], scope: str = "poi") -> str:
     if not snippets:
         return ""
     text = " ".join(snippets)
     if len(text) < 30:
         return ""
-    # Fallback: return first meaningful sentence
-    for s in snippets[:2]:
-        s = s.strip()[:100]
-        if len(s) > 20:
-            return s
-    return ""
+
+    # 预过滤：剔除明显非评论型 snippet
+    filtered = _prefilter_snippets(snippets)
+    if not filtered:
+        return ""
+
+    scope_note = ""
+    if scope == "parent_poi":
+        scope_note = '\n注意：以下搜索结果来自该 POI 的上级景区，摘要开头应写"所属景区评论提到："。'
+    elif scope == "parent_with_child_hint":
+        scope_note = '\n注意：以下搜索结果来自该 POI 的上级景区中与子点相关的评论，摘要开头应写"所属景区中与该子点相关的评论提到："。'
+
+    user_prompt = f"""POI：{poi_name}
+搜索摘要：
+{chr(10).join(f"{i+1}. {s}" for i, s in enumerate(filtered))}
+{scope_note}"""
+
+    try:
+        from .api_client import call_llm
+
+        result = await asyncio.wait_for(
+            call_llm(
+                UgcSummaryResponse,
+                [
+                    {"role": "system", "content": _UGC_SUMMARIZE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=200,
+                temperature=0.2,
+            ),
+            timeout=8.0,
+        )
+        summary = (result.summary or "").strip()
+        # 校验长度：太短或太长都不合格
+        if len(summary) < 10:
+            return ""
+        if len(summary) > 100:
+            summary = summary[:100]
+        return summary
+    except Exception as exc:
+        print(f"[UGCSummarize] LLM summarize failed for {poi_name}: {exc}")
+        # 兜底：取第一个 snippet 截断
+        for s in snippets[:2]:
+            s = s.strip()[:100]
+            if len(s) > 20:
+                return s
+        return ""
