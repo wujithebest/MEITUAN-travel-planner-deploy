@@ -125,6 +125,8 @@ interface ChatPanelProps {
   onRouteCardSelect?: (snapshot: any) => void;
   /** v18: 路线卡片收藏回调 */
   onRouteCardFavorite?: (snapshot: any) => void;
+  /** v22: 当前选中的路线 ID，用于高亮卡片 */
+  activeRouteId?: string | null;
 }
 
 /**
@@ -153,6 +155,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   hasSentInSession = false,
   onRouteCardSelect,
   onRouteCardFavorite,
+  activeRouteId,
 }) => {
   const [inputText, setInputText] = useState('');
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -393,6 +396,137 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return cleaned.trim();
   };
 
+  const cleanReasonFragment = (text: string, maxLen = 24): string => {
+    return String(text || '')
+      .replace(/^这条路线/, '')
+      .replace(/^让您/, '')
+      .replace(/^接着/, '')
+      .replace(/^随后/, '')
+      .replace(/^最后/, '')
+      .replace(/^然后/, '')
+      .replace(/全程.*$/, '')
+      .replace(/[。；;]+$/g, '')
+      .trim()
+      .slice(0, maxLen);
+  };
+
+  const pickReasonSentence = (sentences: string[], keywords: string[]): string => {
+    return sentences.find(sentence => keywords.some(keyword => sentence.includes(keyword))) || '';
+  };
+
+  const formatPlainRouteReason = (reason: string): Array<{ label: string; content: string }> => {
+    const cleaned = stripArrangeAdvice(reason)
+      .replace(/\s+/g, '')
+      .replace(/。+/g, '。');
+    const sentences = cleaned
+      .split(/[。；;]/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+    if (sentences.length === 0) return [];
+
+    const lines: Array<{ label: string; content: string }> = [];
+    const morningSentence = sentences[0] || '';
+    const mealSentence = pickReasonSentence(sentences, ['午餐', '中餐', '品尝', '用餐', '吃', '餐厅', '美食']);
+    const afternoonSentence =
+      [...sentences].reverse().find(sentence => sentence !== mealSentence && sentence !== morningSentence) || '';
+
+    const startMatch = morningSentence.match(/从(.{2,14}?)(?:开始|出发|起步)/);
+    const morningStops = [
+      startMatch?.[1],
+      morningSentence.includes('苏州河') ? '苏州河' : '',
+      morningSentence.includes('外滩源') ? '外滩源' : '',
+    ].filter(Boolean).slice(0, 2);
+    const morningValue = morningSentence.includes('摄影') || morningSentence.includes('拍')
+      ? (morningSentence.includes('陆家嘴') ? '拍陆家嘴机位' : '拍照打卡')
+      : cleanReasonFragment(morningSentence, 14);
+    lines.push({
+      label: '上午',
+      content: `${morningStops.length ? `${morningStops.join('-')}，` : ''}${morningValue}`.slice(0, 28),
+    });
+
+    if (mealSentence) {
+      const restaurantMatch = mealSentence.match(/在(.{2,24}?)(?:品尝|用餐|吃|享用|补充)/);
+      const restaurant = restaurantMatch?.[1]?.replace(/^.*至/, '').trim();
+      let mealValue = '补充能量';
+      if (/意式|意大利|Mozzarella/i.test(mealSentence)) mealValue = '品尝意式美食';
+      else if (mealSentence.includes('火锅')) mealValue = '兼顾火锅口味';
+      else if (mealSentence.includes('烧烤')) mealValue = '兼顾烧烤口味';
+      else if (mealSentence.includes('素食')) mealValue = '兼顾清淡素食';
+      lines.push({
+        label: '中餐',
+        content: `${restaurant ? `${restaurant}，` : ''}${mealValue}`.slice(0, 28),
+      });
+    }
+
+    if (afternoonSentence) {
+      const afternoonStops = [
+        afternoonSentence.includes('外白渡桥') ? '外白渡桥' : '',
+        afternoonSentence.includes('外滩观景台') ? '外滩观景台' : (afternoonSentence.includes('外滩') ? '外滩' : ''),
+        afternoonSentence.includes('陆家嘴') ? '陆家嘴' : '',
+      ].filter(Boolean).slice(0, 2);
+      let afternoonValue = cleanReasonFragment(afternoonSentence, 14);
+      if (afternoonSentence.includes('万国建筑群')) afternoonValue = '赏万国建筑群';
+      else if (afternoonSentence.includes('天际线')) afternoonValue = '看浦东天际线';
+      else if (afternoonSentence.includes('历史')) afternoonValue = '感受历史街景';
+      lines.push({
+        label: '下午',
+        content: `${afternoonStops.length ? `${afternoonStops.join('-')}，` : ''}${afternoonValue}`.slice(0, 28),
+      });
+    }
+
+    return lines
+      .filter(line => line.content)
+      .slice(0, 3);
+  };
+
+  const normalizeReasonLines = (reason: string): Array<{ label: string; content: string }> => {
+    const rawLines = reason
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
+    const sourceLines = rawLines.length >= 2
+      ? rawLines
+      : reason.split(/[。；;]/).map(line => line.trim()).filter(Boolean);
+
+    const structured = sourceLines
+      .map(line => {
+        const colonIdx = line.search(/[：:]/);
+        if (colonIdx <= 0) return null;
+        return {
+          label: cleanReasonFragment(line.slice(0, colonIdx), 6),
+          content: cleanReasonFragment(line.slice(colonIdx + 1), 28),
+        };
+      })
+      .filter((line): line is { label: string; content: string } => Boolean(line?.label && line?.content));
+
+    const lines = structured.length > 0 ? structured : formatPlainRouteReason(reason);
+    const capped: Array<{ label: string; content: string }> = [];
+    let total = 0;
+    for (const line of lines) {
+      const label = line.label.slice(0, 6);
+      const remaining = Math.max(0, 70 - total - label.length - 1);
+      if (remaining <= 0) break;
+      const content = line.content.slice(0, Math.min(28, remaining));
+      if (!content) continue;
+      capped.push({ label, content });
+      total += label.length + content.length + 1;
+    }
+    return capped.slice(0, 4);
+  };
+
+  const getRouteMessageId = (message: ChatMessage): string => {
+    const snapshot: any = message.routeSnapshot || {};
+    return String(
+      snapshot.__active_route_id
+      || snapshot.route_hash
+      || snapshot.title
+      || message.requestId
+      || message.parentUserMessageId
+      || message.id
+      || ''
+    );
+  };
+
   /**
    * 从 routeStore.currentPlan 中提取推荐理由
    */
@@ -409,7 +543,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     const handleClick = () => {
       if (snapshot) {
-        onRouteCardSelect?.(snapshot);
+        onRouteCardSelect?.({
+          ...snapshot,
+          __active_route_id: getRouteMessageId(message),
+        });
       } else if (message.routeData) {
         onRouteChange?.(message.routeData);
       }
@@ -447,10 +584,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       message.routeSnapshot?.route_data?.route_recommend_reason?.trim() ||
       '';
     if (!reason) return null;
+
+    const capped = normalizeReasonLines(reason);
+    if (capped.length === 0) return null;
+
     return (
       <div className={styles.routeRecReason}>
         <div className={styles.routeRecReasonTitle}>为什么推荐</div>
-        <div className={styles.routeRecReasonText}>{reason}</div>
+        <div className={styles.routeRecReasonList}>
+          {capped.map((line, i) => {
+            return (
+              <div key={i} className={styles.routeRecReasonLine}>
+                <strong className={styles.routeRecReasonBold}>{line.label}：</strong>
+                {line.content}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -655,16 +805,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       );
     }
 
+    // v22: Check if this message's route is the active/highlighted one
+    const _routeId = getRouteMessageId(message);
+    const _isActive = activeRouteId && _routeId && activeRouteId === _routeId;
+
     return (
       <div
         key={message.id}
-        className={`${styles.messageBubble} ${isUser ? styles.userBubble : styles.aiBubble}`}
+        className={`${styles.messageBubble} ${isUser ? styles.userBubble : styles.aiBubble} ${_isActive ? styles.messageBubbleActive : ''}`}
       >
         {!isUser && (
           <div className={styles.avatar}>
-            <img 
-              src="/ai-travel-logo.png" 
-              alt="AI旅行助手" 
+            <img
+              src="/ai-travel-logo.png"
+              alt="AI旅行助手"
               className={styles.avatarLogo}
             />
           </div>
@@ -715,12 +869,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     <div className={styles.chatPanel}>
       {/* 头部 */}
       <div className={styles.header}>
-        <img 
-          src="/ai-travel-logo.png" 
-          alt="AI旅行助手" 
+        <img
+          src="/ai-travel-logo.png"
+          alt="AI旅行助手"
           className={styles.headerLogo}
         />
-        <span className={styles.headerTitle}>AI 旅游助手</span>
         {onLoadHistory && (
           <button
             className={styles.historyBtn}

@@ -5,8 +5,6 @@ import { getPoiAlternatives } from '@/api/poi';
 import { useUserStore } from '@/store/userStore';
 import styles from './styles.module.css';
 
-const UGC_REVIEW_LABEL = '网络UGC数据聚合摘要';
-
 // ── Preference tag matching ──
 
 /** Keywords mapped to preference display labels */
@@ -347,7 +345,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             ugc_status: poi.ugc_status || enriched.ugc_status || 'not_found',
             ugc_scope: poi.ugc_scope || enriched.ugc_scope || '',
             ugc_source_name: poi.ugc_source_name || enriched.ugc_source_name || '',
-            ugc_label: poi.ugc_label || enriched.ugc_label || UGC_REVIEW_LABEL,
+            ugc_label: poi.ugc_label || enriched.ugc_label || '',
           });
         }
       }
@@ -620,9 +618,6 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                               <div className={styles.routePlaceMain}>
                                 <div className={styles.routePlaceTitleRow}>
                                   <span className={styles.routePlaceName}>{poi.name}</span>
-                                  {commerceAction && (
-                                    <span className={styles.commerceBadge}>美团优惠</span>
-                                  )}
                                   {distKm != null && (
                                     <span className={styles.routePlaceDistance}>{formatDist(distKm)}</span>
                                   )}
@@ -669,35 +664,6 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                             </div>
                           </div>
                         </div>
-                      <div className={styles.ugcReviewBlock} data-ugc-status={poi.ugc_status || 'not_found'}>
-                        <div className={styles.ugcReviewHeader}>
-                          <span>{poi.ugc_label || UGC_REVIEW_LABEL}</span>
-                          {poi.ugc_status === 'verified' && poi.ugc_source_url && (
-                            <a
-                              className={styles.ugcReviewLink}
-                              href={poi.ugc_source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              查看来源
-                            </a>
-                          )}
-                        </div>
-                        <div className={styles.ugcReviewText}>
-                          {poi.ugc_status === 'verified' && poi.ugc_review_summary?.trim()
-                            ? poi.ugc_review_summary.trim()
-                            : '暂未检索到可靠的网络UGC评论摘要'}
-                        </div>
-                        {poi.ugc_status === 'verified' && (
-                          <div className={styles.ugcReviewSource}>
-                            来源：网络UGC · 博查搜索
-                            {poi.ugc_scope === 'parent_poi' && poi.ugc_source_name
-                              ? ` · ${poi.ugc_source_name}`
-                              : ''}
-                          </div>
-                        )}
-                      </div>
                       </div>
                     </div>
                   </div>

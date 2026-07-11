@@ -3599,6 +3599,21 @@ def _transport_hint_for_segment(
     b: dict[str, Any],
 ) -> str:
     constraints = list(getattr(parsed_intent, "transport_constraints", []) or [])
+    strict = bool(getattr(parsed_intent, "strict_transport_mode", False))
+
+    # v22: strict transport mode — never fall back even for short distances
+    if strict and constraints:
+        a_anchor = str(a.get("parent_anchor") or a.get("sub_anchor_name") or "")
+        b_anchor = str(b.get("parent_anchor") or b.get("sub_anchor_name") or "")
+        # Different anchors → must use subway
+        if a_anchor and b_anchor and a_anchor != b_anchor:
+            for c in constraints:
+                if str(c.get("transport_mode", "")) == "transit_subway":
+                    return "transit_subway"
+        # Same anchor → walk
+        if a_anchor and a_anchor == b_anchor:
+            return "walking"
+
     if not constraints:
         return default_hint
 
@@ -6126,6 +6141,53 @@ async def run_step3(
             v.startswith("required_feature_not_found:") for v in _reality.violations
         )
 
+        # v22: Metro cluster route — relax validation, don't hard-block on waypoint count
+        _is_metro_cluster = (
+            getattr(parsed_intent, "route_strategy", "") == "station_based_itinerary"
+        )
+        if _is_metro_cluster and _reality.violations:
+            # Only block if we have no station anchors at all
+            _station_anchors = list(getattr(parsed_intent, "station_anchors", []) or [])
+            _has_at_least_station_pois = (
+                _reality.waypoint_count >= 2
+                or (_station_anchors and _reality.waypoint_count >= 1)
+            )
+            if _has_at_least_station_pois:
+                print(
+                    f"[WARN step3] Metro cluster route: relaxing validation "
+                    f"(violations={_reality.violations}), proceeding with "
+                    f"station-based itinerary"
+                )
+                _reality.valid = True
+            else:
+                # Still try to generate with station anchors as hints
+                print(
+                    f"[INFO step3] Metro cluster route with minimal POIs. "
+                    f"Generating station-anchor-based route with relaxations."
+                )
+
+        # v22: Budget contradiction — relax validation, don't hard-block on meal_takeover
+        _is_budget_downgrade = (
+            getattr(parsed_intent, "route_strategy", "") == "auto_budget_downgrade"
+        )
+        if _is_budget_downgrade and _reality.violations:
+            _degraded = list(getattr(parsed_intent, "paid_items_degraded", []) or [])
+            # Allow passing with degraded items even if violations include meal_takeover
+            _non_meal_violations = [
+                v for v in _reality.violations
+                if "meal_takeover" not in v and "free_route_only_restaurant" not in v
+            ]
+            if _degraded and not _non_meal_violations:
+                print(
+                    f"[WARN step3] Budget contradiction: relaxing validation "
+                    f"(violations={_reality.violations}), proceeding with degraded route"
+                )
+                _reality.valid = True
+                # Add note to user
+                for point in points:
+                    if point.get("kind") == "meal":
+                        point["budget_note"] = "免费路线中的平价餐饮，高端餐饮为自费可选"
+
         # v20: Full-day theme routes with critical violations must block output
         _is_full_day_theme = (
             _poi_qtype in ("theme_route", "") and _time_budget >= 1.0
@@ -6153,6 +6215,12 @@ async def run_step3(
         # v20: Supplement recall now happens BEFORE segment generation (see above).
         # If reality still fails here despite pre-sgement supplement, surface a clear error.
         elif _is_full_day_theme and _critical_violations:
+            if _is_metro_cluster:
+                raise ZeroOutputError(
+                    "已按地铁站步行圈为你生成路线，"
+                    "部分站点到景点可能略超过5分钟，"
+                    "建议按实时地图选择最近出口。"
+                )
             raise ZeroOutputError(
                 "当前条件下可组成完整路线的有效地点较少。"
                 "请补充目的地、调整活动偏好或扩大出行范围后重试。"

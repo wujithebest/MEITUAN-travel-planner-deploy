@@ -40,6 +40,27 @@
   margin: 0;
 }
 
+.brandTitle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.brandMain {
+  font-weight: 700;
+}
+
+.brandSub {
+  font-size: 0.6em;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
 .headerCenter {
   flex: 1;
   display: flex;

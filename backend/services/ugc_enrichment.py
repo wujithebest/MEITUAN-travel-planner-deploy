@@ -179,15 +179,37 @@ async def _search_one_platform(
 
 
 async def enrich_route_with_dianping(route_points, city=""):
-    """Backward-compat wrapper."""
-    return await enrich_route_with_network_ugc(route_points, city)
+    """Backward-compat wrapper — UGC disabled in v22."""
+    return enrich_route_with_network_ugc_stub(route_points)
+
+
+async def enrich_route_with_network_ugc_stub(route_points: list[dict]) -> list[dict]:
+    """v22: UGC enrichment is disabled. Populate empty fields for compatibility."""
+    if not route_points:
+        return route_points
+    for p in route_points:
+        p["ugc_review_summary"] = ""
+        p["ugc_label"] = ""
+        p["ugc_status"] = "disabled"
+        p["ugc_source"] = ""
+        p["ugc_source_url"] = ""
+        p["ugc_source_name"] = ""
+        p["ugc_scope"] = ""
+        p["ugc_evidence_count"] = 0
+        p["ugc_match_confidence"] = 0.0
+    print("[UGC] disabled — returning empty stubs")
+    return route_points
 
 
 async def enrich_route_with_network_ugc(
     route_points: list[dict], city: str = "",
 ) -> list[dict]:
-    if not route_points:
-        return route_points
+    """v22: UGC search disabled. Returns stubs immediately."""
+    return await enrich_route_with_network_ugc_stub(route_points)
+
+
+# Legacy entry point preserved for backward compat — no-op
+async def _legacy_ugc(_route_points: list[dict], _city: str = "") -> list[dict]:
     _start = time.monotonic()
     display_pois = [
         p for p in route_points

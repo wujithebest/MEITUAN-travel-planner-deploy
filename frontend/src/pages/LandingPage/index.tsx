@@ -60,15 +60,25 @@ const LandingPage: React.FC = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-6xl md:text-7xl lg:text-8xl font-bold text-white tracking-wider mb-20 md:mb-24"
+          className="text-6xl md:text-7xl lg:text-8xl font-bold text-white tracking-wider mb-4"
           style={{
             fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif',
             letterSpacing: '0.05em',
             textShadow: '0 4px 30px rgba(0, 0, 0, 0.3)',
           }}
         >
-          本地生活路线规划
+          言途
         </motion.h1>
+
+        {/* 主标题副行 */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="text-2xl md:text-3xl lg:text-4xl text-white/65 font-light tracking-wide mb-16 md:mb-20"
+        >
+          ——本地生活路线规划
+        </motion.p>
 
         {/* 副标题 */}
         <motion.p

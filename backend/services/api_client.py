@@ -16,6 +16,20 @@ from . import config
 from .day_slots import infer_capacity_from_typecode
 from .utils import ConfigurationError, DependencyMissingError, ExternalAPIError, LLMCallError, emit_status, parse_coord_param, safe_float
 
+# v22: Transient network error patterns (TLS/connection/EOF) for graceful degradation
+_TRANSIENT_ERROR_PATTERNS = [
+    "TLS connect error", "curl: (35)", "unexpected eof while reading",
+    "unexpected eof", "Connection reset", "Connection refused",
+    "SSL routines", "TLS", "timed out", "timeout",
+    "EOF", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT",
+]
+
+
+def _is_transient_api_error(error: Exception) -> bool:
+    """Return True if the error is a transient network issue (not a permanent API failure)."""
+    raw = str(error).lower()
+    return any(pattern.lower() in raw for pattern in _TRANSIENT_ERROR_PATTERNS)
+
 
 try:
     import instructor  # type: ignore
@@ -606,9 +620,14 @@ async def _gaode_get_json(api_name: str, url: str, params: dict[str, Any]) -> di
             except Exception as exc:
                 last_network_error = exc
                 if attempt < config.GAODE_QPS_MAX_RETRIES - 1:
-                    sleep_time = 0.6 * (attempt + 1)  # 更快恢复：0.6s / 1.2s
+                    sleep_time = 0.6 * (attempt + 1)
                     await asyncio.sleep(sleep_time)
                     continue
+                # v22: Tag transient errors so callers can degrade gracefully
+                if _is_transient_api_error(exc):
+                    raise ExternalAPIError(
+                        f"高德 {api_name} 请求失败（已重试{config.GAODE_QPS_MAX_RETRIES}次）：{exc}"
+                    ) from exc
                 raise ExternalAPIError(f"高德 {api_name} 请求失败（已重试{config.GAODE_QPS_MAX_RETRIES}次）：{exc}") from exc
 
         _check_gaode_response(last_qps_error or {}, api_name)
@@ -642,9 +661,22 @@ async def gaode_around_search(
         pois = data.get("pois") or data.get("data", {}).get("pois") or []
         normalized = [_normalize_poi(item) for item in pois]
         return [item for item in normalized if item]
-    except (ConfigurationError, ExternalAPIError):
+    except (ConfigurationError, ExternalAPIError) as exc:
+        # v22: Transient TLS/network error → fallback to text_search
+        if _is_transient_api_error(exc):
+            print(f"[WARN gaode_around_search] Transient error, trying text_search fallback: {str(exc)[:100]}")
+            try:
+                return await gaode_text_search(keywords, city="", show_fields=show_fields)
+            except Exception:
+                pass
+            # Return empty list for transient errors — don't fail the whole route
+            print(f"[WARN gaode_around_search] Both around_search and text_search failed; returning []")
+            return []
         raise
     except Exception as exc:
+        if _is_transient_api_error(exc):
+            print(f"[WARN gaode_around_search] Transient error, returning []: {str(exc)[:100]}")
+            return []
         raise ExternalAPIError(f"高德周边搜索失败：{exc}") from exc
 
 
@@ -1005,7 +1037,11 @@ async def bocha_image_search(query: str, count: int = 5) -> list[str]:
 
 async def gaode_around_search_batch(requests: list[dict]) -> list[list[dict]]:
     async def _one(req: dict) -> list[dict]:
-        return await gaode_around_search(**req)
+        try:
+            return await gaode_around_search(**req)
+        except Exception as exc:
+            print(f"[WARN gaode_batch] individual request failed (degraded): {str(exc)[:120]}")
+            return []
 
     return await asyncio.gather(*[_one(req) for req in requests])
 

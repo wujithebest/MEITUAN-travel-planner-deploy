@@ -456,8 +456,12 @@ const PlannerPage: React.FC = () => {
   }, [chat, itinerary]);
 
   /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
+  const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
+
   const handleRouteCardSelect = useCallback((snapshot: any) => {
     if (!snapshot) return;
+    const routeId = snapshot.__active_route_id || snapshot.route_hash || snapshot.title || '';
+    setActiveRouteId(routeId);
     setLocalMapRouteData(null);
     setSelectedRouteSegment(null);
     useRouteStore.getState().loadHistoryRoute({
@@ -706,7 +710,10 @@ const PlannerPage: React.FC = () => {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <img src="/logo.png" alt="Logo" className={styles.logo} />
-          <h1>本地生活路线规划</h1>
+          <h1 className={styles.brandTitle}>
+            <span className={styles.brandMain}>言途</span>
+            <span className={styles.brandSub}>——本地生活路线规划</span>
+          </h1>
         </div>
 
         <div className={styles.headerCenter}>
@@ -851,6 +858,7 @@ const PlannerPage: React.FC = () => {
             onDeleteHistory={handleDeleteHistory}
             onSend={() => setHasSentInSession(true)}
             onRouteCardSelect={handleRouteCardSelect}
+            activeRouteId={activeRouteId}
             onRouteCardFavorite={async (snapshot) => {
               if (snapshot) {
                 try {

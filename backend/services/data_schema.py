@@ -490,10 +490,27 @@ class ParsedIntent(BaseModel):
     fruit_picking_requested: bool = False                        # v21: fruit picking requested
     scenic_combo_requested: bool = False                         # v21: scenic combo with picking
     district_recommendation_requested: bool = False              # v21: district recommendation needed
+    # ── intent classification ──
+    intent_name: str = ""                                        # v22: deterministic intent label (e.g. group_meal_preference_conflict)
     walking_cluster_requested: bool = False                      # v21: walking cluster route
     max_walk_between_pois_min: int = 0                           # v21: max walking minutes between POIs
-    route_strategy: str = ""                                     # v21: "walking_cluster_multi_day" / etc.
+    route_strategy: str = ""                                     # v21: "walking_cluster_multi_day" / "station_based_itinerary" / "auto_budget_downgrade" / etc.
     transport_constraints: list[dict] = Field(default_factory=list)  # v21: per-period transport constraints
+    # ── v22: auto-degrade / clarification control ──
+    auto_degrade_required: bool = False                          # v22: skip multi-turn clarification, degrade automatically
+    needs_clarification: bool = False                            # v22: set to False to suppress clarification loop
+    clarification_required: bool = False                         # v22: explicitly mark that no clarification is needed
+    strong_meal_intent: bool = False                             # v22: meal is the primary (or only) intent
+    meal_only_request: bool = False                              # v22: user only wants a meal, no sightseeing
+    strict_transport_mode: bool = False                          # v22: enforce exact transport (no fallback to taxi/bus)
+    station_walk_radius_min: int = 0                             # v22: max walk min from station to POI
+    station_anchors: list[str] = Field(default_factory=list)     # v22: metro station anchor names for station_based_itinerary
+    conflict_meal_request: bool = False                          # v22: group meal preference conflict
+    meal_conflict_detail: dict = Field(default_factory=dict)     # v22: structured meal conflict info
+    budget_contradiction_detected: bool = False                  # v22: free route + paid anchors conflict
+    budget_mode: str = ""                                        # v22: "free" / "low" / etc.
+    conflict_items: list[str] = Field(default_factory=list)      # v22: paid items conflicting with free budget
+    paid_items_degraded: list[str] = Field(default_factory=list) # v22: degraded alternatives for paid items
     optional_anchor_candidates: list[str] = Field(default_factory=list)  # v21: optional park/resort anchors
     relaxation_after_route: bool = False                             # v21: hot spring after main itinerary
     hotel_hopping_requested: bool = False                           # v21: multi-area hotel hopping

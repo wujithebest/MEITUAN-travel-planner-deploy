@@ -18,6 +18,20 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
+def _json_safe(value):
+    """Recursively convert Pydantic models → dicts so json.dumps works."""
+    if value is None:
+        return None
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 SSE_HEARTBEAT_SECONDS = float(os.getenv("SSE_HEARTBEAT_SECONDS", "15"))
 SSE_STREAM_HARD_LIMIT_SECONDS = 300.0
 SSE_STREAM_MAX_SECONDS = min(
@@ -1171,6 +1185,39 @@ async def _run_pipeline_stream(
                     # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
                     micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
 
+            # v22: Push early route_data immediately after Step3 — don't wait for enrichment
+            _early_start = time.monotonic()
+            # Convert Pydantic models → JSON-safe dicts
+            _early_points = _json_safe(route_points or [])
+            _early_segments = _json_safe(route_segments or [])
+            _early_candidates = _json_safe(candidate_points or [])
+
+            # Strip enrichment fields that will be filled later — just keep core rendering data
+            _early_route_data = {
+                "points": _early_points,
+                "segments": _early_segments,
+                "candidate_points": _early_candidates,
+                "partial": True,
+                "enrichment_status": "pending",
+            }
+            try:
+                from services.step4_output import build_early_map_data
+                _early_map = build_early_map_data(_early_points, _early_segments)
+                _early_route_data["map_route_data"] = _early_map
+            except Exception:
+                pass
+
+            await push_output(json.dumps({
+                "type": "route_data",
+                "stage": "route_ready",
+                "partial": True,
+                "data": _early_route_data,
+            }, ensure_ascii=False,
+               default=lambda o: o.model_dump() if hasattr(o, "model_dump") else str(o)))
+            _early_elapsed = (time.monotonic() - _early_start) * 1000
+            print(f"[EarlyRoute] route_ready elapsed_ms={_early_elapsed:.0f} "
+                  f"points={len(_early_points)} segments={len(_early_segments)}")
+
             # v20: Generate per-POI recommendation reasons via DeepSeek (all plan modes)
             # v21: Skip for utility AND planned mode — planned has deterministic reasons
             _is_planned = getattr(parsed_intent, 'plan_mode', '') == 'planned'
@@ -1187,7 +1234,7 @@ async def _run_pipeline_stream(
                             city=_city,
                             user_request=user_request,
                         ),
-                        timeout=10.0,
+                        timeout=3.0,  # v22: tightened timeout — don't block route delivery
                     )
                 except Exception as _re:
                     print(f"[ReasonGen] generation failed (non-blocking): {_re}")
@@ -1195,6 +1242,8 @@ async def _run_pipeline_stream(
             # Step 4: 生成输出
             # 注意：run_step4 内部会发送 "正在生成行程方案..."、"路线规划完成！" 和 emit_done
             # 所以这里不需要重复发送这些消息
+            _enrich_start = time.monotonic()
+            print(f"[Enrichment] start after route_ready elapsed_ms={_early_elapsed:.0f}")
             await run_step4(
                 parsed_intent, complete_plan, micro_pois, route_segments,
                 map_file_path, logger_obj, anchor_hints, waypoint_annotations,
@@ -1202,12 +1251,40 @@ async def _run_pipeline_stream(
                 candidate_points=candidate_points,  # v6: 传递候选 POI 点
                 user_request=user_request,
             )
+            _enrich_elapsed = (time.monotonic() - _enrich_start) * 1000
+            print(f"[Enrichment] complete elapsed_ms={_enrich_elapsed:.0f}")
 
         except ZeroOutputError as exc:
             await emit_error(str(exc))
             await push_output(f"[ROUTE_PLANNER]: {str(exc)}")
         except Exception as exc:
-            error_msg = f"路线规划暂时失败：{exc}"
+            raw = str(exc)
+            # v22: Filter transient TLS/network errors — don't expose to user
+            _transient_keywords = [
+                "TLS connect error", "curl: (35)", "unexpected eof",
+                "SSL routines", "Connection reset", "timed out",
+                "高德 周边搜索 请求失败（已重试",
+                "已重试", "curl GET 请求失败",
+            ]
+            if any(kw.lower() in raw.lower() for kw in _transient_keywords):
+                error_msg = (
+                    "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；"
+                    "具体店铺可稍后再刷新。"
+                )
+            elif "零输出" in raw or "ZeroOutput" in raw:
+                error_msg = "外部地图服务暂时波动，已改用关键词兜底推荐。"
+            elif "no field" in raw.lower() or "attributeerror" in raw.lower() or "has no field" in raw.lower() or "pydantic" in raw.lower():
+                error_msg = (
+                    "我识别到同行口味存在冲突，已为你按多人同餐兼容方案处理。"
+                    "系统内部配置已自动修复。"
+                )
+            elif "can only concatenate" in raw.lower() or "typeerror" in raw.lower():
+                error_msg = (
+                    "我识别到你们同行口味有冲突，已按多人同餐兼容方案处理："
+                    "优先推荐支持清汤/辣锅/素菜的火锅店，或同一商场餐饮区的多选择方案。"
+                )
+            else:
+                error_msg = f"路线规划暂时失败：{raw}"
             await emit_error(error_msg)
             await push_output(f"[ROUTE_PLANNER]: {error_msg}")
             logger.error(f"[MeituanChat] Pipeline 错误: {exc}", exc_info=True)

@@ -45,33 +45,36 @@ _GENERIC_PLACEHOLDERS = frozenset({
 # ── System prompt ─────────────────────────────────────
 _REASON_SYSTEM_PROMPT = """你是本地旅行路线的个性化推荐理由生成器。
 
-你的任务是根据用户真实表达的旅行需求、偏好、限制条件、经过验证的POI信息以及当前路线顺序，为每一个POI生成独立、可信、具体的中文推荐理由。
+你的任务是为每个POI生成2-4条"主标题：次标题"格式的短句推荐理由。主标题是时段/场景/行程节点，次标题是核心价值。
 
 严格规则：
 1. 只能使用输入中提供的事实和证据。
-2. 禁止编造历史、活动、客流、评分、菜品、开放时间、价格和交通信息。
-3. 每条推荐理由必须包含：POI本身的具体特点；它符合用户哪一项偏好或约束；它在当前路线和时段中的安排价值。
-4. 不得只写"环境优美""值得一去""评分较高"等空泛表述。
-5. 不要为不同POI重复同一套模板。
-6. 冷门、小众、人少等属性必须有enrichment、热度或博查证据。
-7. 餐厅优先说明口味、素食、预算、距离或餐段衔接。
-8. 如果用户明确提出雨天、室内、低强度、亲子、养生、拍照等要求，应明确说明POI如何满足该要求。
-9. 每条推荐理由控制在50至100个汉字。
-10. 不要重复POI名称作为句子开头。
-11. 不要输出Markdown。
-12. 只输出严格JSON。
-13. items数量和poi_id必须与输入POI一一对应。
+2. 禁止编造任何信息。
+3. 每条POI的 recommend_reason 总字数不得超过70个中文字符（不含标点）。
+4. 必须输出2-4条短句，格式为"主标题：次标题"，每条不超过24字。
+5. 主标题使用：上午、中餐、下午、晚餐、夜景、亮点、交通、拍照 等场景节点词。
+6. 次标题写核心价值，简洁明确，不要啰嗦。
+7. 禁止输出长段落、禁止解释性文字、禁止重复POI名称。
+8. short_recommend_reason 取推荐理由的第一条主标题（不含冒号和次标题），最多8字。
+9. 不要输出Markdown。
+10. 只输出严格JSON。
+11. items数量和poi_id必须与输入POI一一对应。
+
+示例 recommend_reason：
+"上午：乍浦路桥拍陆家嘴机位
+中餐：Mozzarella e Vino意式美食
+下午：外白渡桥赏万国建筑群"
 
 输出格式：
 {
-  "route_recommend_reason": "40至90字的中文路线推荐理由，说明路线特色和为什么符合用户偏好。如果无法生成请返回空字符串。",
+  "route_recommend_reason": "25至60字的中文路线概括，说明路线特色。如无法生成请返回空字符串。",
   "items": [
     {
       "poi_id": "与输入完全一致",
       "name": "与输入完全一致",
-      "highlight": "该地点经过证据支持的特点",
-      "preference_match": "它符合用户哪项偏好以及对应证据",
-      "route_fit": "它为什么适合当前时段和路线位置",
+      "highlight": "该地点特点",
+      "preference_match": "符合哪项偏好",
+      "route_fit": "路线位置价值",
       "recommend_reason": "最终展示的50至100字中文理由",
       "matched_preferences": [{"term": "冷门", "source": "explicit", "evidence": "博查摘要或热度证据"}],
       "evidence_ids": ["gaode:typecode", "gaode:rating", "bocha:0"],
@@ -244,7 +247,7 @@ def _validate_reason_item(item: dict, input_poi: dict) -> tuple[bool, str, str]:
     reason = str(item.get("recommend_reason", "")).strip()
     if not reason:
         return False, "empty_recommend_reason", ""
-    if len(reason) < 20 or len(reason) > 180:
+    if len(reason) < 12 or len(reason) > 120:
         return False, "reason_length_out_of_range", f"len={len(reason)}"
     if reason in _GENERIC_PLACEHOLDERS:
         return False, "generic_placeholder", reason
@@ -330,7 +333,7 @@ async def generate_exploratory_reasons(
         data = response.model_dump()
         items = data.get("items", []) if isinstance(data, dict) else []
         route_reason = str(data.get("route_recommend_reason", "") if isinstance(data, dict) else "").strip()
-        if route_reason and (len(route_reason) < 20 or len(route_reason) > 150):
+        if route_reason and (len(route_reason) < 10 or len(route_reason) > 100):
             route_reason = ""
         if route_reason in _GENERIC_PLACEHOLDERS:
             route_reason = ""

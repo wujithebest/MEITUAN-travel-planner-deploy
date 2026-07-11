@@ -392,7 +392,33 @@ def validate_plan_reality(
         meal_count > 0 and visible_count > 0 and meal_count >= visible_count
         and not explicit_meal
     )
-    if meal_takeover:
+
+    # v22: Free route budget contradiction — don't hard-fail on meal_takeover
+    _budget_mode = str(getattr(parsed_intent, "budget_mode", "") or "")
+    _is_budget_contradiction = bool(getattr(parsed_intent, "budget_contradiction_detected", False))
+    _paid_items = list(getattr(parsed_intent, "conflict_items", []) or [])
+    _degraded_items = list(getattr(parsed_intent, "paid_items_degraded", []) or [])
+
+    if _is_budget_contradiction:
+        # Downgrade meal_takeover: free route needs non-food POIs, but one restaurant is OK
+        if meal_takeover and visible_count <= 1:
+            violations.append("free_route_only_restaurant: need at least 2 non-food POIs for free route")
+
+        # Check paid items aren't forced as primary waypoints
+        _primary_names_lower = {n.lower() for n in primary_anchors}
+        for item in _paid_items:
+            if item.lower() in _primary_names_lower:
+                # Degrade to passing/free_explore instead of failing
+                _alt = f"paid_item_as_optional: {item} should be external check-in, not primary waypoint"
+                if _alt not in violations:
+                    violations.append(_alt)
+
+        # If there are degraded items but no actual POIs, relax the requirement
+        if _degraded_items and visible_count >= 1:
+            # Remove full_day_theme_needs_3_related if we have degraded items
+            violations = [v for v in violations if "needs_3_related" not in v and "needs_2_related" not in v]
+
+    if meal_takeover and not _is_budget_contradiction:
         violations.append("meal_takeover: restaurant is the only visible waypoint")
 
     # Route segments must include primary target

@@ -4528,34 +4528,267 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             parsed.transport_hint = _constraints[0].get("transport", "") if _constraints else None
             print(f"[DEBUG multi_day_transport] days=2 constraints={len(_constraints)}")
 
-    # v21: Walking cluster detection — "景点之间走路不超过X分钟"
-    _walk_cluster_match = re.search(r"(?:景点|站|地点)之间.*?(\d+)\s*分钟", user_request)
-    if not _walk_cluster_match:
-        _walk_cluster_match = re.search(r"走路不(?:超过|要超过|多于).*?(\d+)\s*分", user_request)
-    if _walk_cluster_match:
-        _max_walk = int(_walk_cluster_match.group(1))
+    # v22: Metro-accessible cluster route — "只坐地铁 + 景点之间步行不超过5分钟"
+    _metro_only_terms = [
+        "只坐地铁", "全程地铁", "只能坐地铁", "不打车", "不坐公交", "不开车",
+        "靠地铁", "沿地铁线", "地铁可达", "地铁站附近",
+        "只靠地铁", "仅地铁", "地铁出行", "坐地铁去",
+    ]
+    _metro_walk_terms = [
+        "步行不超过", "走路不超过", "出站步行", "步行5分钟",
+        "景点之间步行不超过", "地铁站出来步行", "地铁口步行",
+    ]
+    _is_metro_only = any(t in user_request for t in _metro_only_terms)
+    _is_metro_walk = any(t in user_request for t in _metro_walk_terms)
+
+    if _is_metro_only and (_is_metro_walk or "步行不超过" in user_request):
+        # Determine max walk radius
+        _metro_walk_match = re.search(r"步行不超过\s*(\d+)\s*分钟", user_request)
+        _walk_radius = int(_metro_walk_match.group(1)) if _metro_walk_match else 5
+
+        parsed.intent_name = "metro_accessible_cluster_route"
         parsed.poi_query_type = "theme_route"
         parsed.primary_query = ""
         parsed.category_id = None
         parsed.allowed_typecode_prefixes = []
+        parsed.route_strategy = "station_based_itinerary"
+        parsed.transport_hint = "地铁"
+        parsed.transport_constraints = [{
+            "day_index": 1, "period": "all_day",
+            "transport": "地铁", "transport_mode": "transit_subway",
+        }]
+        parsed.strict_transport_mode = True
         parsed.walking_cluster_requested = True
-        parsed.max_walk_between_pois_min = _max_walk
-        parsed.route_strategy = "walking_cluster_multi_day"
+        parsed.max_walk_between_pois_min = _walk_radius
+        parsed.station_walk_radius_min = _walk_radius
         parsed.plan_mode = "exploratory"
         parsed.theme_required = True
-        if parsed.time_budget >= 2.0:
-            parsed.requested_days = max(2, int(parsed.time_budget))
-            parsed.preserve_requested_days = True
+        parsed.theme_label = "地铁可达路线"
+
         city_short = city[:-1] if city.endswith("市") else city
         parsed.search_keywords = [
-            f"{city_short} 什刹海 景点", f"{city_short} 南锣鼓巷 周边",
-            f"{city_short} 北海公园 景山", f"{city_short} 前门 大栅栏",
-            f"{city_short} 奥森 步行", f"{city_short} 798 艺术区 步行",
-            f"{city_short} 颐和园 圆明园", f"{city_short} 胡同 漫步",
+            f"{city_short} 地铁站附近 景点",
+            f"{city_short} 地铁5分钟步行 景点",
+            f"{city_short} 地铁2号线 景点",
+            f"{city_short} 地铁8号线 景点",
+            f"{city_short} 中轴线 地铁 游览",
+            f"{city_short} 地铁可达 博物馆",
+            f"{city_short} 地铁口 附近 公园",
+            f"{city_short} 地铁口 附近 胡同",
         ]
-        parsed.other_constraints = _append_unique(parsed.other_constraints,
-            [f"景点间步行≤{_max_walk}分钟"])
-        print(f"[DEBUG walking_cluster] detected: max_walk={_max_walk}min days={parsed.requested_days}")
+        parsed.micro_keywords = [
+            f"{city_short} 地铁站 周边 景点", f"{city_short} 地铁口 步行",
+        ]
+        # Beijing metro station anchors along the central axis
+        parsed.station_anchors = [
+            "天安门东站", "天安门西站", "前门站", "王府井站",
+            "南锣鼓巷站", "北海北站", "什刹海站", "雍和宫站",
+            "鼓楼大街站", "奥林匹克公园站",
+        ]
+        parsed.other_constraints = _append_unique(
+            list(getattr(parsed, "other_constraints", []) or []),
+            [
+                f"每个景点距最近地铁站步行≤{_walk_radius}分钟",
+                "跨区域移动必须通过地铁完成",
+                "地铁站是路线锚点",
+            ],
+        )
+        print(
+            f"[DEBUG metro_cluster] detected: walk_radius={_walk_radius}min "
+            f"strict_transport=True route_strategy=station_based_itinerary"
+        )
+
+    # v21: Walking cluster detection — "景点之间走路不超过X分钟"
+    # v22: Skip if already detected as metro-accessible cluster route
+    if not _is_metro_only:
+        _walk_cluster_match = re.search(r"(?:景点|站|地点)之间.*?(\d+)\s*分钟", user_request)
+        if not _walk_cluster_match:
+            _walk_cluster_match = re.search(r"走路不(?:超过|要超过|多于).*?(\d+)\s*分", user_request)
+        if _walk_cluster_match:
+            _max_walk = int(_walk_cluster_match.group(1))
+            parsed.poi_query_type = "theme_route"
+            parsed.primary_query = ""
+            parsed.category_id = None
+            parsed.allowed_typecode_prefixes = []
+            parsed.walking_cluster_requested = True
+            parsed.max_walk_between_pois_min = _max_walk
+            parsed.route_strategy = "walking_cluster_multi_day"
+            parsed.plan_mode = "exploratory"
+            parsed.theme_required = True
+            if parsed.time_budget >= 2.0:
+                parsed.requested_days = max(2, int(parsed.time_budget))
+                parsed.preserve_requested_days = True
+            city_short = city[:-1] if city.endswith("市") else city
+            parsed.search_keywords = [
+                f"{city_short} 什刹海 景点", f"{city_short} 南锣鼓巷 周边",
+                f"{city_short} 北海公园 景山", f"{city_short} 前门 大栅栏",
+                f"{city_short} 奥森 步行", f"{city_short} 798 艺术区 步行",
+                f"{city_short} 颐和园 圆明园", f"{city_short} 胡同 漫步",
+            ]
+            parsed.other_constraints = _append_unique(parsed.other_constraints,
+                [f"景点间步行≤{_max_walk}分钟"])
+            print(f"[DEBUG walking_cluster] detected: max_walk={_max_walk}min days={parsed.requested_days}")
+
+    # v22: Group meal preference conflict — "清淡素食 vs 重辣火锅烧烤" etc.
+    _conflict_indicators = ["同行", "朋友", "同一顿饭", "满足所有人", "兼顾",
+                            "都能吃", "众口难调", "一起吃饭", "一起", "找一家",
+                            "一桌", "同伴", "有人吃", "有人想", "另一个", "另一个想"]
+    _both_sides = (
+        any(t in user_request for t in ["清淡", "素食", "素菜", "不吃辣", "不吃辣椒",
+                                        "不能吃辣", "不辣"])
+        and
+        any(t in user_request for t in ["重辣", "麻辣", "火锅", "烧烤", "烤串",
+                                        "川菜", "湘菜", "辣味", "烤肉", "辣锅"])
+    )
+    _is_conflict = any(t in user_request for t in _conflict_indicators)
+
+    if _both_sides and _is_conflict:
+        parsed.intent_name = "group_meal_preference_conflict"
+        parsed.poi_query_type = "meal_conflict"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.route_strategy = "meal_conflict_resolution"
+        parsed.strong_meal_intent = True
+        parsed.conflict_meal_request = True
+        parsed.plan_mode = "exploratory"
+        parsed.meal_only_request = True
+
+        # Extract food preference keywords from both sides
+        _all_food_terms = ["清淡", "素食", "素菜", "重辣", "麻辣", "火锅", "烧烤",
+                           "烤串", "川菜", "湘菜", "辣味", "烤肉", "辣锅", "不吃辣",
+                           "不吃辣椒", "不能吃辣", "不辣", "清汤", "番茄锅", "菌汤"]
+        _found_food = sorted(set(t for t in _all_food_terms if t in user_request), key=lambda x: -len(x))
+        parsed.food_pref_keywords = _found_food[:8]
+
+        city_short = city[:-1] if city.endswith("市") else city
+        # Tiered search keywords for conflict resolution
+        parsed.meal_search_keywords = [
+            f"{city_short} 鸳鸯锅 火锅",
+            f"{city_short} 火锅 清汤锅底 素菜",
+            f"{city_short} 火锅 番茄锅 菌汤锅",
+            f"{city_short} 综合餐厅 素食 辣",
+            f"{city_short} 商场餐饮 美食广场",
+            f"{city_short} 可选辣度 川菜",
+            f"{city_short} 素食友好 餐厅",
+            f"{city_short} 创意融合菜",
+            f"{city_short} 云南菜",
+            f"{city_short} 粤菜",
+        ]
+        parsed.search_keywords = parsed.meal_search_keywords[:]
+        parsed.micro_keywords = [
+            f"{city_short} 火锅 素菜拼盘",
+            f"{city_short} 餐厅 清淡 辣",
+        ]
+
+        conflict_constraint = {
+            "meal": "lunch_or_dinner",
+            "conflict_type": "group_preference_conflict",
+            "must_support": [t for t in _found_food if t in ("清淡", "素食", "素菜", "不吃辣")],
+            "also_support": [t for t in _found_food if t in ("重辣", "麻辣", "火锅", "烧烤", "烤串", "辣锅", "烤肉")],
+            "solution_strategy": "multi_option_same_restaurant_or_food_court",
+        }
+        # meal_constraints MUST be list[dict] — NEVER assign a bare dict
+        _existing = list(getattr(parsed, "meal_constraints", []) or [])
+        parsed.meal_constraints = _existing + [conflict_constraint]
+
+        # Store structured conflict detail in the dedicated dict field
+        parsed.meal_conflict_detail = conflict_constraint
+
+        print(
+            f"[DEBUG meal_conflict] detected: "
+            f"food_prefs={_found_food} strategy=meal_conflict_resolution"
+        )
+
+    # v22: Budget contradiction — "免费路线 + 环球影城/演唱会/高端餐厅" etc.
+    _free_budget_terms = [
+        "免费", "不花钱", "0元", "零预算", "免费玩", "预算为0", "免费路线",
+        "免费一日", "免费游", "免费游玩", "玩免费的", "不要钱", "免费景点",
+    ]
+    _paid_anchor_terms = [
+        "环球影城", "环球度假区", "迪士尼", "演唱会", "音乐节",
+        "高端餐厅", "米其林", "高奢", "奢华餐厅", "高端下午茶",
+        "高档餐厅", "星级酒店", "大餐", "海鲜大餐", "日料自助",
+    ]
+    _is_free_budget = any(t in user_request for t in _free_budget_terms)
+    _paid_conflicts = [t for t in _paid_anchor_terms if t in user_request]
+
+    if _is_free_budget and _paid_conflicts:
+        parsed.intent_name = "budget_contradiction_trip"
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.route_strategy = "auto_budget_downgrade"
+        parsed.budget_contradiction_detected = True
+        parsed.budget_mode = "free"
+        parsed.budget_per_capita = 0
+        parsed.conflict_items = _paid_conflicts
+        parsed.auto_degrade_required = True
+        parsed.needs_clarification = False
+        parsed.clarification_required = False
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        parsed.theme_label = "免费路线（含外观打卡）"
+        parsed.duration = "a full day" if parsed.time_budget < 1.0 else parsed.duration
+
+        city_short = city[:-1] if city.endswith("市") else city
+        # Free route recall: parks, streets, squares, waterfront, free culture
+        parsed.search_keywords = [
+            f"{city_short} 免费景点",
+            f"{city_short} 免费公园",
+            f"{city_short} 免费博物馆",
+            f"{city_short} 胡同 街区 免费",
+            f"{city_short} 中轴线 外观 打卡",
+            f"{city_short} 滨水步道 免费",
+            f"{city_short} 城市广场 免费",
+            f"{city_short} 商圈 外部游览",
+            f"{city_short} 免费展览",
+        ]
+        # Degrade paid items to external check-in
+        _degraded = []
+        _paid_items_degraded = []
+        if "环球影城" in _paid_conflicts or "环球度假区" in _paid_conflicts:
+            _degraded.append("北京环球城市大道")
+            _degraded.append("环球度假区外部商圈打卡")
+            _paid_items_degraded.append("环球影城→外部城市大道打卡(不入园)")
+        if "迪士尼" in _paid_conflicts:
+            _degraded.append("迪士尼小镇外部打卡")
+            _paid_items_degraded.append("迪士尼→小镇外部打卡(不入园)")
+        if "演唱会" in _paid_conflicts:
+            _paid_items_degraded.append("演唱会→晚间自费可选")
+        if "音乐节" in _paid_conflicts:
+            _paid_items_degraded.append("音乐节→自费可选活动")
+        if "高端餐厅" in _paid_conflicts or "米其林" in _paid_conflicts or "高端下午茶" in _paid_conflicts:
+            _paid_items_degraded.append("高端餐饮→自费可选(主路线用平价餐饮)")
+        parsed.paid_items_degraded = _paid_items_degraded
+
+        # Meal search: budget-friendly alternatives
+        parsed.meal_search_keywords = [
+            f"{city_short} 平价简餐",
+            f"{city_short} 商圈轻食",
+            f"{city_short} 便利店",
+            f"{city_short} 人均低 餐厅",
+            f"{city_short} 小吃 快餐",
+        ]
+        parsed.micro_keywords = [
+            "免费 街区", "免费 公园", "免费 打卡",
+            "平价 简餐", "商圈 外部", "城市大道",
+        ]
+
+        parsed.other_constraints = _append_unique(
+            list(getattr(parsed, "other_constraints", []) or []),
+            [
+                "免费路线为主，付费项目降级为外观打卡或自费可选",
+                "不要将付费项目(环球影城入园/演唱会/高端餐厅)放入免费主路线",
+                "不要只返回餐饮POI作为主路线",
+            ],
+        )
+        print(
+            f"[DEBUG budget_contradiction] detected: "
+            f"free_budget=True paid_conflicts={_paid_conflicts} "
+            f"strategy=auto_budget_downgrade"
+        )
 
     # v21: Fruit picking + scenic combo detection
     _picking_terms = ["采摘", "摘水果", "果园", "梨园", "苹果", "葡萄",
@@ -5976,6 +6209,22 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     explicit_meals = _explicit_meals(user_request)
     if _dinner_before_activity(user_request):
         parsed.dinner_first = True
+    # v22: Defensive normalization — meal_constraints must always be list[dict]
+    if isinstance(parsed.meal_constraints, dict):
+        parsed.meal_constraints = [parsed.meal_constraints]
+    elif parsed.meal_constraints is None:
+        parsed.meal_constraints = []
+    elif not isinstance(parsed.meal_constraints, list):
+        parsed.meal_constraints = []
+    # Likewise for list[str] fields
+    for _list_field in ("food_pref_keywords", "meal_search_keywords", "search_keywords", "micro_keywords"):
+        _val = getattr(parsed, _list_field, None)
+        if _val is None or isinstance(_val, dict):
+            setattr(parsed, _list_field, [])
+        elif isinstance(_val, str):
+            setattr(parsed, _list_field, [_val])
+        elif not isinstance(_val, list):
+            setattr(parsed, _list_field, list(_val or []))
     parsed.meal_constraints = _merge_constraints(
         _meal_constraints_from_request(user_request),
         parsed.meal_constraints,

@@ -10,6 +10,55 @@ from .utils import PipelineLogger, emit_done, emit_status, push_output
 _route_cache: dict[str, dict[str, Any]] = {}
 
 
+def build_early_map_data(points: list[dict], segments: list[dict]) -> dict:
+    """Build lightweight map_route_data from points+segments for early frontend render."""
+    markers = []
+    polylines = []
+    center = None
+    for pt in points:
+        name = str(pt.get("name", "") or "")
+        kind = str(pt.get("kind", "") or "")
+        loc = pt.get("location")
+        lng = None
+        lat = None
+        if isinstance(loc, dict):
+            lng = loc.get("lng")
+            lat = loc.get("lat")
+        elif isinstance(loc, str) and "," in loc:
+            parts = loc.split(",")
+            lng = float(parts[0]) if len(parts) > 0 else None
+            lat = float(parts[1]) if len(parts) > 1 else None
+        if lng is not None and lat is not None:
+            if center is None:
+                center = [lng, lat]
+            _type = "waypoint"
+            if kind in ("start", "origin"):
+                _type = "origin"
+            elif kind in ("anchor", "anchor_internal"):
+                _type = "destination"
+            markers.append({
+                "name": name,
+                "location": f"{lng},{lat}",
+                "type": _type,
+                "display_order": pt.get("display_order") or pt.get("order") or 0,
+                "kind": kind,
+                "day_index": pt.get("day_index") or pt.get("day") or 1,
+            })
+    # Generate polylines from segments
+    DAY_COLORS = ["#1677ff", "#52c41a", "#fa8c16", "#722ed1", "#eb2f96"]
+    for seg in segments:
+        poly = seg.get("polyline")
+        if isinstance(poly, list) and len(poly) >= 2:
+            # Folium format [[lat,lng]...] → "lng,lat;lng,lat"
+            poly_str = ";".join(f"{c[1]},{c[0]}" for c in poly if len(c) >= 2)
+            polylines.append({
+                "day_index": seg.get("day_index") or 1,
+                "polyline": poly_str,
+                "color": DAY_COLORS[(seg.get("day_index") or 1) % len(DAY_COLORS)],
+            })
+    return {"markers": markers, "polylines": polylines, "center": center}
+
+
 def _duration_desc(parsed_intent: ParsedIntent) -> str:
     weekday = ""
     if parsed_intent.start_time:
@@ -677,14 +726,18 @@ async def run_step4(
     }
     
     # v21: Enrich final route points before route_data is materialized.  The
-    # previous ordering enriched route_points after route_data had already been
-    # copied, so the SSE response could never contain UGC fields.
-    _ugc_city = getattr(parsed_intent, "resolved_city", "") or complete_plan.city or ""
-    try:
-        from .ugc_enrichment import enrich_route_with_network_ugc
-        route_points = await enrich_route_with_network_ugc(route_points or [], city=_ugc_city)
-    except Exception as _ugc_exc:
-        print(f"[WARN] UGC enrichment failed (non-blocking): {_ugc_exc}")
+    # v22: UGC enrichment disabled — zero-out ugc fields without any network call
+    if route_points:
+        for p in route_points:
+            p["ugc_review_summary"] = ""
+            p["ugc_label"] = ""
+            p["ugc_status"] = "disabled"
+            p["ugc_source"] = ""
+            p["ugc_source_url"] = ""
+            p["ugc_source_name"] = ""
+            p["ugc_scope"] = ""
+            p["ugc_evidence_count"] = 0
+            p["ugc_match_confidence"] = 0.0
 
     # 构建路线数据（用于前端验证）
     # v6: 提取 plan_mode
