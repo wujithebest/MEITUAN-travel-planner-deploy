@@ -235,9 +235,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     setSearchingAddress(true);
     setDropdownOpen(true);
+    // v22: Detect city from keyword — only search relevant city
+    const kwLower = keyword.toLowerCase();
+    let searchCities: readonly string[] = SUPPORTED_DEPARTURE_CITIES;
+    if (/(北京|朝阳|海淀|东城|西城|丰台|通州|昌平|顺义|大兴|望京|国贸|王府井|三里屯|中关村|五道口)/.test(keyword)) {
+      searchCities = ['北京'];
+    } else if (/(上海|浦东|黄浦|徐汇|静安|杨浦|虹口|闵行|陆家嘴|外滩|南京路)/.test(keyword)) {
+      searchCities = ['上海'];
+    }
     try {
       const results = await Promise.allSettled(
-        SUPPORTED_DEPARTURE_CITIES.map(city =>
+        searchCities.map(city =>
           axios.get(buildApiUrl(`/address/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(city)}`))
         )
       );
@@ -249,7 +257,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           const items = Array.isArray(data) ? data : [];
           const city = SUPPORTED_DEPARTURE_CITIES[i];
           items.forEach((item: any) => {
-            allItems.push({ ...item, _city: city });
+            // v22: Only accept items with valid coordinates
+            const lng = item.lng ?? item.location?.lng;
+            const lat = item.lat ?? item.location?.lat;
+            if (lng != null && lat != null && !isNaN(Number(lng)) && !isNaN(Number(lat))
+                && Number(lng) !== 0 && Number(lat) !== 0) {
+              allItems.push({ ...item, _city: city });
+            }
           });
         }
       });
@@ -389,11 +403,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           updatedLocation.home_address = selectedAddress;
         }
 
+        // v22: Don't use fallback coords for manual addresses — must have real lng/lat
+        if (selectedAddress && (selectedAddress.lat == null || selectedAddress.lng == null || selectedAddress.lat === 0 || selectedAddress.lng === 0)) {
+          setLoading(false);
+          message.warning('请选择带坐标的地址，或使用"定位"按钮获取当前位置');
+          return;
+        }
         const homeLocation = selectedAddress
           ? {
-              lat: selectedAddress.lat ?? FALLBACK_HOME_LOCATION.lat,
-              lng: selectedAddress.lng ?? FALLBACK_HOME_LOCATION.lng,
-              label: selectedAddress.name || selectedAddress.full_address || FALLBACK_HOME_LOCATION.label,
+              lat: selectedAddress.lat,
+              lng: selectedAddress.lng,
+              label: selectedAddress.name || selectedAddress.full_address || '路线出发地',
+              source: 'manual',
             }
           : FALLBACK_HOME_LOCATION;
 
@@ -432,6 +453,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             lat: selectedAddress.lat || 31.2809,
             lng: selectedAddress.lng || 121.5011,
             label: selectedAddress.name || selectedAddress.full_address || '常住地址',
+            source: 'manual',
           }
         : null;
 

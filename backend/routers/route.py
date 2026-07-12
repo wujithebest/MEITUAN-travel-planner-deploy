@@ -714,19 +714,33 @@ class PipelineReplanRequest(BaseModel):
 @router.post("/replan-pipeline", summary="重新计算管线路线")
 async def replan_pipeline(request: PipelineReplanRequest):
     """应用 POI 增删替换操作，并重新获取相邻地点间的真实路线。"""
+    import time as _time
+    _t0 = _time.monotonic()
+    _ops = [op.model_dump(exclude_none=True) for op in request.operations]
+    _pts = len(request.points or [])
+    print(f"[PipelineReplan] start operations={len(_ops)} points={_pts}", flush=True)
     try:
         result = await apply_pipeline_replan(
             points=request.points,
-            operations=[op.model_dump(exclude_none=True) for op in request.operations],
+            operations=_ops,
             route_id=request.route_id,
+            existing_segments=request.segments if hasattr(request, 'segments') else None,
         )
+        _elapsed = (_time.monotonic() - _t0) * 1000
+        _rpts = len(result.get("route", {}).get("points", []))
+        _rsegs = len(result.get("route", {}).get("segments", []))
+        print(f"[PipelineReplan] success elapsed_ms={_elapsed:.0f} points={_rpts} segments={_rsegs}", flush=True)
         return {"success": True, "data": result, "message": "路线重新计算成功"}
     except ValueError as exc:
+        _elapsed = (_time.monotonic() - _t0) * 1000
+        print(f"[PipelineReplan] failed elapsed_ms={_elapsed:.0f} error={exc}", flush=True)
         return JSONResponse(
             status_code=400,
             content={"success": False, "data": None, "message": str(exc)},
         )
     except Exception as exc:
+        _elapsed = (_time.monotonic() - _t0) * 1000
+        print(f"[PipelineReplan] failed elapsed_ms={_elapsed:.0f} error={exc}", flush=True)
         logger.exception("管线路线重新计算异常: %s", exc)
         return JSONResponse(
             status_code=500,

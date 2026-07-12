@@ -318,6 +318,7 @@ from services.conversation_replan import (
     classify_planning_dispatch,
     _detect_plan_mode_from_text,
     _planning_dispatch_fast_fallback,
+    is_meal_preference_refine_decision,
     PlanningDispatchDecision,
 )
 from services.conversation_clarification import (
@@ -793,6 +794,300 @@ async def _try_chat_edit_replan(
     return True
 
 
+# ── v24: meal slot replan ──
+
+_MEAL_SLOT_LABEL_MAP = {"lunch": "午餐", "dinner": "晚餐", "breakfast": "早餐"}
+
+
+async def _try_meal_slot_replan(
+    user_request: str,
+    route_context: RouteContextSchema,
+    user_profile,
+    dispatch_decision: PlanningDispatchDecision,
+) -> bool:
+    """Replace only the meal slot on an existing route, preserving all other points.
+
+    Detects old meal points in the route, searches for new cuisine nearby,
+    and applies a replace operation via apply_pipeline_replan.
+    """
+    intent_patch = dispatch_decision.intent_patch or {}
+    old_food_keywords = intent_patch.get("old_food_keywords", [])
+    new_food_keywords = intent_patch.get("new_food_keywords", [])
+    meal_slot = intent_patch.get("meal_slot", "lunch")
+
+    if not new_food_keywords:
+        print("[MealRefineAudit] no new_food_keywords in intent_patch, skipping meal slot replan")
+        return False
+
+    points = route_context.points or []
+    if not points:
+        print("[MealRefineAudit] no route points, skipping meal slot replan")
+        return False
+
+    # Collect non-meal point names for logging
+    keep_point_names = [
+        p.get("name", "") for p in points
+        if p.get("kind") not in ("meal", "start", "hint", "free_explore", "candidate")
+    ]
+
+    # Find old meal point matching the slot
+    old_meal_point = None
+    old_meal_idx = None
+    for i, p in enumerate(points):
+        p_kind = p.get("kind", "")
+        p_slot = p.get("display_slot", "")
+        # Match by kind=meal or display_slot
+        if p_kind == "meal":
+            if meal_slot in p_slot or p_slot in meal_slot or not p_slot:
+                old_meal_point = p
+                old_meal_idx = i
+                break
+
+    if not old_meal_point:
+        # Fallback: find any meal point
+        for i, p in enumerate(points):
+            if p.get("kind") == "meal":
+                old_meal_point = p
+                old_meal_idx = i
+                break
+
+    if not old_meal_point:
+        print("[MealRefineAudit] no meal point found in route, skipping meal slot replan")
+        return False
+
+    print(
+        f"[MealRefineAudit] detected=true "
+        f"old_food={'|'.join(old_food_keywords[:2]) if old_food_keywords else 'any'} "
+        f"new_food={'|'.join(new_food_keywords[:2])} "
+        f"slot={meal_slot} "
+        f"keep_points={'|'.join(keep_point_names[:5])}"
+    )
+
+    # Determine search center
+    city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
+    old_loc = old_meal_point.get("location", {})
+
+    # Priority: old meal location → midpoint between prev/next POI → prev POI
+    center = old_loc if (old_loc.get("lat") and old_loc.get("lng")) else None
+
+    if not center and old_meal_idx is not None:
+        prev_loc = None
+        next_loc = None
+        if old_meal_idx > 0:
+            prev_pt = points[old_meal_idx - 1]
+            prev_loc = prev_pt.get("location", {})
+        if old_meal_idx + 1 < len(points):
+            next_pt = points[old_meal_idx + 1]
+            next_loc = next_pt.get("location", {})
+
+        if prev_loc and prev_loc.get("lat") and next_loc and next_loc.get("lat"):
+            center = {
+                "lat": (float(prev_loc["lat"]) + float(next_loc["lat"])) / 2,
+                "lng": (
+                    float(prev_loc.get("lng", prev_loc.get("longitude", 0)))
+                    + float(next_loc.get("lng", next_loc.get("longitude", 0)))
+                ) / 2,
+            }
+        elif prev_loc and prev_loc.get("lat"):
+            center = {
+                "lat": float(prev_loc["lat"]),
+                "lng": float(prev_loc.get("lng", prev_loc.get("longitude", 0))),
+            }
+
+    if not center or not center.get("lat"):
+        print("[MealRefineAudit] no valid search center, skipping meal slot replan")
+        return False
+
+    # Search for new cuisine
+    await emit_status(f"正在为您搜索{new_food_keywords[0]}餐厅...")
+
+    search_kws = list(dict.fromkeys([
+        *new_food_keywords,
+        *(f"{kw} 餐厅" for kw in new_food_keywords[:2] if "餐厅" not in kw),
+    ]))[:5]
+
+    new_poi = None
+    location_str = f"{center.get('lng', 0)},{center.get('lat', 0)}"
+
+    # Progressive radius search
+    for radius in [1000, 2000, 3000, 5000]:
+        if new_poi:
+            break
+        for kw in search_kws:
+            if new_poi:
+                break
+            try:
+                results = await gaode_around_search(
+                    location=location_str,
+                    keywords=kw,
+                    radius=radius,
+                    types="050000",
+                    offset=10,
+                )
+                for r in results:
+                    tc = str(r.get("typecode", "") or "")
+                    if tc.startswith("05"):
+                        new_poi = r
+                        break
+            except Exception as exc:
+                print(f"[MealRefineAudit] around_search r={radius}m kw={kw}: {exc}")
+                continue
+
+    # Fallback: text search
+    if not new_poi:
+        for kw in search_kws:
+            if new_poi:
+                break
+            try:
+                text_results = await gaode_text_search(kw, city=city, city_limit=True)
+                for r in text_results:
+                    tc = str(r.get("typecode", "") or "")
+                    if tc.startswith("05"):
+                        new_poi = r
+                        break
+            except Exception as exc:
+                print(f"[MealRefineAudit] text_search kw={kw}: {exc}")
+                continue
+
+    if not new_poi:
+        print(f"[MealRefineAudit] local_replan_failed reason=no_search_results keywords={search_kws}")
+        return False
+
+    # Build new POI dict from search result
+    new_loc_raw = new_poi.get("location")
+    new_loc = {}
+    if isinstance(new_loc_raw, str) and "," in new_loc_raw:
+        parts = new_loc_raw.split(",")
+        new_loc = {"lat": float(parts[1]), "lng": float(parts[0])}
+    elif isinstance(new_loc_raw, dict):
+        new_loc = {
+            "lat": float(new_loc_raw.get("lat", 0)),
+            "lng": float(new_loc_raw.get("lng", new_loc_raw.get("longitude", 0))),
+        }
+
+    new_poi_dict = {
+        "poi_id": new_poi.get("id", "") or new_poi.get("uid", ""),
+        "gaode_poi_id": new_poi.get("id", "") or new_poi.get("uid", ""),
+        "name": new_poi.get("name", search_kws[0]),
+        "location": new_loc,
+        "typecode": new_poi.get("typecode", ""),
+        "category": new_poi.get("category", "") or "meal",
+        "address": new_poi.get("address", ""),
+        "rating": new_poi.get("rating"),
+        "gaode_rating": new_poi.get("rating"),
+        "avg_cost": new_poi.get("avg_cost"),
+        "kind": "meal",
+        "is_waypoint": True,
+        "is_display_poi": True,
+        "day": int(old_meal_point.get("day", 1) or 1),
+        "display_slot": old_meal_point.get("display_slot", meal_slot),
+        "is_meal": True,
+        "recommend_reason": f"{new_poi.get('name', '')} - {new_food_keywords[0]}推荐",
+        "photo_url": new_poi.get("photo_url", "") or "",
+        "photo_source": new_poi.get("photo_source", "") or "",
+        "parent_anchor": old_meal_point.get("parent_anchor", ""),
+        "sub_anchor_name": old_meal_point.get("sub_anchor_name", ""),
+        "walk_from_route_min": 0,
+        "route_annotation": "",
+        "route_order": old_meal_point.get("route_order", 0),
+        "display_order": old_meal_point.get("display_order", 0),
+        "display_label": "",
+        "is_passthrough": False,
+        "plan_mode": "meal_refine",
+    }
+
+    # Apply replace operation via pipeline_replan
+    operations = [{
+        "action": "replace",
+        "poi_id": old_meal_point.get("poi_id") or old_meal_point.get("gaode_poi_id") or "",
+        "gaode_poi_id": old_meal_point.get("gaode_poi_id", ""),
+        "poi_name": old_meal_point.get("name", ""),
+        "poi": new_poi_dict,
+    }]
+
+    try:
+        result = await apply_pipeline_replan(
+            points=points,
+            operations=operations,
+            route_id=route_context.route_id,
+        )
+    except Exception as exc:
+        print(f"[MealRefineAudit] apply_pipeline_replan failed: {exc}")
+        return False
+
+    route_data = {
+        **result["route"],
+        "route_id": result["route_id"],
+        "candidate_points": [],
+        "hints": {},
+        "waypoint_annotations": {},
+        "plan_mode": "meal_refine",
+        "total_days": max(
+            [int(p.get("day", 1) or 1) for p in result["route"]["points"]] or [1]
+        ),
+    }
+
+    old_name = old_meal_point.get("name", "原餐厅")
+    new_name = new_poi.get("name", "新餐厅")
+    slot_label = _MEAL_SLOT_LABEL_MAP.get(meal_slot, "餐饮")
+    summary = (
+        f"已将{slot_label}从{old_name}调整为{new_name}，"
+        f"{'、'.join(keep_point_names[:3])}等保持不变。"
+    )
+
+    print(f"[MealRefineAudit] local_replan_success=true replaced={old_name} -> {new_name}")
+
+    # Build days structure for frontend
+    from collections import defaultdict
+    result_points = result["route"].get("points", [])
+    days_data: dict[int, list[dict]] = defaultdict(list)
+    for p in result_points:
+        days_data[int(p.get("day", 1) or 1)].append(p)
+    days_list = []
+    for day_idx in sorted(days_data):
+        day_pts = days_data[day_idx]
+        anchors = [
+            {
+                "name": p.get("name", ""),
+                "recommend_reason": p.get("recommend_reason", ""),
+                "location": p.get("location"),
+            }
+            for p in day_pts
+            if p.get("kind") not in ("start", "meal", "hint")
+        ]
+        meals = [
+            {
+                "name": p.get("name", ""),
+                "meal": p.get("display_slot") or "",
+                "location": p.get("location"),
+            }
+            for p in day_pts
+            if p.get("kind") == "meal"
+        ]
+        days_list.append({"day_index": day_idx, "anchors": anchors, "meal_slots": meals})
+    route_data["display_granularity"] = "day"
+
+    await push_output(f"[ROUTE_PLANNER]: {summary}")
+    previous_plan = route_context.previous_complete_plan or {}
+    city_name = (
+        user_profile.permanent_city[0]
+        if getattr(user_profile, "permanent_city", None)
+        else "上海"
+    ) or "上海"
+    await emit_done(
+        map_paths=[],
+        full_plan={
+            "summary": summary,
+            "city": previous_plan.get("city") or city_name,
+            "duration": previous_plan.get("duration") or "a full day",
+            "time_budget": previous_plan.get("time_budget") or 1.0,
+            "days": days_list,
+        },
+        route_data=route_data,
+    )
+    return True
+
+
 async def _run_pipeline_stream(
     user_request: str,
     user_id: str,
@@ -965,8 +1260,10 @@ async def _run_pipeline_stream(
 
                 # v21: Run fast classifier FIRST for clear-cut cases.
                 # Only fall back to LLM when fast returns None (ambiguous).
+                # v24: Meal replacement refine_current also takes fast path — no LLM needed.
                 fast_decision = classify_conversation_route_change_fast(user_request, conv_ctx)
-                if fast_decision is not None and fast_decision.mode != "refine_current":
+                _is_meal_refine_fast = is_meal_preference_refine_decision(fast_decision)
+                if fast_decision is not None and (fast_decision.mode != "refine_current" or _is_meal_refine_fast):
                     # Fast classifier has a clear signal → use it directly
                     dispatch_decision = _planning_dispatch_fast_fallback(user_request, conv_ctx, None)
                     if dispatch_decision is not None:
@@ -975,6 +1272,7 @@ async def _run_pipeline_stream(
                         f"[DEBUG dispatch] classifier=fast "
                         f"conversation_mode={fast_decision.mode} "
                         f"confidence={fast_decision.confidence} "
+                        f"meal_refine={_is_meal_refine_fast} "
                         f"reason={fast_decision.reason}"
                     )
                 else:
@@ -1040,6 +1338,27 @@ async def _run_pipeline_stream(
                         )
                     step1_request = user_request
                 elif dispatch_decision.conversation_mode == "refine_current":
+                    # v24: Meal preference replacement short-circuit — replace only the meal slot
+                    _intent_patch = dispatch_decision.intent_patch or {}
+                    if _intent_patch.get("meal_replacement") and route_context and route_context.points:
+                        _meal_ok = await _try_meal_slot_replan(
+                            user_request, route_context, user_profile, dispatch_decision,
+                        )
+                        if _meal_ok:
+                            return
+                        else:
+                            # v24: Meal replan failed — preserve existing route
+                            print("[MealRefineAudit] local_replan_failed preserving existing route")
+                            await push_output(
+                                "[ROUTE_PLANNER]: 暂时无法找到合适的新餐厅替换，"
+                                "当前路线保持不变。请尝试提供更具体的菜系或区域。"
+                            )
+                            await _emit_preserved_route(
+                                route_context, user_profile,
+                                "当前路线保持不变，无法完成餐饮替换。",
+                            )
+                            return
+
                     _earliest = dispatch_decision.earliest_step or "step1"
                     if _requires_full_refine(user_request) and _earliest in ("step3", "local_replan"):
                         print(

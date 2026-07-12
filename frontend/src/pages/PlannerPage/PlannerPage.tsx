@@ -132,54 +132,55 @@ const PlannerPage: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!user || autoLocateAttemptedRef.current || !shouldAutoLocateDeparture(user)) return;
-
-    autoLocateAttemptedRef.current = true;
-
-    if (!navigator.geolocation) {
+    if (!user) return;
+    // v22: Hard protect — manual departure must never be overridden
+    if ((user.home_location as any)?.source === 'manual') {
+      console.log(`[DepartureAudit] skip_device_geolocation reason=manual_departure_exists label=${(user.home_location as any)?.label}`);
       return;
     }
+    const ha = user.location?.home_address;
+    if (ha && typeof ha === 'object' && (ha.name || ha.full_address || (ha as any).address)) {
+      console.log(`[DepartureAudit] skip_device_geolocation reason=home_address_exists`);
+      return;
+    }
+    if (autoLocateAttemptedRef.current) {
+      console.log('[Departure] manual or saved location exists, skip auto locate');
+      return;
+    }
+    if (!shouldAutoLocateDeparture(user)) return;
 
+    console.log('[Departure] no saved location, auto locating device');
+    autoLocateAttemptedRef.current = true;
+
+    if (!navigator.geolocation) return;
     setAutoLocatingDeparture(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude: lat, longitude: lng } = position.coords;
         let name = '当前设备位置';
-
         try {
           const res = await axios.get(buildApiUrl(`/address/reverse-geocode?lng=${lng}&lat=${lat}`));
           const addr = res.data?.data || res.data;
           name = addr?.address || addr?.formatted_address || name;
         } catch (err) {
-          console.warn('[PlannerPage] 设备位置反查地址失败，使用当前位置标签:', err);
+          console.warn('[PlannerPage] 设备位置反查地址失败:', err);
         }
-
-        const homeAddr = { ...makeDeviceHomeAddress(lat, lng), name, full_address: name };
-        const homeLocation = makeLocationPayload(lat, lng, name);
+        const homeAddr = { ...makeDeviceHomeAddress(lat, lng), name, full_address: name, source: 'device' };
+        const homeLocation = { ...makeLocationPayload(lat, lng, name), source: 'device' };
         const current = useUserStore.getState().user;
-        if (!current) {
+        if (!current) { setAutoLocatingDeparture(false); return; }
+        // v22: Re-check — if manual departure was set during geolocation, abort
+        const latest = useUserStore.getState().user;
+        if ((latest?.home_location as any)?.source === 'manual') {
+          console.log(`[DepartureAudit] device_location_ignored reason=manual_departure_created_during_request`);
           setAutoLocatingDeparture(false);
           return;
         }
-
-        const nextLocation = {
-          ...current.location,
-          latitude: lat,
-          longitude: lng,
-          home_address: homeAddr,
-        };
-
+        const nextLocation = { ...current.location, latitude: lat, longitude: lng, home_address: homeAddr };
         if (useUserStore.getState().isGuest) {
-          updateGuestProfile({
-            location: nextLocation,
-            home_location: homeLocation,
-          });
+          updateGuestProfile({ location: nextLocation, home_location: homeLocation });
         } else {
-          updateUser({
-            ...current,
-            location: nextLocation,
-            home_location: homeLocation,
-          });
+          updateUser({ ...current, location: nextLocation, home_location: homeLocation });
         }
         setAutoLocatingDeparture(false);
       },
@@ -503,6 +504,36 @@ const PlannerPage: React.FC = () => {
     console.log('[PlannerPage] POI 操作:', action.type, action.poiId);
 
     const routeState = useRouteStore.getState();
+
+    // v22: Prevent duplicate POI submissions
+    if (action.type === 'add' && action.poi) {
+      const rawPoints = (routeState.rawRouteData as any)?.points || [];
+      const panelPoints = routeState.panelDays?.flatMap(d => d.slots?.flatMap(s => s.pois || [])) || [];
+      const allPoints = [...rawPoints, ...panelPoints];
+      const dup = allPoints.some((p: any) =>
+        (action.poi.gaode_poi_id && p.gaode_poi_id === action.poi.gaode_poi_id) ||
+        (action.poi.poi_id && p.poi_id === action.poi.poi_id) ||
+        (action.poi.name && p.name === action.poi.name)
+      );
+      if (dup) {
+        message.warning('这个地点已经在路线里了，换一个备选点吧');
+        return;
+      }
+    }
+    if (action.type === 'replace' && action.replacementPoi) {
+      const rawPoints = (routeState.rawRouteData as any)?.points || [];
+      const dup = rawPoints.some((p: any) =>
+        p.name !== action.poiId && (
+          (action.replacementPoi.gaode_poi_id && p.gaode_poi_id === action.replacementPoi.gaode_poi_id) ||
+          (action.replacementPoi.poi_id && p.poi_id === action.replacementPoi.poi_id) ||
+          (action.replacementPoi.name && p.name === action.replacementPoi.name)
+        )
+      );
+      if (dup) {
+        message.warning('这个地点已经在路线里了，不能重复替换');
+        return;
+      }
+    }
     const allMarkers = routeState.mapRouteData?.markers || [];
     const marker = allMarkers.find(m => {
       return (
@@ -613,11 +644,24 @@ const PlannerPage: React.FC = () => {
       setSelectedRouteSegment(null);
       setPreviewCandidateMarker(null);
       setRouteVersion(v => v + 1);
-      message.success(action.type === 'delete' ? '已删除路线地点' : action.type === 'replace' ? '已替换路线地点' : '已添加路线地点');
-    } catch (error) {
+      message.success(
+        action.type === 'delete' ? '你的修改让路线变得更顺畅了' :
+        action.type === 'replace' ? '你的修改让路线变得更有趣了' :
+        '你的修改让路线更丰富了'
+      );
+    } catch (error: any) {
       routeState.setPanelDays(previousPanelDays);
       console.error('[PlannerPage] POI 操作失败，已回滚:', error);
-      message.error(action.type === 'delete' ? '删除失败，请稍后重试' : action.type === 'replace' ? '替换失败，请稍后重试' : '添加失败，请稍后重试');
+      const msg = error?.message || '';
+      if (msg.includes('耗') || msg.includes('timeout') || msg.includes('超时')) {
+        message.error('路线调整耗时较久，请稍后重试或换一个更近的备选点');
+      } else if (msg.includes('已经在路线里') || msg.includes('重复') || msg.includes('DUPLICATE')) {
+        message.warning(msg || '这个地点已经在路线里了，请换一个备选点');
+      } else if (msg.includes('绕远') || msg.includes('过远') || msg.includes('太远')) {
+        message.error('该地点会让路线绕远，请选择更近的备选点');
+      } else {
+        message.error('路线调整失败，请稍后重试');
+      }
     }
   }, [replanPipelineRoute]);
 
@@ -908,7 +952,12 @@ const PlannerPage: React.FC = () => {
           {isReplanning && (
             <div className={styles.routeLoadingBar}>
               <div className={styles.routeLoadingSpinner} />
-              <span className={styles.routeLoadingText}>正在重新规划路线...</span>
+              <div className={styles.routeLoadingDots}>
+                <span className={styles.routeLoadingDot} />
+                <span className={styles.routeLoadingDot} />
+                <span className={styles.routeLoadingDot} />
+              </div>
+              <span className={styles.routeLoadingText}>正在重新优化路线</span>
             </div>
           )}
           <MapContainer

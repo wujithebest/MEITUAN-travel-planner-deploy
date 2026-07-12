@@ -929,10 +929,34 @@ def _kmeans_2(pois: list[dict]) -> tuple[list[dict] | None, list[int] | None]:
     return [c1, c2], labels
 
 
+# ── v25: facet raw validation helpers ──
+
+
+def _raw_text(raw: dict) -> str:
+    return " ".join(str(raw.get(k) or "") for k in ("name", "type", "typecode", "category", "address")).lower()
+
+
+def _is_cafe_facet_raw(raw: dict) -> bool:
+    text = _raw_text(raw)
+    tc = str(raw.get("typecode") or "")
+    if any(t in text for t in ["咖啡", "coffee", "cafe"]):
+        return True
+    return tc.startswith(("0504", "0505", "0509", "0510"))
+
+
+def _is_specialty_shop_facet_raw(raw: dict) -> bool:
+    text = _raw_text(raw)
+    tc = str(raw.get("typecode") or "")
+    if any(t in text for t in ["买手店", "特色小店", "文创", "杂货", "集合店", "生活方式"]):
+        return True
+    return tc.startswith(("0601", "0609", "0610", "0803"))
+
+
 async def _search_anchor_internals(
     sub_anchors: list[SubAnchor],
     city: str,
     theme_search_terms: list[str] | None = None,
+    required_facet_ids: set[str] | None = None,
 ) -> list[SubAnchor]:
     """v3+v5.2：为half_day/quarter_day SubAnchor搜索内部POI；
     对已有POI但数量不足的子锚点做扩搜（1.5倍半径）；
@@ -957,53 +981,102 @@ async def _search_anchor_internals(
         base_radius = config.ANCHOR_SEARCH_RADIUS_BY_CAPACITY.get(sub.capacity, config.ANCHOR_INTERNAL_SEARCH_RADIUS)
         # 如果已有POI但不够，扩大搜索半径1.5倍
         radius = base_radius if not sub.internal_pois else int(base_radius * 1.5)
-        requests.extend([
+        _base_requests = [
             {"location": loc_str, "keywords": "", "radius": radius, "types": config.ANCHOR_INTERNAL_TYPES, "show_fields": config.GAODE_SHOW_FIELDS, "offset": 25, "sortrule": "weight"},
-        # v5.2 r5: keyword搜索也加types过滤，防止返回餐饮等无关POI
             {"location": loc_str, "keywords": sub.parent_name, "radius": radius, "types": config.ANCHOR_INTERNAL_TYPES, "show_fields": config.GAODE_SHOW_FIELDS, "offset": 25},
-            # v5.2: 亲水/沿河关键词搜索 — v5.2 r5: 加types过滤
             {"location": loc_str, "keywords": f"{sub.parent_name} {config.WATERFRONT_KEYWORDS}", "radius": radius, "types": config.ANCHOR_INTERNAL_TYPES, "show_fields": config.GAODE_SHOW_FIELDS, "offset": 25},
-        ])
+        ]
         # v16: 主题微观搜索 — 将theme_search_terms合并到第一组keywords搜索
         if theme_search_terms:
-            requests[-3]["keywords"] = " ".join(
-                list(filter(None, [str(requests[-3].get("keywords", "") or "").strip()]))
+            _base_requests[0]["keywords"] = " ".join(
+                list(filter(None, [str(_base_requests[0].get("keywords", "") or "").strip()]))
                 + list(theme_search_terms[:6])
             )[:200]
-        metadata.append(sub)
+
+        requests.extend(_base_requests)
+        request_meta.extend([(sub, "base")] * 3)
+
+        # v25: cafe_stop facet — dedicated search request
+        if required_facet_ids and "cafe_stop" in required_facet_ids:
+            requests.append({
+                "location": loc_str,
+                "keywords": "精品咖啡馆 独立咖啡馆 咖啡馆 coffee cafe",
+                "radius": max(radius, 1500),
+                "types": "050400|050500|050200|050900|051000|050100",
+                "show_fields": config.GAODE_SHOW_FIELDS,
+                "offset": 20,
+            })
+            request_meta.append((sub, "cafe_stop"))
+
+        # v25: specialty_shop facet — dedicated search request
+        if required_facet_ids and "specialty_shop" in required_facet_ids:
+            requests.append({
+                "location": loc_str,
+                "keywords": "买手店 特色小店 文创店 生活方式集合店 杂货店",
+                "radius": max(radius, 1500),
+                "types": "060100|060900|061000|080300|080000",
+                "show_fields": config.GAODE_SHOW_FIELDS,
+                "offset": 20,
+            })
+            request_meta.append((sub, "specialty_shop"))
 
     results = await gaode_around_search_batch(requests)
 
-    for sub, (s1, s2, s3) in zip(to_search, [(results[i], results[i+1], results[i+2]) for i in range(0, len(results), 3)]):
+    # v25: Aggregate results by sub + facet instead of fixed triplets
+    by_sub: dict[str, list[tuple[str, list[dict]]]] = {}
+    for (sub, facet), group in zip(request_meta, results):
+        key = sub.name
+        by_sub.setdefault(key, []).append((facet, group))
+
+    for sub in to_search:
         seen: set[str] = {p.get("id") or p.get("name", "") for p in (sub.internal_pois or [])}
         internal: list[dict] = list(sub.internal_pois or [])
-        # v5.2: 两轮过滤——先正常过滤，数量不足时放行商场内子店铺
-        subordinate_buffer: list[dict] = []  # 被subordinate过滤的POI，备用补充
-        for raw in s1 + s2 + s3:
-            pid = raw.get("id") or raw.get("name", "")
-            if pid in seen:
-                continue
-            seen.add(pid)
-            name = raw.get("name", "")
-            typecode = raw.get("typecode", "")
-            if name == sub.parent_name or name == sub.name:
-                continue
-            if not is_valid_route_poi(typecode, name):
-                # 检查：跳过subordinate检查后是否能通过（仅因商场归属被过滤）
-                if is_valid_route_poi(typecode, name, skip_subordinate_check=True):
-                    loc = raw.get("location")
-                    if isinstance(loc, str):
-                        parts = loc.split(",")
-                        loc = {"lng": float(parts[0]), "lat": float(parts[1])}
-                    raw["location"] = loc
-                    subordinate_buffer.append(raw)
-                continue
-            loc = raw.get("location")
-            if isinstance(loc, str):
-                parts = loc.split(",")
-                loc = {"lng": float(parts[0]), "lat": float(parts[1])}
-            raw["location"] = loc
-            internal.append(raw)
+        subordinate_buffer: list[dict] = []
+        groups = by_sub.get(sub.name, [])
+        for facet, group in groups:
+            for raw in group:
+                pid = raw.get("id") or raw.get("name", "")
+                if pid in seen:
+                    continue
+                seen.add(pid)
+                name = raw.get("name", "")
+                typecode = raw.get("typecode", "")
+                if name == sub.parent_name or name == sub.name:
+                    continue
+
+                # v25: facet-specific filtering — cafe_stop must pass _is_cafe_facet_raw
+                if facet == "cafe_stop":
+                    if not _is_cafe_facet_raw(raw):
+                        continue
+                    raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), "cafe_stop"]))
+                    raw["kind"] = "cafe"
+                    raw["is_display_poi"] = True
+                    raw["is_waypoint"] = True
+
+                # v25: facet-specific filtering — specialty_shop must pass _is_specialty_shop_facet_raw
+                if facet == "specialty_shop":
+                    if not _is_specialty_shop_facet_raw(raw):
+                        continue
+                    raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), "specialty_shop"]))
+                    raw["is_display_poi"] = True
+                    raw["is_waypoint"] = True
+
+                if not is_valid_route_poi(typecode, name):
+                    # 检查：跳过subordinate检查后是否能通过（仅因商场归属被过滤）
+                    if is_valid_route_poi(typecode, name, skip_subordinate_check=True):
+                        loc = raw.get("location")
+                        if isinstance(loc, str):
+                            parts = loc.split(",")
+                            loc = {"lng": float(parts[0]), "lat": float(parts[1])}
+                        raw["location"] = loc
+                        subordinate_buffer.append(raw)
+                    continue
+                loc = raw.get("location")
+                if isinstance(loc, str):
+                    parts = loc.split(",")
+                    loc = {"lng": float(parts[0]), "lat": float(parts[1])}
+                raw["location"] = loc
+                internal.append(raw)
         # 数量不足时放行商场内子店铺作为补充
         if len(internal) < 3 and subordinate_buffer:
             internal.extend(subordinate_buffer)
@@ -1092,16 +1165,35 @@ def _resolve_micro_poi_policy(parsed_intent: ParsedIntent) -> dict[str, Any]:
     time_budget = float(getattr(parsed_intent, "time_budget", 0.25) or 0.25)
     minimum_themed_pois = 3 if time_budget >= 1.0 else (2 if time_budget >= 0.5 else 1)
 
+    # v25: Inject cafe/shop search and preferred terms when required by theme_facets
+    _theme_facets = getattr(parsed_intent, "theme_facets", []) or []
+    _facet_ids = {
+        str(f.get("id") or "")
+        for f in _theme_facets
+        if isinstance(f, dict) and f.get("required")
+    }
+
+    _search_terms = list(profile.get("search_terms", []) or [])
+    _preferred_terms = (
+        list(profile.get("destination_anchor_terms", []) or [])
+        + list(profile.get("allowed_name_terms", []) or [])
+        + list(profile.get("required_terms", []) or [])
+    )
+
+    if "cafe_stop" in _facet_ids:
+        _search_terms = ["精品咖啡馆", "独立咖啡馆", "咖啡馆", "coffee", "cafe"] + _search_terms
+        _preferred_terms = ["咖啡", "咖啡馆", "coffee", "cafe"] + _preferred_terms
+
+    if "specialty_shop" in _facet_ids:
+        _search_terms = ["买手店", "特色小店", "文创店", "生活方式集合店", "杂货店"] + _search_terms
+        _preferred_terms = ["买手店", "特色小店", "文创", "集合店", "杂货"] + _preferred_terms
+
     return {
         "active": True,
         "profile_id": profile.get("id", ""),
         "label": profile.get("label", ""),
-        "search_terms": tuple(profile.get("search_terms", []) or []),
-        "preferred_name_terms": tuple(dict.fromkeys(
-            list(profile.get("destination_anchor_terms", []) or [])
-            + list(profile.get("allowed_name_terms", []) or [])
-            + list(profile.get("required_terms", []) or [])
-        )),
+        "search_terms": tuple(_search_terms),
+        "preferred_name_terms": tuple(dict.fromkeys(_preferred_terms)),
         "micro_keywords": tuple(profile.get("micro_keywords", []) or []),
         "excluded_terms": tuple(excluded_terms),
         "generic_penalty_terms": tuple(profile.get("generic_penalty_terms", []) or []),
@@ -1570,6 +1662,25 @@ def _route_planning(
                 next_anchor_center=next_anchor_center,
                 parsed_intent=parsed_intent,
             )
+
+            # v25: If meal_after_mid is set (single SubAnchor + lunch/cafe),
+            # insert the meal POI inline at the mid position within seg_points
+            # instead of appending at the end of the segment.
+            # This prevents gaga→望京公园 (2.13km) detour patterns in art routes.
+            _meal_mid = seg.get("meal_after_mid")
+            _meal_inline_inserted = False
+            if _meal_mid is not None:
+                _meal_name_inline = seg.get("meal_poi_name")
+                if not _meal_name_inline:
+                    _meal_name_inline = slot_meal_map.get("lunch")
+                if _meal_name_inline and _meal_name_inline in meal_by_name and _meal_name_inline not in used_names:
+                    _m_inline = meal_by_name[_meal_name_inline]
+                    _meal_pt = _point_from_micro(_m_inline, day_index, "meal", "lunch")
+                    _insert_pos = min(_meal_mid, len(seg_points))
+                    seg_points.insert(_insert_pos, _meal_pt)
+                    used_names.add(_meal_name_inline)
+                    _meal_inline_inserted = True
+                    seg["_meal_inline_inserted"] = True
             for sp in seg_points:
                 # v5.2 r3 fix: _fill_segment可能把餐饮POI标记为anchor_internal，
                 # 导致下游(1)短步行合并吞掉晚餐段 (2)step4路线缺失
@@ -1579,23 +1690,24 @@ def _route_planning(
                 current = {"name": sp["name"], "location": sp["location"]}
                 used_names.add(sp["name"])
 
-            # 餐饮插入
-            meal_name = seg.get("meal_poi_name")
-            meal_type = None
-            if not meal_name:
-                if seg_idx == 0 and len(segments) >= 2:
-                    meal_type = "lunch"
-                elif seg_idx == len(segments) - 1:
-                    meal_type = "dinner"
-                if meal_type:
-                    meal_name = slot_meal_map.get(meal_type)
-            if meal_name and meal_name in meal_by_name and meal_name not in used_names:
-                m = meal_by_name[meal_name]
-                all_points.append(_point_from_micro(m, day_index, "meal", meal_type or ""))
-                current = {"name": m.name, "location": m.location}
-                used_names.add(m.name)
-                if meal_type == "dinner":
-                    dinner_done = True
+            # 餐饮插入 — v25: skip if already inline-inserted via meal_after_mid
+            if not seg.get("_meal_inline_inserted"):
+                meal_name = seg.get("meal_poi_name")
+                meal_type = None
+                if not meal_name:
+                    if seg_idx == 0 and len(segments) >= 2:
+                        meal_type = "lunch"
+                    elif seg_idx == len(segments) - 1:
+                        meal_type = "dinner"
+                    if meal_type:
+                        meal_name = slot_meal_map.get(meal_type)
+                if meal_name and meal_name in meal_by_name and meal_name not in used_names:
+                    m = meal_by_name[meal_name]
+                    all_points.append(_point_from_micro(m, day_index, "meal", meal_type or ""))
+                    current = {"name": m.name, "location": m.location}
+                    used_names.add(m.name)
+                    if meal_type == "dinner":
+                        dinner_done = True
 
         # 兜底未插入的晚餐
         if dinner_slots and not dinner_done:
@@ -3452,6 +3564,125 @@ def _apply_planned_time_slots(
     return points
 
 
+# ── v25: facet coverage repair ──
+
+
+def _point_matches_facet(point: dict, facet_id: str) -> bool:
+    """Check whether a route point satisfies a required theme facet."""
+    facets = set(point.get("matched_facets") or [])
+    if facet_id in facets:
+        return True
+    text = " ".join(str(point.get(k) or "") for k in ("name", "address", "category", "typecode")).lower()
+    if facet_id == "cafe_stop":
+        return any(t in text for t in ["咖啡", "coffee", "cafe"]) or str(point.get("typecode") or "").startswith(("0504", "0505", "0509", "0510"))
+    if facet_id == "specialty_shop":
+        return any(t in text for t in ["买手店", "特色小店", "文创", "杂货", "集合店", "生活方式"])
+    return False
+
+
+async def _ensure_required_facet_points(
+    parsed_intent: ParsedIntent,
+    points: list[dict[str, Any]],
+    sub_anchors: list[SubAnchor],
+) -> list[dict[str, Any]]:
+    """v25: If any required visible_poi facets are missing, search and append candidates."""
+    required = [
+        str(f.get("id") or "")
+        for f in (getattr(parsed_intent, "theme_facets", []) or [])
+        if isinstance(f, dict) and f.get("required") and f.get("role") == "visible_poi"
+    ]
+    if not required:
+        return points
+
+    visible = [
+        p for p in points
+        if p.get("kind") not in {"start", "hint", "free_explore", "route_only", "traffic", "empty"}
+    ]
+    missing = [fid for fid in required if not any(_point_matches_facet(p, fid) for p in visible)]
+    print(
+        f"[FacetCoverageAudit] required={required} missing={missing} "
+        f"before={[p.get('name') for p in visible]}"
+    )
+
+    if not missing:
+        return points
+
+    existing_names = {p.get("name") for p in points}
+    centers: list[dict] = []
+    for sub in sub_anchors:
+        if sub.location:
+            centers.append(sub.location)
+    if not centers:
+        centers = [p.get("location") for p in points if p.get("location")]
+
+    for facet_id in missing:
+        terms = (
+            ["精品咖啡馆", "独立咖啡馆", "咖啡馆", "coffee", "cafe"]
+            if facet_id == "cafe_stop"
+            else ["买手店", "特色小店", "文创店", "生活方式集合店", "杂货店"]
+        )
+        types_str = (
+            "050400|050500|050200|050900|051000|050100"
+            if facet_id == "cafe_stop"
+            else "060100|060900|061000|080300|080000"
+        )
+
+        candidates: list[dict[str, Any]] = []
+        for center in centers[:3]:
+            try:
+                group = await gaode_around_search(
+                    location=coord_to_param(center),
+                    keywords=" ".join(terms),
+                    radius=1500,
+                    types=types_str,
+                    show_fields=config.GAODE_SHOW_FIELDS,
+                    offset=20,
+                )
+            except Exception as _exc:
+                print(f"[FacetCoverageRepair] search failed facet={facet_id}: {_exc}")
+                continue
+            for raw in group:
+                if facet_id == "cafe_stop" and not _is_cafe_facet_raw(raw):
+                    continue
+                if facet_id == "specialty_shop" and not _is_specialty_shop_facet_raw(raw):
+                    continue
+                loc = raw.get("location")
+                if isinstance(loc, str):
+                    parts = loc.split(",")
+                    loc = {"lng": float(parts[0]), "lat": float(parts[1])}
+                raw["location"] = loc
+                raw["kind"] = "cafe" if facet_id == "cafe_stop" else "anchor_internal"
+                raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), facet_id]))
+                raw["is_display_poi"] = True
+                raw["is_waypoint"] = True
+                raw["parent_anchor"] = raw.get("parent_anchor") or "facet_repair"
+                candidates.append(raw)
+
+        candidates = [c for c in candidates if c.get("name") not in existing_names and c.get("location")]
+        if candidates:
+            from services.utils import haversine_km
+            route_locs = [p.get("location") for p in points if p.get("location")]
+            def _dist_to_route(c):
+                return min(
+                    (haversine_km(c.get("location"), loc) for loc in route_locs if loc),
+                    default=999,
+                )
+            chosen = sorted(candidates, key=lambda c: (_dist_to_route(c), c.get("name", "")))[0]
+            points.append(chosen)
+            existing_names.add(chosen.get("name"))
+            print(
+                f"[FacetCoverageRepair] facet={facet_id} "
+                f"added={chosen.get('name')} source=around_search"
+            )
+        else:
+            print(
+                f"[FacetCoverageRepair] facet={facet_id} "
+                f"added=None reason=no_candidate"
+            )
+
+    return points
+
+
 def _reorder_by_proximity(
     points: list[dict[str, Any]],
     parsed_intent: ParsedIntent | None = None,
@@ -3479,6 +3710,43 @@ def _reorder_by_proximity(
         or str(p.get("display_slot") or "").lower() in {"lunch", "dinner", "evening"}
         for p in points
     )
+
+    # v25: For single-anchor exploration/art routes where the system auto-inserts
+    # a lunch/coffee point, the meal should NOT be treated as a timeline boundary.
+    # Instead it should participate in spatial reordering alongside scenic POIs.
+    # This fixes the gaga→望京公园 (2.13km) detour pattern.
+    _allow_spatial_meal_reorder = False
+    if has_timeline_boundary and len(parent_anchors) <= 1 and len(fixed_pois) <= 1:
+        _meal_count = sum(1 for p in points if p.get("kind") == "meal")
+        _has_dinner_evening = any(
+            str(p.get("display_slot") or "").lower() in {"dinner", "evening"}
+            for p in points
+        )
+        _has_night_view = bool(
+            parsed_intent
+            and (
+                getattr(parsed_intent, "night_view_requested", False) is True
+                or "night_view" in (getattr(parsed_intent, "activity_facets", []) or [])
+            )
+        )
+        _is_exploration = bool(
+            parsed_intent and getattr(parsed_intent, "plan_mode", "") == "exploratory"
+        )
+        _is_art_route = bool(
+            parsed_intent
+            and getattr(parsed_intent, "theme_route_locked", False)
+        )
+        _is_multi_facet = bool(
+            parsed_intent
+            and getattr(parsed_intent, "multi_theme_requested", False)
+        )
+        # v25: Only relax when there's at most 1 meal, no dinner/evening constraint,
+        # and the route is exploration/art/multi-facet (not planned with explicit times).
+        if _meal_count <= 1 and not _has_dinner_evening and not _has_night_view:
+            if _is_art_route or _is_multi_facet or _is_exploration:
+                _allow_spatial_meal_reorder = True
+                has_timeline_boundary = False  # unblock spatial reorder
+
     if len(fixed_pois) >= 2 or len(parent_anchors) >= 2 or has_timeline_boundary:
         print(
             "[CanonicalOrderAudit] preserve_timeline_order=True "
@@ -3505,7 +3773,10 @@ def _reorder_by_proximity(
         if any(t in name for t in ["神武门", "出口", "北门", "东华门", "西华门"]):
             exit_points.append(p)
         elif p.get("kind") == "meal":
-            fixed_order.append(p)  # meals stay in time order
+            if _allow_spatial_meal_reorder:
+                internal_pois.append(p)  # v25: meal participates in spatial optimization
+            else:
+                fixed_order.append(p)  # meals stay in time order
         else:
             # Supplement points participate in the same global optimization as
             # the original scenic POIs; they must not be appended afterwards.
@@ -3558,14 +3829,46 @@ def _reorder_by_proximity(
                         ordered_internal[i+1:j+1] = reversed(ordered_internal[i+1:j+1])
                         improved = True
     # v21: Supplements ARE internal_pois — already included in ordered_internal + 2-opt
-    # Build final order: start → ordered_internals → exits → meals
+    # Build final order: start → ordered_internals → exits → meals (if not spatial-reordered)
     result_internals = list(ordered_internal)
     result = []
     if start:
         result.append(start)
     result.extend(result_internals)
     result.extend(exit_points)
-    result.extend(fixed_order)
+    if not _allow_spatial_meal_reorder:
+        result.extend(fixed_order)
+    # else: meals already included in ordered_internal via internal_pois
+
+    # v25: audit log for spatial meal reorder
+    if _allow_spatial_meal_reorder:
+        _before_names = [p.get("name", "") for p in points]
+        _after_names = [p.get("name", "") for p in result]
+        from services.utils import haversine_km
+        _total_before = sum(
+            haversine_km(
+                points[i].get("location", {}),
+                points[i + 1].get("location", {}),
+            )
+            for i in range(len(points) - 1)
+            if points[i].get("location", {}).get("lat")
+            and points[i + 1].get("location", {}).get("lat")
+        )
+        _total_after = sum(
+            haversine_km(
+                result[i].get("location", {}),
+                result[i + 1].get("location", {}),
+            )
+            for i in range(len(result) - 1)
+            if result[i].get("location", {}).get("lat")
+            and result[i + 1].get("location", {}).get("lat")
+        )
+        print(
+            f"[SpatialMealReorderAudit] reason=single_anchor_default_lunch "
+            f"before={_before_names} after={_after_names} "
+            f"total_dist_before_km={_total_before:.2f} total_dist_after_km={_total_after:.2f}"
+        )
+
     return result
 
 
@@ -5752,6 +6055,18 @@ async def run_step3(
     complete_plan: CompletePlan,
     logger: PipelineLogger,
 ) -> tuple[list[MicroPOI], list[RouteSegment], str, dict[str, str], dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    # v24: Meal replacement — skip micro routing, handled by replan pipeline.
+    # The meal slot replan replaces only the meal point; Step3 must not
+    # let new cuisine keywords rebuild the entire route as a "cuisine tour".
+    _meal_replace = getattr(parsed_intent, "meal_replacement", False)
+    _keep_route = getattr(parsed_intent, "keep_existing_route", False)
+    if _meal_replace or _keep_route:
+        print(
+            f"[MealRefineAudit] step3 skipped: "
+            f"meal_replacement={_meal_replace} keep_existing_route={_keep_route}"
+        )
+        return [], [], "", {}, {}, [], []
+
     city = complete_plan.city or "上海市"
     micro_policy = _resolve_micro_poi_policy(parsed_intent)
     print(
@@ -5796,7 +6111,16 @@ async def run_step3(
     # v20: clear stroll eat buffer before new search
     _stroll_eat_buffer.clear()
     theme_search = list(micro_policy.get("search_terms", []))[:8] if micro_policy.get("active") else None
-    sub_anchors = await _search_anchor_internals(sub_anchors, city, theme_search_terms=theme_search)
+    # v25: Compute required facet ids for dedicated cafe/shop search
+    _required_facet_ids: set[str] = {
+        str(f.get("id") or "")
+        for f in (getattr(parsed_intent, "theme_facets", []) or [])
+        if isinstance(f, dict) and f.get("required")
+    }
+    sub_anchors = await _search_anchor_internals(
+        sub_anchors, city, theme_search_terms=theme_search,
+        required_facet_ids=_required_facet_ids if _required_facet_ids else None,
+    )
     # v5.2 r5: POI空间硬分配 — 每个POI只归最近的锚点，解决跨锚点POI泄漏
     sub_anchors = _spatial_assign_pois(sub_anchors, [a.name for a in all_anchors])
     # v5.2 r5: 后续子锚点的entry_point用前一个子锚点的终点，避免贪心排序从出发点开始导致折返
@@ -6037,6 +6361,8 @@ async def run_step3(
                     print(f"[DEBUG step3] supplement recall added {len(_added_names)} points (before segments): {_added_names}")
 
     # v21: Canonical spatial reorder + timeline completion before segments
+    # v25: Repair missing required facet points before spatial reorder
+    points = await _ensure_required_facet_points(parsed_intent, points, sub_anchors)
     points = _reorder_by_proximity(points, parsed_intent)
     try:
         from .timeline_completion import complete_route_timeline

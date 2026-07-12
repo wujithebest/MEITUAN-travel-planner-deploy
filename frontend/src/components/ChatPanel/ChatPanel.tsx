@@ -22,58 +22,63 @@ import styles from './ChatPanel.module.css';
 
 const { TextArea } = Input;
 
-// v21: City-based example prompts (first 3 only)
-const EXAMPLES_BY_CITY: Record<string, string[]> = {
-  Beijing: [
-    '我明天想去故宫玩一整天，帮我规划一下路线',
-    '上午去王府井步行街逛逛，下午想去国贸，晚上找个好吃的地方',
-    '想去奥林匹克公园逛一逛',
-  ],
-  Shanghai: [
-    '我明天想去外滩玩一整天，帮我规划一下路线',
-    '上午去南京路步行街逛逛，下午想去陆家嘴，晚上找个好吃的地方',
-    '还有两个小时，我在杨浦滨江附近随便走走',
-  ],
-};
-
-// Fallback examples (prompts 4-6, city-independent)
-const FALLBACK_PROMPTS: string[] = [
-  '待会儿下班，在附近找一家日料店，然后回家',
-  '下班路上想顺便买点水果，再找个地方简单吃晚饭',
-  '回家前想理个发，附近如果有不错的咖啡店也可以坐一会儿',
+// v22: Unified test prompts (same for all cities)
+const QUICK_PROMPTS_NORMAL = [
+  '帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点',
+  '想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落',
+  '待会儿去附近逛逛，找一家好吃的，再散散步。',
 ];
+
+const QUICK_PROMPTS_HARD = [
+  '明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步',
+  '下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方',
+  '帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去景山公园。',
+];
+
+export function getQuickPrompts(_user: User | null): string[] {
+  return [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD];
+}
+
+export function getQuickPromptsNormal(): string[] { return QUICK_PROMPTS_NORMAL; }
+export function getQuickPromptsHard(): string[] { return QUICK_PROMPTS_HARD; }
 
 export function detectDepartureCity(user: User | null): 'Beijing' | 'Shanghai' {
   const homeLocation = user?.home_location;
   const homeAddress = user?.location?.home_address;
   const combined = [
-    user?.city,
-    user?.location?.city,
-    homeLocation?.label,
-    homeAddress?.name,
-    homeAddress?.full_address,
+    user?.city, user?.location?.city,
+    homeLocation?.label, homeAddress?.name, homeAddress?.full_address,
   ].filter(Boolean).join(' ');
-
   if (/北京/.test(combined)) return 'Beijing';
   if (/上海/.test(combined)) return 'Shanghai';
-
-  // Address result labels may contain only a POI name (for example "国贸").
-  // In that case, use the saved route-departure coordinates.  These bounds
-  // intentionally cover the supported Beijing/Shanghai search regions.
   const lng = Number(homeLocation?.lng ?? homeAddress?.lng ?? user?.location?.longitude);
   const lat = Number(homeLocation?.lat ?? homeAddress?.lat ?? user?.location?.latitude);
   if (Number.isFinite(lng) && Number.isFinite(lat)) {
     if (lng >= 115.4 && lng <= 117.7 && lat >= 39.3 && lat <= 41.2) return 'Beijing';
     if (lng >= 120.7 && lng <= 122.3 && lat >= 30.5 && lat <= 32.1) return 'Shanghai';
   }
-
-  return 'Shanghai'; // default fallback
+  return 'Shanghai';
 }
 
-export function getQuickPrompts(user: User | null): string[] {
-  const city = detectDepartureCity(user);
-  const cityExamples = EXAMPLES_BY_CITY[city] || EXAMPLES_BY_CITY.Shanghai;
-  return [...cityExamples, ...FALLBACK_PROMPTS];
+// v22: User input keyword → display tag rules for recommendation reasons
+export const USER_INPUT_TAG_RULES = [
+  { tag: '适合拍照', keywords: ['拍照', '出片', '打卡', '摄影'] },
+  { tag: '文艺路线', keywords: ['文艺', '艺术', '展览', '小众'] },
+  { tag: '咖啡馆', keywords: ['咖啡', '咖啡馆', '咖啡店'] },
+  { tag: '特色小店', keywords: ['特色小店', '小店', '买手店', '杂货店'] },
+  { tag: '节奏轻松', keywords: ['节奏轻松', '轻松一点', '慢一点', '不赶', '散散步', '逛逛', '散步'] },
+  { tag: '地道北京菜', keywords: ['北京菜', '地道', '烤鸭', '涮羊肉'] },
+  { tag: '看日落', keywords: ['日落', '夕阳'] },
+  { tag: '口味兼容', keywords: ['不吃辣', '川菜', '两边都能接受', '清淡'] },
+  { tag: '夜景', keywords: ['夜景', '拍夜景'] },
+  { tag: '河边散步', keywords: ['河边', '走走'] },
+  { tag: '附近', keywords: ['附近', '附近逛逛'] },
+  { tag: '好吃的', keywords: ['好吃的', '吃顿', '找一家', '餐厅'] },
+];
+
+export function extractUserInputTags(text: string): string[] {
+  const found = USER_INPUT_TAG_RULES.filter(r => r.keywords.some(kw => text.includes(kw)));
+  return found.map(r => r.tag).slice(0, 5);
 }
 
 interface ChatPanelProps {
@@ -396,124 +401,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return cleaned.trim();
   };
 
-  const cleanReasonFragment = (text: string, maxLen = 24): string => {
-    return String(text || '')
-      .replace(/^这条路线/, '')
-      .replace(/^让您/, '')
-      .replace(/^接着/, '')
-      .replace(/^随后/, '')
-      .replace(/^最后/, '')
-      .replace(/^然后/, '')
-      .replace(/全程.*$/, '')
-      .replace(/[。；;]+$/g, '')
-      .trim()
-      .slice(0, maxLen);
-  };
-
-  const pickReasonSentence = (sentences: string[], keywords: string[]): string => {
-    return sentences.find(sentence => keywords.some(keyword => sentence.includes(keyword))) || '';
-  };
-
-  const formatPlainRouteReason = (reason: string): Array<{ label: string; content: string }> => {
-    const cleaned = stripArrangeAdvice(reason)
-      .replace(/\s+/g, '')
-      .replace(/。+/g, '。');
-    const sentences = cleaned
-      .split(/[。；;]/)
-      .map(sentence => sentence.trim())
-      .filter(Boolean);
-    if (sentences.length === 0) return [];
-
-    const lines: Array<{ label: string; content: string }> = [];
-    const morningSentence = sentences[0] || '';
-    const mealSentence = pickReasonSentence(sentences, ['午餐', '中餐', '品尝', '用餐', '吃', '餐厅', '美食']);
-    const afternoonSentence =
-      [...sentences].reverse().find(sentence => sentence !== mealSentence && sentence !== morningSentence) || '';
-
-    const startMatch = morningSentence.match(/从(.{2,14}?)(?:开始|出发|起步)/);
-    const morningStops = [
-      startMatch?.[1],
-      morningSentence.includes('苏州河') ? '苏州河' : '',
-      morningSentence.includes('外滩源') ? '外滩源' : '',
-    ].filter(Boolean).slice(0, 2);
-    const morningValue = morningSentence.includes('摄影') || morningSentence.includes('拍')
-      ? (morningSentence.includes('陆家嘴') ? '拍陆家嘴机位' : '拍照打卡')
-      : cleanReasonFragment(morningSentence, 14);
-    lines.push({
-      label: '上午',
-      content: `${morningStops.length ? `${morningStops.join('-')}，` : ''}${morningValue}`.slice(0, 28),
-    });
-
-    if (mealSentence) {
-      const restaurantMatch = mealSentence.match(/在(.{2,24}?)(?:品尝|用餐|吃|享用|补充)/);
-      const restaurant = restaurantMatch?.[1]?.replace(/^.*至/, '').trim();
-      let mealValue = '补充能量';
-      if (/意式|意大利|Mozzarella/i.test(mealSentence)) mealValue = '品尝意式美食';
-      else if (mealSentence.includes('火锅')) mealValue = '兼顾火锅口味';
-      else if (mealSentence.includes('烧烤')) mealValue = '兼顾烧烤口味';
-      else if (mealSentence.includes('素食')) mealValue = '兼顾清淡素食';
-      lines.push({
-        label: '中餐',
-        content: `${restaurant ? `${restaurant}，` : ''}${mealValue}`.slice(0, 28),
-      });
-    }
-
-    if (afternoonSentence) {
-      const afternoonStops = [
-        afternoonSentence.includes('外白渡桥') ? '外白渡桥' : '',
-        afternoonSentence.includes('外滩观景台') ? '外滩观景台' : (afternoonSentence.includes('外滩') ? '外滩' : ''),
-        afternoonSentence.includes('陆家嘴') ? '陆家嘴' : '',
-      ].filter(Boolean).slice(0, 2);
-      let afternoonValue = cleanReasonFragment(afternoonSentence, 14);
-      if (afternoonSentence.includes('万国建筑群')) afternoonValue = '赏万国建筑群';
-      else if (afternoonSentence.includes('天际线')) afternoonValue = '看浦东天际线';
-      else if (afternoonSentence.includes('历史')) afternoonValue = '感受历史街景';
-      lines.push({
-        label: '下午',
-        content: `${afternoonStops.length ? `${afternoonStops.join('-')}，` : ''}${afternoonValue}`.slice(0, 28),
-      });
-    }
-
-    return lines
-      .filter(line => line.content)
-      .slice(0, 3);
-  };
-
-  const normalizeReasonLines = (reason: string): Array<{ label: string; content: string }> => {
-    const rawLines = reason
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean);
-    const sourceLines = rawLines.length >= 2
-      ? rawLines
-      : reason.split(/[。；;]/).map(line => line.trim()).filter(Boolean);
-
-    const structured = sourceLines
-      .map(line => {
-        const colonIdx = line.search(/[：:]/);
-        if (colonIdx <= 0) return null;
-        return {
-          label: cleanReasonFragment(line.slice(0, colonIdx), 6),
-          content: cleanReasonFragment(line.slice(colonIdx + 1), 28),
-        };
-      })
-      .filter((line): line is { label: string; content: string } => Boolean(line?.label && line?.content));
-
-    const lines = structured.length > 0 ? structured : formatPlainRouteReason(reason);
-    const capped: Array<{ label: string; content: string }> = [];
-    let total = 0;
-    for (const line of lines) {
-      const label = line.label.slice(0, 6);
-      const remaining = Math.max(0, 70 - total - label.length - 1);
-      if (remaining <= 0) break;
-      const content = line.content.slice(0, Math.min(28, remaining));
-      if (!content) continue;
-      capped.push({ label, content });
-      total += label.length + content.length + 1;
-    }
-    return capped.slice(0, 4);
-  };
-
   const getRouteMessageId = (message: ChatMessage): string => {
     const snapshot: any = message.routeSnapshot || {};
     return String(
@@ -578,28 +465,145 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     );
   };
 
-  const renderRouteRecReason = (message: ChatMessage) => {
-    const reason =
-      message.routeData?.route_recommend_reason?.trim() ||
-      message.routeSnapshot?.route_data?.route_recommend_reason?.trim() ||
-      '';
-    if (!reason) return null;
+  /** Build structured reasons from routeSnapshot POI names (fallback when backend text is unusable) */
+  /** Extract short user-intent keywords from raw input text */
+  const extractUserKeywords = (text: string): string[] => {
+    const kwPatterns = [
+      '下班路上', '下班', '顺便', '买水果', '简单吃晚饭', '简单晚饭',
+      '咖啡', '日料', '地铁', '步行', '不绕路', '附近', '预算',
+      '安静', '人少', '夜景', '拍照', '亲子', '情侣',
+      '本地生活', '免费', '室内', '户外', '一日游', '半天',
+      '轻松', '不赶', '约会', '朋友', '带娃', '老人',
+      '火锅', '烧烤', '素食', '清淡', '重辣', '小吃',
+      '看展', '逛街', '购物', '爬山', '骑车', '跑步',
+    ];
+    const found = kwPatterns.filter(kw => text.includes(kw));
+    return found.slice(0, 4);
+  };
 
-    const capped = normalizeReasonLines(reason);
-    if (capped.length === 0) return null;
+  /** Pick which value-line labels to use based on user intent */
+  const pickValueLabels = (keywords: string[]): string[] => {
+    const set = new Set(keywords);
+    const labels: string[] = [];
+    if (set.has('下班路上') || set.has('下班') || set.has('顺便') || set.has('附近') || set.has('不绕路')) {
+      labels.push('顺路', '节奏');
+    } else if (set.has('一日游') || set.has('半天')) {
+      labels.push('动线', '体验');
+    } else if (set.has('火锅') || set.has('烧烤') || set.has('素食') || set.has('清淡') || set.has('日料')) {
+      labels.push('口味', '用餐');
+    } else if (set.has('亲子') || set.has('带娃')) {
+      labels.push('亲子', '省心');
+    } else if (set.has('拍照') || set.has('夜景')) {
+      labels.push('拍照', '夜景');
+    } else if (set.has('安静') || set.has('人少')) {
+      labels.push('避峰', '氛围');
+    } else {
+      labels.push('亮点', '节奏');
+    }
+    return labels.slice(0, 2);
+  };
+
+  /** Generate value explanation lines based on route structure + user keywords */
+  const buildValueLines = (
+    snapshot: any, keywords: string[], valueLabels: string[],
+  ): Array<{ label: string; content: string }> => {
+    const points: any[] = snapshot?.route_data?.points || [];
+    const mealCount = points.filter((p: any) => p.kind === 'meal' || p.kind === 'restaurant').length;
+    const poiCount = points.filter((p: any) => p.kind !== 'start' && p.kind !== 'origin').length;
+    const lines: Array<{ label: string; content: string }> = [];
+
+    for (const label of valueLabels) {
+      let content = '';
+      if (label === '顺路') {
+        if (keywords.includes('买水果') && keywords.includes('简单晚饭')) {
+          content = '先买水果，再就近吃晚饭，少绕路';
+        } else if (keywords.includes('顺便')) {
+          content = `顺路完成${poiCount}个点，路线紧凑不绕`;
+        } else {
+          content = '各点之间路径顺畅，减少折返';
+        }
+      } else if (label === '节奏') {
+        if (keywords.includes('下班路上') || keywords.includes('下班')) {
+          content = '适合下班后快速完成，不占用整晚';
+        } else if (keywords.includes('轻松') || keywords.includes('不赶')) {
+          content = '节奏舒缓，不赶场不匆忙';
+        } else {
+          content = '路线紧凑，适合一日轻松游';
+        }
+      } else if (label === '动线') {
+        content = `串联${poiCount}个地点，路径自然顺畅`;
+      } else if (label === '体验') {
+        content = mealCount > 0 ? '兼顾游览与用餐，张弛有度' : '各点之间有节奏变化，不单调';
+      } else if (label === '口味') {
+        content = keywords.includes('素食') ? '覆盖清淡素食选择' :
+                 keywords.includes('火锅') ? '兼顾火锅与素菜搭配' : '满足口味需求，选择多样';
+      } else if (label === '用餐') {
+        content = '用餐点与游览点就近安排，不跑远';
+      } else if (label === '拍照') {
+        content = '出片率高，适合边走边拍';
+      } else {
+        content = '串联核心地点，路线节奏清晰';
+      }
+      lines.push({ label, content });
+    }
+    return lines;
+  };
+
+  const renderRouteRecReason = (message: ChatMessage) => {
+    const snapshot = message.routeSnapshot;
+    // Find user input text
+    const userInput =
+      snapshot?.user_input ||
+      snapshot?.complete_plan?.parsed_intent?.raw_text ||
+      message.content ||
+      '';
+    const rawKeywords = extractUserKeywords(userInput);
+    // v22: Also extract display tags from input (e.g. [适合拍照][文艺路线])
+    const inputTags = extractUserInputTags(userInput);
+    // Merge: deduped keywords + tags
+    const keywords = [...new Set([...rawKeywords, ...inputTags])].slice(0, 6);
+
+    // Collect matched preferences
+    const user = useUserStore.getState().user;
+    const prefs: string[] = [];
+    if (user) {
+      (user.activity_pref_tag || []).forEach((t: string) => { if (t) prefs.push(t); });
+      (user.food_preferences || []).forEach((t: string) => { if (t) prefs.push(t); });
+      (user.preferences || []).forEach((id: string) => {
+        const map: Record<string, string> = {
+          history: '历史文化', food: '美食探店', nature: '自然风光',
+          shopping: '购物娱乐', art: '艺术展览', photography: '拍照打卡',
+          family: '亲子游玩', adventure: '户外探险', citywalk: '城市漫游',
+        };
+        if (map[id]) prefs.push(map[id]);
+      });
+    }
+
+    const valueLabels = pickValueLabels(keywords);
+    const valueLines = buildValueLines(snapshot, keywords, valueLabels);
 
     return (
       <div className={styles.routeRecReason}>
         <div className={styles.routeRecReasonTitle}>为什么推荐</div>
         <div className={styles.routeRecReasonList}>
-          {capped.map((line, i) => {
-            return (
-              <div key={i} className={styles.routeRecReasonLine}>
-                <strong className={styles.routeRecReasonBold}>{line.label}：</strong>
-                {line.content}
-              </div>
-            );
-          })}
+          {keywords.length > 0 && (
+            <div className={styles.routeRecReasonLine}>
+              <strong className={styles.routeRecReasonBold}>命中：</strong>
+              {keywords.join('｜')}
+            </div>
+          )}
+          {prefs.length > 0 && (
+            <div className={styles.routeRecReasonLine}>
+              <strong className={styles.routeRecReasonBold}>偏好：</strong>
+              {prefs.slice(0, 4).join('｜')}
+            </div>
+          )}
+          {valueLines.map((line, i) => (
+            <div key={i} className={styles.routeRecReasonLine}>
+              <strong className={styles.routeRecReasonBold}>{line.label}：</strong>
+              {line.content}
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -1019,10 +1023,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             <SendOutlined />
           </button>
         </div>
-        {/* 快捷测试案例（未发送消息时显示，按模式切换） */}
+        {/* 快捷测试案例 — 统一两栏分组 */}
         {shouldShowQuickPrompts && (
           <div className={styles.quickPrompts} data-guide="quick-prompts">
-            <div className={styles.quickPromptsTitle}>例如</div>
             <div className={styles.quickPromptsList}>
               {quickPrompts.map((prompt, idx) => (
                 <button
@@ -1035,7 +1038,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     requestAnimationFrame(() => inputRef.current?.focus?.());
                   }}
                 >
-                  {prompt}……
+                  {prompt}
                 </button>
               ))}
             </div>

@@ -348,9 +348,12 @@ function buildRouteCardTitle(query: string, planData: any, backendRouteData: any
   const core = matched[0] || '';
   const durationLabel = getRouteTitleDurationLabel(parsedIntent, planData, text);
 
-  // 3. 拼装
+  // 3. 拼装 — dedup repeated prefix words
   const parts = [scope, core, durationLabel].filter(Boolean);
-  return `${parts.join('')}路线`;
+  let title = parts.join('');
+  // v22: Remove repeated words (e.g. "附近附近" → "附近")
+  title = title.replace(/(.{1,4})\1{1,}/g, '$1');
+  return `${title}路线`;
 }
 
 function createWelcomeMessage(_planMode: PlanMode): ChatMessage {
@@ -1590,6 +1593,7 @@ export function useChat(): UseChatReturn {
               const routeCardTitle = buildRouteCardTitle(currentUserMessage, completePlanForReasons, backendRouteData);
               const routeSnapshot = {
                 title: routeCardTitle,
+                user_input: currentUserMessage || '',
                 complete_plan: completePlanForReasons,
                 route_data: backendRouteData,
                 panel_days: panelDays,

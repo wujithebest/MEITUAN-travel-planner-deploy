@@ -274,14 +274,24 @@ export async function replanPipelineRoute(
       success: boolean;
       data?: PipelineReplanResponse;
       message?: string;
-    }>('/route/replan-pipeline', req);
+      code?: string;
+    }>('/route/replan-pipeline', req, { timeout: 90000 }); // v22: 90s timeout for replan
     if (payload?.data) {
       console.log('[RouteAPI] 管线重规划成功');
       return payload.data;
     }
+    // v22: Handle specific backend error codes
+    if (payload?.code === 'duplicate_poi_in_route') {
+      throw new RouteAPIError('这个地点已经在路线里了，请换一个备选点', 'DUPLICATE');
+    }
     throw new Error(payload?.message || 'Pipeline replan failed');
   } catch (error: any) {
     console.error('[RouteAPI] 管线重规划失败:', error.message);
+    // v22: Distinguish timeout from other errors
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      throw new RouteAPIError('路线调整耗时较久，请稍后重试或换一个更近的备选点', 'TIMEOUT');
+    }
+    if (error instanceof RouteAPIError) throw error;
     throw new RouteAPIError(error.message || '管线重规划失败', null);
   }
 }

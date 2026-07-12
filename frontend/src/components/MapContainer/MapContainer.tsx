@@ -586,6 +586,21 @@ export default function MapContainer({
     return 6371 * 2 * Math.asin(Math.sqrt(s));
   }
 
+  /** Format segment label for hover tooltip */
+  const formatSegmentLabel = (extData: any): string => {
+    const slot = extData?.display_slot || extData?.period || '';
+    const slotMap: Record<string, string> = {
+      morning: '上午路线', breakfast: '上午路线', '上午': '上午路线',
+      noon: '中午路线', lunch: '中午路线', '午餐': '中午路线', '中午': '中午路线',
+      afternoon: '下午路线', '下午': '下午路线',
+      evening: '晚上路线', dinner: '晚上路线', '晚餐': '晚上路线', '晚上': '晚上路线', night: '晚上路线',
+    };
+    const period = slotMap[slot] || (extData?.order <= 2 ? '上午路线' : '下午路线');
+    const from = extData?.from_poi || '起点';
+    const to = extData?.to_poi || '终点';
+    return `${period}：${from}-${to}`;
+  };
+
   // v20: Composite evidence — gap is auxiliary, not a single veto.
   // A valid 24-point driving route with close path/distance ratio passes
   // even if one segment slightly exceeds the threshold.
@@ -758,6 +773,18 @@ export default function MapContainer({
           zIndex: 40,
           extData: { ...extData, layer: 'halo' },
         });
+        // v22: Enrich extData with segment metadata for hover tooltip
+        const segMeta = {
+          ...extData,
+          layer: 'main',
+          from_poi: (dailyPolylines as any[])[idx]?.from_poi || '',
+          to_poi: (dailyPolylines as any[])[idx]?.to_poi || '',
+          display_slot: (dailyPolylines as any[])[idx]?.display_slot || (dailyPolylines as any[])[idx]?.period || '',
+          transport: (dailyPolylines as any[])[idx]?.transport || '',
+          duration_min: (dailyPolylines as any[])[idx]?.duration_min ?? 0,
+          distance_km: (dailyPolylines as any[])[idx]?.distance_km ?? 0,
+        };
+
         // v20: Main colored polyline on top with direction arrows
         const mainPolyline = new window.AMap.Polyline({
           path,
@@ -770,7 +797,47 @@ export default function MapContainer({
           showDir: !isDegraded && path.length > 5,
           dirColor: '#FFFFFF',
           zIndex: 50,
-          extData: { ...extData, layer: 'main' },
+          extData: segMeta,
+        });
+
+        // v22: Subtle hover — keep original color, just thicken + soft glow + InfoWindow
+        let hoverGlowPolyline: any = null;
+        let hoverInfoWindow: any = null;
+        const midIdx = Math.floor(path.length / 2);
+        const midPt = path[midIdx] || path[0];
+
+        mainPolyline.on('mouseover', () => {
+          // Thicken main line, keep original color
+          mainPolyline.setOptions({ strokeWeight: 9, strokeOpacity: 1, zIndex: 100 });
+          // Soft glow outline: same color, very low opacity, wider
+          hoverGlowPolyline = new window.AMap.Polyline({
+            path,
+            strokeColor: color,
+            strokeWeight: 14,
+            strokeOpacity: 0.18,
+            strokeStyle: 'solid',
+            lineJoin: 'round',
+            lineCap: 'round',
+            showDir: false,
+            zIndex: 99,
+          });
+          map.add(hoverGlowPolyline);
+          // InfoWindow — restrained styling
+          const label = formatSegmentLabel(segMeta);
+          const sub = segMeta.transport ? `${segMeta.transport}${segMeta.duration_min ? ` · ${segMeta.duration_min}分钟` : ''}${segMeta.distance_km ? ` · ${segMeta.distance_km}km` : ''}` : '';
+          hoverInfoWindow = new window.AMap.InfoWindow({
+            content: `<div style="padding:5px 8px;font-size:12px;background:#fff;color:#333;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.12);white-space:nowrap;line-height:1.4"><strong style="color:#1a1a1a">${label}</strong>${sub ? `<div style="color:#888;font-size:11px;margin-top:1px">${sub}</div>` : ''}</div>`,
+            offset: new window.AMap.Pixel(0, -30),
+          });
+          hoverInfoWindow.open(map, [midPt.lng ?? midPt[0], midPt.lat ?? midPt[1]]);
+        });
+
+        mainPolyline.on('mouseout', () => {
+          mainPolyline.setOptions({
+            strokeWeight: 6, strokeOpacity: 0.95, zIndex: 50,
+          });
+          if (hoverGlowPolyline) { map.remove(hoverGlowPolyline); hoverGlowPolyline = null; }
+          if (hoverInfoWindow) { hoverInfoWindow.close(); hoverInfoWindow = null; }
         });
 
         candidateOverlays.push(shadowPolyline);

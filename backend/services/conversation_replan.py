@@ -55,6 +55,238 @@ _CLEAR_NEW_PLAN_TOKENS = ("明天", "后天", "下周", "周末", "下个月", "
 _CONTINUATION_TOKENS = ("其他不变", "其他安排不变", "其余不变", "保持不变", "在原来基础上",
                          "在刚才基础上", "刚才的", "不变的", "别动其他的", "就把")
 
+# ── v24: meal preference replacement detection ──
+
+_FOOD_INDICATOR_CHARS = (
+    "菜", "烤", "肉", "鱼", "虾", "鸡", "鸭", "牛", "羊", "猪",
+    "面", "饭", "锅", "汤", "粉", "串", "烧", "炒", "蒸", "煮",
+    "卤", "熏", "腊", "拌", "涮", "煲", "炖", "焖", "焗", "煨",
+    "丸", "饺", "包", "饼", "糕", "酥", "卷", "排", "翅", "腿",
+    "柳", "扒", "焗", "烩", "焐", "熘", "爆", "氽", "炝", "煸",
+    "酱", "卤", "腌", "酥", "脆", "辣", "麻", "鲜", "香",
+)
+
+_POI_INDICATOR_CHARS = (
+    "公园", "山", "街", "路", "广场", "塔", "寺", "庙", "宫", "殿",
+    "园", "湖", "海", "河", "江", "桥", "馆", "院", "堂", "楼",
+    "阁", "亭", "廊", "门", "墙", "林", "岛", "滩", "湾", "港",
+)
+
+_FOOD_CUISINE_MAP: dict[str, list[str]] = {
+    "烤鸭": ["烤鸭", "北京菜", "京菜"],
+    "川菜": ["川菜", "四川菜", "川菜 餐厅"],
+    "四川菜": ["川菜", "四川菜", "川菜 餐厅"],
+    "粤菜": ["粤菜", "广东菜", "粤菜 餐厅"],
+    "广东菜": ["粤菜", "广东菜"],
+    "火锅": ["火锅", "涮肉"],
+    "涮羊肉": ["涮羊肉", "火锅", "羊肉"],
+    "日料": ["日料", "日本料理", "寿司"],
+    "日本料理": ["日料", "日本料理", "寿司"],
+    "本帮菜": ["本帮菜", "上海菜", "江浙菜"],
+    "上海菜": ["本帮菜", "上海菜", "江浙菜"],
+    "湘菜": ["湘菜", "湖南菜"],
+    "东北菜": ["东北菜", "锅包肉", "地三鲜"],
+    "烧烤": ["烧烤", "烤串", "烤肉"],
+    "西餐": ["西餐", "牛排", "西餐厅"],
+    "牛排": ["牛排", "西餐", "西餐厅"],
+    "海鲜": ["海鲜", "海鲜餐厅"],
+    "素食": ["素食", "素菜", "斋菜"],
+    "清真": ["清真", "清真菜", "回民菜"],
+    "简餐": ["简餐", "快餐", "便餐"],
+    "小吃": ["小吃", "特色小吃"],
+    "面": ["面馆", "拉面", "面条"],
+    "汉堡": ["汉堡", "西式快餐", "快餐"],
+    "披萨": ["披萨", "西餐", "意餐"],
+    "泰国菜": ["泰国菜", "泰餐", "东南亚菜"],
+    "越南菜": ["越南菜", "越南粉", "东南亚菜"],
+    "韩国菜": ["韩国菜", "韩餐", "韩国料理"],
+    "西北菜": ["西北菜", "兰州", "羊肉"],
+}
+
+_FULL_MEAL_ROUTE_SIGNALS = (
+    "美食路线", "美食之旅", "美食一日游", "美食游",
+    "专门去吃", "专门去", "一趟美食", "美食探店",
+    "重新安排", "重新规划", "新路线",
+)
+
+_MEAL_SLOT_INDICATORS = {
+    "lunch": ("午餐", "午饭", "中午", "中饭", "午间"),
+    "dinner": ("晚餐", "晚饭", "晚上吃", "晚间", "晚饭吃"),
+    "breakfast": ("早餐", "早饭", "早点"),
+}
+
+_MEAL_REFINE_NEW_PLAN_SIGNALS = ("明天", "后天", "下周", "周末", "重新", "新路线", "两天", "三天")
+
+
+def _is_food_term(term: str) -> bool:
+    """Check if a term refers to food/cuisine (not a POI name)."""
+    if not term or len(term) > 12:
+        return False
+    if any(c in term for c in _POI_INDICATOR_CHARS):
+        return False
+    if any(c in term for c in _FOOD_INDICATOR_CHARS):
+        return True
+    # Check cuisine map
+    for key in _FOOD_CUISINE_MAP:
+        if key in term or term in key:
+            return True
+    return len(term) <= 4
+
+
+def _clean_food_term(term: str) -> str:
+    """Clean a food term extracted from user text."""
+    term = re.sub(r"[，。,.!?！？；;、\s]+$", "", term.strip())
+    term = re.sub(r"^(了|的|个|一|吃|要|是|把|将)", "", term).strip()
+    term = re.sub(r"(吧|呀|呢|可以吗|行吗|了|的)$", "", term).strip()
+    return term
+
+
+def _meal_slot_from_refine_text(text: str) -> str:
+    """Extract meal slot from text."""
+    for slot, indicators in _MEAL_SLOT_INDICATORS.items():
+        if any(t in text for t in indicators):
+            return slot
+    if "晚" in text:
+        return "dinner"
+    if "午" in text or "中午" in text:
+        return "lunch"
+    if "早" in text:
+        return "breakfast"
+    return "lunch"
+
+
+def _expand_food_keywords(food: str) -> list[str]:
+    """Expand a food term into search keywords."""
+    if not food:
+        return []
+    food_clean = food.strip()
+    for key, val in _FOOD_CUISINE_MAP.items():
+        if key in food_clean or food_clean in key:
+            return list(dict.fromkeys(val))
+    # Generic expansion
+    return list(dict.fromkeys([food_clean + " 餐厅", food_clean]))
+
+
+def _looks_like_full_meal_route_request(text: str) -> bool:
+    """Check if text looks like a full meal-focused route request, not just a meal replacement."""
+    return any(t in text for t in _FULL_MEAL_ROUTE_SIGNALS)
+
+
+def _is_meal_preference_refine(text: str) -> dict | None:
+    """Detect meal preference replacement patterns on existing route.
+
+    Recognizes patterns like:
+    - 不想吃烤鸭，想吃川菜
+    - 不吃烤鸭了，换成川菜
+    - 烤鸭不要了，改成涮羊肉
+    - 午餐不吃A，想吃B
+    - 晚饭换成B
+    - 不想吃A。想吃B
+
+    Returns dict with detection info, or None if not a meal preference refine.
+    """
+    text = text.strip()
+
+    # Must not contain new-plan signals
+    if any(t in text for t in _MEAL_REFINE_NEW_PLAN_SIGNALS):
+        return None
+
+    # Must not contain new city
+    for city in _NEW_CITY_TOKENS:
+        if city in text:
+            return None
+
+    # Must not be a full meal route request
+    if _looks_like_full_meal_route_request(text):
+        return None
+
+    # Must contain food-related signals
+    has_food_signal = any(t in text for t in [
+        "吃", "菜", "饭", "餐", "烤", "涮", "火锅", "炒菜",
+        "面", "粉", "串", "烧", "蒸", "煮", "卤", "煲",
+    ])
+    if not has_food_signal:
+        return None
+
+    old_food = None
+    new_food = None
+    slot = None
+
+    # Pattern 1: "不想吃X。想吃Y" / "不想吃X，想吃Y"
+    m = re.search(r"不想吃(.+?)[。，,;；\s]*想?吃(.+)", text)
+    if m:
+        old_food = _clean_food_term(m.group(1))
+        new_food = _clean_food_term(m.group(2))
+
+    # Pattern 2: "不吃X了，换成Y" / "X不要了，改成Y" / "X不要了。想吃Y"
+    if not (old_food and new_food):
+        m = re.search(r"(?:不吃|别吃|不要)(.+?)(?:了)?[。，,;；\s]*(?:[换改]成|想?吃)(.+)", text)
+        if m:
+            old_food = _clean_food_term(m.group(1))
+            new_food = _clean_food_term(m.group(2))
+
+    # Pattern 3: "X换成Y" / "X改成Y" — single clause, both must be food terms
+    if not (old_food and new_food):
+        m = re.search(r"(.{1,10})[换改]成(.{1,10})", text)
+        if m:
+            cand_old = _clean_food_term(m.group(1))
+            cand_new = _clean_food_term(m.group(2))
+            # Both must be food terms; exclude "公园→什刹海" type replacements
+            if cand_old and cand_new and _is_food_term(cand_old) and _is_food_term(cand_new):
+                old_food = cand_old
+                new_food = cand_new
+
+    # Pattern 4: "(午餐|晚饭)不吃X，想吃Y" with slot
+    if not (old_food and new_food):
+        m = re.search(r"(午餐|午饭|晚餐|晚饭|中午|早餐|早饭)?\s*(?:不想吃|不吃|别吃|不要)(.+?)[，,;；\s]*想?吃(.+)", text)
+        if m:
+            slot = _meal_slot_from_refine_text(m.group(1) or text)
+            old_food = _clean_food_term(m.group(2))
+            new_food = _clean_food_term(m.group(3))
+
+    # Pattern 5: "X不要了。想吃Y" (period-separated)
+    if not (old_food and new_food):
+        m = re.search(r"(.{1,10})不要了[。，,;；\s]*想?吃(.+)", text)
+        if m:
+            cand_old = _clean_food_term(m.group(1))
+            cand_new = _clean_food_term(m.group(2))
+            if cand_old and cand_new and _is_food_term(cand_old):
+                old_food = cand_old
+                new_food = cand_new
+
+    # Pattern 6: "(午餐|晚饭)换成Y" (no old food specified)
+    if not new_food:
+        m = re.search(r"(午餐|午饭|晚餐|晚饭|中午|早餐|早饭)?\s*[换改]成(.+)", text)
+        if m:
+            new_food = _clean_food_term(m.group(2))
+            slot = _meal_slot_from_refine_text(m.group(1) or text)
+            if new_food and _is_food_term(new_food):
+                old_food = None
+
+    if not new_food:
+        return None
+
+    # Map to keywords
+    new_keywords = _expand_food_keywords(new_food)
+    old_keywords = _expand_food_keywords(old_food) if old_food else []
+
+    if not slot:
+        slot = _meal_slot_from_refine_text(text)
+
+    # Extract budget if present
+    budget_match = re.search(r"人均(\d+)", text)
+    budget = int(budget_match.group(1)) if budget_match else None
+
+    return {
+        "detected": True,
+        "old_food_keywords": old_keywords,
+        "new_food_keywords": new_keywords,
+        "old_food_raw": old_food,
+        "new_food_raw": new_food,
+        "meal_slot": slot,
+        "budget_per_capita": budget,
+    }
+
 _EXPLICIT_REPLACE_TOKENS = ("换成", "替换成", "替换为", "改成", "改为")
 
 _EXPLICIT_REMOVE_TOKENS = ("不要", "不想去", "不去", "去掉", "删除", "删掉", "别安排", "跳过", "也不想去")
@@ -87,6 +319,37 @@ def classify_conversation_route_change_fast(
             latest_user_intent_summary=text,
             earliest_step="step1",
             reason="no route context available",
+        )
+
+    # v24: Meal preference replacement detection — must run before other fast rules
+    _meal_refine = _is_meal_preference_refine(text)
+    if _meal_refine and has_route:
+        _keep_names = [p.get("name", "") for p in (route_context.get("points") or [])[:8]
+                       if p.get("kind") not in ("meal", "start", "hint", "free_explore", "candidate")]
+        print(
+            f"[MealRefineAudit] detected=true "
+            f"old_food={_meal_refine.get('old_food_raw')} "
+            f"new_food={_meal_refine.get('new_food_raw')} "
+            f"slot={_meal_refine.get('meal_slot')} "
+            f"keep_points={'|'.join(_keep_names[:5])}"
+        )
+        return ConversationRouteDecision(
+            mode="refine_current", confidence=0.92,
+            latest_user_intent_summary=text,
+            earliest_step="local_replan",
+            intent_patch={
+                "meal_replacement": True,
+                "old_food_keywords": _meal_refine.get("old_food_keywords", []),
+                "new_food_keywords": _meal_refine.get("new_food_keywords", []),
+                "meal_slot": _meal_refine.get("meal_slot", "lunch"),
+                "keep_existing_route": True,
+                "budget_per_capita": _meal_refine.get("budget_per_capita"),
+            },
+            include_constraints={
+                "other_arrangements_unchanged": True,
+                "keep_route_points": True,
+            },
+            reason=f"meal preference replacement: {_meal_refine.get('old_food_raw', '?')} → {_meal_refine.get('new_food_raw', '?')}",
         )
 
     # v21: Resolve "附近" context: previous_destination vs standalone
@@ -321,13 +584,23 @@ def _resolve_nearby_reference(
         # Direct contextual reference — boost confidence
         pass  # continue to resolve previous destination
 
+    # v22: Fresh-start "待会儿/现在" nearby request → standalone, not follow_up
+    _fresh_start = any(t in current_text for t in [
+        "待会儿", "现在", "等会儿", "一会儿", "等下",
+    ])
+    _has_direct_me = any(t in current_text for t in [
+        "我现在在", "我在", "我附近", "当前位置", "这附近", "这边",
+    ])
+    if not _has_demonstrative and (_fresh_start or _has_direct_me):
+        print(
+            f"[NearbyDispatchAudit] standalone_nearby=true source=home_location "
+            f"skip_previous_destination=true fresh_start={_fresh_start}"
+        )
+        return None
+
     # Must NOT contain explicit new location (unless demonstrative)
     if not _has_demonstrative:
-        _has_explicit_loc = any(t in current_text for t in [
-            "我现在在", "我在", "我附近", "当前位置",
-            "这附近", "这边",
-        ])
-        if _has_explicit_loc:
+        if _has_direct_me:
             return None
 
     # Must NOT be new topic with different temporal scope
@@ -572,6 +845,16 @@ def _planning_dispatch_fast_fallback(
         point_operations=fast.point_operations,
         reason=fast.reason,
     )
+
+
+# ── v24: meal preference detection flag ──
+
+def is_meal_preference_refine_decision(decision: "PlanningDispatchDecision | ConversationRouteDecision | None") -> bool:
+    """Check if a dispatch decision is a meal preference replacement."""
+    if decision is None:
+        return False
+    patch = getattr(decision, "intent_patch", None) or {}
+    return bool(patch.get("meal_replacement", False))
 
 
 # ── unified dispatch (LLM-first) ──

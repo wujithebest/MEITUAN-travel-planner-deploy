@@ -1145,6 +1145,53 @@ async def _build_route_data(
     pts_rating = sum(1 for p in points if p.get("rating") is not None)
     pts_addr = sum(1 for p in points if p.get("address"))
     print(f"[DEBUG step4] route_data.points count={len(points)} withPhoto={pts_photo} withRating={pts_rating} withAddress={pts_addr}")
+    # v22: Candidate points fallback — ensure at least 2-3 theme backup candidates
+    _cand_count = len(candidate_points or [])
+    if _cand_count < 2:
+        print(f"[CandidateBackupAudit] scenario=low_candidates before={_cand_count} "
+              f"attempting step2_unselected fallback")
+        # Try to pull in step2 unselected anchors as backup candidates
+        _unselected = list(getattr(parsed_intent, "_unselected_anchors", []) or [])
+        _added = 0
+        for ua in _unselected[:6]:
+            if _added >= 3:
+                break
+            _ua_name = ua.get("name") or ua.get("label", "")
+            if not _ua_name:
+                continue
+            # Skip if already in route points
+            if any(p.get("name") == _ua_name for p in points):
+                continue
+            # Skip if already in candidates
+            if any(c.get("name") == _ua_name for c in (candidate_points or [])):
+                continue
+            _ua_loc = ua.get("location") or ua.get("center") or ua.get("coord")
+            _ua_lng = _ua_loc.get("lng") if isinstance(_ua_loc, dict) else None
+            _ua_lat = _ua_loc.get("lat") if isinstance(_ua_loc, dict) else None
+            # Distance check: must be within 3km of any main route POI
+            _near = False
+            if _ua_lng and _ua_lat:
+                for rp in points[:15]:
+                    rp_loc = rp.get("location")
+                    if rp_loc and isinstance(rp_loc, dict):
+                        _d = ((_ua_lng - float(rp_loc.get("lng", 0))) ** 2 +
+                              (_ua_lat - float(rp_loc.get("lat", 0))) ** 2) ** 0.5 * 111000
+                        if _d < 3000:
+                            _near = True
+                            break
+            if _near:
+                (candidate_points or []).append({
+                    "name": _ua_name,
+                    "location": _ua_loc,
+                    "kind": "candidate",
+                    "candidate_source": "theme_backup",
+                    "matched_facets": ua.get("matched_facets") or ua.get("tags", []),
+                })
+                _added += 1
+        print(f"[CandidateBackupAudit] scenario=art_photo_cafe_shop "
+              f"before={_cand_count} after={len(candidate_points or [])} "
+              f"source=step2_unselected added={_added}")
+
     print(f"[DEBUG step4] route_data.candidate_points count={len(candidate_points or [])} sample={[(c.get('name',''), c.get('candidate_source','')) for c in (candidate_points or [])[:5]]}")
 
     # display_slot 统计

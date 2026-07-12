@@ -116,18 +116,45 @@ export function getUserDepartureCoords(user: {
   return [FALLBACK_HOME_LOCATION.lng, FALLBACK_HOME_LOCATION.lat];
 }
 
-export function shouldAutoLocateDeparture(user: {
-  home_location?: { label?: string; lat?: number; lng?: number } | null;
+export function hasManualDeparture(user: {
+  home_location?: { label?: string; lat?: number; lng?: number; source?: string } | null;
   location?: {
-    home_address?: { name?: string; full_address?: string; address?: string; lng?: number | null; lat?: number | null } | string | null;
+    home_address?: { name?: string; full_address?: string; source?: string; lng?: number | null; lat?: number | null } | string | null;
     latitude?: number;
     longitude?: number;
   } | null;
 } | null | undefined): boolean {
+  if (!user) return false;
+  // Check if home_location was explicitly set by user
+  if (user.home_location?.source === 'manual') return true;
+  if (user.home_location?.source === 'device') return true; // device-located but valid
+  const ha = user.location?.home_address;
+  if (ha && typeof ha === 'object' && (ha.name || ha.full_address) && ha.lng && ha.lat) {
+    // Has a valid home address with coordinates
+    const [lng, lat] = getUserDepartureCoords(user);
+    const isFallback =
+      Math.abs(lng - FALLBACK_HOME_LOCATION.lng) < 0.000001 &&
+      Math.abs(lat - FALLBACK_HOME_LOCATION.lat) < 0.000001;
+    if (!isFallback) return true;
+  }
+  return false;
+}
+
+export function shouldAutoLocateDeparture(user: {
+  home_location?: { label?: string; lat?: number; lng?: number; source?: string } | null;
+  location?: {
+    home_address?: { name?: string; full_address?: string; address?: string; source?: string; lng?: number | null; lat?: number | null } | string | null;
+    latitude?: number;
+    longitude?: number;
+  } | null;
+} | null | undefined): boolean {
+  if (!user) return false;
+  if (hasManualDeparture(user)) return false;
+  // Only auto-locate if truly no saved location
   const label = getUserDepartureLabel(user);
   const [lng, lat] = getUserDepartureCoords(user);
   const isFallbackCoord =
     Math.abs(lng - FALLBACK_HOME_LOCATION.lng) < 0.000001 &&
     Math.abs(lat - FALLBACK_HOME_LOCATION.lat) < 0.000001;
-  return !user || label === DEFAULT_DEPARTURE_LABEL || label === FALLBACK_HOME_LOCATION.label || isFallbackCoord;
+  return label === DEFAULT_DEPARTURE_LABEL || label === FALLBACK_HOME_LOCATION.label || isFallbackCoord;
 }

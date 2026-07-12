@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MapPin, Heart, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
+import { MapPin, Trash2, ArrowLeftRight, Plus, X, Bus, Car, Navigation } from 'lucide-react';
 import { message } from 'antd';
 import { getPoiAlternatives } from '@/api/poi';
 import { useUserStore } from '@/store/userStore';
@@ -364,32 +364,138 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     return [...unique.values()];
   }, [candidatePoints, remoteCandidates]);
 
-  // Filter candidates by same day + slot as anchorPoi
-  const filteredCandidates = useMemo(() => {
+  // v22: Distance-based candidate filtering with proximity to adjacent POIs
+  const scoredCandidates = useMemo(() => {
     if (!candidateMode) return [];
     const anchor = candidateMode.anchorPoi;
     const anchorDay = anchor.day_index;
     const anchorSlot = anchor.slot || anchor.display_slot || '';
-    const anchorParent = anchor.parent_anchor || anchor.sub_anchor_name || '';
+    const actionType = candidateMode.action;
+    const anchorLoc = parseLocation(anchor.location);
 
-    let filtered = availableCandidates.filter((c: any) => {
+    const anchorIdx = flatPois.findIndex(
+      p => (p.poi_id && p.poi_id === (anchor.poi_id || '')) || p.name === anchor.name
+    );
+    const prevPoi = anchorIdx > 0 ? flatPois[anchorIdx - 1] : null;
+    const nextPoi = anchorIdx >= 0 && anchorIdx < flatPois.length - 1 ? flatPois[anchorIdx + 1] : null;
+    const prevLoc = prevPoi ? parseLocation(prevPoi.location) : null;
+    const nextLoc = nextPoi ? parseLocation(nextPoi.location) : null;
+
+    const anchorSeg = anchorIdx >= 0
+      ? segments.find((s: any) =>
+          (s.from_poi === anchor.name || s.to_poi === anchor.name))
+      : null;
+    const transportMode = (anchorSeg?.transport || '').toLowerCase();
+    const isTransit = transportMode.includes('地铁') || transportMode.includes('公交') || transportMode.includes('transit');
+    const isDriving = transportMode.includes('自驾') || transportMode.includes('驾车') || transportMode.includes('driving');
+    const isWalking = transportMode.includes('步行') || transportMode.includes('walking');
+
+    // Build existing POI keys from current route for dedup
+    const existingKeys = new Set<string>();
+    for (const p of flatPois) {
+      if (p.poi_id) existingKeys.add(String(p.poi_id));
+      if (p.gaode_poi_id) existingKeys.add(String(p.gaode_poi_id));
+      if (p.name) existingKeys.add(`name:${p.name}`);
+      if (p.name && p.location) existingKeys.add(`loc:${p.name}:${typeof p.location === 'string' ? p.location : JSON.stringify(p.location)}`);
+    }
+
+    const isExistingPoi = (c: any): boolean => {
+      if (c.poi_id && existingKeys.has(String(c.poi_id))) return true;
+      if (c.gaode_poi_id && existingKeys.has(String(c.gaode_poi_id))) return true;
+      if (c.name && existingKeys.has(`name:${c.name}`)) {
+        const cLoc = parseLocation(c.location);
+        // Allow same name only if >500m apart AND category differs
+        for (const p of flatPois) {
+          if (p.name === c.name) {
+            const pLoc = parseLocation(p.location);
+            if (cLoc && pLoc && haversineKm(cLoc, pLoc) > 0.5 && p.category && c.category && p.category !== c.category) {
+              return false;
+            }
+            return true;
+          }
+        }
+        return true;
+      }
+      if (c.name && c.location) {
+        const cKey = `loc:${c.name}:${typeof c.location === 'string' ? c.location : JSON.stringify(c.location)}`;
+        if (existingKeys.has(cKey)) return true;
+      }
+      return false;
+    };
+
+    let maxKm = isTransit || isDriving ? 3.0 : isWalking ? 1.5 : 2.0;
+    let maxDetourKm = isTransit || isDriving ? 3.0 : isWalking ? 0.8 : 1.5;
+
+    let scored: Array<{ candidate: any; detourKm: number; distToAnchor: number; distToPrev: number; distToNext: number }> = [];
+    for (const c of availableCandidates) {
       const cDay = c.day ?? c.day_index;
       const cSlot = c.display_slot || c.slot || c.period || '';
-      if (cDay != null && cDay !== anchorDay) return false;
-      if (anchorSlot && cSlot && cSlot !== anchorSlot) return false;
-      return true;
+      if (cDay != null && cDay !== anchorDay) continue;
+      if (anchorSlot && cSlot && cSlot !== anchorSlot) continue;
+      if (isExistingPoi(c)) continue; // v22: exclude already-in-route POIs
+      const cLoc = parseLocation(c.location);
+      if (!cLoc) continue;
+      const distToAnchor = anchorLoc ? haversineKm(anchorLoc, cLoc) : 999;
+      const distToPrev = prevLoc ? haversineKm(prevLoc, cLoc) : 0;
+      const distToNext = nextLoc ? haversineKm(cLoc, nextLoc) : 0;
+      let detourKm = 0;
+
+      if (actionType === 'replace') {
+        if (distToAnchor > maxKm) continue;
+        if (prevLoc && nextLoc) {
+          const origDist = haversineKm(prevLoc, nextLoc);
+          detourKm = haversineKm(prevLoc, cLoc) + haversineKm(cLoc, nextLoc) - origDist;
+        } else if (prevLoc) {
+          detourKm = haversineKm(prevLoc, cLoc);
+        } else if (nextLoc) {
+          detourKm = haversineKm(cLoc, nextLoc);
+        }
+        if (detourKm > maxDetourKm && (prevLoc || nextLoc)) continue;
+      } else {
+        if (distToAnchor > maxKm) continue;
+        if (nextLoc) detourKm = distToAnchor + distToNext - (anchorLoc ? haversineKm(anchorLoc, nextLoc) : 0);
+        if (detourKm > maxDetourKm && nextLoc) continue;
+      }
+      scored.push({ candidate: c, detourKm, distToAnchor, distToPrev, distToNext });
+    }
+
+    // Progressive relaxation
+    for (let relax = 1; scored.length === 0 && relax <= 2; relax++) {
+      const rKm = maxKm * (1 + relax);
+      if (rKm > 5) break;
+      for (const c of availableCandidates) {
+        const cDay = c.day ?? c.day_index;
+        if (cDay != null && cDay !== anchorDay) continue;
+        if (isExistingPoi(c)) continue;
+        const cLoc = parseLocation(c.location);
+        if (!cLoc) continue;
+        const d = anchorLoc ? haversineKm(anchorLoc, cLoc) : 999;
+        if (d > rKm) continue;
+        scored.push({ candidate: c, detourKm: d, distToAnchor: d, distToPrev: 0, distToNext: 0 });
+      }
+    }
+
+    scored.sort((a, b) => {
+      if (Math.abs(a.detourKm - b.detourKm) > 0.05) return a.detourKm - b.detourKm;
+      return (Number(b.candidate.rating || 0)) - (Number(a.candidate.rating || 0));
     });
 
-    // If too few, try matching by parent_anchor
-    if (filtered.length === 0 && anchorParent) {
-      filtered = availableCandidates.filter((c: any) => {
-        const cParent = c.parent_name || c.parent_anchor || c.sub_anchor_name || '';
-        if (cParent && anchorParent && !cParent.includes(anchorParent) && !anchorParent.includes(cParent)) return false;
-        return true;
-      });
+    return scored.slice(0, 6);
+  }, [candidateMode, availableCandidates, flatPois, segments]);
+
+  const filteredCandidates = useMemo(
+    () => scoredCandidates.map(s => s.candidate),
+    [scoredCandidates],
+  );
+
+  const candidateDistMap = useMemo(() => {
+    const map = new Map<string, { detourKm: number; distToAnchor: number; distToPrev: number; distToNext: number }>();
+    for (const s of scoredCandidates) {
+      const key = s.candidate.poi_id || s.candidate.gaode_poi_id || s.candidate.name || '';
+      if (key) map.set(String(key), { detourKm: s.detourKm, distToAnchor: s.distToAnchor, distToPrev: s.distToPrev, distToNext: s.distToNext });
     }
-    return filtered;
-  }, [candidateMode, availableCandidates]);
+    return map;
+  }, [scoredCandidates]);
 
   const loadReplacementCandidates = async (poi: any) => {
     const requestId = ++candidateRequestId.current;
@@ -501,7 +607,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
         {candidateLoading && filteredCandidates.length === 0 ? (
           <div className={styles.emptyState}><p>正在加载备选地点...</p></div>
         ) : filteredCandidates.length === 0 ? (
-          <div className={styles.emptyState}><p>暂无可选备选点，请稍后重试</p></div>
+          <div className={styles.emptyState}><p>附近暂无未加入路线的备选点</p></div>
         ) : (
           filteredCandidates.map((c: any, idx: number) => (
             <div
@@ -524,6 +630,16 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                   <span className={styles.routePlaceRating}>
                     {c.rating ? `${Number(c.rating).toFixed(1)}星` : '暂无评分'}
                   </span>
+                  {(() => {
+                    const cKey = c.poi_id || c.gaode_poi_id || c.name || '';
+                    const dist = cKey ? candidateDistMap.get(String(cKey)) : undefined;
+                    if (!dist) return null;
+                    const parts: string[] = [];
+                    if (dist.distToAnchor > 0) parts.push(`距原地点 ${formatDist(dist.distToAnchor)}`);
+                    if (dist.detourKm > 0.02) parts.push(`绕行约 ${formatDist(dist.detourKm)}`);
+                    if (parts.length === 0) return null;
+                    return <span className={styles.candidateDistHint}>{parts.join(' · ')}</span>;
+                  })()}
                 </div>
               </div>
               <button
@@ -649,9 +765,6 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                             })()}
                             {/* Action buttons — inside info column below text */}
                             <div className={styles.routePlaceActions}>
-                              <button type="button" className={styles.poiActionBtn} title="收藏" onClick={() => message.info('收藏功能开发中')}>
-                                <Heart size={15} />
-                              </button>
                               <button type="button" className={styles.poiActionBtn} title="替换" onClick={() => handlePoiActionClick(poi, 'replace')}>
                                 <ArrowLeftRight size={15} />
                               </button>

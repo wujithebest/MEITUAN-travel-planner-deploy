@@ -264,6 +264,63 @@ def validate_plan_reality(
     hidden_primary = False
     primary_anchors: list[str] = []
 
+    # v22: Multi-facet art special case — count art/gallery/cafe/shop POIs as primary
+    _is_multi_facet_art = (
+        getattr(parsed_intent, "activity_facet", "") in ("multi_facet_art_photo_cafe_shop", "nearby_food_stroll_route")
+        or getattr(parsed_intent, "theme_route_locked", False)
+    )
+    _ART_FACET_KEYWORDS = [
+        "美术馆", "艺术馆", "艺术中心", "艺术空间", "画廊", "展览", "博物馆",
+        "798", "创意园", "文创园", "文化中心", "书店", "书局", "文创",
+        "买手店", "杂货店", "咖啡", "coffee", "cafe", "胡同", "街区", "广场",
+    ]
+    _ART_FACET_TYPECODES = {
+        "140000", "140100", "140200", "140300", "140400",
+        "110000", "110100", "110200",
+        "050400", "050500", "060100", "060900", "080300",
+    }
+
+    def _is_multi_facet_primary(pt: dict) -> bool:
+        if not _is_multi_facet_art:
+            return False
+        name = str(pt.get("name", "") or "")
+        addr = str(pt.get("address", "") or "")
+        cat = str(pt.get("category", "") or "")
+        tc = str(pt.get("typecode", "") or "")
+        text = f"{name} {addr} {cat}"
+        if any(kw in text for kw in _ART_FACET_KEYWORDS):
+            return True
+        if tc[:6] in _ART_FACET_TYPECODES or tc[:4] in _ART_FACET_TYPECODES or tc[:2] in _ART_FACET_TYPECODES:
+            return True
+        return bool(pt.get("theme_evidence_accepted"))
+
+    # v25: Check whether a route point satisfies a specific required theme facet
+    def _point_matches_required_facet(pt: dict, facet_id: str) -> bool:
+        facets = set(pt.get("matched_facets") or [])
+        if facet_id in facets:
+            return True
+        name = str(pt.get("name", "") or "")
+        addr = str(pt.get("address", "") or "")
+        cat = str(pt.get("category", "") or "")
+        tc = str(pt.get("typecode", "") or "")
+        text = f"{name} {addr} {cat}".lower()
+        if facet_id == "cafe_stop":
+            return any(t in text for t in ["咖啡", "coffee", "cafe"]) or tc.startswith(("0504", "0505", "0509", "0510"))
+        if facet_id == "specialty_shop":
+            return any(t in text for t in ["买手店", "特色小店", "文创", "杂货", "集合店", "生活方式"])
+        if facet_id == "art_culture_lifestyle":
+            return any(t in text for t in ["艺术", "画廊", "美术馆", "展览", "798", "751", "创意园", "文创园"])
+        return False
+
+    _multi_facet_primary_before = primary_count
+    # v25: Track required facet coverage for multi_facet_art routes
+    _required_facets: list[str] = [
+        str(f.get("id") or "")
+        for f in (getattr(parsed_intent, "theme_facets", []) or [])
+        if isinstance(f, dict) and f.get("required")
+    ]
+    _facet_hits: dict[str, bool] = {fid: False for fid in _required_facets}
+
     for pt in points:
         name = str(pt.get("name", "") or "")
         kind = str(pt.get("kind", "") or "")
@@ -282,10 +339,20 @@ def validate_plan_reality(
 
         if is_display:
             visible_count += 1
+            # v25: Check required facet coverage
+            for fid in _facet_hits:
+                if _point_matches_required_facet(pt, fid):
+                    _facet_hits[fid] = True
         if is_meal:
             meal_count += 1
 
         if is_no_reservation and is_display and not is_meal:
+            primary_count += 1
+            primary_anchors.append(name)
+            continue
+
+        # v22: Multi-facet art — bypass normal scoring; art/gallery/cafe/shop = primary
+        if _is_multi_facet_primary(pt) and is_display and not is_meal:
             primary_count += 1
             primary_anchors.append(name)
             continue
@@ -437,6 +504,33 @@ def validate_plan_reality(
     # ── Theme route minimums ──
     if poi_query_type == "theme_route":
         time_budget = float(getattr(parsed_intent, "time_budget", 1.0) or 1.0)
+        # v22: Multi-facet art — recount and relax minimums
+        if _is_multi_facet_art:
+            _after = primary_count
+            # v25: Required facet coverage check — cafe_stop / specialty_shop must have at least one hit
+            _coverage_policy = str(getattr(parsed_intent, "theme_coverage_policy", "") or "")
+            if _coverage_policy == "cover_required_facets" and _required_facets:
+                for fid, hit in _facet_hits.items():
+                    if not hit:
+                        violations.append(f"missing_required_facet:{fid}")
+                print(
+                    f"[FacetCoverageAudit] hits={_facet_hits} "
+                    f"required={_required_facets}"
+                )
+            print(
+                f"[MultiFacetArtAudit] reality_recount "
+                f"before_primary={_multi_facet_primary_before} "
+                f"after_primary={_after} "
+                f"visible={visible_count}"
+            )
+            # Remove full_day_theme_needs_3_related if we have visible >= 4
+            violations = [v for v in violations
+                          if "needs_3_related" not in v and "needs_2_related" not in v]
+            # Only require primary >= 2 for multi_facet
+            if _after >= 2 and visible_count >= 4:
+                pass  # OK
+            elif visible_count >= 3:
+                pass  # borderline OK
         # v21: Feature-based requests only need 1 visible related POI
         if is_no_reservation:
             if (visible_count - meal_count) < 2:

@@ -1544,6 +1544,37 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
 
     # v6: 强餐饮意图时, meal_search_keywords 优先作为锚点搜索关键词
     search_kws = list(parsed_intent.search_keywords[:keyword_limit])
+
+    # v25: Multi-facet art — force cafe/shop keywords into macro search
+    _is_multi_facet_art = getattr(parsed_intent, "activity_facet", "") == "multi_facet_art_photo_cafe_shop"
+    if _is_multi_facet_art:
+        def _ensure_keywords(base: list[str], required: list[str], limit: int) -> list[str]:
+            result = list(dict.fromkeys(base))
+            for kw in required:
+                if kw and kw not in result:
+                    result.append(kw)
+            return result[:max(limit, len(required), len(result))]
+
+        # Derive city hint from existing keywords
+        _city_hint = ""
+        for kw in parsed_intent.search_keywords:
+            for _c in ("北京", "上海", "天津", "重庆", "广州", "深圳", "成都", "武汉", "南京", "杭州"):
+                if _c in kw:
+                    _city_hint = _c
+                    break
+            if _city_hint:
+                break
+        _city_hint = _city_hint or "北京"
+
+        _required_kws = [
+            f"{_city_hint} 文艺拍照 路线",
+            f"{_city_hint} 美术馆 艺术空间",
+            f"{_city_hint} 创意园区 文创园",
+            f"{_city_hint} 精品咖啡 独立咖啡馆",
+            f"{_city_hint} 买手店 特色小店",
+        ]
+        search_kws = _ensure_keywords(search_kws, _required_kws, limit=max(keyword_limit, 6))
+        print(f"[MultiFacetMacroAudit] search_kws={search_kws} city_hint={_city_hint}")
     if strong_meal:
         meal_kws = getattr(parsed_intent, "meal_search_keywords", []) or []
         for mk in meal_kws:
@@ -3659,6 +3690,29 @@ def _assemble_plan(
 
 
 async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logger: PipelineLogger) -> CompletePlan:
+    # v24: Meal replacement — skip macro search, return lightweight plan.
+    # The meal slot replan handles the actual replacement; Step2 must not
+    # let new cuisine keywords override the existing route structure.
+    _meal_replace = getattr(parsed_intent, "meal_replacement", False)
+    _keep_route = getattr(parsed_intent, "keep_existing_route", False)
+    if _meal_replace or _keep_route:
+        city = (
+            getattr(parsed_intent, "resolved_city", "")
+            or (user_profile.permanent_city[0] if user_profile.permanent_city else "上海市")
+        )
+        print(
+            f"[MealRefineAudit] step2 skipped: "
+            f"meal_replacement={_meal_replace} keep_existing_route={_keep_route}"
+        )
+        return CompletePlan(
+            time_budget=0.5,
+            fixed_budget=0.0,
+            remaining_budget=0.5,
+            day_plans=[],
+            city=city,
+            transport=getattr(parsed_intent, "transport_hint", "公共交通") or "公共交通",
+        )
+
     # v21: Preserve city from previous route context if home differs
     _prev_city = getattr(parsed_intent, "resolved_city", "") or ""
     resolved_city = await _resolve_city_from_profile(user_profile)

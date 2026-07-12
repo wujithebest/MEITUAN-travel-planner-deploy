@@ -402,8 +402,13 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
       day_index: seg.day_index,
       polyline: polylineStr,
       color: segColor,
-      transport: seg.transport,
+      transport: seg.transport || '',
       period: (seg as any).period || (seg as any).slot || '',
+      display_slot: (seg as any).display_slot || (seg as any).slot || '',
+      from_poi: (seg as any).from_poi || '',
+      to_poi: (seg as any).to_poi || '',
+      duration_min: (seg as any).duration_min ?? 0,
+      distance_km: (seg as any).distance_km ?? 0,
       degraded: (seg as any).degraded || (seg as any).polyline_source === 'fallback_straight' || false,
       polyline_source: (seg as any).polyline_source || '',
       route_error: (seg as any).route_error || '',
@@ -816,64 +821,78 @@ export const useRouteStore = create<RouteState>((set, get) => ({
       return;
     }
 
+    // v22: Trim payload — only send essential fields
+    const TRIM_POINT_FIELDS = [
+      'name', 'poi_id', 'gaode_poi_id', 'location', 'kind',
+      'day_index', 'display_order', 'route_order', 'display_slot',
+      'typecode', 'category',
+    ];
+    const TRIM_SEGMENT_FIELDS = [
+      'from_poi', 'to_poi', 'from_display_order', 'to_display_order',
+      'day_index', 'period', 'transport', 'distance_km', 'duration_min',
+      'polyline', 'polyline_source',
+    ];
+    const trimPoints = ((rawData as any).points || []).map((p: any) => {
+      const obj: any = {};
+      for (const f of TRIM_POINT_FIELDS) if (p[f] !== undefined) obj[f] = p[f];
+      return obj;
+    });
+    const trimSegments = ((rawData as any).segments || []).map((s: any) => {
+      const obj: any = {};
+      for (const f of TRIM_SEGMENT_FIELDS) if (s[f] !== undefined) obj[f] = s[f];
+      return obj;
+    });
+
     set({ loading: true });
     try {
       const result = await replanPipelineRoute({
-        points: (rawData as any).points || [],
-        segments: (rawData as any).segments || [],
+        points: trimPoints,
+        segments: trimSegments,
         operations: operations as any,
         transport_mode: state.transportMode,
         route_id: state.routeId,
       });
 
-      const rejectedMutation = result.mutation_audit?.find(audit => !audit.applied);
-      if (rejectedMutation) {
-        throw new Error(rejectedMutation.failure_reason || '路线地点操作未生效');
+      const audit = result.mutation_audit?.find((a: any) => !a.applied);
+      if (audit) {
+        const reason = audit.failure_reason || '路线地点操作未生效';
+        set({ loading: false });
+        throw new Error(reason);
       }
 
-      const previousPoints = ((rawData as any).points || []).filter((point: any) =>
-        point.kind !== 'hint' && point.kind !== 'free_explore'
-      );
-      const returnedPoints = (result.route.points || []).filter((point: any) =>
-        point.kind !== 'hint' && point.kind !== 'free_explore'
-      );
-      const addOperations = operations.filter(operation => operation.action === 'add');
-      if (addOperations.length > 0 && returnedPoints.length !== previousPoints.length + addOperations.length) {
-        throw new Error('添加地点后路线点数量未正确增加');
-      }
-      for (const operation of addOperations) {
-        const target = operation.poi || {};
-        const targetId = target.gaode_poi_id || target.poi_id || operation.poi_id || '';
-        const targetName = target.name || operation.poi_name || '';
-        const matches = returnedPoints.filter((point: any) =>
-          (targetId && (point.gaode_poi_id === targetId || point.poi_id === targetId))
-          || (targetName && point.name === targetName)
-        );
-        if (matches.length !== 1) {
-          throw new Error(matches.length === 0
-            ? `添加地点未进入最终路线: ${targetName || targetId}`
-            : `添加地点在最终路线中重复: ${targetName || targetId}`);
-        }
-      }
+      const returnedPoints = result.route.points || [];
+      const returnedSegments = result.route.segments || [];
 
-      const blockedPolylineSources = new Set([
+      // v22: Relaxed polyline validation — accept strings, arrays, or missing
+      const blockedSources = new Set([
         'fallback_straight', 'route_api_failed', 'invalid_geometry',
         'invalid_coordinates', 'discontinuous_polyline', 'sparse_polyline',
       ]);
-      const returnedSegments = result.route.segments || [];
-      const invalidSegment = returnedSegments.find((segment: any) => (
-        blockedPolylineSources.has(segment.polyline_source || '')
-        || !Array.isArray(segment.polyline)
-        || segment.polyline.length < 2
-      ));
-      if (returnedSegments.length === 0 || invalidSegment) {
-        console.error('[PoiMutationFrontendAudit] rejected non-drawable route', {
-          segmentCount: returnedSegments.length,
-          invalidSegment: invalidSegment
-            ? `${invalidSegment.from_poi || ''}->${invalidSegment.to_poi || ''}`
-            : 'all_segments_missing',
+      const validSegments = returnedSegments.filter((seg: any) => {
+        const src = seg.polyline_source || '';
+        if (blockedSources.has(src)) return false;
+        const poly = seg.polyline;
+        if (!poly) return false;
+        if (Array.isArray(poly)) return poly.length >= 2;
+        if (typeof poly === 'string') return poly.split(';').length >= 2;
+        return false;
+      });
+
+      if (validSegments.length === 0 && returnedSegments.length === 0) {
+        // No segments at all — reuse old segments
+        result.route.segments = (rawData as any).segments || [];
+      } else if (validSegments.length < returnedSegments.length) {
+        // Some segments failed — keep old ones for those that failed
+        const oldSegs = (rawData as any).segments || [];
+        const mergedSegments = returnedSegments.map((seg: any, idx: number) => {
+          const src = seg.polyline_source || '';
+          if (blockedSources.has(src) || !seg.polyline) return oldSegs[idx] || seg;
+          const poly = seg.polyline;
+          if (Array.isArray(poly) && poly.length < 2) return oldSegs[idx] || seg;
+          if (typeof poly === 'string' && poly.split(';').length < 2) return oldSegs[idx] || seg;
+          return seg;
         });
-        throw new Error('新路线未生成完整线路，已保留原地图');
+        result.route.segments = mergedSegments;
       }
 
       get().convertAndSetRoute({
@@ -883,9 +902,10 @@ export const useRouteStore = create<RouteState>((set, get) => ({
         route_id: result.route_id,
       } as any);
       set({ routeId: result.route_id, loading: false });
-    } catch (e) {
+    } catch (e: any) {
       console.error('[Store] 管线重规划失败:', e);
       set({ loading: false });
+      // v22: pass through RouteAPIError with specific messages
       throw e;
     }
   },

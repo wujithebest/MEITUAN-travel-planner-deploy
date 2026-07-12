@@ -188,23 +188,33 @@ async def apply_pipeline_replan(
     points: list[dict[str, Any]],
     operations: list[dict[str, Any]],
     route_id: str | None = None,
+    existing_segments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    import time as _time
+    _t0 = _time.monotonic()
     next_points = [dict(p) for p in points]
-    before_count = len(next_points)
     audit_log: list[dict[str, Any]] = []
+
+    # ── Track which indices were mutated ──
+    mutated_indices: set[int] = set()
 
     for op in operations:
         action = op.get("action")
         pre_count = len(next_points)
 
         if action == "remove":
-            prev = len(next_points)
-            next_points = [p for p in next_points if not _same_point(p, op)]
-            applied = len(next_points) < prev
+            found_idx = -1
+            for i, p in enumerate(next_points):
+                if _same_point(p, op):
+                    found_idx = i
+                    break
+            if found_idx >= 0:
+                mutated_indices.add(found_idx)
+                next_points.pop(found_idx)
             audit_log.append({
                 "action": action, "requested_target": op.get("poi_id") or op.get("poi_name"),
-                "applied": applied, "before_point_count": prev, "after_point_count": len(next_points),
-                "failure_reason": "" if applied else "target_not_found",
+                "applied": found_idx >= 0, "before_point_count": pre_count, "after_point_count": len(next_points),
+                "failure_reason": "" if found_idx >= 0 else "target_not_found",
             })
 
         elif action == "replace":
@@ -213,6 +223,7 @@ async def apply_pipeline_replan(
             for i, p in enumerate(next_points):
                 if _same_point(p, op):
                     next_points[i] = _normalize_new_poi(new_poi, p)
+                    mutated_indices.add(i)
                     found = True
                     break
             audit_log.append({
@@ -223,12 +234,18 @@ async def apply_pipeline_replan(
 
         elif action == "add":
             new_poi = op.get("poi") or {}
+            prev_len = len(next_points)
             next_points = _insert_add_point(next_points, _normalize_new_poi(new_poi), op)
-            added = len(next_points) > pre_count
+            if len(next_points) > prev_len:
+                # Mark the inserted index
+                for i, p in enumerate(next_points):
+                    if p.get("name") == new_poi.get("name") or p.get("poi_id") == new_poi.get("poi_id"):
+                        mutated_indices.add(i)
+                        break
             audit_log.append({
                 "action": action, "requested_target": new_poi.get("name") or op.get("poi_id"),
-                "applied": added, "before_point_count": pre_count, "after_point_count": len(next_points),
-                "failure_reason": "" if added else "insert_failed",
+                "applied": len(next_points) > prev_len, "before_point_count": prev_len, "after_point_count": len(next_points),
+                "failure_reason": "" if len(next_points) > prev_len else "insert_failed",
             })
 
     for entry in audit_log:
@@ -241,11 +258,10 @@ async def apply_pipeline_replan(
         )
 
     next_points = [p for p in next_points if p.get("kind") != "hint"]
-
     if not next_points:
         raise ValueError("操作后路线无剩余 POI")
 
-    # v18: 重新按当前列表顺序编号 route_order / display_order
+    # Re-number order
     disp_idx = 1
     for idx, pt in enumerate(next_points, start=1):
         pt["route_order"] = idx
@@ -255,60 +271,88 @@ async def apply_pipeline_replan(
         elif pt.get("display_order") is not None:
             pt["display_order"] = None
 
+    # Group by day
     day_waypoints: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for pt in next_points:
         if pt.get("is_waypoint", True) and pt.get("kind") != "hint":
             day_waypoints[int(pt.get("day", 1) or 1)].append(pt)
 
-    new_segments: list[dict[str, Any]] = []
-    mutation_action = operations[-1].get("action", "unknown") if operations else "unknown"
+    # ── v22: Only recalculate affected segments ──
+    # Build a set of (from_name, to_name) pairs that are 'affected' by mutations.
+    # A segment is affected if either endpoint index is in mutated_indices, or if
+    # the segment's endpoints don't exist in the old segments (due to add/remove).
+    affected_pairs: set[tuple[str, str]] = set()
     for day, waypoints in sorted(day_waypoints.items()):
-        # v18: 保持当前列表顺序，不再按旧 route_order 排序
+        waypoints = list(waypoints)
+        for i in range(len(waypoints) - 1):
+            fn = waypoints[i].get("name", "")
+            tn = waypoints[i + 1].get("name", "")
+            is_affected = False
+            # Check if this segment connects to/from a mutated point
+            for j in range(i, i + 2):
+                if j in mutated_indices:
+                    is_affected = True
+                    break
+            # Also mark as affected if we can't find a matching old segment
+            if not is_affected and existing_segments:
+                found_old = any(
+                    s.get("from_poi") == fn and s.get("to_poi") == tn
+                    for s in existing_segments
+                )
+                if not found_old:
+                    is_affected = True
+            if is_affected:
+                affected_pairs.add((fn, tn))
+
+    new_segments: list[dict[str, Any]] = []
+    affected_count = 0
+    reused_count = 0
+
+    for day, waypoints in sorted(day_waypoints.items()):
         waypoints = list(waypoints)
         for i in range(len(waypoints) - 1):
             from_pt = waypoints[i]
             to_pt = waypoints[i + 1]
+            fn = from_pt.get("name", "")
+            tn = to_pt.get("name", "")
+            needs_recalc = (fn, tn) in affected_pairs
+
+            if not needs_recalc and existing_segments:
+                # Try to reuse existing segment
+                reused = None
+                for s in existing_segments:
+                    if s.get("from_poi") == fn and s.get("to_poi") == tn:
+                        reused = dict(s)
+                        break
+                if reused:
+                    new_segments.append(reused)
+                    reused_count += 1
+                    continue
+
+            # ── Must recalculate this segment ──
+            affected_count += 1
             loc_from = _normalize_loc(from_pt.get("location"))
             loc_to = _normalize_loc(to_pt.get("location"))
             origin = f"{loc_from['lng']},{loc_from['lat']}"
             destination = f"{loc_to['lng']},{loc_to['lat']}"
 
             segment = {
-                "from_poi": from_pt.get("name", ""),
-                "to_poi": to_pt.get("name", ""),
-                "day_index": day,
-                "transport": "自驾",
-                "duration_min": 0,
-                "distance_km": 0,
-                "polyline": [],
-                "period": to_pt.get("display_slot") or from_pt.get("display_slot") or "",
-                "degraded": False,
-                "polyline_source": "",
-                "route_error": "",
+                "from_poi": fn, "to_poi": tn, "day_index": day,
+                "transport": "自驾", "duration_min": 0, "distance_km": 0,
+                "polyline": [], "period": to_pt.get("display_slot") or from_pt.get("display_slot") or "",
+                "degraded": False, "polyline_source": "", "route_error": "",
             }
             try:
                 route = await gaode_driving_route(origin, destination)
                 if route and route.get("polyline"):
                     _raw = route["polyline"]
-                    # v20: Auto-detect coordinate order by comparing to known endpoints
                     _norm_pl = _normalize_polyline_order(_raw, loc_from, loc_to)
                     _first = _norm_pl[0] if _norm_pl else None
                     _last = _norm_pl[-1] if _norm_pl else None
-                    # Backend polyline contract is [lat,lng], matching api_client.
                     _first_distance = _latlng_distance_m(_first, loc_from) if _first else float("inf")
                     _last_distance = _latlng_distance_m(_last, loc_to) if _last else float("inf")
                     _first_ok = bool(_first and -90 <= _first[0] <= 90 and -180 <= _first[1] <= 180 and math.isfinite(_first[0]) and math.isfinite(_first[1]) and _first_distance <= 2000)
                     _last_ok = bool(_last and -90 <= _last[0] <= 90 and -180 <= _last[1] <= 180 and math.isfinite(_last[0]) and math.isfinite(_last[1]) and _last_distance <= 2000)
-                    print(
-                        f"[PolylineCoordinateAudit] action={mutation_action} "
-                        f"from_poi={from_pt.get('name','')} to_poi={to_pt.get('name','')} "
-                        f"from_location=({loc_from['lng']},{loc_from['lat']}) to_location=({loc_to['lng']},{loc_to['lat']}) "
-                        f"raw_first=({_raw[0][0]},{_raw[0][1]}) normalized_first=({_first[0]},{_first[1]}) "
-                        f"normalized_last=({_last[0]},{_last[1]}) coordinate_order=lat_lng "
-                        f"first_distance_m={_first_distance:.1f} last_distance_m={_last_distance:.1f} "
-                        f"first_valid={_first_ok} last_valid={_last_ok} "
-                        f"valid={_first_ok and _last_ok}"
-                    )
                     if _first_ok and _last_ok:
                         segment["polyline"] = _norm_pl
                     else:
@@ -327,6 +371,14 @@ async def apply_pipeline_replan(
                 segment["polyline_source"] = "route_api_failed"
                 segment["route_error"] = str(exc)
             new_segments.append(segment)
+
+    _elapsed = (_time.monotonic() - _t0) * 1000
+    print(
+        f"[PipelineReplan] affected_segments={affected_count} "
+        f"reused_segments={reused_count} "
+        f"elapsed_ms={_elapsed:.0f} "
+        f"total_segments={len(new_segments)}"
+    )
 
     new_route_id = route_id or str(uuid.uuid4())
     _route_cache[new_route_id] = {"points": next_points, "segments": new_segments}

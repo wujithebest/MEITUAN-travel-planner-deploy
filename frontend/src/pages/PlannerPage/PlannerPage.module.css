@@ -353,26 +353,26 @@
 
 /* Route Replan Loading Bar — 路线重算加载提示 */
 .routeLoadingBar {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 8px 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(8px);
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(4px);
   pointer-events: none;
 }
 
 .routeLoadingSpinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #e0e0e0;
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
   border-top-color: #FFD100;
   border-radius: 50%;
   animation: routeSpin 0.8s linear infinite;
@@ -383,10 +383,42 @@
 }
 
 .routeLoadingText {
-  font-size: 14px;
-  color: #333;
+  font-size: 15px;
   font-weight: 500;
-  white-space: nowrap;
+  color: #333;
+}
+
+.routeLoadingSub {
+  font-size: 12px;
+  color: #999;
+  margin-top: -4px;
+}
+
+.routeLoadingDots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.routeLoadingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #FFD100;
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.routeLoadingDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.routeLoadingDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
 }
 
 /* Input Overlay - 地图上方输入框 - 隐藏 */

@@ -1137,16 +1137,16 @@
 }
 
 .messageBubbleActive {
-  background: #fff4ad !important;
-  border: 1px solid rgba(230, 176, 0, 0.68);
+  background: #fff0a6 !important;
+  border: 2px solid #f5b800;
   border-radius: 14px;
-  box-shadow: 0 6px 16px rgba(132, 98, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(255, 209, 0, 0.35), 0 8px 18px rgba(120, 90, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.65);
   box-sizing: border-box;
   margin: -6px -4px -2px -8px;
   padding: 8px;
 }
 
 .messageBubbleActive .routePushCard {
-  outline: 2px solid rgba(255, 209, 0, 0.88);
+  outline: 2px solid #ffd100;
   outline-offset: 2px;
 }

@@ -391,6 +391,8 @@ class ParsedIntent(BaseModel):
     # v14: 主题画像字段
     theme_profile: Optional[str] = None          # LLM 输出的主题枚举 id 或 null
     theme_label: Optional[str] = None             # 用户原始主题中文标签
+    theme_route_locked: bool = False             # v22: prevent downstream override of theme_route
+    must_recall_target: bool = False             # v22: force recall of a specific target POI type
     theme_confidence: float = 0.0                 # 置信度 0-1
     micro_poi_keywords: list[str] = Field(default_factory=list)     # 微观POI检索类别词
     micro_required_terms: list[str] = Field(default_factory=list)   # 正向命中加分词

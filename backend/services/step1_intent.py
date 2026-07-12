@@ -27,6 +27,28 @@ from .poi_typecodes import (
 )
 
 
+# ── v24: conversation_context parsing helpers ──
+
+
+def _extract_latest_user_input(text: str) -> str:
+    """Extract the latest user input from a conversation_context XML wrapper.
+
+    When the caller wraps the request in <conversation_context>...<latest_user_input>...
+    this returns only the user's actual latest message. Otherwise returns the text as-is.
+    """
+    if not text:
+        return text
+    m = re.search(r"<latest_user_input>\s*(.+?)\s*</latest_user_input>", text, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    return text
+
+
+def _has_conversation_context(text: str) -> bool:
+    """Check if text is wrapped in a conversation_context XML."""
+    return "<conversation_context>" in (text or "")
+
+
 INCOMPLETE_REQUEST_TEXT = "消息似乎不全面，可以再说得详细一点吗~"
 LATE_NEARBY_REQUEST_TEXT = (
     "现在时间比较晚，附近可逛地点可能较少。"
@@ -57,6 +79,23 @@ NEARBY_CASUAL_TOKENS = [
     "溜达",
 ]
 NIGHT_ACTIVITY_TOKENS = ["夜景", "夜游", "夜宵", "酒吧", "清吧", "灯光秀", "夜市"]
+
+# Shared across nearby-food-stroll, multi-facet art routes, and work-friendly cafe.
+# Keep this module-level so _postprocess branches can reference it before local branching.
+CAFE_WORK_TERMS: tuple[str, ...] = (
+    "适合办公", "可以办公", "适合学习", "适合工作", "适合远程",
+    "能带电脑", "有插座", "能充电", "有WiFi", "能久坐",
+)
+
+
+def _has_work_cafe_terms(text: str) -> bool:
+    return any(term in (text or "") for term in CAFE_WORK_TERMS)
+
+# ── v25: multi_facet_art cafe/shop facet search terms ──
+
+MULTI_FACET_ART_CAFE_TERMS = ["精品咖啡馆", "独立咖啡馆", "咖啡馆", "咖啡", "coffee", "cafe"]
+MULTI_FACET_ART_SHOP_TERMS = ["特色小店", "买手店", "文创店", "杂货店", "生活方式集合店", "集合店"]
+
 SHOPPING_TOKENS = ["逛商场", "商场", "购物", "买东西", "逛街", "商业体", "综合体", "商圈", "买手店", "潮牌"]
 EATING_ACTIVITY_TOKENS = ["吃吃喝喝", "逛吃", "美食", "餐饮", "餐厅", "小吃", "探店", "喝咖啡", "咖啡", "甜品", "下午茶", "夜宵"]
 RAINY_DAY_TOKENS = ["下雨", "雨天", "阴雨", "有雨", "下雨天", "避雨"]
@@ -1622,10 +1661,37 @@ def _fallback_origin(parsed: ParsedIntent, user_profile: UserProfile) -> dict | 
     home_location = getattr(user_profile, "home_location", None)
     permanent_city_coord = getattr(user_profile, "permanent_city_coord", None)
     result = home_location or permanent_city_coord
+
+    # v22: Detect mixed city/coordinate — label says Beijing but coords are Shanghai fallback
     if result:
+        label = str(result.get("label", "") or "")
+        lat = float(result.get("lat", 0) or 0)
+        lng = float(result.get("lng", 0) or 0)
+        src = str(result.get("source", "") or "")
+
+        # Shanghai fallback coordinates (Tongji University)
+        _is_tongji_fallback = (abs(lat - 31.2809) < 0.001 and abs(lng - 121.5011) < 0.001)
+        _label_has_beijing = "北京" in label
+        _label_has_shanghai = "上海" in label
+
+        if _is_tongji_fallback and _label_has_beijing:
+            print(
+                f"[OriginResolveAudit] mixed_location_detected "
+                f"label_city=北京市 coord_city=上海市 label={label[:40]} "
+                f"lat={lat} lng={lng}"
+            )
+            # Mark for attention — async geocode will be done by the pipeline
+            result["_mixed_coords_warning"] = "label城市与坐标城市不一致，坐标可能为兜底值"
+            result["source"] = result.get("source") or "mixed_coords_suspect"
+            print(
+                f"[OriginResolveAudit] mixed_location_detected "
+                f"label_city=北京市 coord_city=上海市 label={label[:40]} "
+                f"— marking for async geocode repair"
+            )
+
         print(
-            f"[DEBUG step1] fallback_origin_source=home_location "
-            f"label={result.get('label','')} lat={result.get('lat','')} lng={result.get('lng','')}"
+            f"[DEBUG step1] fallback_origin_source={src or 'home_location'} "
+            f"label={label[:40]} lat={lat} lng={lng}"
         )
     return result
 
@@ -1635,12 +1701,206 @@ def _deterministic_fallback_parsed_intent(
     plan_mode: str = "auto",
     city: str = "",
 ) -> "ParsedIntent":
-    """Deterministic fallback when LLM fails. Extracts sequential tasks from keywords."""
-    raw_kws = []
-    search_kws = []
+    """Deterministic fallback when LLM fails. Extracts sequential tasks from keywords.
+
+    v24: Enhanced with time-slot based waypoint extraction.  Handles patterns like:
+    "先去北海公园走走，中午吃顿烤鸭，下午去景山公园"
+    → 3 ordered PlannedWaypoints (北海公园→烤鸭→景山公园) with correct categories/slots.
+    """
+    from .data_schema import ParsedIntent
+
+    raw_kws: list[str] = []
+    search_kws: list[str] = []
+    planned_waypoints: list[PlannedWaypoint] = []
+    fixed_pois: list[FixedPoi] = []
+    food_pref_keywords: list[str] = []
+    meal_search_keywords: list[str] = []
+    meal_needs: list[str] = []
+
+    # ── v24: time-slot + name extraction per clause ──
+    # Split by common Chinese punctuation / connectors, keeping time markers
+    _clauses = re.split(r"[，,。；;、]\s*", user_request)
+
+    _time_slot_map: dict[str, str] = {
+        "上午": "morning", "早上": "morning", "早晨": "morning",
+        "中午": "lunch",   "午饭": "lunch",   "午餐": "lunch",
+        "下午": "afternoon",
+        "傍晚": "evening", "晚上": "evening", "晚饭": "dinner", "晚餐": "dinner",
+        "夜里": "evening", "夜间": "evening",
+    }
+    # v24: expanded food keyword registry — maps food terms to search keywords
+    _food_search_kw_map: dict[str, list[str]] = {
+        "烤鸭":   ["烤鸭", "北京烤鸭", "烤鸭店"],
+        "涮羊肉": ["涮羊肉", "火锅", "羊肉", "涮肉"],
+        "火锅":   ["火锅", "涮肉", "火锅店"],
+        "川菜":   ["川菜", "四川菜", "川菜 餐厅"],
+        "粤菜":   ["粤菜", "广东菜", "粤菜 餐厅"],
+        "日料":   ["日料", "日本料理", "寿司"],
+        "本帮菜": ["本帮菜", "上海菜", "江浙菜"],
+        "烧烤":   ["烧烤", "烤串", "烤肉"],
+        "海鲜":   ["海鲜", "海鲜餐厅"],
+        "西餐":   ["西餐", "牛排", "西餐厅"],
+    }
+
+    # v24: compound place regex — extracts "去X", "逛X", etc. with trailing 走走/逛逛 stripped
+    _place_re = re.compile(
+        r"(?:先去|先去到|去|到|逛|看|参观|游览|玩|爬|登)"
+        r"(.{1,20}?)"
+        r"(?:走走|逛逛|看看|玩玩|一下|一圈|一转|溜达|溜达溜达)?$"
+    )
+    # v24: compound eat regex — extracts "吃X", "尝X", etc.
+    _eat_re = re.compile(
+        r"(?:吃|尝|品|享用|来)"
+        r"(?:顿|份|个|次|点)?"
+        r"(.{1,15}?)"
+        r"(?:吧|呀|呢|了)?$"
+    )
+
+    _current_time_slot: str | None = None
+
+    for clause in _clauses:
+        clause = clause.strip()
+        if not clause:
+            continue
+        # Also strip leading connectors "先", "再", "然后", "接着", "最后"
+        clause = re.sub(r"^(?:先|再|然后|接着|最后)\s*", "", clause).strip()
+        if not clause:
+            continue
+
+        # Detect time slot in this clause
+        for marker, slot in _time_slot_map.items():
+            if marker in clause:
+                _current_time_slot = slot
+                break
+
+        # ── Pattern A: "吃X" → meal placeholder ──
+        _eat_match = _eat_re.search(clause)
+        if _eat_match:
+            _food = _eat_match.group(1).strip()
+            _food = re.sub(r"^(了|的|个|一|下)", "", _food).strip()
+            # v24: Strip trailing "走走/逛逛/..." that might remain after clause split
+            _food = re.sub(r"(走走|逛逛|看看|玩玩|一下|一圈|一转)$", "", _food).strip()
+            if _food and 1 <= len(_food) <= 15:
+                # Deduplicate food keywords
+                if _food not in food_pref_keywords:
+                    food_pref_keywords.append(_food)
+
+                _meal_kws = _food_search_kw_map.get(_food)
+                if _meal_kws is None:
+                    if "菜" in _food and _food not in ("菜",):
+                        _meal_kws = [_food, f"{_food} 餐厅"]
+                    else:
+                        _meal_kws = [_food, f"{_food}店", f"{_food}餐厅"]
+                for _mk in _meal_kws:
+                    if _mk not in meal_search_keywords:
+                        meal_search_keywords.append(_mk)
+
+                _meal_slot = _current_time_slot if _current_time_slot in ("lunch", "dinner") else "lunch"
+                if _meal_slot not in meal_needs:
+                    meal_needs.append(_meal_slot)
+
+                planned_waypoints.append(PlannedWaypoint(
+                    type="placeholder",
+                    search_keyword=_food,
+                    category="meal",
+                    stay_minutes=60,
+                    search_keywords=list(dict.fromkeys(_meal_kws)),
+                    required_terms=[_food],
+                    excluded_terms=["咖啡", "奶茶", "甜品", "面包"],
+                    time_slot=_meal_slot,
+                ))
+                if _food not in raw_kws:
+                    raw_kws.append(_food)
+                continue
+
+        # ── Pattern B: "去/逛/看 X" → fixed visit waypoint ──
+        _place_match = _place_re.search(clause)
+        if _place_match:
+            _place = _place_match.group(1).strip()
+            _place = re.sub(r"^(了|的|个|一|下)", "", _place).strip()
+            _place = re.sub(r"(走走|逛逛|看看|玩玩|一下|一圈|一转)$", "", _place).strip()
+
+            # v24: Guard — skip generic non-POI words
+            _non_poi_words = frozenset({
+                "走走", "逛逛", "看看", "玩玩", "好吃", "一顿", "一会", "一下",
+                "那里", "这里", "那儿", "这儿", "地方", "哪里",
+            })
+            if _place and len(_place) >= 2 and len(_place) <= 30 and _place not in _non_poi_words:
+                # v24: Also skip if it's purely food-related (caught by pattern A)
+                _is_foodish = any(kw in _place for kw in [
+                    "烤", "涮", "火锅", "菜", "面", "粉", "串",
+                ])
+                # Allow named restaurants as visit waypoints if they are known landmarks
+                if _is_foodish and len(_place) <= 5:
+                    # Ambiguous — likely food, skip if already got a meal from pattern A
+                    if planned_waypoints:
+                        continue
+
+                planned_waypoints.append(PlannedWaypoint(
+                    type="fixed",
+                    name=_place,
+                    search_keyword=_place,
+                    category="visit",
+                    stay_minutes=90,
+                    search_keywords=[_place],
+                    required_terms=[_place],
+                    time_slot=_current_time_slot,
+                ))
+                fixed_pois.append(FixedPoi(name=_place, user_time_budget=None))
+                if _place not in raw_kws:
+                    raw_kws.append(_place)
+                if _place not in search_kws:
+                    search_kws.append(_place)
+                continue
+
+        # ── Pattern C: loose noun extraction — catch named places without explicit verb ──
+        # "北海公园走走" → 北海公园
+        _loose_match = re.match(r"^(.{2,15}?)(?:走走|逛逛|看看|玩玩|一下|一逛|一转|溜达)$", clause)
+        if _loose_match and not planned_waypoints:
+            _loose_place = _loose_match.group(1).strip()
+            if _loose_place not in _non_poi_words and len(_loose_place) >= 2:
+                planned_waypoints.append(PlannedWaypoint(
+                    type="fixed",
+                    name=_loose_place,
+                    search_keyword=_loose_place,
+                    category="visit",
+                    stay_minutes=90,
+                    search_keywords=[_loose_place],
+                    required_terms=[_loose_place],
+                    time_slot=_current_time_slot,
+                ))
+                fixed_pois.append(FixedPoi(name=_loose_place, user_time_budget=None))
+                if _loose_place not in raw_kws:
+                    raw_kws.append(_loose_place)
+                if _loose_place not in search_kws:
+                    search_kws.append(_loose_place)
+
+    # ── v24: structured-waypoints path — generated from above patterns ──
+    if planned_waypoints:
+        _is_planned = True  # at least 2 time-slot waypoints = planned route
+        _dur = "a full day" if len(planned_waypoints) >= 3 else "a half day"
+
+        if city:
+            search_kws = [f"{city} {kw}" for kw in search_kws]
+
+        _now = dt.datetime.now()
+        return ParsedIntent(
+            is_route_planning_request=True,
+            duration=_dur,
+            start_time=_now,
+            raw_keywords=raw_kws,
+            search_keywords=search_kws,
+            food_pref_keywords=list(dict.fromkeys(food_pref_keywords)),
+            meal_search_keywords=list(dict.fromkeys(meal_search_keywords)),
+            meal_needs=meal_needs,
+            fixed_pois=fixed_pois,
+            planned_waypoints=planned_waypoints,
+            plan_mode="planned",
+        )
+
+    # ── v21 legacy fallback: simple keyword matching (no structured waypoints) ──
     is_planned = "先" in user_request or "再" in user_request or "然后" in user_request
 
-    # v21: Sequential task extraction — "先买书，再吃饭，然后看电影"
     _seq_tasks: list = []
     _action_map = {
         "买书": ("书店", "purchase", 30),
@@ -1667,7 +1927,6 @@ def _deterministic_fallback_parsed_intent(
     if city:
         search_kws = [f"{city} {kw}" for kw in search_kws]
 
-    from .data_schema import ParsedIntent
     _now = dt.datetime.now()
     return ParsedIntent(
         is_route_planning_request=True,
@@ -1685,6 +1944,7 @@ async def _llm_parse(
     current_time: dt.datetime,
     plan_mode: str = "auto",  # v18: "auto" — LLM 自己判断 exploratory/planned
     planned_rule_hints: list[PlannedWaypoint] | None = None,
+    fallback_city: str = "",  # v24: city for deterministic fallback when LLM fails
 ) -> ParsedIntent:
     time_str = current_time.strftime("%Y-%m-%d %H:%M")
 
@@ -2098,8 +2358,19 @@ async def _llm_parse(
             # v21: Fallback — use deterministic rules on final failure
             from .utils import emit_status
             await emit_status("正在使用离线规则解析意图...")
-            _city_fb = permanent_city[:-1] if permanent_city.endswith("市") else permanent_city
-            return _deterministic_fallback_parsed_intent(user_request, plan_mode, _city_fb)
+            # v24: Use fallback_city (safe) instead of undefined permanent_city (NameError)
+            _city_fb = fallback_city
+            if _city_fb and _city_fb.endswith("市"):
+                _city_fb = _city_fb[:-1]
+            # v24: Extract latest_user_input to avoid parsing conversation_context XML as route text
+            _nl_fallback = _extract_latest_user_input(user_request)
+            print(
+                f"[ContextParseAudit] _llm_parse fallback: "
+                f"has_conv_ctx={_has_conversation_context(user_request)} "
+                f"latest_user_input={_nl_fallback[:120]} "
+                f"fallback_city={_city_fb}"
+            )
+            return _deterministic_fallback_parsed_intent(_nl_fallback, plan_mode, _city_fb)
 
 
 CATEGORY_TOKENS = {
@@ -4375,6 +4646,33 @@ def _apply_no_reservation_flexible_trip_v2(parsed: ParsedIntent, city: str) -> N
     )
 
 
+def _build_multi_facet_art_facets(
+    has_photo: bool,
+    has_art: bool,
+    has_cafe: bool,
+    has_shop: bool,
+    has_relaxed: bool,
+) -> list[dict]:
+    """v25: Build structured theme_facets for multi_facet_art_photo_cafe_shop.
+
+    Each facet has an id and:
+    - required: must be covered by at least one visible route POI
+    - role: macro_anchor (area selection) | visible_poi (must appear) | score_boost | route_pace
+    """
+    facets: list[dict] = []
+    if has_art:
+        facets.append({"id": "art_culture_lifestyle", "required": True, "role": "macro_anchor"})
+    if has_cafe:
+        facets.append({"id": "cafe_stop", "required": True, "role": "visible_poi"})
+    if has_shop:
+        facets.append({"id": "specialty_shop", "required": True, "role": "visible_poi"})
+    if has_photo:
+        facets.append({"id": "photo_checkin", "required": False, "role": "score_boost"})
+    if has_relaxed:
+        facets.append({"id": "relaxed_pace", "required": False, "role": "route_pace"})
+    return facets
+
+
 async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
     # v21: Strip structured hints from deterministic parsers — prevent context pollution.
     # Structured hints like <structured_hints>保持theme=夜景</structured_hints> are for LLM only.
@@ -4397,6 +4695,15 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             f"len_before={len(user_request)} len_after={len(_clean_user_request)}"
         )
         user_request = _clean_user_request
+
+    # v24: Extract latest_user_input from conversation_context wrapper.
+    # All text-based checks below MUST use the actual user message, never the XML wrapper.
+    _nl_post = _extract_latest_user_input(user_request)
+    if _has_conversation_context(user_request):
+        print(
+            f"[ContextParseAudit] _postprocess has_conversation_context=true "
+            f"latest_user_input={_nl_post[:120]}"
+        )
 
     city = await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
@@ -5218,12 +5525,123 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         )
         print(f"[DEBUG spring_festival] detected: theme=spring_festival_culture")
 
+    # v22: Nearby food + stroll route — "待会儿去附近逛逛，找一家好吃的，再散散步"
+    _has_nearby = any(t in user_request for t in ["附近", "周边", "就近", "周围", "离我近"])
+    _has_stroll = any(t in user_request for t in ["逛逛", "散步", "走走", "散散步", "溜达", "转一圈"])
+    _has_food_hint = any(t in user_request for t in ["好吃的", "找一家", "吃顿", "吃饭",
+                                                       "餐厅", "美食", "小吃", "吃点"])
+    _is_nearby_stroll = _has_nearby and (_has_stroll or _has_food_hint)
+    if _is_nearby_stroll and not _has_work_cafe_terms(user_request):
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.activity_facet = "nearby_food_stroll_route"
+        parsed.route_strategy = "nearby_food_stroll"
+        parsed.proximity_requested = True
+        if parsed.time_budget < 0.5:
+            parsed.duration = "a half day"
+            parsed.time_budget = 0.5
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        parsed.theme_label = "附近短途游路线"
+        import datetime as _dt
+        _city_hour = _dt.datetime.now().hour
+        if _has_food_hint:
+            parsed.explicit_meal_intent = True
+            _meal_slot = "dinner" if _city_hour >= 17 else ("lunch" if _city_hour >= 11 else "flexible_meal")
+            parsed.meal_needs = [_meal_slot]
+            parsed.meal_constraints = [
+                {"meal": _meal_slot, "keywords": ["好吃的", "餐厅", "美食", "小吃"]}
+            ]
+            print(f"[NearbyFoodStrollAudit] meal_slot_created slot={_meal_slot}")
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 附近 好吃的 餐厅", f"{city_short} 附近 美食 小吃",
+            f"{city_short} 附近 散步 公园", f"{city_short} 附近 街区 逛逛",
+            f"{city_short} 附近 咖啡 甜品",
+        ]
+        parsed.micro_keywords = ["好吃的", "餐厅", "小吃", "散步", "公园", "街区"]
+        print(f"[NearbyFoodStrollAudit] detected time_budget={parsed.time_budget}")
+
+    # v22: Multi-facet art/photo/cafe/shop route — prevent collapsing to "咖啡馆" only
+    _has_photo = any(t in user_request for t in ["拍照", "出片", "打卡", "摄影"])
+    _has_art = any(t in user_request for t in ["文艺", "艺术", "展览", "小众", "文化"])
+    _has_cafe = any(t in user_request for t in ["咖啡", "咖啡馆", "咖啡店"])
+    _has_shop = any(t in user_request for t in ["特色小店", "买手店", "杂货店", "文创店", "小店"])
+    _has_relaxed = any(t in user_request for t in ["节奏轻松", "轻松一点", "慢一点", "不赶",
+                                                        "散步", "逛逛", "散散步"])
+    _facet_count = sum([_has_photo, _has_art, _has_cafe, _has_shop, _has_relaxed])
+    if _facet_count >= 3 and _has_art and not _has_work_cafe_terms(user_request):
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.plan_mode = "exploratory"
+        parsed.theme_required = True
+        parsed.theme_label = "文艺拍照路线"
+        _facets = []
+        if _has_photo: _facets.append("photo_checkin")
+        if _has_art: _facets.append("art_culture_lifestyle")
+        if _has_cafe: _facets.append("cafe_stop")
+        if _has_shop: _facets.append("specialty_shop")
+        if _has_relaxed: _facets.append("relaxed_pace")
+        parsed.activity_facet = "multi_facet_art_photo_cafe_shop"
+        # v22: Lock to prevent downstream category override
+        parsed.theme_route_locked = True
+        parsed.theme_profile = "art_culture_lifestyle"
+        parsed.explicit_meal_intent = False
+        parsed.meal_needs = []
+        parsed.meal_constraints = []
+        parsed.food_pref_keywords = []
+        parsed.meal_search_keywords = []
+        parsed.must_recall_target = False
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 文艺拍照 路线",
+            f"{city_short} 美术馆 艺术空间",
+            f"{city_short} 创意园区 文创园",
+            f"{city_short} 独立书店 文创店",
+            f"{city_short} 买手店 特色小店",
+            f"{city_short} 精品咖啡 独立咖啡馆",
+            f"{city_short} 历史街区 胡同",
+            f"{city_short} 轻松散步 街区",
+        ]
+        parsed.micro_keywords = [
+            "拍照打卡", "艺术空间", "独立书店", "文创店", "精品咖啡", "特色小店",
+        ]
+        # v25: Structured facet tracking for downstream validation and recall
+        parsed.theme_facets = _build_multi_facet_art_facets(
+            _has_photo, _has_art, _has_cafe, _has_shop, _has_relaxed
+        )
+        parsed.theme_coverage_policy = "cover_required_facets"
+        parsed.micro_poi_keywords = _append_unique(
+            list(getattr(parsed, "micro_poi_keywords", []) or []),
+            [
+                "艺术空间", "画廊", "美术馆",
+                "精品咖啡馆", "独立咖啡馆", "咖啡馆",
+                "买手店", "特色小店", "文创店",
+            ],
+            limit=12,
+        )
+        parsed.micro_required_terms = _append_unique(
+            list(getattr(parsed, "micro_required_terms", []) or []),
+            [
+                "艺术", "画廊", "美术馆", "咖啡", "coffee", "cafe",
+                "买手店", "文创", "特色小店",
+            ],
+            limit=16,
+        )
+        print(
+            f"[MultiFacetArtAudit] locked=true facets={_facets} "
+            f"facet_count={_facet_count} "
+            f"theme_facets={[f['id'] for f in parsed.theme_facets]} "
+            f"coverage_policy={parsed.theme_coverage_policy}"
+        )
+
     # v21: Work-friendly cafe detection — "适合办公的咖啡馆" → cafe category
-    _cafe_work_terms = ["适合办公", "可以办公", "适合学习", "适合工作", "适合远程",
-                        "能带电脑", "有插座", "能充电", "有WiFi", "能久坐"]
-    _is_work_cafe = (any(t in user_request for t in _cafe_work_terms)
+    _is_work_cafe = (_has_work_cafe_terms(user_request)
                      and any(t in user_request for t in ["咖啡", "cafe", "coffee"]))
-    if _is_work_cafe:
+    # v22: Don't override if multi_facet_art is already locked
+    if _is_work_cafe and not getattr(parsed, "theme_route_locked", False):
         parsed.poi_query_type = "poi_category"
         parsed.category_id = "cafe"
         parsed.primary_query = "咖啡馆"
@@ -5838,6 +6256,20 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         parsed.primary_query = ""
     _cat_id = getattr(parsed, "category_id", None)
     _has_typecodes = bool(getattr(parsed, "allowed_typecode_prefixes", None))
+    # v22: If multi_facet_art is locked, don't let poi_category override it
+    if getattr(parsed, "theme_route_locked", False):
+        if parsed.poi_query_type == "poi_category":
+            print(
+                f"[MultiFacetArtAudit] block_category_override "
+                f"attempted_primary={getattr(parsed, 'primary_query', '')[:20]} "
+                f"poi_query_type=poi_category — resetting to theme_route"
+            )
+            parsed.poi_query_type = "theme_route"
+            parsed.primary_query = ""
+            parsed.category_id = None
+            parsed.allowed_typecode_prefixes = []
+            parsed.must_recall_target = False
+
     if parsed.poi_query_type == "poi_category" and not _cat_id and not _has_typecodes:
         _pq = getattr(parsed, "primary_query", "") or ""
         if not _pq or _is_time_or_functional_expression(_pq):
@@ -5946,12 +6378,11 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         # Will be set later via _fallback_origin; search_area_location will be original_location
         pass
 
-    # v21: Extract latest_user_input from conversation_context XML if present
-    _nl_input = user_request
-    _ctx_match = re.search(r"<latest_user_input>\s*(.+?)\s*</latest_user_input>", user_request, re.DOTALL)
-    if _ctx_match:
-        _nl_input = _ctx_match.group(1).strip()
-        print(f"[DEBUG step1] isolated latest_user_input from conversation_context: len={len(_nl_input)}")
+    # v24: Extract latest_user_input from conversation_context XML if present.
+    # Use the module-level helper for consistency.
+    _nl_input = _extract_latest_user_input(user_request)
+    if _has_conversation_context(user_request):
+        print(f"[DEBUG step1] _postprocess isolated latest_user_input from conversation_context: len={len(_nl_input)}")
 
     # v19: 主题决策 — 使用 resolve_theme_profile 替代旧版拼接匹配
     raw_theme_text = _nl_input
@@ -6346,6 +6777,68 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         _dest_name = getattr(parsed, "resolved_destination_name", "") or ""
         if _dest_name:
             parsed.fixed_pois = [FixedPoi(name=_dest_name, user_time_budget=None)]
+
+    # v22: Final normalization — locked multi_facet_art must not carry cafe/food pollution
+    if getattr(parsed, "theme_route_locked", False) and parsed.activity_facet == "multi_facet_art_photo_cafe_shop":
+        parsed.poi_query_type = "theme_route"
+        parsed.primary_query = ""
+        parsed.category_id = None
+        parsed.allowed_typecode_prefixes = []
+        parsed.must_recall_target = False
+        parsed.explicit_meal_intent = False
+        parsed.meal_needs = []
+        parsed.meal_constraints = []
+        parsed.food_pref_keywords = []
+        parsed.meal_search_keywords = []
+        parsed.theme_profile = "art_culture_lifestyle"
+        city_short = city[:-1] if city.endswith("市") else city
+        parsed.search_keywords = [
+            f"{city_short} 文艺拍照 路线",
+            f"{city_short} 美术馆 艺术空间",
+            f"{city_short} 创意园区 文创园",
+            f"{city_short} 独立书店 文创店",
+            f"{city_short} 买手店 特色小店",
+            f"{city_short} 精品咖啡 独立咖啡馆",
+            f"{city_short} 历史街区 胡同",
+            f"{city_short} 轻松散步 街区",
+        ]
+        parsed.micro_keywords = [
+            "拍照打卡", "艺术空间", "独立书店", "文创店", "精品咖啡", "特色小店",
+        ]
+        # v25: Re-assert theme_facets in final normalization — don't lose cafe/shop facets
+        _fn_has_photo = any(t in user_request for t in ["拍照", "出片", "打卡", "摄影"])
+        _fn_has_art = any(t in user_request for t in ["文艺", "艺术", "展览", "小众", "文化"])
+        _fn_has_cafe = any(t in user_request for t in ["咖啡", "咖啡馆", "咖啡店"])
+        _fn_has_shop = any(t in user_request for t in ["特色小店", "买手店", "杂货店", "文创店", "小店"])
+        _fn_has_relaxed = any(t in user_request for t in ["节奏轻松", "轻松一点", "慢一点", "不赶", "散步", "逛逛", "散散步"])
+        parsed.theme_facets = _build_multi_facet_art_facets(
+            _fn_has_photo, _fn_has_art, _fn_has_cafe, _fn_has_shop, _fn_has_relaxed
+        )
+        parsed.theme_coverage_policy = "cover_required_facets"
+        parsed.micro_poi_keywords = _append_unique(
+            list(getattr(parsed, "micro_poi_keywords", []) or []),
+            [
+                "艺术空间", "画廊", "美术馆",
+                "精品咖啡馆", "独立咖啡馆", "咖啡馆",
+                "买手店", "特色小店", "文创店",
+            ],
+            limit=12,
+        )
+        parsed.micro_required_terms = _append_unique(
+            list(getattr(parsed, "micro_required_terms", []) or []),
+            [
+                "艺术", "画廊", "美术馆", "咖啡", "coffee", "cafe",
+                "买手店", "文创", "特色小店",
+            ],
+            limit=16,
+        )
+        print(
+            f"[MultiFacetArtAudit] final_normalize "
+            f"primary_query={parsed.primary_query or 'EMPTY'} "
+            f"meal_needs={parsed.meal_needs} "
+            f"search_keywords={parsed.search_keywords[:4]} "
+            f"theme_facets={[f['id'] for f in parsed.theme_facets]}"
+        )
 
     print(f"[DEBUG step1] duration={parsed.duration} time_budget={parsed.time_budget}")
     print(f"[DEBUG step1] other_constraints={parsed.other_constraints}")
@@ -7049,22 +7542,49 @@ async def run_step1(
 ) -> ParsedIntent:
     logger.start_step("step_1_1_llm_extract")
     await emit_status("正在解析您的出行意图...")
+
+    # v24: Extract latest_user_input from conversation_context wrapper BEFORE any parsing.
+    # All keyword/waypoint/sequence detection MUST use only the actual user text,
+    # never the full <conversation_context> XML which contains previous_intent JSON etc.
+    _nl_input = _extract_latest_user_input(user_request)
+    _has_conv_ctx = _has_conversation_context(user_request)
+    if _has_conv_ctx:
+        print(
+            f"[ContextParseAudit] has_conversation_context=true "
+            f"latest_user_input={_nl_input[:120]} "
+            f"original_len={len(user_request)}"
+        )
+
     # v6: planned 模式只生成 rule hints 辅助 LLM，不再直接使用 fast planned 结果
     # v18: auto 模式也生成 rule hints（LLM 可能判断为 planned）
+    # v24: Use _nl_input for rule hints — never parse conversation_context XML as waypoints
     planned_rule_hints: list[PlannedWaypoint] = []
     if plan_mode in ("auto", "planned"):
-        planned_rule_hints = _fallback_planned_waypoints_from_request(user_request, include_generic=False)
+        planned_rule_hints = _fallback_planned_waypoints_from_request(_nl_input, include_generic=False)
         if planned_rule_hints:
             print(
                 "[DEBUG step1] planned rule hints: "
                 f"{[(wp.type, wp.name or wp.search_keyword, wp.category, wp.stay_minutes) for wp in planned_rule_hints]}"
             )
 
+    # v24: Compute fallback_city for LLM failure path before calling _llm_parse.
+    # Use user_profile.permanent_city → city_from_text(_nl_input) → safe default.
+    _fallback_city = (
+        user_profile.permanent_city[0]
+        if (user_profile.permanent_city and user_profile.permanent_city[0])
+        else ""
+    )
+    if not _fallback_city:
+        _fallback_city = city_from_text(_nl_input)
+    if not _fallback_city:
+        _fallback_city = "上海市"
+
     parsed = await _llm_parse(
         user_request,
         current_time,
         plan_mode=plan_mode,
         planned_rule_hints=planned_rule_hints if planned_rule_hints else None,
+        fallback_city=_fallback_city,
     )
     parse_source = "llm_with_rule_hints" if planned_rule_hints else "llm"
     await logger.log_step(
@@ -7115,10 +7635,12 @@ async def run_step1(
     # - "planned": forced planned (backward compat), downgrade if no waypoints
     # - "auto": trust LLM's parsed.plan_mode; if LLM says planned but no valid waypoints → downgrade
     # - "exploratory": ignore waypoints, set exploratory
+    # v24: Use _nl_input (extracted latest_user_input) for ALL waypoint parsing.
+    # Never pass the full <conversation_context> XML to waypoint parsers.
     if plan_mode == "planned":
         parsed.plan_mode = "planned"
         if not parsed.planned_waypoints:
-            parsed.planned_waypoints = _fallback_planned_waypoints_from_request(user_request)
+            parsed.planned_waypoints = _fallback_planned_waypoints_from_request(_nl_input)
         if not parsed.planned_waypoints:
             parsed.plan_mode = "exploratory"  # 提取失败降级为探索模式
             print("[DEBUG step1] forced planned but no valid waypoints → downgraded to exploratory")
@@ -7126,7 +7648,7 @@ async def run_step1(
         llm_plan_mode = getattr(parsed, 'plan_mode', 'exploratory') or 'exploratory'
         if llm_plan_mode == "planned":
             if not parsed.planned_waypoints:
-                parsed.planned_waypoints = _fallback_planned_waypoints_from_request(user_request)
+                parsed.planned_waypoints = _fallback_planned_waypoints_from_request(_nl_input)
             if not parsed.planned_waypoints:
                 parsed.plan_mode = "exploratory"
                 print("[DEBUG step1] auto mode: LLM said planned but no valid waypoints → downgraded to exploratory")
@@ -7143,15 +7665,16 @@ async def run_step1(
     # Explicit multi-period tasks are user-authored route constraints, not
     # suggestions.  Reconcile even a non-empty LLM result so omissions and
     # pseudo POIs such as "个好吃的地方" cannot enter the planned fast path.
+    # v24: Use _nl_input — never pass conversation_context XML to waypoint parsing.
     if parsed.plan_mode == "planned":
-        timed_waypoints = _extract_timed_planned_waypoints(user_request)
+        timed_waypoints = _extract_timed_planned_waypoints(_nl_input)
         if timed_waypoints:
             before = [
                 (wp.type, wp.name or wp.search_keyword, wp.category)
                 for wp in (parsed.planned_waypoints or [])
             ]
             parsed.planned_waypoints = timed_waypoints
-            _bind_planned_waypoint_search_centers(parsed.planned_waypoints, user_request)
+            _bind_planned_waypoint_search_centers(parsed.planned_waypoints, _nl_input)
             after = [
                 (
                     wp.type,
@@ -7166,5 +7689,14 @@ async def run_step1(
                 f"[DEBUG step1] timed waypoint reconciliation: "
                 f"before={before} after={after}"
             )
+
+    # v24: Audit log for conversation_context parsing
+    if _has_conv_ctx:
+        _pws_count = len(parsed.planned_waypoints or [])
+        print(
+            f"[ContextParseAudit] has_conversation_context=true "
+            f"latest_user_input={_nl_input[:80]} "
+            f"planned_waypoints_count={_pws_count}"
+        )
 
     return parsed
