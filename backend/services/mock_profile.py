@@ -154,41 +154,116 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
     guest_profile 字段传入后端，后端据此构建 UserProfile 而非使用硬编码兜底。
 
     v18: home_location 为唯一路线出发地来源。
+    v26: All guest data is normalized at the boundary — lists, empty objects, and
+    other bad shapes cannot leak into UserProfile and cause Pydantic ValidationError.
     """
 
-    home_loc = guest.get("home_location") or {}
     FALLBACK_LAT = 31.2809
     FALLBACK_LNG = 121.5011
+    FALLBACK_LABEL = "同济大学四平路校区"
 
-    # 统一使用 home_location 作为位置来源
-    resolved_lat = home_loc.get("lat", FALLBACK_LAT)
-    resolved_lng = home_loc.get("lng", FALLBACK_LNG)
-    resolved_label = home_loc.get("label", "同济大学四平路校区")
+    # ── v26: input normalization helpers ──
 
-    resolved_home = {
-        "lat": resolved_lat,
-        "lng": resolved_lng,
-        "label": resolved_label,
-    }
-    for key in ("city", "cityname", "adcode", "district", "province"):
-        if home_loc.get(key) not in (None, ""):
-            resolved_home[key] = home_loc[key]
+    def _coerce_float(value, fallback: float) -> float:
+        """Accept int/float/numeric string; reject list/dict/None/NaN/empty → fallback."""
+        if value is None:
+            return fallback
+        if isinstance(value, (list, dict)):
+            return fallback
+        if isinstance(value, bool):
+            return fallback
+        try:
+            v = float(value)
+            if not math.isfinite(v):
+                return fallback
+            return v
+        except (ValueError, TypeError):
+            return fallback
+
+    def _coerce_label(value, *fallbacks: str) -> str:
+        """Return a non-empty stripped string from value or the first non-empty fallback."""
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, str) and item.strip():
+                    return item.strip()
+        # numeric → use fallback (a bare number is not a readable label)
+        for fb in fallbacks:
+            if isinstance(fb, str) and fb.strip():
+                return fb.strip()
+        return FALLBACK_LABEL
+
+    def _normalize_home_location(raw) -> dict[str, float | str]:
+        """Normalize a raw home_location input into a guaranteed-valid dict."""
+        if not isinstance(raw, dict):
+            raw = {}
+        lat = _coerce_float(raw.get("lat"), FALLBACK_LAT)
+        lng = _coerce_float(raw.get("lng"), FALLBACK_LNG)
+        label = _coerce_label(
+            raw.get("label"),
+            raw.get("name"),
+            raw.get("full_address"),
+            raw.get("address"),
+            FALLBACK_LABEL,
+        )
+        resolved: dict[str, float | str] = {
+            "lat": lat,
+            "lng": lng,
+            "label": label,
+        }
+        # Only copy string/int/float scalar metadata keys — never lists or dicts
+        for key in ("city", "cityname", "adcode", "district", "province", "source"):
+            val = raw.get(key)
+            if isinstance(val, (str, int, float)) and val not in (None, ""):
+                resolved[key] = str(val) if isinstance(val, (int, float)) else val
+        return resolved
+
+    import math  # ensure available in closure scope
+
+    # ── build normalized profile ──
+
+    resolved_home = _normalize_home_location(guest.get("home_location"))
+
+    # Normalize permanent_city_coord — reject non-dict / bad lat/lng
+    _pcc = guest.get("permanent_city_coord")
+    if isinstance(_pcc, dict):
+        _pcc_lat = _coerce_float(_pcc.get("lat"), resolved_home["lat"])  # type: ignore[arg-type]
+        _pcc_lng = _coerce_float(_pcc.get("lng"), resolved_home["lng"])  # type: ignore[arg-type]
+    else:
+        _pcc_lat = float(resolved_home["lat"])
+        _pcc_lng = float(resolved_home["lng"])
+    permanent_city_coord = {"lat": _pcc_lat, "lng": _pcc_lng}
+
+    # Normalize tag lists — ensure they are list[str]
+    def _coerce_str_list(value, default: list[str]) -> list[str]:
+        if isinstance(value, list):
+            return [str(item) for item in value if item is not None and str(item).strip()]
+        if isinstance(value, (str, int, float)):
+            s = str(value).strip()
+            return [s] if s else default
+        return default
+
+    activity_pref_tag = _coerce_str_list(guest.get("activity_pref_tag"), ["文艺", "历史"])
+    food_pref_tag = _coerce_str_list(guest.get("food_pref_tag"), ["本帮菜", "咖啡"])
+
+    # Normalize budget — must be a positive number
+    _raw_budget = guest.get("budget_per_capita")
+    budget_per_capita = _coerce_float(_raw_budget, 100.0)
+    if budget_per_capita <= 0:
+        budget_per_capita = 100.0
 
     return UserProfile(
-        nickname=guest.get("nickname", "游客"),
-        gender=guest.get("gender", "男"),
-        age=guest.get("age", 30),
-        activity_pref_tag=guest.get("activity_pref_tag", ["文艺", "历史"]),
-        food_pref_tag=guest.get("food_pref_tag", ["本帮菜", "咖啡"]),
-        # city 后续由 Step2 基于 home_location 自动解析，不再信任前端手动 city
+        nickname=str(guest.get("nickname", "游客") or "游客"),
+        gender=str(guest.get("gender", "男") or "男"),
+        age=max(1, min(120, int(_coerce_float(guest.get("age"), 30)))),
+        activity_pref_tag=activity_pref_tag,
+        food_pref_tag=food_pref_tag,
         permanent_city=[],
-        # v18: permanent_city_coord = home_location 坐标，不再降级到 current_device
-        permanent_city_coord=guest.get("permanent_city_coord") or {"lat": resolved_lat, "lng": resolved_lng},
-        # v18: current_device_location 不再作为独立出发地
+        permanent_city_coord=permanent_city_coord,
         current_device_location=None,
         home_location=resolved_home,
-        budget_per_capita=guest.get("budget_per_capita", 100.0),
-        # v21: Structured preference profile
+        budget_per_capita=budget_per_capita,
         preference_profile=_build_preference_profile(guest),
     )
 
