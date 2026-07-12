@@ -1,4 +1,15 @@
 # BesTour-本地生活路线规划项目说明文档@BesTour_Team
+
+> **CloudBase 线上部署信息**（2026-07-13 部署）
+>
+> | 服务 | 地址 |
+> |------|------|
+> | 前端（静态托管） | https://meituan-travel-planner-d243c7271-1320524552.tcloudbaseapp.com |
+> | 后端（CloudRun） | https://meituan-travel-planner-281308-9-1320524552.sh.run.tcloudbase.com |
+> | 后端 API 文档 | https://meituan-travel-planner-281308-9-1320524552.sh.run.tcloudbase.com/docs |
+>
+> 环境：CloudBase `meituan-travel-planner`（个人版），后端最小实例 1，最大实例 5，1 核 2GB。
+
 <u>***<font color="blue">使用“游客模式”，则默认使用兜底“常住地址”信息，可进入“个人设置”页面进行修改（支持定位到设备位置地址或自主设定相应地址）；正常注册按照步骤需要填写“常住地址”以及允许读取设备所在地址</font>***</u>
 
 **目录**
