@@ -5,6 +5,60 @@ export const FALLBACK_HOME_LOCATION = {
   label: '同济大学四平路校区',
 };
 
+/** v26: Normalize any location-shaped input into a guaranteed-valid payload.
+ *  Prevents bad data (label=[], lat=NaN, etc.) from reaching the backend
+ *  and causing Pydantic ValidationError in UserProfile.
+ */
+export function normalizeLocationPayload(
+  raw: unknown,
+  fallback?: { lat: number; lng: number; label: string },
+): { lat: number; lng: number; label: string; source?: string } {
+  const fb = fallback || FALLBACK_HOME_LOCATION;
+
+  const coerceNumber = (v: unknown, fbNum: number): number => {
+    if (v == null) return fbNum;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return fbNum;
+  };
+
+  const coerceLabel = (v: unknown, ...extraFallbacks: (string | undefined | null)[]): string => {
+    if (typeof v === 'string' && v.trim()) return v.trim();
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === 'string' && item.trim()) return item.trim();
+      }
+    }
+    for (const ef of extraFallbacks) {
+      if (typeof ef === 'string' && ef.trim()) return ef.trim();
+    }
+    return fb.label;
+  };
+
+  const rawObj = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+
+  const result: { lat: number; lng: number; label: string; source?: string } = {
+    lat: coerceNumber(rawObj.lat, fb.lat),
+    lng: coerceNumber(rawObj.lng, fb.lng),
+    label: coerceLabel(
+      rawObj.label,
+      rawObj.name as string | undefined,
+      rawObj.full_address as string | undefined,
+      rawObj.address as string | undefined,
+    ),
+  };
+
+  // Only preserve source if it's a real string
+  if (typeof rawObj.source === 'string' && rawObj.source.trim()) {
+    result.source = rawObj.source.trim();
+  }
+
+  return result;
+}
+
 export const FALLBACK_HOME_ADDRESS = {
   name: '同济大学四平路校区',
   full_address: '同济大学四平路校区',

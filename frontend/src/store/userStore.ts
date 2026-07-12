@@ -4,7 +4,7 @@ import { authApi } from '../api/auth';
 import { userApi } from '../api/user';
 import { useRouteStore } from './routeStore';
 import { useChatStore } from './chatStore';
-import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION } from '@/utils/locationDefaults';
+import { FALLBACK_HOME_ADDRESS, FALLBACK_HOME_LOCATION, normalizeLocationPayload } from '@/utils/locationDefaults';
 
 /** localStorage keys to purge on logout */
 const AUTH_KEYS = [
@@ -301,7 +301,8 @@ export const useUserStore = create<UserState>()(
                 longitude: existing?.home_location?.lng ?? FALLBACK_HOME_LOCATION.lng,
                 home_address: existing?.location?.home_address || FALLBACK_HOME_ADDRESS,
               },
-          home_location: existing?.home_location || FALLBACK_HOME_LOCATION,
+          // v26: Normalize to guard against bad localStorage data (label=[], etc.)
+          home_location: normalizeLocationPayload(existing?.home_location),
         };
         set({
           user: merged,

@@ -8,7 +8,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { sendMeituanMessageStream, extractMeituanMapData, MeituanRouteData, GuestProfile, ChatRouteContext } from '@/api/meituanChat';
 import { useRouteStore } from '@/store/routeStore';
 import { useUserStore } from '@/store/userStore';
-import { FALLBACK_HOME_LOCATION } from '@/utils/locationDefaults';
+import { FALLBACK_HOME_LOCATION, normalizeLocationPayload } from '@/utils/locationDefaults';
 import type { CompletePlan, DayPlan, TimeSlot, TimeSlotType, Activity, RestaurantRecommendation, POI } from '@/types/plan';
 import type { DailyRouteDTO } from '@/api/types';
 
@@ -1169,16 +1169,18 @@ export function useChat(): UseChatReturn {
       let guestProfile: GuestProfile | undefined;
       if (isGuest && user) {
         // v18: getCanonicalHomeLocation — 统一使用 home_location 作为路线出发地
+        // v26: Use normalizeLocationPayload to guard against bad localStorage data
         const canonicalHome: { lat: number; lng: number; label: string } =
-          (user as any).home_location?.lat && (user as any).home_location?.lng
-            ? (user as any).home_location
-            : user.location?.home_address?.lat && user.location?.home_address?.lng
+          normalizeLocationPayload(
+            (user as any).home_location,
+            user.location?.home_address?.lat && user.location?.home_address?.lng
               ? {
                   lat: user.location.home_address.lat,
                   lng: user.location.home_address.lng,
                   label: user.location.home_address.name || FALLBACK_HOME_LOCATION.label,
                 }
-              : FALLBACK_HOME_LOCATION;
+              : FALLBACK_HOME_LOCATION,
+          );
 
         console.log('[useChat] canonicalHomeLocation used for route origin:', canonicalHome);
 
