@@ -41,11 +41,10 @@ export function getQuickPrompts(_user: User | null): string[] {
 }
 
 export function getQuickPromptId(text: string): string {
-  for (const p of [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD]) {
-    if (p.text === text) return p.id;
-  }
-  return '';
+  return [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD].find(p => p.text === text)?.id || '';
 }
+
+const QUICK_PROMPT_ENTRIES = [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD];
 
 export function getQuickPromptsNormal(): string[] { return QUICK_PROMPTS_NORMAL.map(p => p.text); }
 export function getQuickPromptsHard(): string[] { return QUICK_PROMPTS_HARD.map(p => p.text); }
@@ -1052,19 +1051,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         {shouldShowQuickPrompts && (
           <div className={styles.quickPrompts} data-guide="quick-prompts">
             <div className={styles.quickPromptsList}>
-              {quickPrompts.map((prompt, idx) => (
+              {QUICK_PROMPT_ENTRIES.map(({ id, text: prompt }) => (
                 <button
-                  key={idx}
+                  type="button"
+                  key={id}
                   className={styles.quickPromptBtn}
                   disabled={fixedRouteLoading}
                   title={prompt}
-                  onClick={() => {
-                    const fixtureId = getQuickPromptId(prompt);
-                    if (fixtureId && onFixedRouteSelect) {
-                      onFixedRouteSelect(fixtureId);
-                    } else {
-                      setInputText(prompt);
-                      requestAnimationFrame(() => inputRef.current?.focus?.());
+                  data-fixture-id={id}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (onFixedRouteSelect) {
+                      void onFixedRouteSelect(id);
                     }
                   }}
                 >

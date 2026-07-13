@@ -9,7 +9,7 @@ def test_all_fixed_routes_are_real_snapshots() -> None:
     for fixture_id in ALLOWED_FIXTURE_IDS:
         fixture = get_fixed_route(fixture_id)
         assert fixture is not None, fixture_id
-        assert fixture["origin"]["label"] == "恒基伟业大厦"
+        assert fixture["origin"]["label"] == "北京恒基伟业大厦"
         assert fixture["route_data"]["points"]
         assert fixture["route_data"]["segments"]
         assert fixture["map_route_data"]["markers"]
