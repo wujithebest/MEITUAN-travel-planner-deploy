@@ -16,7 +16,7 @@ Pillow==10.4.0
 reportlab==4.2.5
 opencv-python-headless==4.10.0.84
 numpy==1.26.4
-playwright==1.40.0
+
 beautifulsoup4==4.12.2
 lxml==4.9.3
 # 数据库相关
