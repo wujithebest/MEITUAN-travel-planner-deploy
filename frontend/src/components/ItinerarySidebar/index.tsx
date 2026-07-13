@@ -439,7 +439,9 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
 
   // 当 completePlan 变化时，转换为 ParsedItinerary 格式
   useEffect(() => {
-    if (completePlan) {
+    // Fixed snapshots render from panel_days; their complete_plan is metadata
+    // and may not contain the normal LLM days/time_slots structure.
+    if (completePlan && Array.isArray((completePlan as any).days)) {
       const parsed = convertCompletePlanToParsedItinerary(completePlan);
       setData(parsed);
     }
