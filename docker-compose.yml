@@ -38,7 +38,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
       - APP_PORT=8000
     volumes:
-      - ./data:/app/data
+      # Fixed route fixtures live under backend/data in the repository.
+      - ./backend/data:/app/data
     depends_on:
       - redis
       - mongodb
