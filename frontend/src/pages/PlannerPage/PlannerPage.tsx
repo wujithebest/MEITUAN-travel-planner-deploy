@@ -494,12 +494,46 @@ const PlannerPage: React.FC = () => {
       const completePlan = structuredClone(fixture.complete_plan || {});
       const poiDetails = structuredClone(fixture.poi_details || {});
       const summary = structuredClone(fixture.summary || {});
-      const messages = fixture.messages?.length
-        ? structuredClone(fixture.messages)
-        : [
-            { id: `${fixtureId}-user`, role: 'user', content: fixture.prompt || '', timestamp: Date.now() - 1000 },
-            { id: `${fixtureId}-assistant`, role: 'assistant', content: fixture.assistant_message || '', timestamp: Date.now(), routeData: mapRouteData },
-          ];
+      const fixedRoutePoints = Array.isArray(routeData.points) ? routeData.points : [];
+      const fixedRouteReasons = fixedRoutePoints
+        .filter((point: any) => point?.name && point.kind !== 'start')
+        .map((point: any) => ({
+          name: point.name,
+          reason: point.recommend_reason || point.tags?.join('、') || '',
+        }))
+        .filter((item: any) => item.reason);
+      const fixedRouteSnapshot = {
+        title: fixture.title || fixture.prompt || '路线规划',
+        user_input: fixture.prompt || '',
+        complete_plan: completePlan,
+        route_data: routeData,
+        panel_days: panelDays,
+        map_route_data: mapRouteData,
+        poi_details: poiDetails,
+        summary: {
+          ...summary,
+          poi_count: summary.poi_count || Math.max(fixedRoutePoints.length - 1, 0),
+        },
+      };
+      // Fixed routes must use the same route-card message shape as normal plans.
+      // Keeping assistant_message as plain text bypasses the title/reason card UI.
+      const messages = [
+        { id: `${fixtureId}-user`, role: 'user' as const, content: fixture.prompt || '', timestamp: Date.now() - 1000 },
+        {
+          id: `${fixtureId}-assistant`,
+          role: 'assistant' as const,
+          content: '__RECOMMEND_REASONS__',
+          displayType: 'recommendReasons' as const,
+          timestamp: Date.now(),
+          routeData: {
+            ...mapRouteData,
+            route_recommend_reason: routeData.route_recommend_reason || '',
+          },
+          recommendReasons: fixedRouteReasons,
+          routeCardTitle: fixedRouteSnapshot.title,
+          routeSnapshot: fixedRouteSnapshot,
+        },
+      ];
 
       chat.replaceMessages(messages);
       useRouteStore.getState().loadHistoryRoute({
