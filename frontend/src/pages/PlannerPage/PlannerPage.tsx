@@ -26,6 +26,8 @@ import { useItinerary } from '@/hooks/useItinerary';
 import { useChat } from '@/hooks/useChat';
 import { useUserStore } from '@/store/userStore';
 import { useRouteStore } from '@/store/routeStore';
+import { buildRouteTagContext } from '@/utils/routePreferenceTags';
+import { getFixedRoute } from '@/api/fixedRoutes';
 import ProfileModal from '@/components/ProfileModal';
 import SettingsModal from '@/components/SettingsModal';
 import RouteHistoryModal from '@/components/RouteHistoryModal';
@@ -256,6 +258,20 @@ const PlannerPage: React.FC = () => {
   const replanPipelineRoute = useRouteStore(state => state.replanPipelineRoute);
   const isReplanning = useRouteStore(state => state.loading);
 
+  // v28: Build unified route tag context for left-panel & right-sidebar POI tags
+  const currentRequestText = useMemo(() => {
+    if (currentPlan?.parsed_intent?.raw_text) return currentPlan.parsed_intent.raw_text;
+    if (currentPlan?.request_text) return currentPlan.request_text;
+    const msgs = chat.messages || [];
+    const lastUser = [...msgs].reverse().find((m: any) => m.role === 'user');
+    return lastUser?.content || '';
+  }, [currentPlan, chat.messages]);
+
+  const routeTagContext = useMemo(
+    () => buildRouteTagContext(currentRequestText, currentPlan?.parsed_intent, user),
+    [currentRequestText, currentPlan?.parsed_intent, user],
+  );
+
   // 路线版本号（递增时触发 MapContainer 清除乐观 UI）
   const [routeVersion, setRouteVersion] = useState(0);
 
@@ -458,6 +474,51 @@ const PlannerPage: React.FC = () => {
 
   /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
+
+  /** v28: Fixed route select — fetch pre-generated JSON from backend */
+  const handleFixedRouteSelect = useCallback(async (fixtureId: string) => {
+    const fixture = await getFixedRoute(fixtureId);
+    if (!fixture) {
+      console.error('[FixedRoute] backend fetch failed for:', fixtureId);
+      return;
+    }
+
+    setHasSentInSession(true);
+    setLocalMapRouteData(null);
+    setSelectedRouteSegment(null);
+
+    const routeData = structuredClone(fixture.route_data || {});
+    const mapRouteData = structuredClone(fixture.map_route_data || {});
+    const panelDays = structuredClone(fixture.panel_days || []);
+    const completePlan = structuredClone(fixture.complete_plan || {});
+    const poiDetails = structuredClone(fixture.poi_details || {});
+    const summary = structuredClone(fixture.summary || {});
+
+    const messages = fixture.messages?.length
+      ? structuredClone(fixture.messages)
+      : [
+          { id: `${fixtureId}-user`, role: 'user', content: fixture.prompt || '', timestamp: Date.now() - 1000 },
+          { id: `${fixtureId}-assistant`, role: 'assistant', content: fixture.assistant_message || '', timestamp: Date.now(), routeData: mapRouteData },
+        ];
+
+    chat.replaceMessages(messages);
+    useRouteStore.getState().loadHistoryRoute({
+      title: fixture.title || fixture.prompt || '',
+      complete_plan: completePlan,
+      route_data: routeData,
+      panel_days: panelDays,
+      map_route_data: mapRouteData,
+      poi_details: poiDetails,
+      route_id: fixture.route_id || routeData?.route_id || fixtureId,
+      summary,
+      messages,
+    });
+
+    setRouteVersion(v => v + 1);
+    itinerary.openSidebar();
+  }, [chat, itinerary]);
+
+  /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
 
   const handleRouteCardSelect = useCallback((snapshot: any) => {
     if (!snapshot) return;
@@ -903,6 +964,7 @@ const PlannerPage: React.FC = () => {
             onSend={() => setHasSentInSession(true)}
             onRouteCardSelect={handleRouteCardSelect}
             activeRouteId={activeRouteId}
+            onFixedRouteSelect={handleFixedRouteSelect}
             onRouteCardFavorite={async (snapshot) => {
               if (snapshot) {
                 try {
@@ -1008,6 +1070,8 @@ const PlannerPage: React.FC = () => {
         }}
         onPoiAction={handlePoiAction}
         onCandidatePreview={(candidate) => setPreviewCandidateMarker(candidate ? normalizeCandidateToMarker(candidate) : null)}
+        requestText={currentRequestText}
+        routeTagContext={routeTagContext}
       />
 
       {/* 规划历史弹窗 */}

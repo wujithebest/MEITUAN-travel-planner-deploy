@@ -284,6 +284,7 @@ class PlannedWaypoint(BaseModel):
     placement: str = ""               # "before_destination" | "after_destination" | ""
     corridor_search: bool = False     # True if this task needs corridor search
     role: str = ""                    # "destination" | "corridor_task" | ""
+    route_phase: str = ""             # v28: phase tag e.g. "beihai"/"lunch_corridor"/"sanlihe"
 
 
 # v21: Structured multi-turn conversation context
@@ -404,6 +405,26 @@ class ParsedIntent(BaseModel):
     multi_theme_requested: bool = False
     theme_facets: list[dict[str, Any]] = Field(default_factory=list)
     theme_coverage_policy: str = ""  # "cover_all_explicit_facets" / "cover_best_effort" / ""
+
+    # ── v26: density targets (set by multi_facet_art and similar high-density themes) ──
+    density_min_visible_pois: int = 0       # minimum visible POIs the route MUST have
+    density_target_visible_pois: int = 0    # target visible POIs for optimal route density
+    candidate_target: int = 0               # target number of candidate_points
+
+    # ── v28: route quality contract (applies to all quality-route queries) ──
+    min_frontend_display_points: int = 0    # hard minimum display POIs for frontend
+    max_frontend_display_points: int = 8    # hard maximum display POIs for frontend
+    min_candidate_points: int = 0           # hard minimum candidate/backup points
+    max_candidate_points: int = 5           # hard maximum candidate/backup points
+    compact_route_required: bool = False    # route must be compact, no distant detours
+    max_in_route_segment_km: float = 5.0    # maximum single-segment distance for compact routes
+    explicit_timeline_required: bool = False  # enforce time-slot ordering (morning→lunch→afternoon)
+    nearby_strict_radius_m: int = 0          # v28: strict nearby radius for food stroll routes (3km)
+    nearby_max_radius_m: int = 0             # v28: max nearby radius fallback (5km)
+    max_first_leg_km: float = 0.0            # v28: max first route segment distance
+    post_meal_stroll_required: bool = False   # v28: add a nearby stroll point after the main meal
+    north_sea_lunch_jingshan_route: bool = False  # v28: 北海→烤鸭→景山 narrow route
+    north_sea_lunch_sanlihe_route: bool = False  # v28: 北海→烤鸭→三里河 narrow route
 
     # ── 代码计算字段 ──
 
@@ -581,6 +602,8 @@ class AnchorPlan(ScoredPlace):
     origin_transit: Optional[str] = None  # "从出发点约XX分钟"
     fixed: bool = False                    # v20: 是否为用户明确指定的固定锚点
     primary_target: bool = False           # v20: 是否为主要目标（fixed anchor with explicit name）
+    time_slot: str = ""                    # v28: explicit timeline slot, e.g. morning/lunch/afternoon
+    timeline_rank: int = 0                 # v28: stable sort key for explicit timeline routes
 
 
 class DayPlan(BaseModel):

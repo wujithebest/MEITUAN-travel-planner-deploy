@@ -1,0 +1,1076 @@
+{
+  "id": "literary-river-night-view",
+  "prompt": "下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方",
+  "title": "北京文艺河边夜景路线",
+  "origin": {
+    "label": "北京恒基伟业大厦",
+    "city": "北京市",
+    "lat": 40.008744,
+    "lng": 116.488462
+  },
+  "route_id": "fixed-literary-river-night-view-hengji-v1",
+  "assistant_message": "【北京文艺河边夜景路线】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：文艺路线｜清淡｜河边散步｜夜景｜拍照\n路线共 6 个游览点，按顺路顺序编排。",
+  "route_data": {
+    "route_id": "fixed-literary-river-night-view-hengji-v1",
+    "points": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "kind": "start",
+        "category": "起点",
+        "typecode": "",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 0,
+        "route_order": 0,
+        "recommend_reason": "与本次路线主题匹配",
+        "matched_keywords": [],
+        "tags": [],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-798艺术区",
+        "gaode_poi_id": "fixed-798艺术区",
+        "name": "798艺术区",
+        "location": "116.4958,39.9848",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 1,
+        "route_order": 1,
+        "recommend_reason": "北京文艺路线、适合拍照",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-将府公园",
+        "gaode_poi_id": "fixed-将府公园",
+        "name": "将府公园",
+        "location": "116.515,39.986",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 2,
+        "route_order": 2,
+        "recommend_reason": "文艺路线、轻松",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-清淡晚餐餐厅",
+        "gaode_poi_id": "fixed-清淡晚餐餐厅",
+        "name": "清淡晚餐餐厅",
+        "location": "116.506,39.993",
+        "kind": "meal",
+        "category": "餐饮",
+        "typecode": "050000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "dinner",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 3,
+        "route_order": 3,
+        "recommend_reason": "晚饭、清淡",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-亮马河国际风情水岸",
+        "gaode_poi_id": "fixed-亮马河国际风情水岸",
+        "name": "亮马河国际风情水岸",
+        "location": "116.466,39.95",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 4,
+        "route_order": 4,
+        "recommend_reason": "河边散步",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-蓝色港湾",
+        "gaode_poi_id": "fixed-蓝色港湾",
+        "name": "蓝色港湾",
+        "location": "116.469,39.9505",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 5,
+        "route_order": 5,
+        "recommend_reason": "河边散步、文艺",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-亮马河夜景观景点",
+        "gaode_poi_id": "fixed-亮马河夜景观景点",
+        "name": "亮马河夜景观景点",
+        "location": "116.4615,39.948",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 6,
+        "route_order": 6,
+        "recommend_reason": "拍夜景",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      }
+    ],
+    "segments": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "798艺术区",
+        "transport": "驾车",
+        "duration_min": 10,
+        "distance_km": 2.3,
+        "polyline": "116.488462,40.008744;116.4958,39.9848",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "798艺术区",
+        "to_poi": "将府公园",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.77,
+        "polyline": "116.4958,39.9848;116.515,39.986",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "将府公园",
+        "to_poi": "清淡晚餐餐厅",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 1.05,
+        "polyline": "116.515,39.986;116.506,39.993",
+        "polyline_source": "fixed_snapshot",
+        "period": "dinner",
+        "display_slot": "dinner",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "清淡晚餐餐厅",
+        "to_poi": "亮马河国际风情水岸",
+        "transport": "驾车",
+        "duration_min": 24,
+        "distance_km": 5.4,
+        "polyline": "116.506,39.993;116.466,39.95",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "亮马河国际风情水岸",
+        "to_poi": "蓝色港湾",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.28,
+        "polyline": "116.466,39.95;116.469,39.9505",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "蓝色港湾",
+        "to_poi": "亮马河夜景观景点",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.73,
+        "polyline": "116.469,39.9505;116.4615,39.948",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "candidate_points": [
+      {
+        "name": "文艺路线备选点1",
+        "kind": "candidate",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "name": "文艺路线备选点2",
+        "kind": "candidate",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "name": "文艺路线备选点3",
+        "kind": "candidate",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "name": "文艺路线备选点4",
+        "kind": "candidate",
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      }
+    ],
+    "route_recommend_reason": "文艺路线、清淡、河边散步、夜景、拍照",
+    "plan_mode": "fixed",
+    "total_days": 1
+  },
+  "map_route_data": {
+    "markers": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "type": "start",
+        "kind": "start",
+        "day_index": 1,
+        "display_order": 0,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "起点",
+        "rating": 4.5,
+        "matched_keywords": [],
+        "tags": []
+      },
+      {
+        "poi_id": "fixed-798艺术区",
+        "gaode_poi_id": "fixed-798艺术区",
+        "name": "798艺术区",
+        "location": "116.4958,39.9848",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 1,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "poi_id": "fixed-将府公园",
+        "gaode_poi_id": "fixed-将府公园",
+        "name": "将府公园",
+        "location": "116.515,39.986",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 2,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "poi_id": "fixed-清淡晚餐餐厅",
+        "gaode_poi_id": "fixed-清淡晚餐餐厅",
+        "name": "清淡晚餐餐厅",
+        "location": "116.506,39.993",
+        "type": "meal",
+        "kind": "meal",
+        "day_index": 1,
+        "display_order": 3,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "餐饮",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "poi_id": "fixed-亮马河国际风情水岸",
+        "gaode_poi_id": "fixed-亮马河国际风情水岸",
+        "name": "亮马河国际风情水岸",
+        "location": "116.466,39.95",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 4,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "poi_id": "fixed-蓝色港湾",
+        "gaode_poi_id": "fixed-蓝色港湾",
+        "name": "蓝色港湾",
+        "location": "116.469,39.9505",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 5,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      },
+      {
+        "poi_id": "fixed-亮马河夜景观景点",
+        "gaode_poi_id": "fixed-亮马河夜景观景点",
+        "name": "亮马河夜景观景点",
+        "location": "116.4615,39.948",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 6,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ],
+        "tags": [
+          "文艺路线",
+          "清淡",
+          "河边散步",
+          "夜景",
+          "拍照"
+        ]
+      }
+    ],
+    "polylines": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "798艺术区",
+        "transport": "驾车",
+        "duration_min": 10,
+        "distance_km": 2.3,
+        "polyline": "116.488462,40.008744;116.4958,39.9848",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "798艺术区",
+        "to_poi": "将府公园",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.77,
+        "polyline": "116.4958,39.9848;116.515,39.986",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "将府公园",
+        "to_poi": "清淡晚餐餐厅",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 1.05,
+        "polyline": "116.515,39.986;116.506,39.993",
+        "polyline_source": "fixed_snapshot",
+        "period": "dinner",
+        "display_slot": "dinner",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "清淡晚餐餐厅",
+        "to_poi": "亮马河国际风情水岸",
+        "transport": "驾车",
+        "duration_min": 24,
+        "distance_km": 5.4,
+        "polyline": "116.506,39.993;116.466,39.95",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "亮马河国际风情水岸",
+        "to_poi": "蓝色港湾",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.28,
+        "polyline": "116.466,39.95;116.469,39.9505",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "蓝色港湾",
+        "to_poi": "亮马河夜景观景点",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.73,
+        "polyline": "116.469,39.9505;116.4615,39.948",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "center": [
+      116.488462,
+      40.008744
+    ]
+  },
+  "panel_days": [
+    {
+      "day_index": 1,
+      "slots": [
+        {
+          "type": "afternoon",
+          "label": "下午",
+          "time_range": "13:30-18:00",
+          "pois": [
+            {
+              "order": 0,
+              "name": "北京恒基伟业大厦",
+              "kind": "start",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.488462,40.008744",
+              "is_start": true,
+              "transport_text": "起点",
+              "recommend_reason": "与本次路线主题匹配",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北京恒基伟业大厦",
+              "gaode_poi_id": "fixed-北京恒基伟业大厦",
+              "typecode": "",
+              "category": "起点",
+              "matched_keywords": [],
+              "tags": []
+            },
+            {
+              "order": 1,
+              "name": "798艺术区",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.4958,39.9848",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "北京文艺路线、适合拍照",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-798艺术区",
+              "gaode_poi_id": "fixed-798艺术区",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            },
+            {
+              "order": 2,
+              "name": "将府公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.515,39.986",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "文艺路线、轻松",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-将府公园",
+              "gaode_poi_id": "fixed-将府公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            }
+          ],
+          "recommend_reason": "文艺路线、清淡、河边散步、夜景、拍照"
+        },
+        {
+          "type": "dinner",
+          "label": "晚餐",
+          "time_range": "18:00-19:30",
+          "pois": [
+            {
+              "order": 3,
+              "name": "清淡晚餐餐厅",
+              "kind": "meal",
+              "day_index": 1,
+              "slot": "dinner",
+              "location": "116.506,39.993",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "晚饭、清淡",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-清淡晚餐餐厅",
+              "gaode_poi_id": "fixed-清淡晚餐餐厅",
+              "typecode": "050000",
+              "category": "餐饮",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            }
+          ],
+          "recommend_reason": "文艺路线、清淡、河边散步、夜景、拍照"
+        },
+        {
+          "type": "evening",
+          "label": "夜间",
+          "time_range": "19:30-21:00",
+          "pois": [
+            {
+              "order": 4,
+              "name": "亮马河国际风情水岸",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.466,39.95",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "河边散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-亮马河国际风情水岸",
+              "gaode_poi_id": "fixed-亮马河国际风情水岸",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            },
+            {
+              "order": 5,
+              "name": "蓝色港湾",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.469,39.9505",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "河边散步、文艺",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-蓝色港湾",
+              "gaode_poi_id": "fixed-蓝色港湾",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            },
+            {
+              "order": 6,
+              "name": "亮马河夜景观景点",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.4615,39.948",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "拍夜景",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-亮马河夜景观景点",
+              "gaode_poi_id": "fixed-亮马河夜景观景点",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ],
+              "tags": [
+                "文艺路线",
+                "清淡",
+                "河边散步",
+                "夜景",
+                "拍照"
+              ]
+            }
+          ],
+          "recommend_reason": "文艺路线、清淡、河边散步、夜景、拍照"
+        }
+      ]
+    }
+  ],
+  "complete_plan": {
+    "city": "北京市",
+    "duration": "a full day",
+    "time_budget": 1.0,
+    "plan_mode": "fixed",
+    "request_text": "下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方",
+    "parsed_intent": {
+      "raw_text": "下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方",
+      "city": "北京市"
+    }
+  },
+  "poi_details": {
+    "fixed-北京恒基伟业大厦": {
+      "poi_id": "fixed-北京恒基伟业大厦",
+      "gaode_poi_id": "fixed-北京恒基伟业大厦",
+      "name": "北京恒基伟业大厦",
+      "location": "116.488462,40.008744",
+      "address": "北京市",
+      "category": "起点",
+      "typecode": "",
+      "rating": 4.5,
+      "recommend_reason": "与本次路线主题匹配",
+      "matched_keywords": [],
+      "tags": []
+    },
+    "fixed-798艺术区": {
+      "poi_id": "fixed-798艺术区",
+      "gaode_poi_id": "fixed-798艺术区",
+      "name": "798艺术区",
+      "location": "116.4958,39.9848",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "北京文艺路线、适合拍照",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    },
+    "fixed-将府公园": {
+      "poi_id": "fixed-将府公园",
+      "gaode_poi_id": "fixed-将府公园",
+      "name": "将府公园",
+      "location": "116.515,39.986",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "文艺路线、轻松",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    },
+    "fixed-清淡晚餐餐厅": {
+      "poi_id": "fixed-清淡晚餐餐厅",
+      "gaode_poi_id": "fixed-清淡晚餐餐厅",
+      "name": "清淡晚餐餐厅",
+      "location": "116.506,39.993",
+      "address": "北京市",
+      "category": "餐饮",
+      "typecode": "050000",
+      "rating": 4.5,
+      "recommend_reason": "晚饭、清淡",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    },
+    "fixed-亮马河国际风情水岸": {
+      "poi_id": "fixed-亮马河国际风情水岸",
+      "gaode_poi_id": "fixed-亮马河国际风情水岸",
+      "name": "亮马河国际风情水岸",
+      "location": "116.466,39.95",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "河边散步",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    },
+    "fixed-蓝色港湾": {
+      "poi_id": "fixed-蓝色港湾",
+      "gaode_poi_id": "fixed-蓝色港湾",
+      "name": "蓝色港湾",
+      "location": "116.469,39.9505",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "河边散步、文艺",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    },
+    "fixed-亮马河夜景观景点": {
+      "poi_id": "fixed-亮马河夜景观景点",
+      "gaode_poi_id": "fixed-亮马河夜景观景点",
+      "name": "亮马河夜景观景点",
+      "location": "116.4615,39.948",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "拍夜景",
+      "matched_keywords": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ],
+      "tags": [
+        "文艺路线",
+        "清淡",
+        "河边散步",
+        "夜景",
+        "拍照"
+      ]
+    }
+  },
+  "summary": {
+    "poi_count": 6,
+    "candidate_count": 4,
+    "distance": 11.53,
+    "duration": 53,
+    "origin": "北京恒基伟业大厦"
+  }
+}

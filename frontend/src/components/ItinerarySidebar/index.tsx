@@ -56,6 +56,9 @@ interface ItinerarySidebarProps {
   onPoiAction?: (action: any) => void;
   /** v18: 候选点预览回调 */
   onCandidatePreview?: (candidate: any | null) => void;
+  /** v28: current user request text for keyword matching */
+  requestText?: string;
+  routeTagContext?: import('@/utils/routePreferenceTags').RouteTagContext;
 }
 
 export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
@@ -76,6 +79,8 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
   planMode = null,
   onPoiAction,
   onCandidatePreview,
+  requestText = '',
+  routeTagContext,
 }) => {
   const [data, setData] = useState<ParsedItinerary | null>(initialData || null);
   const [textBuffer, setTextBuffer] = useState<string>('');
@@ -592,6 +597,9 @@ export const ItinerarySidebar: React.FC<ItinerarySidebarProps> = ({
             points={rawRouteData?.points || []}
             segments={rawRouteData?.segments || []}
             candidatePoints={rawRouteData?.candidate_points || []}
+            requestText={requestText || ''}
+            parsedIntent={completePlan?.parsed_intent}
+            routeTagContext={routeTagContext}
             onPOIClick={handleLocationPOIClick}
             onRouteClick={handleRouteClick}
             onPoiAction={onPoiAction}

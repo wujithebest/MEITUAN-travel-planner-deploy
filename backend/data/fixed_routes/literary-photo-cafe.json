@@ -1,0 +1,1136 @@
+{
+  "id": "literary-photo-cafe",
+  "prompt": "帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点",
+  "title": "北京文艺拍照咖啡路线",
+  "origin": {
+    "label": "北京恒基伟业大厦",
+    "city": "北京市",
+    "lat": 40.008744,
+    "lng": 116.488462
+  },
+  "route_id": "fixed-literary-photo-cafe-hengji-v1",
+  "assistant_message": "【北京文艺拍照咖啡路线】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：咖啡｜拍照｜文艺路线｜咖啡馆｜特色小店｜节奏轻松\n路线共 6 个游览点，按顺路顺序编排。",
+  "route_data": {
+    "route_id": "fixed-literary-photo-cafe-hengji-v1",
+    "points": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "kind": "start",
+        "category": "起点",
+        "typecode": "",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 0,
+        "route_order": 0,
+        "recommend_reason": "与本次路线主题匹配",
+        "matched_keywords": [],
+        "tags": [],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-望京公园",
+        "gaode_poi_id": "fixed-望京公园",
+        "name": "望京公园",
+        "location": "116.493,40.002",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 1,
+        "route_order": 1,
+        "recommend_reason": "适合拍照、文艺路线、节奏轻松",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-798艺术区",
+        "gaode_poi_id": "fixed-798艺术区",
+        "name": "798艺术区",
+        "location": "116.4958,39.9848",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 2,
+        "route_order": 2,
+        "recommend_reason": "适合拍照、文艺路线",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-地球咖啡馆",
+        "gaode_poi_id": "fixed-地球咖啡馆",
+        "name": "地球咖啡馆",
+        "location": "116.4972,39.9836",
+        "kind": "meal",
+        "category": "餐饮",
+        "typecode": "050000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "lunch",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 3,
+        "route_order": 3,
+        "recommend_reason": "咖啡馆、特色小店",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-草场地艺术区",
+        "gaode_poi_id": "fixed-草场地艺术区",
+        "name": "草场地艺术区",
+        "location": "116.5125,39.988",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 4,
+        "route_order": 4,
+        "recommend_reason": "文艺路线、适合拍照",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北京798小店街",
+        "gaode_poi_id": "fixed-北京798小店街",
+        "name": "北京798小店街",
+        "location": "116.498,39.9819",
+        "kind": "anchor",
+        "category": "购物",
+        "typecode": "060000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 5,
+        "route_order": 5,
+        "recommend_reason": "特色小店、节奏轻松",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-将府公园",
+        "gaode_poi_id": "fixed-将府公园",
+        "name": "将府公园",
+        "location": "116.515,39.986",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 6,
+        "route_order": 6,
+        "recommend_reason": "适合拍照、节奏轻松",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      }
+    ],
+    "segments": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "望京公园",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.75,
+        "polyline": "116.488462,40.008744;116.493,40.002",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "望京公园",
+        "to_poi": "798艺术区",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.6,
+        "polyline": "116.493,40.002;116.4958,39.9848",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "798艺术区",
+        "to_poi": "地球咖啡馆",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.4958,39.9848;116.4972,39.9836",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "地球咖啡馆",
+        "to_poi": "草场地艺术区",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.46,
+        "polyline": "116.4972,39.9836;116.5125,39.988",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "草场地艺术区",
+        "to_poi": "北京798小店街",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.45,
+        "polyline": "116.5125,39.988;116.498,39.9819",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "北京798小店街",
+        "to_poi": "将府公园",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.61,
+        "polyline": "116.498,39.9819;116.515,39.986",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "candidate_points": [
+      {
+        "name": "咖啡备选点1",
+        "kind": "candidate",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "name": "咖啡备选点2",
+        "kind": "candidate",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "name": "咖啡备选点3",
+        "kind": "candidate",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "name": "咖啡备选点4",
+        "kind": "candidate",
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      }
+    ],
+    "route_recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松",
+    "plan_mode": "fixed",
+    "total_days": 1
+  },
+  "map_route_data": {
+    "markers": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "type": "start",
+        "kind": "start",
+        "day_index": 1,
+        "display_order": 0,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "起点",
+        "rating": 4.5,
+        "matched_keywords": [],
+        "tags": []
+      },
+      {
+        "poi_id": "fixed-望京公园",
+        "gaode_poi_id": "fixed-望京公园",
+        "name": "望京公园",
+        "location": "116.493,40.002",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 1,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "poi_id": "fixed-798艺术区",
+        "gaode_poi_id": "fixed-798艺术区",
+        "name": "798艺术区",
+        "location": "116.4958,39.9848",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 2,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "poi_id": "fixed-地球咖啡馆",
+        "gaode_poi_id": "fixed-地球咖啡馆",
+        "name": "地球咖啡馆",
+        "location": "116.4972,39.9836",
+        "type": "meal",
+        "kind": "meal",
+        "day_index": 1,
+        "display_order": 3,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "餐饮",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "poi_id": "fixed-草场地艺术区",
+        "gaode_poi_id": "fixed-草场地艺术区",
+        "name": "草场地艺术区",
+        "location": "116.5125,39.988",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 4,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "poi_id": "fixed-北京798小店街",
+        "gaode_poi_id": "fixed-北京798小店街",
+        "name": "北京798小店街",
+        "location": "116.498,39.9819",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 5,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "购物",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      },
+      {
+        "poi_id": "fixed-将府公园",
+        "gaode_poi_id": "fixed-将府公园",
+        "name": "将府公园",
+        "location": "116.515,39.986",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 6,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ],
+        "tags": [
+          "咖啡",
+          "拍照",
+          "文艺路线",
+          "咖啡馆",
+          "特色小店",
+          "节奏轻松"
+        ]
+      }
+    ],
+    "polylines": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "望京公园",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.75,
+        "polyline": "116.488462,40.008744;116.493,40.002",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "望京公园",
+        "to_poi": "798艺术区",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.6,
+        "polyline": "116.493,40.002;116.4958,39.9848",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "798艺术区",
+        "to_poi": "地球咖啡馆",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.4958,39.9848;116.4972,39.9836",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "地球咖啡馆",
+        "to_poi": "草场地艺术区",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.46,
+        "polyline": "116.4972,39.9836;116.5125,39.988",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "草场地艺术区",
+        "to_poi": "北京798小店街",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.45,
+        "polyline": "116.5125,39.988;116.498,39.9819",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "北京798小店街",
+        "to_poi": "将府公园",
+        "transport": "驾车",
+        "duration_min": 7,
+        "distance_km": 1.61,
+        "polyline": "116.498,39.9819;116.515,39.986",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "center": [
+      116.488462,
+      40.008744
+    ]
+  },
+  "panel_days": [
+    {
+      "day_index": 1,
+      "slots": [
+        {
+          "type": "morning",
+          "label": "上午",
+          "time_range": "09:00-12:00",
+          "pois": [
+            {
+              "order": 0,
+              "name": "北京恒基伟业大厦",
+              "kind": "start",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.488462,40.008744",
+              "is_start": true,
+              "transport_text": "起点",
+              "recommend_reason": "与本次路线主题匹配",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北京恒基伟业大厦",
+              "gaode_poi_id": "fixed-北京恒基伟业大厦",
+              "typecode": "",
+              "category": "起点",
+              "matched_keywords": [],
+              "tags": []
+            },
+            {
+              "order": 1,
+              "name": "望京公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.493,40.002",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "适合拍照、文艺路线、节奏轻松",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-望京公园",
+              "gaode_poi_id": "fixed-望京公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            },
+            {
+              "order": 2,
+              "name": "798艺术区",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.4958,39.9848",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "适合拍照、文艺路线",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-798艺术区",
+              "gaode_poi_id": "fixed-798艺术区",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            }
+          ],
+          "recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松"
+        },
+        {
+          "type": "lunch",
+          "label": "午餐",
+          "time_range": "12:00-13:30",
+          "pois": [
+            {
+              "order": 3,
+              "name": "地球咖啡馆",
+              "kind": "meal",
+              "day_index": 1,
+              "slot": "lunch",
+              "location": "116.4972,39.9836",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "咖啡馆、特色小店",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-地球咖啡馆",
+              "gaode_poi_id": "fixed-地球咖啡馆",
+              "typecode": "050000",
+              "category": "餐饮",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            }
+          ],
+          "recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松"
+        },
+        {
+          "type": "afternoon",
+          "label": "下午",
+          "time_range": "13:30-18:00",
+          "pois": [
+            {
+              "order": 4,
+              "name": "草场地艺术区",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.5125,39.988",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "文艺路线、适合拍照",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-草场地艺术区",
+              "gaode_poi_id": "fixed-草场地艺术区",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            },
+            {
+              "order": 5,
+              "name": "北京798小店街",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.498,39.9819",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "特色小店、节奏轻松",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北京798小店街",
+              "gaode_poi_id": "fixed-北京798小店街",
+              "typecode": "060000",
+              "category": "购物",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            }
+          ],
+          "recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松"
+        },
+        {
+          "type": "evening",
+          "label": "夜间",
+          "time_range": "19:30-21:00",
+          "pois": [
+            {
+              "order": 6,
+              "name": "将府公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.515,39.986",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "适合拍照、节奏轻松",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-将府公园",
+              "gaode_poi_id": "fixed-将府公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ],
+              "tags": [
+                "咖啡",
+                "拍照",
+                "文艺路线",
+                "咖啡馆",
+                "特色小店",
+                "节奏轻松"
+              ]
+            }
+          ],
+          "recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松"
+        }
+      ]
+    }
+  ],
+  "complete_plan": {
+    "city": "北京市",
+    "duration": "a full day",
+    "time_budget": 1.0,
+    "plan_mode": "fixed",
+    "request_text": "帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点",
+    "parsed_intent": {
+      "raw_text": "帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点",
+      "city": "北京市"
+    }
+  },
+  "poi_details": {
+    "fixed-北京恒基伟业大厦": {
+      "poi_id": "fixed-北京恒基伟业大厦",
+      "gaode_poi_id": "fixed-北京恒基伟业大厦",
+      "name": "北京恒基伟业大厦",
+      "location": "116.488462,40.008744",
+      "address": "北京市",
+      "category": "起点",
+      "typecode": "",
+      "rating": 4.5,
+      "recommend_reason": "与本次路线主题匹配",
+      "matched_keywords": [],
+      "tags": []
+    },
+    "fixed-望京公园": {
+      "poi_id": "fixed-望京公园",
+      "gaode_poi_id": "fixed-望京公园",
+      "name": "望京公园",
+      "location": "116.493,40.002",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "适合拍照、文艺路线、节奏轻松",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    },
+    "fixed-798艺术区": {
+      "poi_id": "fixed-798艺术区",
+      "gaode_poi_id": "fixed-798艺术区",
+      "name": "798艺术区",
+      "location": "116.4958,39.9848",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "适合拍照、文艺路线",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    },
+    "fixed-地球咖啡馆": {
+      "poi_id": "fixed-地球咖啡馆",
+      "gaode_poi_id": "fixed-地球咖啡馆",
+      "name": "地球咖啡馆",
+      "location": "116.4972,39.9836",
+      "address": "北京市",
+      "category": "餐饮",
+      "typecode": "050000",
+      "rating": 4.5,
+      "recommend_reason": "咖啡馆、特色小店",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    },
+    "fixed-草场地艺术区": {
+      "poi_id": "fixed-草场地艺术区",
+      "gaode_poi_id": "fixed-草场地艺术区",
+      "name": "草场地艺术区",
+      "location": "116.5125,39.988",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "文艺路线、适合拍照",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    },
+    "fixed-北京798小店街": {
+      "poi_id": "fixed-北京798小店街",
+      "gaode_poi_id": "fixed-北京798小店街",
+      "name": "北京798小店街",
+      "location": "116.498,39.9819",
+      "address": "北京市",
+      "category": "购物",
+      "typecode": "060000",
+      "rating": 4.5,
+      "recommend_reason": "特色小店、节奏轻松",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    },
+    "fixed-将府公园": {
+      "poi_id": "fixed-将府公园",
+      "gaode_poi_id": "fixed-将府公园",
+      "name": "将府公园",
+      "location": "116.515,39.986",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "适合拍照、节奏轻松",
+      "matched_keywords": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "tags": [
+        "咖啡",
+        "拍照",
+        "文艺路线",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ]
+    }
+  },
+  "summary": {
+    "poi_count": 6,
+    "candidate_count": 4,
+    "distance": 7.12,
+    "duration": 34,
+    "origin": "北京恒基伟业大厦"
+  }
+}

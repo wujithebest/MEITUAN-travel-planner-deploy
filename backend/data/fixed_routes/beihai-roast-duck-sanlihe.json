@@ -1,0 +1,1084 @@
+{
+  "id": "beihai-roast-duck-sanlihe",
+  "prompt": "帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去三里河公园。",
+  "title": "北京北海公园烤鸭三里河公园一日游",
+  "origin": {
+    "label": "北京恒基伟业大厦",
+    "city": "北京市",
+    "lat": 40.008744,
+    "lng": 116.488462
+  },
+  "route_id": "fixed-beihai-roast-duck-sanlihe-hengji-v1",
+  "assistant_message": "【北京北海公园烤鸭三里河公园一日游】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：北海公园｜烤鸭｜三里河公园｜先后顺序｜顺路\n路线共 6 个游览点，按顺路顺序编排。",
+  "route_data": {
+    "route_id": "fixed-beihai-roast-duck-sanlihe-hengji-v1",
+    "points": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "kind": "start",
+        "category": "起点",
+        "typecode": "",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 0,
+        "route_order": 0,
+        "recommend_reason": "与本次路线主题匹配",
+        "matched_keywords": [],
+        "tags": [],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北海公园-白塔",
+        "gaode_poi_id": "fixed-北海公园-白塔",
+        "name": "北海公园-白塔",
+        "location": "116.391,39.925",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 1,
+        "route_order": 1,
+        "recommend_reason": "北海公园、先去走走",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北海公园-九龙壁",
+        "gaode_poi_id": "fixed-北海公园-九龙壁",
+        "name": "北海公园-九龙壁",
+        "location": "116.3865,39.9255",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 2,
+        "route_order": 2,
+        "recommend_reason": "北海公园、顺路",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北海附近烤鸭店",
+        "gaode_poi_id": "fixed-北海附近烤鸭店",
+        "name": "北海附近烤鸭店",
+        "location": "116.395,39.9205",
+        "kind": "meal",
+        "category": "餐饮",
+        "typecode": "050000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "lunch",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 3,
+        "route_order": 3,
+        "recommend_reason": "中午、烤鸭",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-天桥艺术中心",
+        "gaode_poi_id": "fixed-天桥艺术中心",
+        "name": "天桥艺术中心",
+        "location": "116.3975,39.891",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 4,
+        "route_order": 4,
+        "recommend_reason": "前往三里河公园途中",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-三里河公园",
+        "gaode_poi_id": "fixed-三里河公园",
+        "name": "三里河公园",
+        "location": "116.3895,39.8845",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 5,
+        "route_order": 5,
+        "recommend_reason": "下午、三里河公园",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-三里河公园水岸步道",
+        "gaode_poi_id": "fixed-三里河公园水岸步道",
+        "name": "三里河公园水岸步道",
+        "location": "116.391,39.8835",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 6,
+        "route_order": 6,
+        "recommend_reason": "三里河公园、散步",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      }
+    ],
+    "segments": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "北海公园-白塔",
+        "transport": "驾车",
+        "duration_min": 53,
+        "distance_km": 11.82,
+        "polyline": "116.488462,40.008744;116.391,39.925",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "北海公园-白塔",
+        "to_poi": "北海公园-九龙壁",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.42,
+        "polyline": "116.391,39.925;116.3865,39.9255",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "北海公园-九龙壁",
+        "to_poi": "北海附近烤鸭店",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.91,
+        "polyline": "116.3865,39.9255;116.395,39.9205",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "北海附近烤鸭店",
+        "to_poi": "天桥艺术中心",
+        "transport": "驾车",
+        "duration_min": 12,
+        "distance_km": 2.72,
+        "polyline": "116.395,39.9205;116.3975,39.891",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "天桥艺术中心",
+        "to_poi": "三里河公园",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.95,
+        "polyline": "116.3975,39.891;116.3895,39.8845",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "三里河公园",
+        "to_poi": "三里河公园水岸步道",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.3895,39.8845;116.391,39.8835",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "candidate_points": [
+      {
+        "name": "北海公园备选点1",
+        "kind": "candidate",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "name": "北海公园备选点2",
+        "kind": "candidate",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "name": "北海公园备选点3",
+        "kind": "candidate",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "name": "北海公园备选点4",
+        "kind": "candidate",
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      }
+    ],
+    "route_recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路",
+    "plan_mode": "fixed",
+    "total_days": 1
+  },
+  "map_route_data": {
+    "markers": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "type": "start",
+        "kind": "start",
+        "day_index": 1,
+        "display_order": 0,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "起点",
+        "rating": 4.5,
+        "matched_keywords": [],
+        "tags": []
+      },
+      {
+        "poi_id": "fixed-北海公园-白塔",
+        "gaode_poi_id": "fixed-北海公园-白塔",
+        "name": "北海公园-白塔",
+        "location": "116.391,39.925",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 1,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "poi_id": "fixed-北海公园-九龙壁",
+        "gaode_poi_id": "fixed-北海公园-九龙壁",
+        "name": "北海公园-九龙壁",
+        "location": "116.3865,39.9255",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 2,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "poi_id": "fixed-北海附近烤鸭店",
+        "gaode_poi_id": "fixed-北海附近烤鸭店",
+        "name": "北海附近烤鸭店",
+        "location": "116.395,39.9205",
+        "type": "meal",
+        "kind": "meal",
+        "day_index": 1,
+        "display_order": 3,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "餐饮",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "poi_id": "fixed-天桥艺术中心",
+        "gaode_poi_id": "fixed-天桥艺术中心",
+        "name": "天桥艺术中心",
+        "location": "116.3975,39.891",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 4,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "poi_id": "fixed-三里河公园",
+        "gaode_poi_id": "fixed-三里河公园",
+        "name": "三里河公园",
+        "location": "116.3895,39.8845",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 5,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      },
+      {
+        "poi_id": "fixed-三里河公园水岸步道",
+        "gaode_poi_id": "fixed-三里河公园水岸步道",
+        "name": "三里河公园水岸步道",
+        "location": "116.391,39.8835",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 6,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ],
+        "tags": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园",
+          "先后顺序",
+          "顺路"
+        ]
+      }
+    ],
+    "polylines": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "北海公园-白塔",
+        "transport": "驾车",
+        "duration_min": 53,
+        "distance_km": 11.82,
+        "polyline": "116.488462,40.008744;116.391,39.925",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "北海公园-白塔",
+        "to_poi": "北海公园-九龙壁",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.42,
+        "polyline": "116.391,39.925;116.3865,39.9255",
+        "polyline_source": "fixed_snapshot",
+        "period": "morning",
+        "display_slot": "morning",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "北海公园-九龙壁",
+        "to_poi": "北海附近烤鸭店",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.91,
+        "polyline": "116.3865,39.9255;116.395,39.9205",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "北海附近烤鸭店",
+        "to_poi": "天桥艺术中心",
+        "transport": "驾车",
+        "duration_min": 12,
+        "distance_km": 2.72,
+        "polyline": "116.395,39.9205;116.3975,39.891",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "天桥艺术中心",
+        "to_poi": "三里河公园",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.95,
+        "polyline": "116.3975,39.891;116.3895,39.8845",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "三里河公园",
+        "to_poi": "三里河公园水岸步道",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.3895,39.8845;116.391,39.8835",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "center": [
+      116.488462,
+      40.008744
+    ]
+  },
+  "panel_days": [
+    {
+      "day_index": 1,
+      "slots": [
+        {
+          "type": "morning",
+          "label": "上午",
+          "time_range": "09:00-12:00",
+          "pois": [
+            {
+              "order": 0,
+              "name": "北京恒基伟业大厦",
+              "kind": "start",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.488462,40.008744",
+              "is_start": true,
+              "transport_text": "起点",
+              "recommend_reason": "与本次路线主题匹配",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北京恒基伟业大厦",
+              "gaode_poi_id": "fixed-北京恒基伟业大厦",
+              "typecode": "",
+              "category": "起点",
+              "matched_keywords": [],
+              "tags": []
+            },
+            {
+              "order": 1,
+              "name": "北海公园-白塔",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.391,39.925",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "北海公园、先去走走",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北海公园-白塔",
+              "gaode_poi_id": "fixed-北海公园-白塔",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            },
+            {
+              "order": 2,
+              "name": "北海公园-九龙壁",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.3865,39.9255",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "北海公园、顺路",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北海公园-九龙壁",
+              "gaode_poi_id": "fixed-北海公园-九龙壁",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            }
+          ],
+          "recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路"
+        },
+        {
+          "type": "lunch",
+          "label": "午餐",
+          "time_range": "12:00-13:30",
+          "pois": [
+            {
+              "order": 3,
+              "name": "北海附近烤鸭店",
+              "kind": "meal",
+              "day_index": 1,
+              "slot": "lunch",
+              "location": "116.395,39.9205",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "中午、烤鸭",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北海附近烤鸭店",
+              "gaode_poi_id": "fixed-北海附近烤鸭店",
+              "typecode": "050000",
+              "category": "餐饮",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            }
+          ],
+          "recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路"
+        },
+        {
+          "type": "afternoon",
+          "label": "下午",
+          "time_range": "13:30-18:00",
+          "pois": [
+            {
+              "order": 4,
+              "name": "天桥艺术中心",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.3975,39.891",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "前往三里河公园途中",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-天桥艺术中心",
+              "gaode_poi_id": "fixed-天桥艺术中心",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            },
+            {
+              "order": 5,
+              "name": "三里河公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.3895,39.8845",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "下午、三里河公园",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-三里河公园",
+              "gaode_poi_id": "fixed-三里河公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            }
+          ],
+          "recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路"
+        },
+        {
+          "type": "evening",
+          "label": "夜间",
+          "time_range": "19:30-21:00",
+          "pois": [
+            {
+              "order": 6,
+              "name": "三里河公园水岸步道",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.391,39.8835",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "三里河公园、散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-三里河公园水岸步道",
+              "gaode_poi_id": "fixed-三里河公园水岸步道",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ],
+              "tags": [
+                "北海公园",
+                "烤鸭",
+                "三里河公园",
+                "先后顺序",
+                "顺路"
+              ]
+            }
+          ],
+          "recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路"
+        }
+      ]
+    }
+  ],
+  "complete_plan": {
+    "city": "北京市",
+    "duration": "a full day",
+    "time_budget": 1.0,
+    "plan_mode": "fixed",
+    "request_text": "帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去三里河公园。",
+    "parsed_intent": {
+      "raw_text": "帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去三里河公园。",
+      "city": "北京市"
+    }
+  },
+  "poi_details": {
+    "fixed-北京恒基伟业大厦": {
+      "poi_id": "fixed-北京恒基伟业大厦",
+      "gaode_poi_id": "fixed-北京恒基伟业大厦",
+      "name": "北京恒基伟业大厦",
+      "location": "116.488462,40.008744",
+      "address": "北京市",
+      "category": "起点",
+      "typecode": "",
+      "rating": 4.5,
+      "recommend_reason": "与本次路线主题匹配",
+      "matched_keywords": [],
+      "tags": []
+    },
+    "fixed-北海公园-白塔": {
+      "poi_id": "fixed-北海公园-白塔",
+      "gaode_poi_id": "fixed-北海公园-白塔",
+      "name": "北海公园-白塔",
+      "location": "116.391,39.925",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "北海公园、先去走走",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    },
+    "fixed-北海公园-九龙壁": {
+      "poi_id": "fixed-北海公园-九龙壁",
+      "gaode_poi_id": "fixed-北海公园-九龙壁",
+      "name": "北海公园-九龙壁",
+      "location": "116.3865,39.9255",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "北海公园、顺路",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    },
+    "fixed-北海附近烤鸭店": {
+      "poi_id": "fixed-北海附近烤鸭店",
+      "gaode_poi_id": "fixed-北海附近烤鸭店",
+      "name": "北海附近烤鸭店",
+      "location": "116.395,39.9205",
+      "address": "北京市",
+      "category": "餐饮",
+      "typecode": "050000",
+      "rating": 4.5,
+      "recommend_reason": "中午、烤鸭",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    },
+    "fixed-天桥艺术中心": {
+      "poi_id": "fixed-天桥艺术中心",
+      "gaode_poi_id": "fixed-天桥艺术中心",
+      "name": "天桥艺术中心",
+      "location": "116.3975,39.891",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "前往三里河公园途中",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    },
+    "fixed-三里河公园": {
+      "poi_id": "fixed-三里河公园",
+      "gaode_poi_id": "fixed-三里河公园",
+      "name": "三里河公园",
+      "location": "116.3895,39.8845",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "下午、三里河公园",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    },
+    "fixed-三里河公园水岸步道": {
+      "poi_id": "fixed-三里河公园水岸步道",
+      "gaode_poi_id": "fixed-三里河公园水岸步道",
+      "name": "三里河公园水岸步道",
+      "location": "116.391,39.8835",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "三里河公园、散步",
+      "matched_keywords": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ],
+      "tags": [
+        "北海公园",
+        "烤鸭",
+        "三里河公园",
+        "先后顺序",
+        "顺路"
+      ]
+    }
+  },
+  "summary": {
+    "poi_count": 6,
+    "candidate_count": 4,
+    "distance": 17.07,
+    "duration": 81,
+    "origin": "北京恒基伟业大厦"
+  }
+}

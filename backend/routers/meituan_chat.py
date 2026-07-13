@@ -4,7 +4,7 @@
 支持 SSE 流式输出规划进度，使用不同的 event 类型区分消息
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import asyncio
@@ -40,6 +40,33 @@ SSE_STREAM_MAX_SECONDS = min(
 )
 
 router = APIRouter(prefix="/api/meituan", tags=["美团AI对话"])
+
+
+# ═══ v28: Fixed route endpoint — serves pre-generated route JSON ═══
+
+from services.fixed_route_service import get_fixed_route, get_all_fixture_ids
+
+
+class FixedRouteResponse(BaseModel):
+    success: bool
+    data: dict | None = None
+    error: str | None = None
+
+
+@router.get("/fixed-routes/{fixture_id}", response_model=FixedRouteResponse)
+async def fixed_route_endpoint(fixture_id: str):
+    """Serve a pre-generated fixed route fixture. No LLM, no Amap, no pipeline."""
+    data = get_fixed_route(fixture_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail=f"固定路线不存在或缓存不完整: {fixture_id}")
+
+    return FixedRouteResponse(success=True, data=data)
+
+
+@router.get("/fixed-routes", response_model=dict)
+async def list_fixed_routes():
+    """List all available fixed route fixture IDs."""
+    return {"success": True, "data": get_all_fixture_ids()}
 
 
 class GuestProfileSchema(BaseModel):
@@ -319,6 +346,8 @@ from services.conversation_replan import (
     _detect_plan_mode_from_text,
     _planning_dispatch_fast_fallback,
     is_meal_preference_refine_decision,
+    is_category_exclusion_decision,
+    _detect_category_exclusion,
     PlanningDispatchDecision,
 )
 from services.conversation_clarification import (
@@ -472,6 +501,24 @@ def _classify_chat_edit(user_request: str, route_context: RouteContextSchema | N
                 return {"action": "remove", "target_name": target, "new_name": None, "reason": f"replace without concrete new name {word}"}
 
     if any(w in text for w in _EDIT_REMOVE_WORDS):
+        # v27: Category-level exclusion MUST be checked FIRST — before any route point matching.
+        # "不想去咖啡馆了，帮我把路线改一下" → remove_category:cafe, NOT remove with wrong target_name.
+        _cat_ex = _detect_category_exclusion(text, source="chat_edit")
+        if _cat_ex and has_route:
+            print(
+                f"[CategoryExclusionAudit] source=chat_edit matched=true "
+                f"category={_cat_ex['category_id']} action=remove_category "
+                f"text={text[:80]}"
+            )
+            return {
+                "action": "remove_category",
+                "target_category": _cat_ex["category_id"],
+                "target_terms": _cat_ex["target_terms"],
+                "target_typecodes": _cat_ex["target_typecodes"],
+                "raw_target": _cat_ex["raw_target"],
+                "reason": "category-level remove (checked before route point match)",
+            }
+        # Only check route point match if category exclusion didn't fire
         target = _match_route_point(text, point_names)
         if target:
             return {"action": "remove", "target_name": target, "new_name": None, "reason": "matched remove with route point"}
@@ -648,8 +695,32 @@ async def _try_chat_edit_replan(
     point_operations: list[dict] | None = None,
 ) -> bool:
     edit = _classify_chat_edit(user_request, route_context)
-    # 调度模型已识别出操作时，将其作为本地规则的确定性兜底。
-    if edit["action"] == "normal" and point_operations:
+
+    # v27: Dispatch-provided remove_category ALWAYS takes priority over local chat edit result.
+    # Prevents _classify_chat_edit from overriding a correct dispatch decision with a generic remove.
+    _dispatch_cat_ex = None
+    if point_operations:
+        for op in point_operations:
+            if isinstance(op, dict) and op.get("action") == "remove_category":
+                _dispatch_cat_ex = op
+                break
+
+    if _dispatch_cat_ex:
+        # Dispatch has identified a category exclusion — override local edit result unconditionally
+        edit = {
+            "action": "remove_category",
+            "target_category": _dispatch_cat_ex.get("target_category", ""),
+            "target_terms": _dispatch_cat_ex.get("target_terms", []),
+            "target_typecodes": _dispatch_cat_ex.get("target_typecodes", []),
+            "raw_target": _dispatch_cat_ex.get("target_terms", [""])[0] if _dispatch_cat_ex.get("target_terms") else "",
+            "reason": "planning dispatch remove_category (override)",
+        }
+        print(
+            f"[CategoryExclusionAudit] source=chat_edit_replan dispatch_override=true "
+            f"category={edit['target_category']} local_action_was={edit.get('action','?')}"
+        )
+    elif edit["action"] == "normal" and point_operations:
+        # 调度模型已识别出操作时，将其作为本地规则的确定性兜底。
         operation = point_operations[0]
         if operation.get("action") in ("add", "remove", "replace"):
             edit = {
@@ -663,7 +734,7 @@ async def _try_chat_edit_replan(
                 edit["new_name"] = edit.get("new_name") or temporal_append[0]
                 edit["display_slot"] = temporal_append[1]
                 edit["continuation"] = True
-    print(f"[DEBUG chat_edit] action={edit['action']} target={edit['target_name']} new={edit['new_name']} reason={edit['reason']}")
+    print(f"[DEBUG chat_edit] action={edit['action']} target={edit.get('target_name','')} category={edit.get('target_category','')} reason={edit['reason']}")
 
     if edit["action"] in ("normal", "new_plan"):
         return False
@@ -677,7 +748,68 @@ async def _try_chat_edit_replan(
     target_name = edit.get("target_name")
     target_point = point_by_name.get(target_name) if target_name else None
 
-    if edit["action"] == "remove":
+    # v26+v27: Category-level removal — remove ALL points matching the excluded category
+    if edit["action"] == "remove_category":
+        target_terms = edit.get("target_terms", [])
+        target_typecodes = edit.get("target_typecodes", [])
+        removed_names = []
+        for p in route_context.points:
+            if p.get("kind") in ("start", "hint", "free_explore", "route_only"):
+                continue
+            p_name = str(p.get("name", "") or "").lower()
+            p_typecode = str(p.get("typecode", "") or "")
+            p_category = str(p.get("category", "") or "").lower()
+            p_tags = str(p.get("tags", "") or "").lower()
+            p_facets = str(p.get("matched_facets", "") or "").lower()
+            p_semantic = str(p.get("semantic_tags", "") or "").lower()
+            p_text = f"{p_name} {p_category} {p_tags} {p_facets} {p_semantic}"
+            # Match by name/tags containing target terms OR typecode matching
+            _is_match = any(
+                t.lower() in p_text
+                for t in target_terms
+            )
+            if not _is_match:
+                _is_match = any(
+                    p_typecode.startswith(tc) or p_typecode == tc
+                    for tc in target_typecodes
+                )
+            if _is_match:
+                operations.append({
+                    "action": "remove",
+                    "poi_id": p.get("poi_id") or p.get("gaode_poi_id") or f"{p.get('name','')}:{p.get('location')}",
+                    "gaode_poi_id": p.get("gaode_poi_id", ""),
+                    "poi_name": p.get("name", ""),
+                })
+                removed_names.append(p.get("name", ""))
+
+        # v27: Count remaining visible POIs after removal to preserve density
+        _remaining_visible = sum(
+            1 for p in route_context.points
+            if p.get("kind") not in ("start", "hint", "free_explore", "route_only", "candidate")
+            and p.get("name", "") not in removed_names
+        )
+
+        if not operations:
+            print(
+                f"[CategoryExclusionAudit] source=chat_edit_replan no_matching_points "
+                f"category={edit.get('target_category','')} terms={target_terms[:4]} "
+                f"typecodes={target_typecodes}"
+            )
+            # v26: No matching points — preserve route, don't fall through to full pipeline
+            await _emit_preserved_route(
+                route_context, user_profile,
+                f"当前路线中没有{edit.get('raw_target','该类')}相关的点，已保持路线不变。",
+            )
+            return True
+
+        print(
+            f"[CategoryExclusionAudit] source=chat_edit_replan removed={removed_names} "
+            f"category={edit.get('target_category','')} "
+            f"remaining_visible={_remaining_visible} "
+            f"operations_count={len(operations)}"
+        )
+
+    elif edit["action"] == "remove":
         if not target_point:
             return False
         operations.append({
@@ -744,13 +876,22 @@ async def _try_chat_edit_replan(
         operations=operations,
         route_id=route_context.route_id,
     )
+
+    # v27: Preserve previous intent theme and density for remove_category
+    _prev_intent = route_context.previous_intent or {}
+    _prev_plan = route_context.previous_complete_plan or {}
+    _preserved_plan_mode = _prev_plan.get("plan_mode") or _prev_intent.get("plan_mode") or "chat_edit"
+    _preserved_duration = _prev_plan.get("duration") or _prev_intent.get("duration") or "a full day"
+    _preserved_time_budget = _prev_plan.get("time_budget") or _prev_intent.get("time_budget") or 1.0
+    _preserved_candidates = list(_prev_plan.get("candidate_points", []) or [])
+
     route_data = {
         **result["route"],
         "route_id": result["route_id"],
-        "candidate_points": [],
+        "candidate_points": _preserved_candidates,
         "hints": {},
         "waypoint_annotations": {},
-        "plan_mode": "chat_edit",
+        "plan_mode": _preserved_plan_mode,
         "total_days": max([int(p.get("day", 1) or 1) for p in result["route"]["points"]] or [1]),
     }
     summary = "已根据您的要求调整路线。"
@@ -760,6 +901,25 @@ async def _try_chat_edit_replan(
         summary = f"已为当前路线增加{edit['new_name']}，并重新计算路线。"
     elif edit["action"] == "remove":
         summary = f"已从当前路线移除{edit['target_name']}，并重新计算路线。"
+    elif edit["action"] == "remove_category":
+        _cat_label = edit.get("raw_target", "该类")
+        removed_names = [op.get("poi_name", "") for op in operations if op.get("poi_name")]
+        if removed_names:
+            summary = f"已从当前路线移除{_cat_label}相关点：{'、'.join(removed_names[:4])}，其他点保持不变。"
+        else:
+            summary = f"当前路线中没有{_cat_label}相关的点，路线保持不变。"
+        # v27: Preserve theme and density info in full_plan
+        _prev_intent = route_context.previous_intent or {}
+        _preserved_duration = _prev_intent.get("duration") or "a full day"
+        _preserved_time_budget = _prev_intent.get("time_budget") or 1.0
+        _preserved_theme = _prev_intent.get("activity_facet", "") or ""
+        _preserved_density = _prev_intent.get("density_min_visible_pois", 0) or 0
+        print(
+            f"[CategoryExclusionAudit] source=chat_edit_replan density_preserved "
+            f"duration={_preserved_duration} time_budget={_preserved_time_budget} "
+            f"theme={_preserved_theme} density_min={_preserved_density} "
+            f"remaining_visible={_remaining_visible}"
+        )
 
     # v12: 从 result points 合成基本 days 结构，避免前端左栏完全无数据
     from collections import defaultdict
@@ -780,13 +940,16 @@ async def _try_chat_edit_replan(
     await push_output(f"[ROUTE_PLANNER]: {summary}")
     previous_plan = route_context.previous_complete_plan or {}
     city = (user_profile.permanent_city[0] if getattr(user_profile, "permanent_city", None) else "上海") or "上海"
+    # v27: Preserve previous intent's theme, density, and duration for remove_category
+    _emit_duration = _preserved_duration if edit["action"] == "remove_category" else (previous_plan.get("duration") or "a full day")
+    _emit_time_budget = _preserved_time_budget if edit["action"] == "remove_category" else (previous_plan.get("time_budget") or 1.0)
     await emit_done(
         map_paths=[],
         full_plan={
             "summary": summary,
             "city": previous_plan.get("city") or city,
-            "duration": previous_plan.get("duration") or "a full day",
-            "time_budget": previous_plan.get("time_budget") or 1.0,
+            "duration": _emit_duration,
+            "time_budget": _emit_time_budget,
             "days": days_list,
         },
         route_data=route_data,
@@ -1272,6 +1435,7 @@ async def _run_pipeline_stream(
                         f"[DEBUG dispatch] classifier=fast "
                         f"conversation_mode={fast_decision.mode} "
                         f"confidence={fast_decision.confidence} "
+                        f"ops={[(op.get('action',''), op.get('target_category','') or op.get('target_name','')[:40]) for op in (fast_decision.point_operations or [])]} "
                         f"meal_refine={_is_meal_refine_fast} "
                         f"reason={fast_decision.reason}"
                     )
@@ -1317,6 +1481,8 @@ async def _run_pipeline_stream(
                     print(f"[DEBUG dispatch] decision: new_plan → full pipeline")
                 elif dispatch_decision.conversation_mode == "point_edit" and route_context and route_context.points:
                     print(f"[DEBUG dispatch] decision: point_edit ops={dispatch_decision.point_operations}")
+                    # v26: Check for category exclusion before attempting edit
+                    _is_cat_ex = is_category_exclusion_decision(dispatch_decision)
                     edited = await _try_chat_edit_replan(
                         user_request,
                         route_context,
@@ -1324,6 +1490,24 @@ async def _run_pipeline_stream(
                         point_operations=dispatch_decision.point_operations,
                     )
                     if edited:
+                        return
+                    # v26: For remove/remove_category, preserve route on failure —
+                    # do NOT fall through to full pipeline which would re-parse
+                    # "不想去咖啡馆" as a positive cafe query.
+                    _ops = dispatch_decision.point_operations or []
+                    _is_removal = any(
+                        op.get("action") in ("remove", "remove_category")
+                        for op in _ops if isinstance(op, dict)
+                    )
+                    if _is_removal or _is_cat_ex:
+                        print(
+                            "[DEBUG dispatch] point_edit removal failed; "
+                            "preserving route instead of full pipeline"
+                        )
+                        await _emit_preserved_route(
+                            route_context, user_profile,
+                            "已保留当前路线，修改未能完成。请尝试描述更具体的修改内容。",
+                        )
                         return
                 elif dispatch_decision.conversation_mode == "follow_up":
                     # v21: follow_up — contextual nearby lookup at previous destination
@@ -1418,7 +1602,13 @@ async def _run_pipeline_stream(
                             "- 未提到的字段继承 previous_intent；\n"
                             "- 不得将历史字段重置为空；\n"
                             "- 不得使用默认值覆盖有效历史值；\n"
-                            "- 当前输入是偏好补充时，保留原目的地、时长和路线模式。\n"
+                            "- 当前输入是偏好补充时，保留原目的地、时长和路线模式；\n"
+                            "- 否定词优先级高于历史值。如果 latest_user_input 包含"
+                            " '不想去/不要/去掉/删除/别安排/跳过 + 品类词'，"
+                            " 必须从 previous_intent 的 search_keywords、micro_keywords、"
+                            " meal_search_keywords、food_pref_keywords、theme facets 中"
+                            " 删除对应品类关键词，并加入 excluded_terms / excluded_typecode_prefixes；\n"
+                            "- 不得因为 previous_intent 曾包含某品类，就在合并结果中继续保留该品类。\n"
                             "</merge_instruction>"
                         )
                         print(f"[DEBUG dispatch] refine_current merge context len={len(step1_request)}")
@@ -1592,10 +1782,19 @@ async def _run_pipeline_stream(
                 )
             elif "零输出" in raw or "ZeroOutput" in raw:
                 error_msg = "外部地图服务暂时波动，已改用关键词兜底推荐。"
-            elif "no field" in raw.lower() or "attributeerror" in raw.lower() or "has no field" in raw.lower() or "pydantic" in raw.lower():
+            elif (
+                "group_meal_preference_conflict" in raw
+                or "meal_conflict_resolution" in raw
+                or "conflict_meal_request" in raw
+            ):
                 error_msg = (
                     "我识别到同行口味存在冲突，已为你按多人同餐兼容方案处理。"
                     "系统内部配置已自动修复。"
+                )
+            elif "no field" in raw.lower() or "has no field" in raw.lower() or "pydantic" in raw.lower():
+                error_msg = (
+                    "路线规划内部配置暂时不一致，系统已记录问题。"
+                    "请稍后重试。"
                 )
             elif "can only concatenate" in raw.lower() or "typeerror" in raw.lower():
                 error_msg = (

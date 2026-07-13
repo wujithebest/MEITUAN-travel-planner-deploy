@@ -421,6 +421,35 @@ def classify_conversation_route_change_fast(
             reason="explicit date + planning intent without continuation",
         )
 
+    # v26+v27: Category-level exclusion detection — MUST run BEFORE point edit detection.
+    # "不想去咖啡馆了。修改下路线" → remove_category:cafe, not point_edit with bad target_name.
+    _cat_exclusion = _detect_category_exclusion(text, source="dispatch")
+    if _cat_exclusion and has_route:
+        print(
+            f"[CategoryExclusionAudit] source=dispatch matched=true "
+            f"category={_cat_exclusion['category_id']} action=remove_category "
+            f"text={text[:80]}"
+        )
+        return ConversationRouteDecision(
+            mode="point_edit", confidence=0.95,
+            latest_user_intent_summary=text,
+            earliest_step="local_replan",
+            point_operations=[{
+                "action": "remove_category",
+                "target_name": "",
+                "target_category": _cat_exclusion["category_id"],
+                "target_terms": _cat_exclusion["target_terms"],
+                "target_typecodes": _cat_exclusion["target_typecodes"],
+            }],
+            exclude_constraints={
+                "excluded_categories": [_cat_exclusion["category_id"]],
+                "excluded_terms": _cat_exclusion["target_terms"],
+                "excluded_typecodes": _cat_exclusion["target_typecodes"],
+                "preserve_previous_intent": True,
+            },
+            reason=f"category-level exclusion: {_cat_exclusion['category_id']} (raw={_cat_exclusion['raw_target']})",
+        )
+
     # Point edit detection
     point_names = route_context.get("point_names", []) if route_context else []
     ops: list[dict[str, Any]] = []
@@ -855,6 +884,144 @@ def is_meal_preference_refine_decision(decision: "PlanningDispatchDecision | Con
         return False
     patch = getattr(decision, "intent_patch", None) or {}
     return bool(patch.get("meal_replacement", False))
+
+
+# ── v26: category-level exclusion detection ──
+
+# Mapping from user-facing category words → internal category_id + search terms + typecodes
+_CATEGORY_EXCLUSION_MAP: dict[str, dict] = {
+    "cafe": {
+        "category_id": "cafe",
+        "aliases": ["咖啡馆", "咖啡店", "咖啡厅", "咖啡", "coffee", "cafe", "café"],
+        "typecodes": ["050400", "050500"],
+        "negative_terms": ["瑞幸", "星巴克", "manner", "Manner", "Costa", "costa", "Seesaw",
+                           "M Stand", "Tim Hortons", "皮爷", "peets", "%Arabica"],
+    },
+    "specialty_shop": {
+        "category_id": "specialty_shop",
+        "aliases": ["特色小店", "买手店", "文创店", "杂货店", "生活方式集合店", "集合店"],
+        "typecodes": ["060100", "060900", "061000", "080300"],
+        "negative_terms": [],
+    },
+    "restaurant": {
+        "category_id": "restaurant",
+        "aliases": ["餐厅", "饭店", "吃饭", "正餐", "餐馆", "饭馆", "食府", "酒楼"],
+        "typecodes": ["050100", "050200", "050300"],
+        "negative_terms": [],
+    },
+    "bar": {
+        "category_id": "bar",
+        "aliases": ["酒吧", "清吧", "pub", "bar", "酒馆", "精酿"],
+        "typecodes": ["080304", "080300"],
+        "negative_terms": [],
+    },
+    "bookstore": {
+        "category_id": "bookstore",
+        "aliases": ["书店", "独立书店", "书局", "书吧"],
+        "typecodes": ["060400"],
+        "negative_terms": [],
+    },
+}
+
+# Trigger words that signal the user wants to REMOVE a category
+_CATEGORY_REMOVE_TRIGGERS = [
+    "不想去", "不想要", "不要去", "不要", "别去", "别安排", "别要",
+    "去掉", "删除", "删掉", "跳过", "略过", "不去", "免了",
+    "不要了", "不想要了", "不想去了", "不安排", "不喝", "不想喝",
+    # pattern: "X就不要了" / "X去掉" / "不安排X了" / "不喝X了" / "不想喝X了"
+]
+
+# v27: Strong negation triggers that ALWAYS indicate category removal intent
+_STRONG_CATEGORY_NEGATION_TRIGGERS = [
+    "不想去", "不想要", "不要去", "别去", "别安排", "不去",
+    "不要了", "不想要了", "不想去了", "不安排", "不喝", "不想喝",
+    "去掉", "删除", "删掉", "跳过",
+]
+
+# v26: compiled negation patterns for category exclusion
+_CATEGORY_NEGATION_RE = re.compile(
+    r"(?:"
+    + "|".join(re.escape(t) for t in _CATEGORY_REMOVE_TRIGGERS)
+    + r")\s*(.+?)(?:了|吧|呀|呢|吗|哦)?\s*(?:[，,。；;]|修改下路线|修改路线|调整下|调整路线|$)"
+)
+
+
+def _detect_category_exclusion(text: str, source: str = "fast") -> dict | None:
+    """Detect category-level exclusion patterns like '不想去咖啡馆了'.
+
+    Returns a dict with category_id, target_terms, target_typecodes, raw_target
+    if a known category is being negated.  Returns None otherwise.
+
+    This is DIFFERENT from _is_meal_preference_refine which handles cuisine
+    replacement ('不想吃烤鸭→想吃川菜').  Category exclusion removes an entire
+    POI class without specifying a replacement.
+
+    v27: Now accepts a `source` parameter for audit logging. Detection is
+    strengthened to handle trailing edit phrases like "帮我把路线改一下".
+    """
+    text = text.strip()
+
+    # Must contain a negation trigger
+    has_trigger = any(t in text for t in _CATEGORY_REMOVE_TRIGGERS)
+    if not has_trigger:
+        return None
+
+    # Must NOT be a meal preference replacement (those have food terms + "吃")
+    if any(t in text for t in ["想吃", "换成", "改成", "换为"]):
+        return None
+
+    # v27: Also reject if "吃" + food chars dominate — meal, not category
+    _has_eat = "吃" in text
+    _has_food_term = any(
+        c in text for c in ["烤鸭", "川菜", "火锅", "涮肉", "粤菜", "湘菜",
+                            "日料", "西餐", "海鲜", "素食", "清真", "面馆"]
+    )
+    if _has_eat and _has_food_term:
+        return None
+
+    # Try to match against known categories
+    text_lower = text.lower()
+    for cat_key, cat_info in _CATEGORY_EXCLUSION_MAP.items():
+        # Check if any alias appears in the text near a negation trigger
+        for alias in cat_info["aliases"]:
+            if alias.lower() in text_lower:
+                # Build full target terms: aliases + negative_terms
+                target_terms = list(dict.fromkeys(
+                    cat_info["aliases"] + cat_info["negative_terms"]
+                ))
+                result = {
+                    "category_id": cat_info["category_id"],
+                    "target_terms": target_terms,
+                    "target_typecodes": list(cat_info["typecodes"]),
+                    "raw_target": alias,
+                }
+                print(
+                    f"[CategoryExclusionAudit] source={source} matched=true "
+                    f"category={cat_info['category_id']} action=remove_category "
+                    f"text={text[:80]}"
+                )
+                return result
+
+    # v27: No explicit category alias found, but strong negation trigger present
+    # — log the miss for debugging
+    _strong = any(t in text for t in _STRONG_CATEGORY_NEGATION_TRIGGERS)
+    if _strong:
+        print(
+            f"[CategoryExclusionAudit] source={source} matched=false "
+            f"text={text[:80]} reason=strong_trigger_no_category_match"
+        )
+    return None
+
+
+def is_category_exclusion_decision(decision: "ConversationRouteDecision | PlanningDispatchDecision | None") -> bool:
+    """Check whether a dispatch decision represents a category-level exclusion."""
+    if decision is None:
+        return False
+    ops = getattr(decision, "point_operations", None) or []
+    for op in ops:
+        if isinstance(op, dict) and op.get("action") in ("remove_category",):
+            return True
+    return False
 
 
 # ── unified dispatch (LLM-first) ──

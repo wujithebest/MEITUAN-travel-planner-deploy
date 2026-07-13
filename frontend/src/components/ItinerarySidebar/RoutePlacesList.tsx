@@ -37,48 +37,11 @@ const ACTIVITY_TAG_TO_LABEL: Record<string, string> = {
   '户外': '户外探险', '城市漫游': '城市漫游', '本地特色': '在地市井', '康养疗愈': '康养疗愈',
 };
 
+// v28: Unified per-POI tag matching — delegates to routePreferenceTags utility
+import { getMatchedPoiTags, type RouteTagContext } from '@/utils/routePreferenceTags';
+
 function getMatchedPreferenceTags(poi: PanelPoiData): string[] {
-  const user = useUserStore.getState().user;
-  if (!user) return [];
-
-  // Collect user's active preference labels
-  const userLabels = new Set<string>();
-  (user.preferences || []).forEach(id => {
-    const label = PREF_ID_TO_LABEL[id];
-    if (label) userLabels.add(label);
-  });
-  (user.activity_pref_tag || []).forEach(tag => {
-    const label = ACTIVITY_TAG_TO_LABEL[tag];
-    if (label) userLabels.add(label);
-  });
-  (user.food_preferences || []).forEach(fp => { userLabels.add(fp); });
-
-  if (userLabels.size === 0) return [];
-
-  // Build POI text corpus
-  const texts = [
-    poi.name || '',
-    poi.category || '',
-    poi.kind || '',
-    categoryLabel(poi.kind, poi.typecode),
-    poi.recommend_reason || '',
-    poi.ugc_review_summary || '',
-    poi.parent_anchor || '',
-    poi.sub_anchor_name || '',
-    poi.address || '',
-  ];
-  const corpus = texts.join(' ');
-
-  // Match: for each user preference, check if any keyword hits the POI text
-  const matched: string[] = [];
-  for (const { label, keywords } of PREFERENCE_KEYWORD_MAP) {
-    if (!userLabels.has(label)) continue;
-    if (keywords.some(kw => corpus.includes(kw))) {
-      matched.push(label);
-      if (matched.length >= 3) break;
-    }
-  }
-  return matched;
+  return [];
 }
 
 // ── types ──
@@ -104,6 +67,11 @@ interface PanelPoiData {
   display_slot?: string;
   sub_anchor_name?: string;
   candidate_score?: number;
+  matched_facets?: string[];
+  matched_keywords?: string[];
+  facet_source?: string;
+  facet_query?: string;
+  required_facet?: boolean;
   // v21: Commerce action fields
   commerce_eligible?: boolean;
   commerce_action?: 'group_deal' | 'ticket' | '';
@@ -196,6 +164,9 @@ interface RoutePlacesListProps {
   points: any[];
   segments: any[];
   candidatePoints?: any[];
+  requestText?: string;
+  parsedIntent?: any;
+  routeTagContext?: RouteTagContext;
   onPOIClick: (name: string) => void;
   onRouteClick?: (segment: any) => void;
   onPoiAction?: (action: any) => void;
@@ -279,6 +250,9 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
   points,
   segments,
   candidatePoints = [],
+  requestText = '',
+  parsedIntent,
+  routeTagContext,
   onPOIClick,
   onRouteClick,
   onPoiAction,
@@ -753,7 +727,17 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
                             </button>
                             {/* Preference match tags — below address, above actions */}
                             {(() => {
-                              const tags = getMatchedPreferenceTags(poi);
+                              const effectiveContext =
+                                routeTagContext ||
+                                buildRouteTagContext(
+                                  requestText || '',
+                                  parsedIntent,
+                                  useUserStore.getState().user,
+                                );
+                              const tags = getMatchedPoiTags(poi, {
+                                routeTagContext: effectiveContext,
+                                parsedIntent,
+                              });
                               if (tags.length === 0) return null;
                               return (
                                 <div className={styles.preferenceTagRow}>

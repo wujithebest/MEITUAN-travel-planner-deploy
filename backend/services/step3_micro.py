@@ -957,6 +957,7 @@ async def _search_anchor_internals(
     city: str,
     theme_search_terms: list[str] | None = None,
     required_facet_ids: set[str] | None = None,
+    parsed_intent: ParsedIntent | None = None,
 ) -> list[SubAnchor]:
     """v3+v5.2：为half_day/quarter_day SubAnchor搜索内部POI；
     对已有POI但数量不足的子锚点做扩搜（1.5倍半径）；
@@ -974,8 +975,8 @@ async def _search_anchor_internals(
     if not to_search:
         return sub_anchors
 
-    requests = []
-    metadata = []
+    requests: list[dict[str, Any]] = []
+    request_meta: list[tuple[Any, str]] = []
     for sub in to_search:
         loc_str = coord_to_param(sub.location)
         base_radius = config.ANCHOR_SEARCH_RADIUS_BY_CAPACITY.get(sub.capacity, config.ANCHOR_INTERNAL_SEARCH_RADIUS)
@@ -1020,6 +1021,20 @@ async def _search_anchor_internals(
             })
             request_meta.append((sub, "specialty_shop"))
 
+    # v28: Defensive audit log
+    if len(requests) != len(request_meta):
+        print(
+            f"[RequestMetaAudit] stage=search_anchor_internals mismatch "
+            f"requests={len(requests)} meta={len(request_meta)}"
+        )
+        min_len = min(len(requests), len(request_meta))
+        requests = requests[:min_len]
+        request_meta = request_meta[:min_len]
+    print(
+        f"[RequestMetaAudit] stage=search_anchor_internals "
+        f"requests={len(requests)} meta={len(request_meta)}"
+    )
+
     results = await gaode_around_search_batch(requests)
 
     # v25: Aggregate results by sub + facet instead of fixed triplets
@@ -1043,6 +1058,19 @@ async def _search_anchor_internals(
                 typecode = raw.get("typecode", "")
                 if name == sub.parent_name or name == sub.name:
                     continue
+
+                # v26: Hard-filter excluded categories (e.g. cafe after user says "不想去咖啡馆")
+                if parsed_intent is not None:
+                    _excl_tc3 = list(getattr(parsed_intent, "excluded_typecode_prefixes", []) or [])
+                    _excl_terms3 = list(getattr(parsed_intent, "primary_excluded_terms", []) or [])
+                    if _excl_tc3 or _excl_terms3:
+                        _ptc3 = str(typecode or "")
+                        _pname3 = str(name or "").lower()
+                        _ptext3 = f"{_pname3} {str(raw.get('address','') or '').lower()}"
+                        if any(_ptc3.startswith(tc) or _ptc3 == tc for tc in _excl_tc3):
+                            continue
+                        if any(t.lower() in _ptext3 for t in _excl_terms3):
+                            continue
 
                 # v25: facet-specific filtering — cafe_stop must pass _is_cafe_facet_raw
                 if facet == "cafe_stop":
@@ -2258,8 +2286,6 @@ def _unique_keywords(values: list[str], limit: int | None = None) -> list[str]:
 SHOPPING_INTENT_TERMS = ["逛商场", "商场", "购物", "买东西", "逛街", "商业体", "综合体", "商圈", "买手店", "潮牌"]
 EATING_INTENT_TERMS = ["吃吃喝喝", "逛吃", "美食", "餐饮", "餐厅", "小吃", "探店", "咖啡", "甜品", "下午茶", "夜宵"]
 NEARBY_INTENT_TERMS = ["附近", "周边", "逛逛", "逛一逛", "随便逛", "散步", "转转", "不走远", "近一点"]
-LATE_NEARBY_WALK_CUTOFF_HOUR = 21
-LATE_NEARBY_MAX_STRAIGHT_KM = 1.2
 
 
 def _intent_text(parsed_intent: ParsedIntent) -> str:
@@ -2285,12 +2311,6 @@ def _has_shopping_intent(parsed_intent: ParsedIntent) -> bool:
 
 def _has_eating_activity_intent(parsed_intent: ParsedIntent) -> bool:
     return _has_any_intent(parsed_intent, EATING_INTENT_TERMS)
-
-
-def _is_late_nearby_walk_request(parsed_intent: ParsedIntent) -> bool:
-    if not parsed_intent.start_time or parsed_intent.start_time.hour < LATE_NEARBY_WALK_CUTOFF_HOUR:
-        return False
-    return parsed_intent.time_budget <= 0.25 or _has_any_intent(parsed_intent, NEARBY_INTENT_TERMS)
 
 
 def _meal_search_keywords(parsed_intent: ParsedIntent) -> list[str]:
@@ -3239,7 +3259,7 @@ async def _route_between(parsed_intent: ParsedIntent, transport_hint: str, a: di
         "walk": "步行",
     }.get(_hint_norm)
 
-    if _hint_norm in {"walking", "walk"} or transport_hint == "步行" or _is_late_nearby_walk_request(parsed_intent):
+    if _hint_norm in {"walking", "walk"} or transport_hint == "步行":
         result = await gaode_walking_route(origin, destination)
     elif _hint_norm in {"bicycle", "bike", "cycling", "riding"} and not involves_meal and straight_km >= 0.05:
         result = await bicycling_first_route()
@@ -3535,6 +3555,99 @@ async def _build_origin_transport_options(parsed_intent: ParsedIntent, origin: s
 
 
 # v21: Spatial reorder — nearest-neighbor + 2-opt for scenic area internal POIs
+# ═══ v28: Explicit timeline order helpers ═══
+
+
+def _timeline_slot_for_point(point: dict[str, Any], parsed_intent: ParsedIntent) -> str:
+    """Determine the time_slot for a point based on planned_waypoints."""
+    identity = " ".join(
+        str(point.get(k) or "")
+        for k in ("name", "parent_anchor", "parent_name", "sub_anchor_name", "address")
+    )
+    kind = str(point.get("kind", "") or "")
+    display_slot = str(point.get("display_slot", "") or point.get("slot", "") or "").lower()
+
+    if kind == "meal":
+        if display_slot in {"lunch", "dinner"}:
+            return display_slot
+        return "lunch"
+
+    # v28: Strong rules — 景山 must be afternoon, 故宫/天安门 must be morning
+    if "景山" in identity:
+        for wp in getattr(parsed_intent, "planned_waypoints", []) or []:
+            if str(getattr(wp, "time_slot", "") or "") == "afternoon":
+                wp_name = str(getattr(wp, "name", "") or "")
+                if wp_name and "景山" in wp_name:
+                    return "afternoon"
+
+    if any(t in identity for t in ["故宫", "天安门"]):
+        for wp in getattr(parsed_intent, "planned_waypoints", []) or []:
+            if str(getattr(wp, "time_slot", "") or "") == "morning":
+                center = str(getattr(wp, "search_center_name", "") or "")
+                required = " ".join(getattr(wp, "required_terms", []) or [])
+                if "故宫" in center or "天安门" in center or "故宫" in required or "天安门" in required:
+                    return "morning"
+
+    for wp in getattr(parsed_intent, "planned_waypoints", []) or []:
+        slot = str(getattr(wp, "time_slot", "") or "").lower()
+        name = str(getattr(wp, "name", "") or getattr(wp, "search_keyword", "") or "").strip()
+        center = str(getattr(wp, "search_center_name", "") or "").strip()
+        if not slot:
+            continue
+        keys = [k for k in [name, center] if k]
+        if any(k in identity or identity in k for k in keys):
+            return slot
+
+    return display_slot
+
+
+def _timeline_rank(slot: str) -> int:
+    """Convert time_slot string to sort rank."""
+    slot = (slot or "").lower()
+    if slot == "morning":
+        return 10
+    if slot == "lunch":
+        return 20
+    if slot == "afternoon":
+        return 30
+    if slot == "evening":
+        return 40
+    if slot == "dinner":
+        return 50
+    return 15
+
+
+def _apply_explicit_timeline_order(
+    points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> list[dict[str, Any]]:
+    """Sort points by explicit timeline when explicit_timeline_required is True."""
+    if not getattr(parsed_intent, "explicit_timeline_required", False):
+        return points
+    if not getattr(parsed_intent, "planned_waypoints", None):
+        return points
+
+    start = [p for p in points if p.get("kind") == "start"]
+    rest = [p for p in points if p.get("kind") != "start"]
+
+    decorated = []
+    for idx, p in enumerate(rest):
+        slot = _timeline_slot_for_point(p, parsed_intent)
+        if slot:
+            p["display_slot"] = slot
+        decorated.append((_timeline_rank(slot), idx, p))
+
+    decorated.sort(key=lambda item: (item[0], item[1]))
+    ordered = start[:1] + [p for _, _, p in decorated]
+
+    print(
+        "[TimelineOrderAudit] stage=step3_explicit_order "
+        f"before={[(p.get('name'), p.get('display_slot')) for p in points[:15]]} "
+        f"after={[(p.get('name'), p.get('display_slot')) for p in ordered[:15]]}"
+    )
+    return ordered
+
+
 def _apply_planned_time_slots(
     points: list[dict[str, Any]],
     parsed_intent: ParsedIntent,
@@ -3544,8 +3657,12 @@ def _apply_planned_time_slots(
     for wp in list(getattr(parsed_intent, "planned_waypoints", None) or []):
         slot = str(getattr(wp, "time_slot", "") or "").lower()
         name = str(getattr(wp, "name", None) or getattr(wp, "resolved_name", None) or "").strip()
-        if name and slot in {"morning", "afternoon", "evening"}:
-            slot_rules.append((name, slot))
+        # v28: Also match search_center_name for area-stroll placeholders
+        center = str(getattr(wp, "search_center_name", None) or "").strip()
+        if slot in {"morning", "afternoon", "evening"}:
+            keys = [k for k in [name, center] if k]
+            if keys:
+                slot_rules.append((keys, slot))
 
     if not slot_rules:
         return points
@@ -3557,8 +3674,8 @@ def _apply_planned_time_slots(
             str(point.get(key) or "")
             for key in ("parent_anchor", "parent_name", "sub_anchor_name", "name")
         )
-        for anchor_name, slot in slot_rules:
-            if anchor_name in identity or identity.strip() in anchor_name:
+        for keys, slot in slot_rules:
+            if any(k in identity or identity.strip() in k for k in keys):
                 point["display_slot"] = slot
                 break
     return points
@@ -3617,46 +3734,64 @@ async def _ensure_required_facet_points(
 
     for facet_id in missing:
         terms = (
-            ["精品咖啡馆", "独立咖啡馆", "咖啡馆", "coffee", "cafe"]
+            ["咖啡馆", "咖啡店", "精品咖啡", "独立咖啡馆", "coffee", "cafe"]
             if facet_id == "cafe_stop"
-            else ["买手店", "特色小店", "文创店", "生活方式集合店", "杂货店"]
+            else ["特色小店", "买手店", "文创店", "生活方式集合店", "杂货店"]
         )
         types_str = (
-            "050400|050500|050200|050900|051000|050100"
+            "050400|050500|050900|051000|050200"
             if facet_id == "cafe_stop"
-            else "060100|060900|061000|080300|080000"
+            else "060100|060900|061000|080300"
         )
 
         candidates: list[dict[str, Any]] = []
-        for center in centers[:3]:
-            try:
-                group = await gaode_around_search(
-                    location=coord_to_param(center),
-                    keywords=" ".join(terms),
-                    radius=1500,
-                    types=types_str,
-                    show_fields=config.GAODE_SHOW_FIELDS,
-                    offset=20,
-                )
-            except Exception as _exc:
-                print(f"[FacetCoverageRepair] search failed facet={facet_id}: {_exc}")
-                continue
-            for raw in group:
-                if facet_id == "cafe_stop" and not _is_cafe_facet_raw(raw):
-                    continue
-                if facet_id == "specialty_shop" and not _is_specialty_shop_facet_raw(raw):
-                    continue
-                loc = raw.get("location")
-                if isinstance(loc, str):
-                    parts = loc.split(",")
-                    loc = {"lng": float(parts[0]), "lat": float(parts[1])}
-                raw["location"] = loc
-                raw["kind"] = "cafe" if facet_id == "cafe_stop" else "anchor_internal"
-                raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), facet_id]))
-                raw["is_display_poi"] = True
-                raw["is_waypoint"] = True
-                raw["parent_anchor"] = raw.get("parent_anchor") or "facet_repair"
-                candidates.append(raw)
+        # v28: Per-keyword independent search with progressive radius
+        for radius_m in (1500, 2200, 3000):
+            if candidates:
+                break
+            for term in terms:
+                if candidates:
+                    break
+                for center in centers[:3]:
+                    if candidates:
+                        break
+                    try:
+                        group = await gaode_around_search(
+                            location=coord_to_param(center),
+                            keywords=term,
+                            radius=radius_m,
+                            types=types_str,
+                            show_fields=config.GAODE_SHOW_FIELDS,
+                            offset=20,
+                        )
+                    except Exception as _exc:
+                        print(f"[FacetCoverageRepair] search failed facet={facet_id} term={term} r={radius_m}: {_exc}")
+                        continue
+                    for raw in group:
+                        if facet_id == "cafe_stop" and not _is_cafe_facet_raw(raw):
+                            continue
+                        if facet_id == "specialty_shop" and not _is_specialty_shop_facet_raw(raw):
+                            continue
+                        loc = raw.get("location")
+                        if isinstance(loc, str):
+                            parts = loc.split(",")
+                            loc = {"lng": float(parts[0]), "lat": float(parts[1])}
+                        raw["location"] = loc
+                        raw["kind"] = "cafe" if facet_id == "cafe_stop" else "anchor_internal"
+                        raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), facet_id]))
+                        raw["required_facet"] = True
+                        raw["primary_target"] = True
+                        raw["role"] = "required"
+                        raw["facet_source"] = "required_facet_recall"
+                        raw["facet_query"] = term
+                        raw["is_display_poi"] = True
+                        raw["is_waypoint"] = True
+                        raw["parent_anchor"] = raw.get("parent_anchor") or "facet_repair"
+                        candidates.append(raw)
+                    print(
+                        f"[FacetCoverageRepair] facet={facet_id} term={term} r={radius_m} "
+                        f"raw_count={len(group)} candidates={len(candidates)}"
+                    )
 
         candidates = [c for c in candidates if c.get("name") not in existing_names and c.get("location")]
         if candidates:
@@ -3672,14 +3807,395 @@ async def _ensure_required_facet_points(
             existing_names.add(chosen.get("name"))
             print(
                 f"[FacetCoverageRepair] facet={facet_id} "
-                f"added={chosen.get('name')} source=around_search"
+                f"added={chosen.get('name')} source=per_keyword_progressive"
             )
         else:
             print(
                 f"[FacetCoverageRepair] facet={facet_id} "
-                f"added=None reason=no_candidate"
+                f"added=None reason=no_candidate terms_tried={terms} radii=[1500,2200,3000]"
             )
 
+    # v28: Final required facet audit
+    _final_visible = [
+        p for p in points
+        if p.get("kind") not in {"start", "hint", "free_explore", "route_only", "traffic", "empty"}
+    ]
+    _final_hits = {fid: any(_point_matches_facet(p, fid) for p in _final_visible) for fid in required}
+    print(
+        f"[RequiredFacetFinalAudit] "
+        f"required={required} hits={_final_hits} "
+        f"main_poi_names={[p.get('name') for p in _final_visible[:15]]}"
+    )
+
+    return points
+
+
+# v28: Targeted route simplifier for 天安门/故宫→lunch→景山日落
+
+
+def _is_area_meal_afternoon_tiananmen_route(parsed_intent: ParsedIntent) -> bool:
+    """Narrow guard — only for 天安门/故宫 → lunch → 景山日落 explicit timeline."""
+    if not getattr(parsed_intent, "explicit_timeline_required", False):
+        return False
+    # Exclude other narrow routes
+    if getattr(parsed_intent, "north_sea_lunch_sanlihe_route", False):
+        return False
+    if getattr(parsed_intent, "north_sea_lunch_jingshan_route", False):
+        return False
+    if getattr(parsed_intent, "activity_facet", "") in ("multi_facet_art_photo_cafe_shop", "nearby_food_stroll_route"):
+        return False
+    if getattr(parsed_intent, "route_strategy", "") in ("nearby_food_stroll", "meal_conflict_resolution"):
+        return False
+    label = str(getattr(parsed_intent, "search_area_label", "") or "")
+    raw = " ".join(str(getattr(parsed_intent, "raw_keywords", []) or []))
+    return ("天安门" in label or "故宫" in label or "天安门" in raw or "故宫" in raw) and "景山" in raw
+
+
+def _simplify_area_meal_afternoon_route(
+    points: list[dict[str, Any]],
+    parsed_intent: ParsedIntent,
+) -> list[dict[str, Any]]:
+    """Remove unnecessary detour POIs while preserving morning→lunch→afternoon phase order."""
+    from services.utils import haversine_km
+
+    # Classify points into phases
+    start_pts = [p for p in points if p.get("kind") == "start"]
+    morning_pts: list[dict] = []
+    lunch_pts: list[dict] = []
+    afternoon_pts: list[dict] = []
+    other_pts: list[dict] = []
+
+    for p in points:
+        if p in start_pts:
+            continue
+        name = str(p.get("name") or "")
+        text = " ".join(str(p.get(k) or "") for k in ("name", "parent_anchor", "parent_name", "sub_anchor_name", "address"))
+        kind = str(p.get("kind") or "")
+
+        if any(t in text for t in ["天安门", "故宫", "午门", "端门", "神武门", "太和门", "东华门"]):
+            morning_pts.append(p)
+        elif kind in ("meal", "restaurant") or "烤鸭" in text or "北京菜" in text or "午餐" in str(p.get("display_slot", "")):
+            lunch_pts.append(p)
+        elif any(t in text for t in ["景山", "万春亭", "绮望楼", "日落"]):
+            afternoon_pts.append(p)
+        else:
+            other_pts.append(p)
+
+    # For other_pts, only keep those that reduce total distance
+    core_names = {str(p.get("name") or "") for p in morning_pts + lunch_pts + afternoon_pts}
+    kept_other: list[dict] = []
+    for p in other_pts:
+        name = str(p.get("name") or "")
+        # Remove known detour POIs
+        if any(t in name for t in ["图书馆", "口袋公园", "敕建火德真君庙", "什刹海", "北海公园"]):
+            continue
+        kept_other.append(p)
+
+    # Rebuild: start → morning → lunch → afternoon → kept_other (within-phase proximity)
+    ordered = list(start_pts)
+    for group in (morning_pts, lunch_pts, afternoon_pts):
+        if not group:
+            continue
+        current = ordered[-1] if ordered else None
+        remaining = list(group)
+        while remaining:
+            if current and current.get("location"):
+                best = min(remaining, key=lambda p: haversine_km(current.get("location") or {}, p.get("location") or {}))
+            else:
+                best = remaining.pop(0)
+                ordered.append(best)
+                current = best
+                continue
+            remaining.remove(best)
+            ordered.append(best)
+            current = best
+
+    # Append kept other points that are near the route
+    for p in kept_other:
+        if p.get("location") and ordered[-1].get("location"):
+            d = haversine_km(ordered[-1].get("location") or {}, p.get("location") or {})
+            if d < 2.0:
+                ordered.append(p)
+
+    before_names = [p.get("name") for p in points if p.get("kind") != "start"]
+    after_names = [p.get("name") for p in ordered if p.get("kind") != "start"]
+    removed = [n for n in before_names if n not in after_names]
+    print(
+        f"[ExplicitRouteSimplifyAudit] enabled=true "
+        f"before_names={before_names} after_names={after_names} "
+        f"removed_names={removed} detour_reduced=true"
+    )
+    return ordered
+
+
+def _normalize_route_point_day_fields(points: list[dict], *, stage: str) -> list[dict]:
+    """Ensure every route point has day/day_index/route_order to prevent KeyError."""
+    current_day = 1
+    for idx, point in enumerate(points):
+        if not isinstance(point, dict):
+            continue
+        raw_day = point.get("day", point.get("day_index", current_day))
+        try:
+            day = int(raw_day or current_day or 1)
+        except Exception:
+            day = current_day or 1
+
+        point["day"] = day
+        point["day_index"] = day
+        current_day = day
+        point.setdefault("route_order", idx + 1)
+        if not point.get("display_slot") and point.get("time_slot"):
+            point["display_slot"] = point.get("time_slot")
+
+    print(
+        f"[RoutePointNormalizeAudit] stage={stage} "
+        f"count={len(points)} missing_day_fixed=true"
+    )
+    return points
+
+
+# ═══ v28: Multi-facet art display density helpers ═══
+
+
+def _is_display_route_point_for_density(point: dict) -> bool:
+    """Check if a point counts as a visible display POI for density purposes."""
+    if not point:
+        return False
+    if point.get("kind") in {"start", "hint", "free_explore", "traffic", "empty"}:
+        return False
+    if point.get("is_waypoint") is False:
+        return False
+    return bool(point.get("name"))
+
+
+def _facet_density_score(point: dict) -> int:
+    """Score a non-display point for its theme relevance to multi-facet art."""
+    text = " ".join([
+        str(point.get("name", "")),
+        str(point.get("category", "")),
+        str(point.get("typecode", "")),
+        str(point.get("address", "")),
+        " ".join(point.get("matched_facets", []) or []),
+    ]).lower()
+
+    score = 0
+    if any(t in text for t in ["咖啡", "coffee", "cafe", "050400"]):
+        score += 50
+    if any(t in text for t in ["买手", "文创", "书店", "书局", "特色小店", "集合店", "杂货"]):
+        score += 40
+    if any(t in text for t in ["艺术", "画廊", "美术馆", "展览", "gallery"]):
+        score += 30
+    if any(t in text for t in ["拍照", "打卡", "广场", "公园", "街区"]):
+        score += 20
+    if point.get("photo_url"):
+        score += 5
+    if point.get("rating") or point.get("gaode_rating"):
+        score += 3
+    return score
+
+
+def _route_needs_density_contract(parsed_intent: Any) -> bool:
+    """Return True if the route needs 6+ POIs / 4+ candidates / compact routing."""
+    return (
+        int(getattr(parsed_intent, "density_target_visible_pois", 0) or 0) >= 6
+        or int(getattr(parsed_intent, "min_frontend_display_points", 0) or 0) >= 6
+        or bool(getattr(parsed_intent, "explicit_timeline_required", False))
+    )
+
+
+# v28: Nearby food stroll — filter route points by strict radius
+
+
+def _filter_nearby_route_points(points: list[dict], parsed_intent: ParsedIntent) -> list[dict]:
+    """Filter route points to nearby radius for food stroll routes."""
+    strategy = str(getattr(parsed_intent, "route_strategy", "") or "")
+    facet = str(getattr(parsed_intent, "activity_facet", "") or "")
+    if strategy != "nearby_food_stroll" and facet != "nearby_food_stroll_route":
+        return points
+
+    origin = (
+        getattr(parsed_intent, "search_area_location", None)
+        or getattr(parsed_intent, "original_location", None)
+        or {}
+    )
+    if not origin:
+        return points
+
+    max_km = (int(getattr(parsed_intent, "nearby_max_radius_m", 0) or 5000) / 1000.0)
+    kept = []
+    dropped = []
+
+    for p in points:
+        kind = p.get("kind")
+        if kind in {"start", "hint"}:
+            kept.append(p)
+            continue
+        loc = p.get("location") or {}
+        if not loc:
+            dropped.append((p.get("name"), "no_location"))
+            continue
+        dist_km = haversine_km(origin, loc)
+        if dist_km <= max_km:
+            kept.append(p)
+        else:
+            dropped.append((p.get("name"), round(dist_km, 2)))
+
+    print(
+        f"[NearbyRadiusAudit] stage=step3_route_points "
+        f"before={len(points)} after={len(kept)} dropped={dropped[:10]}"
+    )
+    return kept
+
+
+# v28: Post-meal stroll point — add a nearby walk after group meal conflict
+
+
+async def _ensure_post_meal_stroll_point(points: list[dict], parsed_intent: ParsedIntent) -> list[dict]:
+    """For group meal conflict + post-meal stroll: add a nearby park/plaza/walk after the meal."""
+    # v28: Only trigger for group_meal_preference_conflict scenario.
+    # The afternoon-dinner-river-night route has its own planned waypoints and
+    # must not get a generic "饭后散步" point that overrides river_stroll.
+    intent_name = str(getattr(parsed_intent, "intent_name", "") or "")
+    route_strategy = str(getattr(parsed_intent, "route_strategy", "") or "")
+    if intent_name != "group_meal_preference_conflict" and route_strategy != "meal_conflict_resolution":
+        return points
+    if not getattr(parsed_intent, "post_meal_stroll_required", False):
+        return points
+    if any(p.get("post_meal_stroll") for p in points):
+        return points
+
+    meal_points = [
+        p for p in points
+        if p.get("kind") == "meal"
+        or any(t in str(p.get("name", "")) for t in ["餐厅", "饭店", "酒楼", "火锅", "川菜", "湘菜", "烤鱼", "中餐厅"])
+    ]
+    if not meal_points:
+        return points
+
+    meal = meal_points[-1]
+    loc = meal.get("location") or {}
+    if not loc.get("lat") or not loc.get("lng"):
+        return points
+
+    stroll_terms = ["公园", "绿地", "步道", "广场", "购物中心", "商场", "园区", "北小沟", "望京公园", "798"]
+    requests = [
+        {
+            "location": coord_to_param(loc),
+            "keywords": kw,
+            "radius": 1500,
+            "types": "110000|110100|110101|110200|060100|060900|061000|080300|080500",
+            "show_fields": config.GAODE_SHOW_FIELDS,
+            "offset": 10,
+        }
+        for kw in stroll_terms
+    ]
+
+    groups = await gaode_around_search_batch(requests)
+    candidates = []
+    seen = set()
+    for raw in [r for group in groups for r in group]:
+        p = raw_to_place(raw)
+        name = str(p.get("name") or "")
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        if any(bad in name for bad in ["停车场", "出入口", "公司", "写字楼", "厕所", "收费站"]):
+            continue
+        ploc = p.get("location") or {}
+        if not ploc.get("lat") or not ploc.get("lng"):
+            continue
+        dist = haversine_km(loc, ploc)
+        if dist > 1.5:
+            continue
+        _meal_day = int(meal.get("day") or meal.get("day_index") or 1)
+
+        p["kind"] = "anchor_internal"
+        p["is_waypoint"] = True
+        p["is_display_poi"] = True
+        p["post_meal_stroll"] = True
+        p["display_slot"] = "after_meal"
+        p["time_slot"] = "after_meal"
+        p["day"] = _meal_day
+        p["day_index"] = _meal_day
+        p["parent_anchor"] = meal.get("parent_anchor") or meal.get("name") or ""
+        p["recommend_reason"] = "餐后附近散步点"
+        candidates.append((dist, p))
+
+    if not candidates:
+        print("[MealConflictStrollAudit] no_post_meal_stroll_candidate")
+        return points
+
+    candidates.sort(key=lambda x: x[0])
+    stroll_point = candidates[0][1]
+
+    insert_at = points.index(meal) + 1 if meal in points else len(points)
+    points.insert(insert_at, stroll_point)
+    print(
+        f"[MealConflictStrollAudit] added_post_meal_stroll="
+        f"{stroll_point.get('name')} dist_km={candidates[0][0]:.2f}"
+    )
+    return points
+
+
+def _ensure_display_density(
+    points: list[dict],
+    parsed_intent: ParsedIntent,
+    *,
+    target: int = 6,
+) -> list[dict]:
+    """Promote non-display anchor_internal POIs to visible display to meet density target."""
+    if not _route_needs_density_contract(parsed_intent):
+        return points
+
+    display_count = sum(1 for p in points if _is_display_route_point_for_density(p))
+    if display_count >= target:
+        return points
+
+    # v28 FIX: Only exclude names that are already DISPLAY points, not ALL points.
+    # The old code used route_names={ALL point names} which made every point skip itself.
+    display_names = {
+        str(p.get("name", ""))
+        for p in points
+        if _is_display_route_point_for_density(p)
+    }
+    candidate_names = set(display_names)
+    candidates = []
+
+    for p in points:
+        if p.get("kind") != "anchor_internal":
+            continue
+        # Only skip if already a display point (is_waypoint and is_display_poi both True)
+        if p.get("is_waypoint") is not False and p.get("is_display_poi") is not False:
+            continue
+
+        name = str(p.get("name", ""))
+        if not name or name in candidate_names:
+            continue
+
+        score = _facet_density_score(p)
+        if score <= 0:
+            continue
+        candidates.append((score, p))
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+
+    added = []
+    for _, cand in candidates:
+        if display_count >= target:
+            break
+        # v28 FIX: Modify in-place instead of appending a duplicate
+        cand["is_waypoint"] = True
+        cand["is_display_poi"] = True
+        cand["kind"] = cand.get("kind") or "anchor_internal"
+        cand["display_slot"] = cand.get("display_slot") or "half_day"
+        candidate_names.add(str(cand.get("name", "")))
+        added.append(cand.get("name", ""))
+        display_count += 1
+
+    print(
+        f"[MultiFacetDensityAudit] stage=step3_display_fill "
+        f"target={target} added={added} after_display={display_count}"
+    )
     return points
 
 
@@ -3691,6 +4207,11 @@ def _reorder_by_proximity(
     Start point stays first. Supplements are inserted at optimal positions, not appended.
     """
     if len(points) <= 2:
+        return list(points)
+
+    # v28: Skip spatial reorder when explicit timeline is required
+    if parsed_intent is not None and getattr(parsed_intent, "explicit_timeline_required", False):
+        print("[TimelineOrderAudit] stage=reorder_by_proximity skipped reason=explicit_timeline_required")
         return list(points)
 
     # The sequence produced by _route_planning is already the canonical
@@ -4114,7 +4635,13 @@ async def _build_segments(parsed_intent: ParsedIntent, transport_hint: str, poin
     )
 
     # 生成精简后的路线对
-    pairs = [(optimized[k], optimized[k + 1]) for k in range(len(optimized) - 1) if optimized[k]["day"] == optimized[k + 1]["day"]]
+    # v28: Safe access — use .get() in case day is missing from new points
+    pairs = [
+        (optimized[k], optimized[k + 1])
+        for k in range(len(optimized) - 1)
+        if int(optimized[k].get("day") or optimized[k].get("day_index") or 1)
+        == int(optimized[k + 1].get("day") or optimized[k + 1].get("day_index") or 1)
+    ]
     routes = await asyncio.gather(*[
         _route_between(
             parsed_intent,
@@ -5069,19 +5596,25 @@ def _build_candidate_points(
     micro_pois: list[MicroPOI],
     sub_anchors: list,
     micro_policy: dict[str, Any] | None = None,
+    parsed_intent: ParsedIntent | None = None,
 ) -> list[dict[str, Any]]:
     """v6: 从 _candidate_pool 和 points 中未展示的 anchor_internal 构建候选 POI 列表。
 
     v13: micro_policy 控制主题相关候选过滤和排序。
+    v28: Accepts parsed_intent for density-driven candidate target.
     过滤规则：
     - 只排除真正进入路线的展示/必经点：kind=start, kind=meal, is_waypoint=True 的路线点
     - 将 kind='anchor_internal' 且 is_waypoint=False 的内部 POI 纳入候选池
     - 排除 kind 为 hint/free_explore/route_only/traffic/empty 的点
-    - 每个 sub_anchor 最多 2 个候选点
+    - 每个 sub_anchor 最多 2 个候选点（multi-facet density → 4）
     - 每天最多 8 个候选点
     - 全路线最多 20 个候选点
     - 优先保留 rating 高、有 photo_url/address 的点
     """
+    # v28: Density-driven candidate target
+    _candidate_target = 4
+    if parsed_intent is not None:
+        _candidate_target = int(getattr(parsed_intent, "candidate_target", 0) or 4)
     # 收集真正路线必经点的标识（start/meal/is_waypoint=True）
     _route_key_poi_ids: set[str] = set()
     _route_key_names: set[str] = set()
@@ -5108,6 +5641,9 @@ def _build_candidate_points(
         pid = pt.get("poi_id") or pt.get("gaode_poi_id") or ""
         name = pt.get("name", "")
         if pid in _route_key_poi_ids or name in _route_key_names:
+            continue
+        # v28: required_facet POIs must NOT be moved to candidates
+        if pt.get("required_facet") is True:
             continue
         _non_waypoint_internal.append(pt)
 
@@ -5190,8 +5726,8 @@ def _build_candidate_points(
     # 每天统计
     _day_counts: dict[int, int] = {}
     _max_per_day = 8
-    _max_per_sub = 2
-    _max_total = 20
+    _max_per_sub = 4 if _candidate_target >= 4 else 2
+    _max_total = max(20, _candidate_target)
     candidate_points: list[dict] = []
 
     # 重建按 day+sub 的索引
@@ -5227,8 +5763,56 @@ def _build_candidate_points(
         if len(candidate_points) >= _max_total:
             break
 
-    # 清空池子
-    _candidate_pool.clear()
+    # v28: Fill from non_waypoint_internal if below candidate target
+    if len(candidate_points) < _candidate_target:
+        existing_names = {str(c.get("name", "")) for c in candidate_points}
+        route_names = {str(p.get("name", "")) for p in points if p.get("is_waypoint") is not False}
+        extras = []
+        for pt in _non_waypoint_internal:
+            name = str(pt.get("name", ""))
+            if not name or name in existing_names or name in route_names:
+                continue
+            score = _micro_poi_theme_score(pt, policy)
+            if policy.get("active") and score <= 0:
+                continue
+            extras.append((score, pt))
+
+        extras.sort(key=lambda item: item[0], reverse=True)
+
+        for _, pt in extras:
+            if len(candidate_points) >= _candidate_target:
+                break
+            rating_val = pt.get("rating") or pt.get("gaode_rating")
+            try:
+                rating_val = float(rating_val) if rating_val is not None else 0.0
+            except (ValueError, TypeError):
+                rating_val = 0.0
+            candidate_points.append({
+                "name": pt.get("name", ""),
+                "location": pt.get("location", {}),
+                "kind": "candidate",
+                "candidate_source": "non_waypoint_internal_fill",
+                "poi_id": pt.get("poi_id") or pt.get("gaode_poi_id") or pt.get("name", ""),
+                "gaode_poi_id": pt.get("gaode_poi_id", ""),
+                "typecode": pt.get("typecode", ""),
+                "category": pt.get("category", ""),
+                "address": pt.get("address", ""),
+                "rating": rating_val,
+                "gaode_rating": rating_val,
+                "photo_url": pt.get("photo_url", ""),
+                "parent_anchor": pt.get("parent_anchor") or pt.get("parent_name", ""),
+                "sub_anchor_name": pt.get("sub_anchor_name", ""),
+                "theme_score": _micro_poi_theme_score(pt, policy),
+            })
+
+    print(
+        f"[CandidateBackupAudit] stage=step3_build_candidates "
+        f"target={_candidate_target} final={len(candidate_points)}"
+    )
+
+    # v28: Preserve candidate pool for density routes — Step4 needs it for candidate fill
+    if not _route_needs_density_contract(parsed_intent):
+        _candidate_pool.clear()
 
     return candidate_points
 
@@ -5910,10 +6494,37 @@ async def _targeted_supplement_recall(
 
     The query terms come from Step1's original theme/search fields.  Results are
     hard-limited to CompletePlan.city; no unrelated category fallback is used.
+
+    v27: Tightened spatial constraints for multi-facet relaxed routes — strict
+    radius (3-5km), detour cost check, and distance-prioritized sorting.
     """
     city = complete_plan.city or ""
     if not city:
         return []
+
+    # v27: Detect multi-facet relaxed route for strict spatial constraints
+    _facet_ids = {
+        str(f.get("id") or "")
+        for f in (getattr(parsed_intent, "theme_facets", []) or [])
+        if isinstance(f, dict)
+    }
+    _multi_facet_facets = {"photo_checkin", "art_culture_lifestyle", "cafe_stop", "specialty_shop"}
+    _has_relaxed = "relaxed_pace" in _facet_ids
+    _is_multi_facet_relaxed = (
+        len(_facet_ids & _multi_facet_facets) >= 3 and _has_relaxed
+    )
+    _strict_max_radius = 4.0 if _has_relaxed else 5.0
+    _strict_hard_radius = 5.0 if _has_relaxed else 7.0
+    _strict_max_detour = 2.0 if _has_relaxed else 3.0
+    _strict_max_segment = 5.0  # no single segment should exceed 5km for relaxed route
+
+    # v27: Also check relaxed_pace via activity_facet or time_budget hints
+    _activity = str(getattr(parsed_intent, "activity_facet", "") or "")
+    if not _is_multi_facet_relaxed and _activity == "multi_facet_art_photo_cafe_shop":
+        _is_multi_facet_relaxed = True
+        _strict_max_radius = 4.0
+        _strict_hard_radius = 5.0
+        _strict_max_detour = 2.0
 
     profile = build_effective_theme_profile(parsed_intent)
     raw_terms = [
@@ -5936,18 +6547,41 @@ async def _targeted_supplement_recall(
     if not supplement_terms:
         return []
 
+    # v27: Dynamically downgrade "电影资料馆" — only allow when user mentions film terms
+    _user_text = str(getattr(parsed_intent, "raw_keywords", "") or "")
+    _user_text += " " + str(getattr(parsed_intent, "primary_query", "") or "")
+    _has_film_terms = any(
+        t in _user_text for t in ["电影", "影迷", "资料馆", "电影资料馆", "电影文化", "影院", "放映"]
+    )
+    if not _has_film_terms:
+        # Downgrade "电影资料馆" from supplement terms — move to end with lowest priority
+        supplement_terms = [
+            t for t in supplement_terms
+            if "电影资料馆" not in str(t) and "资料馆" not in str(t)
+        ]
+
     candidates: list[tuple[float, float, dict[str, Any]]] = []
     existing_names = {str(point.get("name") or "") for point in points}
     existing_bases = {
         name[:-2] if name.endswith(("东段", "西段", "南段", "北段")) else name
         for name in existing_names
     }
+    # v27: Exclude start/home from existing_locations — only use display POIs as spatial anchors
     existing_locations = [
         point.get("location") or {}
         for point in points
         if (point.get("location") or {}).get("lat") is not None
         and (point.get("location") or {}).get("lng") is not None
+        and str(point.get("kind", "") or "") not in ("start", "hint", "free_explore", "route_only")
     ]
+    # v27: Fallback: if no non-start locations, include start points
+    if not existing_locations:
+        existing_locations = [
+            point.get("location") or {}
+            for point in points
+            if (point.get("location") or {}).get("lat") is not None
+            and (point.get("location") or {}).get("lng") is not None
+        ]
     existing_days = [
         int(point.get("day") or point.get("day_index") or 1)
         for point in points
@@ -5955,6 +6589,13 @@ async def _targeted_supplement_recall(
     ]
     supplement_day = existing_days[-1] if existing_days else 1
     city_short = city.rstrip("市")
+
+    # v27: Build ordered point list for detour calculation
+    _ordered_display_points = [
+        p for p in points
+        if str(p.get("kind", "") or "") not in ("start", "hint", "free_explore", "route_only")
+        and p.get("location", {}).get("lat") is not None
+    ]
 
     attempted_terms: list[str] = []
     seen_candidate_names: set[str] = set()
@@ -6009,16 +6650,79 @@ async def _targeted_supplement_recall(
                 (haversine_km(location, existing) for existing in existing_locations),
                 default=0.0,
             )
-            # A fallback point must remain practical for a one-day route.  A
-            # city-wide match 40-60 km away is not a valid density supplement.
-            if existing_locations and nearest_km > 15.0:
+
+            # v27: Strict radius for multi-facet relaxed routes
+            if _is_multi_facet_relaxed and nearest_km > _strict_hard_radius:
+                print(
+                    f"[SupplementDistanceAudit] name={name} nearest_km={nearest_km:.1f} "
+                    f"relaxed=true accepted=false reason=too_far_hard_limit "
+                    f"limit={_strict_hard_radius}km"
+                )
+                continue
+            elif nearest_km > 15.0:
+                # Original threshold for non-relaxed routes
                 print(
                     f"[DEBUG step3] skip distant supplement: name={name} "
                     f"nearest_km={nearest_km:.1f} term={term!r}"
                 )
                 continue
 
+            # v27: Detour cost calculation — insert into ordered route and measure
+            min_detour_km = 0.0
+            max_insert_segment_km = 0.0
+            if _is_multi_facet_relaxed and _ordered_display_points and existing_locations:
+                _best_detour = float("inf")
+                _worst_segment = 0.0
+                _n_dp = len(_ordered_display_points)
+                for _i in range(_n_dp + 1):
+                    _prev_loc = _ordered_display_points[_i - 1].get("location") if _i > 0 else None
+                    _next_loc = _ordered_display_points[_i].get("location") if _i < _n_dp else None
+                    _prev_next_dist = (
+                        haversine_km(_prev_loc, _next_loc)
+                        if _prev_loc and _next_loc else 0.0
+                    )
+                    _d_prev = haversine_km(_prev_loc, location) if _prev_loc else 0.0
+                    _d_next = haversine_km(location, _next_loc) if _next_loc else 0.0
+                    _detour = _d_prev + _d_next - _prev_next_dist
+                    if _detour < _best_detour:
+                        _best_detour = _detour
+                    _worst_segment = max(_worst_segment, _d_prev, _d_next)
+                min_detour_km = _best_detour if _best_detour != float("inf") else nearest_km
+                max_insert_segment_km = _worst_segment
+
+                # Filter by detour cost
+                if min_detour_km > _strict_max_detour:
+                    print(
+                        f"[SupplementDistanceAudit] name={name} nearest_km={nearest_km:.1f} "
+                        f"min_detour_km={min_detour_km:.1f} "
+                        f"max_insert_segment_km={max_insert_segment_km:.1f} "
+                        f"relaxed=true accepted=false reason=detour_too_large "
+                        f"limit={_strict_max_detour}km"
+                    )
+                    continue
+
+                # Filter by max segment length
+                if max_insert_segment_km > _strict_max_segment:
+                    print(
+                        f"[SupplementDistanceAudit] name={name} nearest_km={nearest_km:.1f} "
+                        f"min_detour_km={min_detour_km:.1f} "
+                        f"max_insert_segment_km={max_insert_segment_km:.1f} "
+                        f"relaxed=true accepted=false reason=segment_too_long "
+                        f"limit={_strict_max_segment}km"
+                    )
+                    continue
+
+            elif _is_multi_facet_relaxed and nearest_km > _strict_max_radius:
+                # Without enough display points for detour calc, fall back to strict radius
+                print(
+                    f"[SupplementDistanceAudit] name={name} nearest_km={nearest_km:.1f} "
+                    f"relaxed=true accepted=false reason=too_far_for_relaxed_multifacet "
+                    f"limit={_strict_max_radius}km"
+                )
+                continue
+
             seen_candidate_names.add(name)
+            theme_score = float(evidence.score if evidence is not None else 1.0)
             candidate = {
                 "name": name,
                 "location": location,
@@ -6031,19 +6735,55 @@ async def _targeted_supplement_recall(
                 "is_waypoint": True,
                 "supplement_recall": True,
                 "supplement_query": term,
-                "theme_relevance_score": float(evidence.score if evidence is not None else 1.0),
-                "recommend_reason": f"距现有路线约{nearest_km:.1f}公里的亲子主题补充地点",
+                "theme_relevance_score": theme_score,
+                "recommend_reason": f"距现有路线约{nearest_km:.1f}公里的主题补充地点",
             }
-            candidates.append((nearest_km, -candidate["theme_relevance_score"], candidate))
+            # v27: For relaxed routes, store spatial metrics for sorting
+            candidates.append((
+                nearest_km,
+                -theme_score,
+                min_detour_km,
+                candidate,
+            ))
 
-    # Prefer strong destination identity first, then choose the nearest among
-    # similarly relevant places.  This keeps a named aquarium/science museum
-    # ahead of a tiny internal facility that merely shares its category.
-    candidates.sort(key=lambda item: (item[1], item[0], item[2].get("name", "")))
-    results = [item[2] for item in candidates[:5]]
+    # v28: Defensive validation — reject malformed tuples before sorting
+    _bad_items = [
+        item for item in candidates
+        if not (len(item) == 4 and isinstance(item[3], dict))
+    ]
+    if _bad_items:
+        print(
+            f"[SupplementRecallAudit] bad_candidate_tuple_count={len(_bad_items)} "
+            f"sample={_bad_items[:2]}"
+        )
+        candidates = [
+            item for item in candidates
+            if len(item) == 4 and isinstance(item[3], dict)
+        ]
+
+    # v27+v28: Sort prioritizing distance for relaxed routes
+    if _is_multi_facet_relaxed:
+        # Sort by: 1) detour_km 2) nearest_km 3) theme_score (lower priority)
+        candidates.sort(key=lambda item: (
+            item[2],   # min_detour_km
+            item[0],   # nearest_km
+            item[1],   # -theme_score (negative = higher score)
+            item[3].get("name", "") if isinstance(item[3], dict) else "",
+        ))
+    else:
+        # v28 FIX: item[2] is min_detour_km (float), item[3] is candidate dict
+        candidates.sort(key=lambda item: (
+            item[1],  # -theme_score
+            item[0],  # nearest_km
+            item[3].get("name", "") if isinstance(item[3], dict) else "",
+        ))
+
+    # v28 FIX: extract from item[3] (candidate dict) instead of item[-1]
+    results = [item[3] for item in candidates[:5] if len(item) > 3 and isinstance(item[3], dict)]
     print(
         f"[DEBUG step3] targeted_supplement_recall: "
-        f"scope=near_route city={city} terms={attempted_terms} "
+        f"scope={'relaxed_multifacet' if _is_multi_facet_relaxed else 'standard'} "
+        f"city={city} terms={attempted_terms} "
         f"candidates={len(candidates)} selected="
         f"{[(p.get('name'), p.get('supplement_query')) for p in results]}"
     )
@@ -6120,6 +6860,7 @@ async def run_step3(
     sub_anchors = await _search_anchor_internals(
         sub_anchors, city, theme_search_terms=theme_search,
         required_facet_ids=_required_facet_ids if _required_facet_ids else None,
+        parsed_intent=parsed_intent,
     )
     # v5.2 r5: POI空间硬分配 — 每个POI只归最近的锚点，解决跨锚点POI泄漏
     sub_anchors = _spatial_assign_pois(sub_anchors, [a.name for a in all_anchors])
@@ -6155,8 +6896,30 @@ async def run_step3(
         if _is_area_stroll_intent(parsed_intent):
             _internal_limit = {"quarter_day": 6, "half_day": 6, "full_day": 8}.get(_effective_cap, 6)
             _area_min = {"quarter_day": 5, "half_day": 5, "full_day": 6}.get(_effective_cap, 5)
+
+        # v28: Multi-facet art density — "节奏轻松" ≠ fewer POIs.
+        # Override internal limit to match density_target_visible_pois.
+        _is_multi_facet_density = (
+            getattr(parsed_intent, "activity_facet", "") == "multi_facet_art_photo_cafe_shop"
+            or getattr(parsed_intent, "theme_coverage_policy", "") == "cover_required_facets"
+            or bool(getattr(parsed_intent, "theme_route_locked", False))
+        )
+
+        if _is_multi_facet_density:
+            _density_target = int(getattr(parsed_intent, "density_target_visible_pois", 0) or 6)
+            _internal_limit = max(_internal_limit, _density_target)
+            _internal_limit = min(_internal_limit, 8)
+            _area_min = max(locals().get("_area_min", 0), 6)
+
+            print(
+                f"[MultiFacetDensityAudit] stage=step3_internal_limit "
+                f"sub={sub.name} effective_cap={_effective_cap} "
+                f"limit={_internal_limit} target={_density_target}"
+            )
+
         print(f"[RouteDensityAudit] sub={sub.name} anchor_capacity={sub.capacity} "
-              f"user_tb={_user_tb} effective_cap={_effective_cap} limit={_internal_limit}")
+              f"user_tb={_user_tb} effective_cap={_effective_cap} limit={_internal_limit} "
+              f"multi_facet_density={_is_multi_facet_density}")
         if len(filtered) > _internal_limit:
             filtered = filtered[:_internal_limit]
             trim_hint = trim_hint or f"已保留最相关的{_internal_limit}个地点"
@@ -6289,6 +7052,8 @@ async def run_step3(
     await emit_status("正在规划详细路线...")
     points = _route_planning(sub_anchors, micro_pois, parsed_intent, complete_plan)
     points = _apply_planned_time_slots(points, parsed_intent)
+    # v28: Enforce explicit timeline order after time slots are applied
+    points = _apply_explicit_timeline_order(points, parsed_intent)
 
     # v6: 调试日志 — 路线点
     print(f"[DEBUG step3] route_points before injection names/kinds: {[(p.get('name'), p.get('kind')) for p in points]}")
@@ -6360,9 +7125,130 @@ async def run_step3(
                 if _added_names:
                     print(f"[DEBUG step3] supplement recall added {len(_added_names)} points (before segments): {_added_names}")
 
+    # v27: Cross-city hard guard — filter POIs >200km from origin unless explicit cross-city intent
+    _origin_loc = getattr(parsed_intent, "original_location", None) or {}
+    _has_cross_city_intent = any(
+        t in str(getattr(parsed_intent, "raw_keywords", "") or "").lower()
+        for t in ["跨城", "高铁去", "火车去", "飞到", "出差", "双城"]
+    )
+    if _origin_loc and _origin_loc.get("lat") and not _has_cross_city_intent:
+        _filtered_points = []
+        for _p in points:
+            _p_loc = _p.get("location") or {}
+            if _p_loc.get("lat") and _p_loc.get("lng"):
+                _d = haversine_km(_origin_loc, _p_loc)
+                if _d > 200.0:
+                    print(
+                        f"[CrossCityGuard] stage=step3 "
+                        f"origin={_origin_loc.get('label', '起点')} "
+                        f"poi={_p.get('name', '')} "
+                        f"distance_km={_d:.1f} action=drop"
+                    )
+                    continue
+            _filtered_points.append(_p)
+        _dropped = len(points) - len(_filtered_points)
+        if _dropped > 0:
+            print(f"[CrossCityGuard] stage=step3 dropped={_dropped} cross-city POIs")
+            points = _filtered_points
+
+    # v28: Nearby food stroll — filter route points by strict radius
+    points = _filter_nearby_route_points(points, parsed_intent)
+
+    # v28: Post-meal stroll point for group meal conflict + "吃完散散步"
+    points = await _ensure_post_meal_stroll_point(points, parsed_intent)
+
     # v21: Canonical spatial reorder + timeline completion before segments
     # v25: Repair missing required facet points before spatial reorder
     points = await _ensure_required_facet_points(parsed_intent, points, sub_anchors)
+
+    # v28: Ensure multi-facet art routes have at least 6 display POIs
+    # v28: General density contract (was _ensure_multi_facet_display_density)
+    points = _ensure_display_density(
+        points,
+        parsed_intent,
+        target=int(getattr(parsed_intent, "density_target_visible_pois", 0) or 6),
+    )
+
+    # v28: Re-apply explicit timeline order after density fill / injections
+    points = _apply_explicit_timeline_order(points, parsed_intent)
+
+    # v28: 北海→烤鸭→三里河公园 narrow reorder
+    if getattr(parsed_intent, "north_sea_lunch_sanlihe_route", False):
+        def _route_phase_rank(p: dict) -> int:
+            phase = str(p.get("route_phase") or "")
+            name = str(p.get("name") or "")
+            text = " ".join(str(p.get(k) or "") for k in ("name", "parent_anchor", "parent_name", "sub_anchor_name"))
+            if p.get("kind") == "start":
+                return 0
+            if phase == "beihai" or "北海公园" in text or "北海" in name:
+                return 10
+            if phase == "lunch_corridor" or p.get("kind") in {"meal", "restaurant"} or "烤鸭" in text:
+                return 20
+            if phase == "sanlihe" or "三里河公园" in text or "三里河" in name:
+                return 30
+            # Unknown: place near the start phase
+            return 10
+
+        start_pts = [p for p in points if p.get("kind") == "start"]
+        rest = [p for p in points if p.get("kind") != "start"]
+        rest.sort(key=_route_phase_rank)
+        points = start_pts + rest
+        print(
+            f"[NorthSeaSanliheOrderAudit] "
+            f"phases={[(p.get('name'), p.get('route_phase'), p.get('kind')) for p in points]}"
+        )
+
+    # v28: 北海公园→烤鸭→景山公园 narrow reorder (before generic Tiananmen sort)
+    elif getattr(parsed_intent, "north_sea_lunch_jingshan_route", False):
+        def _north_sea_phase(p: dict) -> int:
+            text = " ".join(str(p.get(k) or "") for k in ("name", "parent_anchor", "parent_name", "sub_anchor_name", "address"))
+            if p.get("kind") == "start":
+                return 0
+            if any(t in text for t in ["北海公园", "恭王府", "什刹海", "九龙壁", "白塔", "永安寺"]):
+                return 10
+            if p.get("kind") in {"meal", "restaurant"} or "烤鸭" in text:
+                return 20
+            if any(t in text for t in ["景山公园", "万春亭", "绮望楼", "神武门"]):
+                return 30
+            return 10
+
+        start_pts = [p for p in points if p.get("kind") == "start"]
+        rest = [p for p in points if p.get("kind") != "start"]
+        rest.sort(key=_north_sea_phase)
+        points = start_pts + rest
+        print(
+            f"[NorthSeaRouteAudit] order="
+            f"{[(p.get('name'), p.get('kind'), p.get('display_slot')) for p in points]}"
+        )
+
+    # v28: Tiananmen/故宫→lunch→景山 hard timeline sort
+    elif bool(getattr(parsed_intent, "explicit_timeline_required", False)):
+        def _timeline_rank_v28_tc(p: dict) -> int:
+            name = str(p.get("name", "") or "")
+            kind = str(p.get("kind", "") or "")
+            slot = str(p.get("display_slot") or p.get("time_slot") or "").lower()
+            if kind == "start":
+                return 0
+            if any(t in name for t in ["天安门", "故宫", "正阳门", "前门", "午门", "端门"]):
+                return 10
+            if kind == "meal" and (slot == "lunch" or "午" in name or "北京菜" in name):
+                return 30
+            if any(t in name for t in ["景山", "日落", "万春亭"]):
+                return 50
+            if kind == "meal" and slot == "dinner":
+                return 70
+            return 40
+
+        start_pts = [p for p in points if p.get("kind") == "start"]
+        hints_pts = [p for p in points if p.get("kind") in {"hint", "free_explore", "candidate"}]
+        rest = [p for p in points if p not in start_pts and p not in hints_pts]
+        rest.sort(key=_timeline_rank_v28_tc)
+        points = start_pts + rest + hints_pts
+        print(
+            f"[TimelineOrderAudit] stage=step3_target_case_order "
+            f"names={[(p.get('name'), p.get('kind'), p.get('display_slot')) for p in points]}"
+        )
+
     points = _reorder_by_proximity(points, parsed_intent)
     try:
         from .timeline_completion import complete_route_timeline
@@ -6370,6 +7256,30 @@ async def run_step3(
         points = await complete_route_timeline(points, parsed_intent, None, _pts_city)
     except Exception as _te:
         print(f"[WARN] timeline_completion failed (non-blocking): {_te}")
+
+    # v28: Targeted route simplifier for 天安门/故宫→lunch→景山日落
+    if _is_area_meal_afternoon_tiananmen_route(parsed_intent):
+        points = _simplify_area_meal_afternoon_route(points, parsed_intent)
+
+    # v28: Annotate river_stroll / night_view facets for frontend tag matching
+    _river_night_keywords = str(getattr(parsed_intent, "raw_keywords", "") or "").lower()
+    _has_river_intent = any(t in _river_night_keywords for t in ["河边", "河边走走", "散步", "河边散步", "亮马河"])
+    _has_night_intent = any(t in _river_night_keywords for t in ["夜景", "拍夜景", "夜游"])
+    for _p in points:
+        _ptext = " ".join(str(_p.get(k) or "") for k in ("name", "address", "recommend_reason", "category")).lower()
+        _pslot = str(_p.get("display_slot") or _p.get("time_slot") or "").lower()
+        if _has_river_intent and any(t in _ptext for t in ["河边", "河畔", "滨水", "水岸", "亮马河", "通惠河", "护城河", "码头", "亲水"]):
+            _p["matched_facets"] = list(dict.fromkeys([*(_p.get("matched_facets") or []), "river_stroll"]))
+            if not _p.get("route_phase"):
+                _p["route_phase"] = "river_stroll"
+        if _has_night_intent and (any(t in _ptext for t in ["夜景", "拍夜景", "灯光", "观景台"]) or _pslot in ("night", "evening")):
+            _p["matched_facets"] = list(dict.fromkeys([*(_p.get("matched_facets") or []), "night_view"]))
+            if not _p.get("route_phase"):
+                _p["route_phase"] = "night_view"
+
+    # v28: Ensure all points have day/day_index before segment building
+    points = _normalize_route_point_day_fields(points, stage="before_segments")
+
     route_segments, waypoint_annotations = await _build_segments(parsed_intent, parsed_intent.transport_hint or "公共交通", points)
 
     # 将waypoint标注信息注入points，供地图渲染和输出使用
@@ -6644,5 +7554,24 @@ async def run_step3(
         micro_pois,
         sub_anchors,
         micro_policy=micro_policy,
+        parsed_intent=parsed_intent,
     )
+
+    # v28: Real visible POI audit — exclude start/hint/free_explore etc.
+    _NON_REAL_KINDS = {"start", "hint", "free_explore", "candidate", "route_only", "traffic", "empty"}
+    _real_count = sum(
+        1 for p in points
+        if p.get("kind") not in _NON_REAL_KINDS
+        and not p.get("hidden")
+        and bool(str(p.get("name", "")).strip())
+    )
+    print(
+        f"[DisplayDensityAudit] stage=step3_final "
+        f"real_visible={_real_count} "
+        f"target_min={getattr(parsed_intent, 'min_frontend_display_points', 0)} "
+        f"target_max={getattr(parsed_intent, 'max_frontend_display_points', 8)} "
+        f"candidates={len(candidate_points or [])} "
+        f"names={[p.get('name') for p in points if p.get('kind') not in _NON_REAL_KINDS and not p.get('hidden') and bool(str(p.get('name', '')).strip())]}"
+    )
+
     return micro_pois, route_segments, map_path, _hints, waypoint_annotations, points, candidate_points

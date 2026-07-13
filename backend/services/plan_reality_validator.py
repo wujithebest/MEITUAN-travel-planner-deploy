@@ -271,8 +271,10 @@ def validate_plan_reality(
     )
     _ART_FACET_KEYWORDS = [
         "美术馆", "艺术馆", "艺术中心", "艺术空间", "画廊", "展览", "博物馆",
-        "798", "创意园", "文创园", "文化中心", "书店", "书局", "文创",
+        "798", "751", "创意园", "文创园", "文化中心", "书店", "书局", "文创",
         "买手店", "杂货店", "咖啡", "coffee", "cafe", "胡同", "街区", "广场",
+        "当代", "设计", "摄影", "独立", "studio", "workshop", "艺术区",
+        "装置", "雕塑", "版画", "影像", "实验", "先锋", "场域",
     ]
     _ART_FACET_TYPECODES = {
         "140000", "140100", "140200", "140300", "140400",
@@ -430,29 +432,36 @@ def validate_plan_reality(
         for sa in selected_anchors:
             if sa.get("fixed") or sa.get("primary_target") or sa.get("explicitly_named_by_user"):
                 _user_fixed_names.add(str(sa.get("name", "") or ""))
+    # v28: Helper for sub-POI fixed anchor matching (景山公园 matches 景山公园-万春亭)
+    def _fixed_anchor_matches_point(fixed_name: str, point: dict) -> bool:
+        fixed_name = str(fixed_name or "").strip()
+        if not fixed_name:
+            return False
+        identity = " ".join(
+            str(point.get(k) or "")
+            for k in ("name", "parent_anchor", "parent_name", "sub_anchor_name")
+        )
+        return fixed_name in identity or identity.strip() in fixed_name
+
     # Check each user-specified fixed POI is a visible waypoint
-    _point_names = {str(p.get("name", "") or "") for p in points}
-    _visible_point_names = {
-        str(p.get("name", "") or "") for p in points
-        if p.get("is_display_poi") or p.get("is_waypoint") or p.get("display_order") is not None
-    }
     for fname in _user_fixed_names:
         if not fname:
             continue
-        # Must exist in points
-        if fname not in _point_names:
+        matched_points = [pt for pt in points if _fixed_anchor_matches_point(fname, pt)]
+        if not matched_points:
             violations.append(f"required_fixed_anchor_missing: {fname}")
-        # Must be visible (not hidden/free_explore/hint)
-        elif fname not in _visible_point_names:
-            violations.append(f"required_fixed_anchor_hidden: {fname}")
-        # Must not be free_explore/hint
         else:
-            for pt in points:
-                if str(pt.get("name", "") or "") == fname:
+            visible_matched = [
+                pt for pt in matched_points
+                if pt.get("is_display_poi") or pt.get("is_waypoint") or pt.get("display_order") is not None
+            ]
+            if not visible_matched:
+                violations.append(f"required_fixed_anchor_hidden: {fname}")
+            else:
+                for pt in visible_matched:
                     kind = str(pt.get("kind", "") or "")
                     if kind in ("free_explore", "hint", "route_only"):
                         violations.append(f"required_fixed_anchor_bad_kind: {fname} is {kind}")
-                    break
 
     # Meal takeover
     meal_takeover = (
@@ -523,16 +532,29 @@ def validate_plan_reality(
                 f"after_primary={_after} "
                 f"visible={visible_count}"
             )
-            # Remove full_day_theme_needs_3_related if we have visible >= 4
+            # v26+v27: Density validation — multi_facet_art needs at least 5 visible POIs
+            _density_min = getattr(parsed_intent, "density_min_visible_pois", 0) or 0
+            # v27: Always enforce min 5 for multi_facet_art, not gated on _density_min >= 5
+            _effective_min = max(_density_min, 5) if _density_min > 0 else 5
+            if visible_count < _effective_min:
+                violations.append(
+                    f"multi_facet_art_route_too_sparse: visible={visible_count} < min={_effective_min}"
+                )
+            elif visible_count < 4:
+                violations.append(
+                    f"multi_facet_art_route_too_sparse: visible={visible_count} < 4"
+                )
+            # Remove theme_needs violations — multi_facet_art uses its own density rules
             violations = [v for v in violations
-                          if "needs_3_related" not in v and "needs_2_related" not in v]
-            # Only require primary >= 2 for multi_facet
-            if _after >= 2 and visible_count >= 4:
-                pass  # OK
+                          if "theme_needs" not in v and "needs_3_related" not in v and "needs_2_related" not in v]
+            # v27: Only flag density issue if truly sparse (< 3 visible)
+            # Don't trigger supplement recall when 4+ visible POIs with spatial compactness
+            if visible_count >= 4:
+                pass  # adequate density — skip
             elif visible_count >= 3:
-                pass  # borderline OK
-        # v21: Feature-based requests only need 1 visible related POI
-        if is_no_reservation:
+                pass  # borderline OK, don't force supplement
+        elif is_no_reservation:
+            # v21: Feature-based requests only need 1 visible related POI
             if (visible_count - meal_count) < 2:
                 violations.append("no_reservation_route_too_sparse")
         elif is_feature_based:
@@ -548,6 +570,14 @@ def validate_plan_reality(
     # v20: visible_waypoint_count=0 should never be valid
     if visible_count == 0:
         violations.append("no_visible_waypoints")
+
+    # v28: Hard density/candidate validation for quality contract routes
+    _min_visible = max(
+        int(getattr(parsed_intent, "density_min_visible_pois", 0) or 0),
+        int(getattr(parsed_intent, "min_frontend_display_points", 0) or 0),
+    )
+    if _min_visible and visible_count < _min_visible:
+        violations.append(f"min_visible_poi_missing:{visible_count}<{_min_visible}")
 
     return PlanRealityResult(
         valid=len(violations) == 0,

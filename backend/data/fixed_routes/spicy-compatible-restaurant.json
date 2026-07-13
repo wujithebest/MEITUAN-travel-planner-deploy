@@ -1,0 +1,1084 @@
+{
+  "id": "spicy-compatible-restaurant",
+  "prompt": "明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步",
+  "title": "北京附近口味兼容短途游",
+  "origin": {
+    "label": "北京恒基伟业大厦",
+    "city": "北京市",
+    "lat": 40.008744,
+    "lng": 116.488462
+  },
+  "route_id": "fixed-spicy-compatible-restaurant-hengji-v1",
+  "assistant_message": "【北京附近口味兼容短途游】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：口味兼容｜川菜｜不吃辣｜餐厅｜附近散步\n路线共 6 个游览点，按顺路顺序编排。",
+  "route_data": {
+    "route_id": "fixed-spicy-compatible-restaurant-hengji-v1",
+    "points": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "kind": "start",
+        "category": "起点",
+        "typecode": "",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "morning",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 0,
+        "route_order": 0,
+        "recommend_reason": "与本次路线主题匹配",
+        "matched_keywords": [],
+        "tags": [],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-和牛家食堂",
+        "gaode_poi_id": "fixed-和牛家食堂",
+        "name": "和牛家食堂",
+        "location": "116.4745,40.0018",
+        "kind": "meal",
+        "category": "餐饮",
+        "typecode": "050000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "lunch",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 1,
+        "route_order": 1,
+        "recommend_reason": "不吃辣与川菜口味兼容",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-人民公社",
+        "gaode_poi_id": "fixed-人民公社",
+        "name": "人民公社",
+        "location": "116.4755,40.003",
+        "kind": "anchor",
+        "category": "餐饮",
+        "typecode": "050000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 2,
+        "route_order": 2,
+        "recommend_reason": "附近餐厅备选",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-望京SOHO",
+        "gaode_poi_id": "fixed-望京SOHO",
+        "name": "望京SOHO",
+        "location": "116.48,40.001",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 3,
+        "route_order": 3,
+        "recommend_reason": "餐后附近散步",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-望京公园",
+        "gaode_poi_id": "fixed-望京公园",
+        "name": "望京公园",
+        "location": "116.493,40.002",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "afternoon",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 4,
+        "route_order": 4,
+        "recommend_reason": "餐后附近散步",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北小河公园",
+        "gaode_poi_id": "fixed-北小河公园",
+        "name": "北小河公园",
+        "location": "116.487,40.016",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 5,
+        "route_order": 5,
+        "recommend_reason": "附近散步",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      },
+      {
+        "poi_id": "fixed-北小河沿岸步道",
+        "gaode_poi_id": "fixed-北小河沿岸步道",
+        "name": "北小河沿岸步道",
+        "location": "116.486,40.0145",
+        "kind": "anchor",
+        "category": "风景名胜",
+        "typecode": "110000",
+        "address": "北京市",
+        "rating": 4.5,
+        "day": 1,
+        "display_slot": "evening",
+        "is_waypoint": true,
+        "is_display_poi": true,
+        "display_order": 6,
+        "route_order": 6,
+        "recommend_reason": "餐后散散步",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "parent_anchor": "",
+        "visit_duration_min": 60
+      }
+    ],
+    "segments": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "和牛家食堂",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.43,
+        "polyline": "116.488462,40.008744;116.4745,40.0018",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "和牛家食堂",
+        "to_poi": "人民公社",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.4745,40.0018;116.4755,40.003",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "人民公社",
+        "to_poi": "望京SOHO",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.45,
+        "polyline": "116.4755,40.003;116.48,40.001",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "望京SOHO",
+        "to_poi": "望京公园",
+        "transport": "驾车",
+        "duration_min": 5,
+        "distance_km": 1.2,
+        "polyline": "116.48,40.001;116.493,40.002",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "望京公园",
+        "to_poi": "北小河公园",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.4,
+        "polyline": "116.493,40.002;116.487,40.016",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "北小河公园",
+        "to_poi": "北小河沿岸步道",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.487,40.016;116.486,40.0145",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "candidate_points": [
+      {
+        "name": "口味兼容备选点1",
+        "kind": "candidate",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "name": "口味兼容备选点2",
+        "kind": "candidate",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "name": "口味兼容备选点3",
+        "kind": "candidate",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "name": "口味兼容备选点4",
+        "kind": "candidate",
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      }
+    ],
+    "route_recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步",
+    "plan_mode": "fixed",
+    "total_days": 1
+  },
+  "map_route_data": {
+    "markers": [
+      {
+        "poi_id": "fixed-北京恒基伟业大厦",
+        "gaode_poi_id": "fixed-北京恒基伟业大厦",
+        "name": "北京恒基伟业大厦",
+        "location": "116.488462,40.008744",
+        "type": "start",
+        "kind": "start",
+        "day_index": 1,
+        "display_order": 0,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "起点",
+        "rating": 4.5,
+        "matched_keywords": [],
+        "tags": []
+      },
+      {
+        "poi_id": "fixed-和牛家食堂",
+        "gaode_poi_id": "fixed-和牛家食堂",
+        "name": "和牛家食堂",
+        "location": "116.4745,40.0018",
+        "type": "meal",
+        "kind": "meal",
+        "day_index": 1,
+        "display_order": 1,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "餐饮",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "poi_id": "fixed-人民公社",
+        "gaode_poi_id": "fixed-人民公社",
+        "name": "人民公社",
+        "location": "116.4755,40.003",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 2,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "餐饮",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "poi_id": "fixed-望京SOHO",
+        "gaode_poi_id": "fixed-望京SOHO",
+        "name": "望京SOHO",
+        "location": "116.48,40.001",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 3,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "poi_id": "fixed-望京公园",
+        "gaode_poi_id": "fixed-望京公园",
+        "name": "望京公园",
+        "location": "116.493,40.002",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 4,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "poi_id": "fixed-北小河公园",
+        "gaode_poi_id": "fixed-北小河公园",
+        "name": "北小河公园",
+        "location": "116.487,40.016",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 5,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      },
+      {
+        "poi_id": "fixed-北小河沿岸步道",
+        "gaode_poi_id": "fixed-北小河沿岸步道",
+        "name": "北小河沿岸步道",
+        "location": "116.486,40.0145",
+        "type": "waypoint",
+        "kind": "anchor",
+        "day_index": 1,
+        "display_order": 6,
+        "is_display_poi": true,
+        "address": "北京市",
+        "category": "风景名胜",
+        "rating": 4.5,
+        "matched_keywords": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ],
+        "tags": [
+          "口味兼容",
+          "川菜",
+          "不吃辣",
+          "餐厅",
+          "附近散步"
+        ]
+      }
+    ],
+    "polylines": [
+      {
+        "segment_order": 1,
+        "day_index": 1,
+        "from_poi": "北京恒基伟业大厦",
+        "to_poi": "和牛家食堂",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.43,
+        "polyline": "116.488462,40.008744;116.4745,40.0018",
+        "polyline_source": "fixed_snapshot",
+        "period": "lunch",
+        "display_slot": "lunch",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 2,
+        "day_index": 1,
+        "from_poi": "和牛家食堂",
+        "to_poi": "人民公社",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.4745,40.0018;116.4755,40.003",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 3,
+        "day_index": 1,
+        "from_poi": "人民公社",
+        "to_poi": "望京SOHO",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.45,
+        "polyline": "116.4755,40.003;116.48,40.001",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 4,
+        "day_index": 1,
+        "from_poi": "望京SOHO",
+        "to_poi": "望京公园",
+        "transport": "驾车",
+        "duration_min": 5,
+        "distance_km": 1.2,
+        "polyline": "116.48,40.001;116.493,40.002",
+        "polyline_source": "fixed_snapshot",
+        "period": "afternoon",
+        "display_slot": "afternoon",
+        "color": "#2980B9"
+      },
+      {
+        "segment_order": 5,
+        "day_index": 1,
+        "from_poi": "望京公园",
+        "to_poi": "北小河公园",
+        "transport": "驾车",
+        "duration_min": 6,
+        "distance_km": 1.4,
+        "polyline": "116.493,40.002;116.487,40.016",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#E67E22"
+      },
+      {
+        "segment_order": 6,
+        "day_index": 1,
+        "from_poi": "北小河公园",
+        "to_poi": "北小河沿岸步道",
+        "transport": "驾车",
+        "duration_min": 4,
+        "distance_km": 0.25,
+        "polyline": "116.487,40.016;116.486,40.0145",
+        "polyline_source": "fixed_snapshot",
+        "period": "evening",
+        "display_slot": "evening",
+        "color": "#2980B9"
+      }
+    ],
+    "center": [
+      116.488462,
+      40.008744
+    ]
+  },
+  "panel_days": [
+    {
+      "day_index": 1,
+      "slots": [
+        {
+          "type": "morning",
+          "label": "上午",
+          "time_range": "09:00-12:00",
+          "pois": [
+            {
+              "order": 0,
+              "name": "北京恒基伟业大厦",
+              "kind": "start",
+              "day_index": 1,
+              "slot": "morning",
+              "location": "116.488462,40.008744",
+              "is_start": true,
+              "transport_text": "起点",
+              "recommend_reason": "与本次路线主题匹配",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北京恒基伟业大厦",
+              "gaode_poi_id": "fixed-北京恒基伟业大厦",
+              "typecode": "",
+              "category": "起点",
+              "matched_keywords": [],
+              "tags": []
+            }
+          ],
+          "recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步"
+        },
+        {
+          "type": "lunch",
+          "label": "午餐",
+          "time_range": "12:00-13:30",
+          "pois": [
+            {
+              "order": 1,
+              "name": "和牛家食堂",
+              "kind": "meal",
+              "day_index": 1,
+              "slot": "lunch",
+              "location": "116.4745,40.0018",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "不吃辣与川菜口味兼容",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-和牛家食堂",
+              "gaode_poi_id": "fixed-和牛家食堂",
+              "typecode": "050000",
+              "category": "餐饮",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            }
+          ],
+          "recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步"
+        },
+        {
+          "type": "afternoon",
+          "label": "下午",
+          "time_range": "13:30-18:00",
+          "pois": [
+            {
+              "order": 2,
+              "name": "人民公社",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.4755,40.003",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "附近餐厅备选",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-人民公社",
+              "gaode_poi_id": "fixed-人民公社",
+              "typecode": "050000",
+              "category": "餐饮",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            },
+            {
+              "order": 3,
+              "name": "望京SOHO",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.48,40.001",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "餐后附近散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-望京SOHO",
+              "gaode_poi_id": "fixed-望京SOHO",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            },
+            {
+              "order": 4,
+              "name": "望京公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "afternoon",
+              "location": "116.493,40.002",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "餐后附近散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-望京公园",
+              "gaode_poi_id": "fixed-望京公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            }
+          ],
+          "recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步"
+        },
+        {
+          "type": "evening",
+          "label": "夜间",
+          "time_range": "19:30-21:00",
+          "pois": [
+            {
+              "order": 5,
+              "name": "北小河公园",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.487,40.016",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "附近散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北小河公园",
+              "gaode_poi_id": "fixed-北小河公园",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            },
+            {
+              "order": 6,
+              "name": "北小河沿岸步道",
+              "kind": "anchor",
+              "day_index": 1,
+              "slot": "evening",
+              "location": "116.486,40.0145",
+              "is_start": false,
+              "transport_text": "驾车",
+              "recommend_reason": "餐后散散步",
+              "address": "北京市",
+              "rating": 4.5,
+              "poi_id": "fixed-北小河沿岸步道",
+              "gaode_poi_id": "fixed-北小河沿岸步道",
+              "typecode": "110000",
+              "category": "风景名胜",
+              "matched_keywords": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ],
+              "tags": [
+                "口味兼容",
+                "川菜",
+                "不吃辣",
+                "餐厅",
+                "附近散步"
+              ]
+            }
+          ],
+          "recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步"
+        }
+      ]
+    }
+  ],
+  "complete_plan": {
+    "city": "北京市",
+    "duration": "a full day",
+    "time_budget": 1.0,
+    "plan_mode": "fixed",
+    "request_text": "明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步",
+    "parsed_intent": {
+      "raw_text": "明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步",
+      "city": "北京市"
+    }
+  },
+  "poi_details": {
+    "fixed-北京恒基伟业大厦": {
+      "poi_id": "fixed-北京恒基伟业大厦",
+      "gaode_poi_id": "fixed-北京恒基伟业大厦",
+      "name": "北京恒基伟业大厦",
+      "location": "116.488462,40.008744",
+      "address": "北京市",
+      "category": "起点",
+      "typecode": "",
+      "rating": 4.5,
+      "recommend_reason": "与本次路线主题匹配",
+      "matched_keywords": [],
+      "tags": []
+    },
+    "fixed-和牛家食堂": {
+      "poi_id": "fixed-和牛家食堂",
+      "gaode_poi_id": "fixed-和牛家食堂",
+      "name": "和牛家食堂",
+      "location": "116.4745,40.0018",
+      "address": "北京市",
+      "category": "餐饮",
+      "typecode": "050000",
+      "rating": 4.5,
+      "recommend_reason": "不吃辣与川菜口味兼容",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    },
+    "fixed-人民公社": {
+      "poi_id": "fixed-人民公社",
+      "gaode_poi_id": "fixed-人民公社",
+      "name": "人民公社",
+      "location": "116.4755,40.003",
+      "address": "北京市",
+      "category": "餐饮",
+      "typecode": "050000",
+      "rating": 4.5,
+      "recommend_reason": "附近餐厅备选",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    },
+    "fixed-望京SOHO": {
+      "poi_id": "fixed-望京SOHO",
+      "gaode_poi_id": "fixed-望京SOHO",
+      "name": "望京SOHO",
+      "location": "116.48,40.001",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "餐后附近散步",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    },
+    "fixed-望京公园": {
+      "poi_id": "fixed-望京公园",
+      "gaode_poi_id": "fixed-望京公园",
+      "name": "望京公园",
+      "location": "116.493,40.002",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "餐后附近散步",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    },
+    "fixed-北小河公园": {
+      "poi_id": "fixed-北小河公园",
+      "gaode_poi_id": "fixed-北小河公园",
+      "name": "北小河公园",
+      "location": "116.487,40.016",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "附近散步",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    },
+    "fixed-北小河沿岸步道": {
+      "poi_id": "fixed-北小河沿岸步道",
+      "gaode_poi_id": "fixed-北小河沿岸步道",
+      "name": "北小河沿岸步道",
+      "location": "116.486,40.0145",
+      "address": "北京市",
+      "category": "风景名胜",
+      "typecode": "110000",
+      "rating": 4.5,
+      "recommend_reason": "餐后散散步",
+      "matched_keywords": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ],
+      "tags": [
+        "口味兼容",
+        "川菜",
+        "不吃辣",
+        "餐厅",
+        "附近散步"
+      ]
+    }
+  },
+  "summary": {
+    "poi_count": 6,
+    "candidate_count": 4,
+    "distance": 4.98,
+    "duration": 29,
+    "origin": "北京恒基伟业大厦"
+  }
+}

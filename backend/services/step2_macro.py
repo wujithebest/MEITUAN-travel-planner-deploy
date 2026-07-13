@@ -463,6 +463,138 @@ def _is_nearest_request(parsed_intent: ParsedIntent) -> bool:
     return "最近" in parsed_intent.raw_keywords or "最近" in parsed_intent.other_constraints
 
 
+# v28: Strict nearby food stroll — relaxed typecodes and validation
+
+NEARBY_FOOD_STROLL_TYPECODES = [
+    "050000", "050100", "050200", "050300", "050400", "050500", "050600", "050900",
+    "060100", "060900", "061000", "061200",
+    "080300", "080500", "080600",
+    "110000", "110100", "110101", "110102", "110200", "110205", "110209",
+    "140100", "140200", "140400", "140500",
+]
+
+
+def _is_valid_nearby_food_stroll_poi(place: ExtractedPlace) -> bool:
+    """Relaxed validation for nearby food stroll — accept restaurants, malls, parks, etc."""
+    name = str(getattr(place, "name", "") or "")
+    typecode = str(getattr(place, "typecode", "") or "")
+    text = f"{name} {getattr(place, 'address', '') or ''} {getattr(place, 'category', '') or ''}"
+
+    if not name or not getattr(place, "location", None):
+        return False
+
+    hard_bad = [
+        "停车场", "出入口", "售票处", "公交站", "地铁站", "收费站",
+        "厕所", "卫生间", "公司", "写字楼", "办公室", "维修", "培训",
+    ]
+    if any(t in text for t in hard_bad):
+        return False
+
+    if any(typecode.startswith(tc) or typecode == tc for tc in NEARBY_FOOD_STROLL_TYPECODES):
+        return True
+
+    soft_terms = [
+        "餐厅", "小吃", "咖啡", "甜品", "购物中心", "商场", "商业",
+        "公园", "绿地", "小沟", "河", "步道", "广场", "街区", "园区", "798",
+    ]
+    return any(t in text for t in soft_terms)
+
+
+# v28: Group meal restaurant validation — reject卤味/档口/简餐 for group dining
+
+
+def _is_group_meal_restaurant_candidate(place: ExtractedPlace) -> bool:
+    """Only accept proper restaurants for group meal conflict resolution."""
+    name = str(getattr(place, "name", "") or "")
+    typecode = str(getattr(place, "typecode", "") or "")
+    text = f"{name} {getattr(place, 'address', '') or ''} {getattr(place, 'category', '') or ''}"
+
+    if not name or not getattr(place, "location", None):
+        return False
+
+    # v28: Reject卤味/凉拌菜/熟食/档口/简餐/小吃摊/咖啡甜品 — not proper group dining
+    hard_bad_terms = [
+        "紫燕百味鸡", "卤味", "凉拌菜", "熟食", "档口", "简餐",
+        "小吃", "麻辣烫", "冒菜", "胡辣汤",
+        "咖啡", "奶茶", "甜品", "面包", "烘焙",
+    ]
+    if any(t in text for t in hard_bad_terms):
+        return False
+
+    # v28: typecode 050300 = 熟食/卤味/凉拌/档口 → reject unconditionally
+    if typecode.startswith("050300"):
+        return False
+
+    # v28: Broadened good terms — 食堂/人民公社/融合菜/创意菜 are proper restaurants
+    good_terms = [
+        "餐厅", "饭店", "酒楼", "食堂", "人民公社", "私房菜",
+        "中餐厅", "火锅", "川菜", "湘菜", "烤鱼",
+        "家常菜", "素食", "自助", "融合菜", "创意菜",
+    ]
+    if any(t in text for t in good_terms):
+        return True
+
+    return (
+        typecode.startswith("050100")
+        or typecode.startswith("050118")
+        or typecode.startswith("0502")
+    )
+
+
+# v28: Strict nearby food stroll helpers
+
+
+def _is_strict_nearby_food_stroll(parsed_intent: ParsedIntent) -> bool:
+    """Return True if this is a nearby_food_stroll route with strict radius."""
+    return (
+        getattr(parsed_intent, "route_strategy", "") == "nearby_food_stroll"
+        or getattr(parsed_intent, "activity_facet", "") == "nearby_food_stroll_route"
+    )
+
+
+def _nearby_origin(parsed_intent: ParsedIntent) -> dict:
+    """Return the search center location for nearby routes."""
+    return (
+        getattr(parsed_intent, "search_area_location", None)
+        or getattr(parsed_intent, "original_location", None)
+        or {}
+    )
+
+
+def _filter_places_by_nearby_radius(
+    places: list[ExtractedPlace],
+    parsed_intent: ParsedIntent,
+    *,
+    radius_m: int,
+    stage: str,
+) -> list[ExtractedPlace]:
+    """Filter places to those within radius_m of the nearby origin."""
+    origin = _nearby_origin(parsed_intent)
+    if not origin:
+        return places
+
+    kept = []
+    dropped = []
+    radius_km = radius_m / 1000.0
+
+    for place in places:
+        loc = getattr(place, "location", None) or {}
+        if not loc:
+            dropped.append((place.name, "no_location"))
+            continue
+        dist_km = haversine_km(origin, loc)
+        if dist_km <= radius_km:
+            kept.append(place)
+        else:
+            dropped.append((place.name, round(dist_km, 2)))
+
+    print(
+        f"[NearbyRadiusAudit] stage={stage} radius_m={radius_m} "
+        f"before={len(places)} after={len(kept)} dropped={dropped[:8]}"
+    )
+    return kept
+
+
 def _to_extracted(raw: dict[str, Any]) -> ExtractedPlace | None:
     try:
         data = raw_to_place(raw)
@@ -870,6 +1002,18 @@ def _score_place(
         print(f"[TravelBudgetAudit] duration=quarter_day candidate={place.name} transit_min={transit_min:.0f} max=45 accepted=false")
     elif _tb <= 0.5 and transit_min is not None and transit_min > 90:
         enrichment_score -= 40
+
+    # v28: Group meal conflict — proper restaurants get +50,卤味/档口 get -200
+    if (
+        getattr(parsed_intent, "conflict_meal_request", False)
+        or getattr(parsed_intent, "intent_name", "") == "group_meal_preference_conflict"
+        or getattr(parsed_intent, "route_strategy", "") == "meal_conflict_resolution"
+        or getattr(parsed_intent, "poi_query_type", "") == "meal_conflict"
+    ):
+        if _is_group_meal_restaurant_candidate(place):
+            enrichment_score += 50
+        else:
+            enrichment_score -= 200
 
     penalty = _weather_penalty(place, parsed_intent, fixed=fixed)
     final_score = (anchor_score + enrichment_score + _lifestyle_boost) * penalty
@@ -1321,15 +1465,17 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
         reason_place = scored.model_copy(update={"final_capacity": effective_capacity})
         reason = _recommend_reason(reason_place, parsed_intent)
         time_budget = fp.resolved_time_budget or effective_capacity or place.time_capacity or "half_day"
-        anchors.append(
-            AnchorPlan(
-                **data,
-                final_time_budget=time_budget,
-                recommend_reason=reason,
-                origin_transit=f"从出发点约{int(transit or 0)}分钟",
-                fixed=True,
-            )
+        slot = str(getattr(fp, "user_time_budget", None) or "")
+        anchor = AnchorPlan(
+            **data,
+            final_time_budget=time_budget,
+            recommend_reason=reason,
+            origin_transit=f"从出发点约{int(transit or 0)}分钟",
+            fixed=True,
+            time_slot=slot,
+            timeline_rank=_timeline_rank_from_slot(slot),
         )
+        anchors.append(anchor)
     return anchors
 
 
@@ -1604,6 +1750,32 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
     places = [_to_extracted(raw) for group in results for raw in group]
     raw_count = len(places)
 
+    # v26: Hard-filter excluded categories (e.g. cafe after user says "不想去咖啡馆")
+    _excl_tc = list(getattr(parsed_intent, "excluded_typecode_prefixes", []) or [])
+    _excl_terms = list(getattr(parsed_intent, "primary_excluded_terms", []) or [])
+    if _excl_tc or _excl_terms:
+        _before_filter = len(places)
+        _filtered: list = []
+        for _p in places:
+            _ptc = str(getattr(_p, "typecode", "") or "")
+            _pname = str(getattr(_p, "name", "") or "").lower()
+            _paddr = str(getattr(_p, "address", "") or "").lower()
+            _pcat = str(getattr(_p, "category", "") or "").lower()
+            _ptext = f"{_pname} {_paddr} {_pcat}"
+            # Check typecode exclusion
+            if any(_ptc.startswith(tc) or _ptc == tc for tc in _excl_tc):
+                continue
+            # Check term exclusion
+            if any(t.lower() in _ptext for t in _excl_terms):
+                continue
+            _filtered.append(_p)
+        places = _filtered
+        print(
+            f"[CategoryExclusionAudit] step2 filtered: "
+            f"before={_before_filter} after={len(places)} "
+            f"excl_tc={_excl_tc} excl_terms={_excl_terms[:5]}"
+        )
+
     # v20: category validation for poi_category queries
     if _poi_qtype in ("poi_category", "named_poi") and _intent_typecodes:
         from .poi_typecodes import validate_poi_category
@@ -1644,12 +1816,44 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
         return category_passed
 
     # v4.1 F1/F2: 宏观搜索也应用 POI 名称过滤（拦截餐厅/停车场等）
-    filtered = [
-        place for place in places
-        if place
-        and _type_allowed(place.typecode, allowed_types)
-        and _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent)
-    ]
+    # v28: group meal conflict — proper restaurants only, no卤味/档口/简餐
+    _is_group_meal_filter = (
+        getattr(parsed_intent, "conflict_meal_request", False)
+        or getattr(parsed_intent, "intent_name", "") == "group_meal_preference_conflict"
+        or getattr(parsed_intent, "route_strategy", "") == "meal_conflict_resolution"
+        or getattr(parsed_intent, "poi_query_type", "") == "meal_conflict"
+    )
+    if _is_group_meal_filter:
+        filtered = [
+            place for place in places
+            if place
+            and _type_allowed(place.typecode, allowed_types)
+            and _is_group_meal_restaurant_candidate(place)
+        ]
+        print(
+            f"[MealConflictRestaurantAudit] stage=macro_valid_filter "
+            f"raw_count={raw_count} filtered={len(filtered)} "
+            f"samples={[(p.name, p.typecode) for p in filtered[:10]]}"
+        )
+    elif _is_strict_nearby_food_stroll(parsed_intent):
+        filtered = [
+            place for place in places
+            if place
+            and _type_allowed(place.typecode, allowed_types)
+            and _is_valid_nearby_food_stroll_poi(place)
+        ]
+        print(
+            f"[NearbyRadiusAudit] stage=macro_valid_filter "
+            f"raw_count={raw_count} filtered={len(filtered)} "
+            f"samples={[(p.name, p.typecode) for p in filtered[:10]]}"
+        )
+    else:
+        filtered = [
+            place for place in places
+            if place
+            and _type_allowed(place.typecode, allowed_types)
+            and _is_valid_route_poi_ctx(place.typecode, place.name, parsed_intent)
+        ]
     print(
         f"[DEBUG macro search] raw_count={raw_count} deduped={len(filtered)} "
         f"passed_types_count={len([p for p in places if p and _type_allowed(p.typecode, allowed_types)])} "
@@ -2136,10 +2340,57 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
     return scored
 
 
+# v28: Timeline rank helper for explicit timeline ordering
+def _timeline_rank_from_slot(slot: str) -> int:
+    s = str(slot or "").lower()
+    if s in {"morning", "am", "上午"}:
+        return 10
+    if s in {"lunch", "午餐", "午饭", "中午"}:
+        return 20
+    if s in {"afternoon", "pm", "下午", "sunset", "日落"}:
+        return 30
+    if s in {"dinner", "evening", "night", "晚上", "夜间"}:
+        return 40
+    return 15
+
+
 def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], parsed_intent: ParsedIntent) -> list[AnchorPlan]:
+    # v28: 北海→烤鸭→三里河 — only allow 北海 and 三里河 as macro anchors
+    if getattr(parsed_intent, "north_sea_lunch_sanlihe_route", False):
+        _allowed = {"北海公园", "三里河公园"}
+        candidates = [
+            c for c in candidates
+            if getattr(c, "name", "") in _allowed
+            or any(a in str(getattr(c, "name", "")) for a in _allowed)
+        ]
+        print(f"[NorthSeaSanliheAudit] step2_candidates filtered={len(candidates)} names={[getattr(c,'name','') for c in candidates[:10]]}")
+
     selected: list[AnchorPlan] = list(fixed)
     used = sum(capacity_budget(anchor.final_capacity or anchor.time_capacity) for anchor in fixed)
     target = max(parsed_intent.time_budget, 0.25)
+
+    # v28: Multi-facet art density — ensure budget >= 1.0 + density defaults.
+    _is_multi_facet_art_density_v28 = (
+        getattr(parsed_intent, "activity_facet", "") == "multi_facet_art_photo_cafe_shop"
+        or getattr(parsed_intent, "theme_coverage_policy", "") == "cover_required_facets"
+        or bool(getattr(parsed_intent, "theme_route_locked", False))
+        or int(getattr(parsed_intent, "density_target_visible_pois", 0) or 0) >= 6
+    )
+
+    if _is_multi_facet_art_density_v28:
+        target = max(target, 1.0)
+        if not getattr(parsed_intent, "density_target_visible_pois", 0):
+            parsed_intent.density_target_visible_pois = 6
+        if not getattr(parsed_intent, "candidate_target", 0):
+            parsed_intent.candidate_target = 4
+
+        print(
+            f"[MultiFacetDensityAudit] stage=step2_select "
+            f"budget_target={target:.2f} "
+            f"display_target={getattr(parsed_intent, 'density_target_visible_pois', 0)} "
+            f"candidate_target={getattr(parsed_intent, 'candidate_target', 0)}"
+        )
+
     # v20: debug logging
     print(
         f"[DEBUG step2 select] START fixed_anchors={[(a.name, a.final_capacity or a.time_capacity) for a in fixed]} "
@@ -2271,6 +2522,108 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
         f"[DEBUG step2 select] DONE selected={[(a.name, a.final_capacity or a.time_capacity) for a in selected]} "
         f"used/target={used:.2f}/{target:.2f} count={len(selected)}"
     )
+    # v28: Density audit for multi_facet_art
+    if _is_multi_facet_art_density_v28:
+        print(
+            f"[MultiFacetDensityAudit] stage=step2_done "
+            f"target_visible={getattr(parsed_intent, 'density_target_visible_pois', 0)} "
+            f"target_candidates={getattr(parsed_intent, 'candidate_target', 0)} "
+            f"selected_anchors={len(selected)} "
+            f"anchor_names={[a.name for a in selected]}"
+        )
+    # v28: Explicit timeline ordering — sort anchors by time_slot (morning < lunch < afternoon)
+    if getattr(parsed_intent, "explicit_timeline_required", False):
+        def _timeline_rank_v28(anchor: Any) -> int:
+            name = str(getattr(anchor, "name", "") or "")
+            slot = str(getattr(anchor, "time_slot", "") or "").lower()
+
+            for wp in getattr(parsed_intent, "planned_waypoints", []) or []:
+                wp_name = str(getattr(wp, "name", "") or getattr(wp, "search_keyword", "") or "")
+                center = str(getattr(wp, "search_center_name", "") or "")
+                wp_slot = str(getattr(wp, "time_slot", "") or "").lower()
+                if wp_slot and (
+                    (wp_name and (wp_name in name or name in wp_name))
+                    or (center and (center in name or name in center))
+                ):
+                    slot = wp_slot
+                    break
+
+            # v28: hard-name fallback for Tiananmen/Jingshan case
+            if any(t in name for t in ["天安门", "故宫", "正阳门", "前门"]):
+                return 10
+            if "北京菜" in name or "午餐" in name or "午饭" in name:
+                return 20
+            if any(t in name for t in ["景山", "日落", "万春亭"]):
+                return 30
+
+            return _timeline_rank_from_slot(slot)
+
+        before = [(a.name, a.time_slot, a.fixed) for a in selected]
+        selected = sorted(
+            selected,
+            key=lambda a: (_timeline_rank_v28(a), 0 if not a.fixed else 1),
+        )
+        print(
+            f"[TimelineOrderAudit] stage=step2_anchor_sort "
+            f"before={before} after={[(a.name, a.time_slot, a.fixed) for a in selected]}"
+        )
+
+    # v28: Nearby food stroll — final guard against distant anchors
+    if _is_strict_nearby_food_stroll(parsed_intent):
+        origin = _nearby_origin(parsed_intent)
+        max_radius_m = int(getattr(parsed_intent, "nearby_max_radius_m", 0) or 5000)
+        max_radius_km = max_radius_m / 1000.0
+
+        filtered_selected = []
+        for anchor in selected:
+            dist_km = haversine_km(origin, anchor.location or {})
+            if dist_km <= max_radius_km:
+                filtered_selected.append(anchor)
+            else:
+                print(
+                    f"[NearbyRadiusAudit] stage=selected_guard "
+                    f"drop={anchor.name} dist_km={dist_km:.2f} limit_km={max_radius_km:.1f}"
+                )
+
+        selected = filtered_selected
+        if not selected:
+            raise ZeroOutputError(
+                f"附近{max_radius_km:.0f}公里内暂未找到适合逛逛、吃饭和散步的组合路线。"
+                "可以尝试扩大范围，或指定一个具体商圈/公园。"
+            )
+
+    # v28: Group meal conflict — replace bad main restaurant (卤味/档口) with proper one
+    _is_group_meal_select = (
+        getattr(parsed_intent, "conflict_meal_request", False)
+        or getattr(parsed_intent, "intent_name", "") == "group_meal_preference_conflict"
+        or getattr(parsed_intent, "route_strategy", "") == "meal_conflict_resolution"
+        or getattr(parsed_intent, "poi_query_type", "") == "meal_conflict"
+    )
+    if _is_group_meal_select and selected:
+        bad_selected = [
+            a for a in selected
+            if not _is_group_meal_restaurant_candidate(a)
+        ]
+        if bad_selected:
+            # Find proper restaurant candidates from scored places
+            replacements = [
+                a for a in candidates
+                if _is_group_meal_restaurant_candidate(a)
+                and getattr(a, "name", "") not in {getattr(s, "name", "") for s in selected}
+            ]
+            if replacements:
+                old_names = [getattr(a, "name", "") for a in bad_selected]
+                selected = [
+                    a for a in selected
+                    if _is_group_meal_restaurant_candidate(a)
+                ]
+                # Insert best replacement at position 0 (as main restaurant)
+                selected.insert(0, replacements[0])
+                print(
+                    f"[MealConflictRestaurantAudit] replaced_bad_main "
+                    f"old={old_names} new={replacements[0].name}"
+                )
+
     return selected
 
 
@@ -3432,6 +3785,68 @@ async def _fallback_quiet_retreat_places(
     return found_places
 
 
+async def _fallback_nearby_food_stroll_places(
+    parsed_intent: ParsedIntent,
+    user_profile: UserProfile,
+) -> list[ExtractedPlace]:
+    """v28: Dedicated nearby fallback — around-search within 3-5km for food stroll."""
+    origin = (
+        getattr(parsed_intent, "search_area_location", None)
+        or getattr(parsed_intent, "original_location", None)
+        or {}
+    )
+    if not origin:
+        return []
+
+    # v28: Staged keywords — primary set first, fallback set second, to reduce quota burst
+    primary_terms = ["餐厅", "美食", "小吃", "购物中心", "公园", "绿地"]
+    fallback_terms = ["商场", "咖啡", "北小沟", "798"]
+    results = []
+    seen = set()
+
+    for radius in (3000, 5000):
+        for term_set in (primary_terms, fallback_terms):
+            if results:
+                break
+            requests = [
+                {
+                    "location": coord_to_param(origin),
+                    "keywords": term,
+                    "radius": radius,
+                    "types": "|".join(NEARBY_FOOD_STROLL_TYPECODES),
+                    "show_fields": config.GAODE_SHOW_FIELDS,
+                    "offset": 20,
+                }
+                for term in term_set
+            ]
+            print(
+                f"[NearbyRadiusAudit] stage=nearby_request_batch "
+                f"radius={radius} keywords={term_set} request_count={len(requests)}"
+            )
+            groups = await gaode_around_search_batch(requests)
+        for raw in [r for group in groups for r in group]:
+            place = _to_extracted(raw)
+            if not place or not _is_valid_nearby_food_stroll_poi(place):
+                continue
+            if haversine_km(origin, place.location or {}) > radius / 1000:
+                continue
+            key = place.gaode_poi_id or place.name
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(place)
+
+        if results:
+            break
+
+    results.sort(key=lambda p: haversine_km(origin, p.location or {}))
+    print(
+        f"[NearbyRadiusAudit] stage=nearby_food_stroll_fallback "
+        f"count={len(results)} samples={[(p.name, p.typecode) for p in results[:10]]}"
+    )
+    return results[:12]
+
+
 async def _fallback_activity_places(
     parsed_intent: ParsedIntent,
     user_profile: UserProfile,
@@ -3783,6 +4198,7 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
     should_skip_search = bool(
         fixed_anchors and fixed_budget >= parsed_intent.time_budget
         and not _must_recall_target  # v20: never skip when user has explicit target
+        and not getattr(parsed_intent, "explicit_timeline_required", False)  # v28: must search morning area
     )
     is_exploratory = getattr(parsed_intent, 'plan_mode', 'exploratory') != 'planned'
     if should_skip_search and is_exploratory and fixed_anchors:
@@ -3993,10 +4409,31 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
                     deleted = []
                     print("[DEBUG step2] macro places empty, using campus_canteen fallback")
                 else:
+                    # v28: nearby_food_stroll — use dedicated nearby fallback, never distant attractions
+                    if _is_strict_nearby_food_stroll(parsed_intent):
+                        nearby_places = await _fallback_nearby_food_stroll_places(parsed_intent, user_profile)
+                        if nearby_places:
+                            places = nearby_places
+                            deleted = []
+                        else:
+                            raise ZeroOutputError(
+                                "附近3-5公里内暂未找到适合逛逛、吃饭和散步的组合路线。"
+                                "可以为你扩大范围到全城，但这将不再是严格意义上的“附近”。"
+                            )
+
                     fallback_places = await _fallback_activity_places(parsed_intent, user_profile)
                     if fallback_places:
-                        places = fallback_places
-                        deleted = []
+                        # v28: If fallback is still used, filter to nearby radius
+                        if _is_strict_nearby_food_stroll(parsed_intent):
+                            fallback_places = _filter_places_by_nearby_radius(
+                                fallback_places,
+                                parsed_intent,
+                                radius_m=int(getattr(parsed_intent, "nearby_max_radius_m", 0) or 5000),
+                                stage="activity_fallback_guard",
+                            )
+                        if fallback_places:
+                            places = fallback_places
+                            deleted = []
                         print("[DEBUG step2] macro places empty, using activity fallback instead of meal-only")
                     elif _has_strong_meal_intent(parsed_intent) and not _has_non_meal_explore_intent(parsed_intent):
                         print("[DEBUG step2] 宏观 anchor 为空且为纯餐饮意图，进入 meal-only 流程")
