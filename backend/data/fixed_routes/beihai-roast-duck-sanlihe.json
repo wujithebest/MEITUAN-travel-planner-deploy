@@ -33,7 +33,10 @@
         "matched_keywords": [],
         "tags": [],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-北海公园-白塔",
@@ -67,7 +70,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+            "source": "gaode",
+            "matched_name": "北海公园-白塔"
+          }
+        ]
       },
       {
         "poi_id": "fixed-北海公园-九龙壁",
@@ -101,7 +113,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+            "source": "gaode",
+            "matched_name": "北海公园-九龙壁"
+          }
+        ]
       },
       {
         "poi_id": "fixed-北海附近烤鸭店",
@@ -135,7 +156,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+            "source": "gaode",
+            "matched_name": "天和晟烤鸭店(府右街店)"
+          }
+        ]
       },
       {
         "poi_id": "fixed-天桥艺术中心",
@@ -169,7 +199,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+            "source": "gaode",
+            "matched_name": "北京天桥艺术中心"
+          }
+        ]
       },
       {
         "poi_id": "fixed-三里河公园",
@@ -203,7 +242,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+            "source": "gaode",
+            "matched_name": "三里河公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-三里河公园水岸步道",
@@ -237,7 +285,16 @@
           "顺路"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+            "source": "gaode",
+            "matched_name": "三里河公园"
+          }
+        ]
       }
     ],
     "segments": [
@@ -392,7 +449,10 @@
         "category": "起点",
         "rating": 4.5,
         "matched_keywords": [],
-        "tags": []
+        "tags": [],
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-北海公园-白塔",
@@ -420,6 +480,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+            "source": "gaode",
+            "matched_name": "北海公园-白塔"
+          }
         ]
       },
       {
@@ -448,6 +517,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+            "source": "gaode",
+            "matched_name": "北海公园-九龙壁"
+          }
         ]
       },
       {
@@ -476,6 +554,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+            "source": "gaode",
+            "matched_name": "天和晟烤鸭店(府右街店)"
+          }
         ]
       },
       {
@@ -504,6 +591,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+            "source": "gaode",
+            "matched_name": "北京天桥艺术中心"
+          }
         ]
       },
       {
@@ -532,6 +628,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+            "source": "gaode",
+            "matched_name": "三里河公园"
+          }
         ]
       },
       {
@@ -560,6 +665,15 @@
           "三里河公园",
           "先后顺序",
           "顺路"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+            "source": "gaode",
+            "matched_name": "三里河公园"
+          }
         ]
       }
     ],
@@ -680,7 +794,10 @@
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
-              "tags": []
+              "tags": [],
+              "photo_url": "",
+              "photo_source": "",
+              "photos": []
             },
             {
               "order": 1,
@@ -711,6 +828,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+                  "source": "gaode",
+                  "matched_name": "北海公园-白塔"
+                }
               ]
             },
             {
@@ -742,6 +868,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+                  "source": "gaode",
+                  "matched_name": "北海公园-九龙壁"
+                }
               ]
             }
           ],
@@ -781,6 +916,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+                  "source": "gaode",
+                  "matched_name": "天和晟烤鸭店(府右街店)"
+                }
               ]
             }
           ],
@@ -820,6 +964,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+                  "source": "gaode",
+                  "matched_name": "北京天桥艺术中心"
+                }
               ]
             },
             {
@@ -851,6 +1004,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+                  "source": "gaode",
+                  "matched_name": "三里河公园"
+                }
               ]
             }
           ],
@@ -890,6 +1052,15 @@
                 "三里河公园",
                 "先后顺序",
                 "顺路"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+                  "source": "gaode",
+                  "matched_name": "三里河公园"
+                }
               ]
             }
           ],
@@ -921,7 +1092,10 @@
       "rating": 4.5,
       "recommend_reason": "与本次路线主题匹配",
       "matched_keywords": [],
-      "tags": []
+      "tags": [],
+      "photo_url": "",
+      "photo_source": "",
+      "photos": []
     },
     "fixed-北海公园-白塔": {
       "poi_id": "fixed-北海公园-白塔",
@@ -946,6 +1120,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
+          "source": "gaode",
+          "matched_name": "北海公园-白塔"
+        }
       ]
     },
     "fixed-北海公园-九龙壁": {
@@ -971,6 +1154,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
+          "source": "gaode",
+          "matched_name": "北海公园-九龙壁"
+        }
       ]
     },
     "fixed-北海附近烤鸭店": {
@@ -996,6 +1188,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
+          "source": "gaode",
+          "matched_name": "天和晟烤鸭店(府右街店)"
+        }
       ]
     },
     "fixed-天桥艺术中心": {
@@ -1021,6 +1222,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
+          "source": "gaode",
+          "matched_name": "北京天桥艺术中心"
+        }
       ]
     },
     "fixed-三里河公园": {
@@ -1046,6 +1256,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+          "source": "gaode",
+          "matched_name": "三里河公园"
+        }
       ]
     },
     "fixed-三里河公园水岸步道": {
@@ -1071,6 +1290,15 @@
         "三里河公园",
         "先后顺序",
         "顺路"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+          "source": "gaode",
+          "matched_name": "三里河公园"
+        }
       ]
     }
   },

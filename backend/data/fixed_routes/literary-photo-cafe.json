@@ -33,7 +33,10 @@
         "matched_keywords": [],
         "tags": [],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-望京公园",
@@ -69,7 +72,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+            "source": "gaode",
+            "matched_name": "望京公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-798艺术区",
@@ -105,7 +117,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+            "source": "gaode",
+            "matched_name": "798·751园区"
+          }
+        ]
       },
       {
         "poi_id": "fixed-地球咖啡馆",
@@ -141,7 +162,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+            "source": "gaode",
+            "matched_name": "地球咖啡馆·着陆计划LANDING PROJECT(798店)"
+          }
+        ]
       },
       {
         "poi_id": "fixed-草场地艺术区",
@@ -177,7 +207,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+            "source": "gaode",
+            "matched_name": "草场地艺术B区"
+          }
+        ]
       },
       {
         "poi_id": "fixed-北京798小店街",
@@ -213,7 +252,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+            "source": "gaode",
+            "matched_name": "北京望京798艺术区亚朵酒店"
+          }
+        ]
       },
       {
         "poi_id": "fixed-将府公园",
@@ -249,7 +297,16 @@
           "节奏轻松"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+            "source": "gaode",
+            "matched_name": "将府公园"
+          }
+        ]
       }
     ],
     "segments": [
@@ -408,7 +465,10 @@
         "category": "起点",
         "rating": 4.5,
         "matched_keywords": [],
-        "tags": []
+        "tags": [],
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-望京公园",
@@ -438,6 +498,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+            "source": "gaode",
+            "matched_name": "望京公园"
+          }
         ]
       },
       {
@@ -468,6 +537,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+            "source": "gaode",
+            "matched_name": "798·751园区"
+          }
         ]
       },
       {
@@ -498,6 +576,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+            "source": "gaode",
+            "matched_name": "地球咖啡馆·着陆计划LANDING PROJECT(798店)"
+          }
         ]
       },
       {
@@ -528,6 +615,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+            "source": "gaode",
+            "matched_name": "草场地艺术B区"
+          }
         ]
       },
       {
@@ -558,6 +654,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+            "source": "gaode",
+            "matched_name": "北京望京798艺术区亚朵酒店"
+          }
         ]
       },
       {
@@ -588,6 +693,15 @@
           "咖啡馆",
           "特色小店",
           "节奏轻松"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+            "source": "gaode",
+            "matched_name": "将府公园"
+          }
         ]
       }
     ],
@@ -708,7 +822,10 @@
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
-              "tags": []
+              "tags": [],
+              "photo_url": "",
+              "photo_source": "",
+              "photos": []
             },
             {
               "order": 1,
@@ -741,6 +858,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+                  "source": "gaode",
+                  "matched_name": "望京公园"
+                }
               ]
             },
             {
@@ -774,6 +900,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+                  "source": "gaode",
+                  "matched_name": "798·751园区"
+                }
               ]
             }
           ],
@@ -815,6 +950,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+                  "source": "gaode",
+                  "matched_name": "地球咖啡馆·着陆计划LANDING PROJECT(798店)"
+                }
               ]
             }
           ],
@@ -856,6 +1000,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+                  "source": "gaode",
+                  "matched_name": "草场地艺术B区"
+                }
               ]
             },
             {
@@ -889,6 +1042,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+                  "source": "gaode",
+                  "matched_name": "北京望京798艺术区亚朵酒店"
+                }
               ]
             }
           ],
@@ -930,6 +1092,15 @@
                 "咖啡馆",
                 "特色小店",
                 "节奏轻松"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+                  "source": "gaode",
+                  "matched_name": "将府公园"
+                }
               ]
             }
           ],
@@ -961,7 +1132,10 @@
       "rating": 4.5,
       "recommend_reason": "与本次路线主题匹配",
       "matched_keywords": [],
-      "tags": []
+      "tags": [],
+      "photo_url": "",
+      "photo_source": "",
+      "photos": []
     },
     "fixed-望京公园": {
       "poi_id": "fixed-望京公园",
@@ -988,6 +1162,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+          "source": "gaode",
+          "matched_name": "望京公园"
+        }
       ]
     },
     "fixed-798艺术区": {
@@ -1015,6 +1198,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+          "source": "gaode",
+          "matched_name": "798·751园区"
+        }
       ]
     },
     "fixed-地球咖啡馆": {
@@ -1042,6 +1234,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
+          "source": "gaode",
+          "matched_name": "地球咖啡馆·着陆计划LANDING PROJECT(798店)"
+        }
       ]
     },
     "fixed-草场地艺术区": {
@@ -1069,6 +1270,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
+          "source": "gaode",
+          "matched_name": "草场地艺术B区"
+        }
       ]
     },
     "fixed-北京798小店街": {
@@ -1096,6 +1306,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+          "source": "gaode",
+          "matched_name": "北京望京798艺术区亚朵酒店"
+        }
       ]
     },
     "fixed-将府公园": {
@@ -1123,6 +1342,15 @@
         "咖啡馆",
         "特色小店",
         "节奏轻松"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+          "source": "gaode",
+          "matched_name": "将府公园"
+        }
       ]
     }
   },

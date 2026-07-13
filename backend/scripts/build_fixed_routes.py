@@ -20,6 +20,52 @@ ORIGIN = {
     "lng": 116.488462,
 }
 
+# Fixed routes are intentionally offline at runtime.  Keep a deterministic
+# photo catalog here so every serialized POI surface gets the same real Amap
+# image metadata without issuing a search request when a demo button is clicked.
+PHOTO_CATALOG: dict[str, dict[str, str]] = {
+    "望京公园": {"url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee", "matched_name": "望京公园"},
+    "798艺术区": {"url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff", "matched_name": "798·751园区"},
+    "地球咖啡馆": {"url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic", "matched_name": "地球咖啡馆·着陆计划LANDING PROJECT(798店)"},
+    "草场地艺术区": {"url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37", "matched_name": "草场地艺术B区"},
+    "北京798小店街": {"url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0", "matched_name": "北京望京798艺术区亚朵酒店"},
+    "将府公园": {"url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58", "matched_name": "将府公园"},
+    "天安门广场": {"url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg", "matched_name": "天安门广场"},
+    "故宫博物院-午门": {"url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79", "matched_name": "故宫博物院"},
+    "地道北京菜餐厅": {"url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef", "matched_name": "景山公园"},
+    "景山公园": {"url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef", "matched_name": "景山公园"},
+    "景山公园-万春亭": {"url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5", "matched_name": "景山公园-万春亭"},
+    "北海公园东门": {"url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257", "matched_name": "北海公园东门售票处"},
+    "北小河公园": {"url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic", "matched_name": "北小河公园"},
+    "北小河沿岸步道": {"url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg", "matched_name": "北小河滨河绿道"},
+    "望京SOHO": {"url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0", "matched_name": "望京SOHO"},
+    "望京好吃餐厅": {"url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31", "matched_name": "老五串屋"},
+    "望京小街": {"url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg", "matched_name": "望京小街"},
+    "和牛家食堂": {"url": "https://aos-comment.amap.com/B0FFIINRO2/comment/d1c1d1b034cc4cf65c0845ec4580decd_2048_2048_80.jpg", "matched_name": "御牛家(建国门外外交公寓店)"},
+    "人民公社": {"url": "https://aos-comment.amap.com/B0FFH0OE12/comment/content_media_external_file_1899351_ss__1757134708591_21184617.jpg", "matched_name": "人民公社(北京昌平沙河地铁店)"},
+    "清淡晚餐餐厅": {"url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg", "matched_name": "THE WOODS餐厅"},
+    "亮马河国际风情水岸": {"url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg", "matched_name": "亮马河国际风情水岸公园"},
+    "蓝色港湾": {"url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e", "matched_name": "SOLANA蓝色港湾"},
+    "亮马河夜景观景点": {"url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f", "matched_name": "亮马河畔拍摄亮马河畔玻璃栈道与建筑夜景"},
+    "三里河公园": {"url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248", "matched_name": "三里河公园"},
+    "三里河公园水岸步道": {"url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248", "matched_name": "三里河公园"},
+    "北海公园-白塔": {"url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg", "matched_name": "北海公园-白塔"},
+    "北海公园-九龙壁": {"url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab", "matched_name": "北海公园-九龙壁"},
+    "北海附近烤鸭店": {"url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg", "matched_name": "天和晟烤鸭店(府右街店)"},
+    "天桥艺术中心": {"url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic", "matched_name": "北京天桥艺术中心"},
+}
+
+
+def photo_fields(name: str) -> dict[str, Any]:
+    photo = PHOTO_CATALOG.get(name)
+    if not photo:
+        return {"photo_url": "", "photo_source": "", "photos": []}
+    return {
+        "photo_url": photo["url"],
+        "photo_source": "gaode",
+        "photos": [{"url": photo["url"], "source": "gaode", "matched_name": photo["matched_name"]}],
+    }
+
 
 def point(
     name: str,
@@ -55,6 +101,7 @@ def point(
         "tags": [],
         "parent_anchor": "",
         "visit_duration_min": 60,
+        **photo_fields(name),
     }
 
 
@@ -108,6 +155,7 @@ def build_snapshot(
             "rating": item["rating"],
             "matched_keywords": item["matched_keywords"],
             "tags": item["tags"],
+            **photo_fields(item["name"]),
         })
 
     panel_slots: dict[str, list[dict[str, Any]]] = {}
@@ -130,6 +178,7 @@ def build_snapshot(
             "category": item["category"],
             "matched_keywords": item["matched_keywords"],
             "tags": item["tags"],
+            **photo_fields(item["name"]),
         })
 
     slot_meta = {
@@ -166,6 +215,7 @@ def build_snapshot(
             "recommend_reason": item["recommend_reason"],
             "matched_keywords": item["matched_keywords"],
             "tags": item["tags"],
+            **photo_fields(item["name"]),
         }
         for item in points
     }

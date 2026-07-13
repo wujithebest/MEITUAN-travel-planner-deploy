@@ -33,7 +33,10 @@
         "matched_keywords": [],
         "tags": [],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-天安门广场",
@@ -69,7 +72,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+            "source": "gaode",
+            "matched_name": "天安门广场"
+          }
+        ]
       },
       {
         "poi_id": "fixed-故宫博物院-午门",
@@ -105,7 +117,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+            "source": "gaode",
+            "matched_name": "故宫博物院"
+          }
+        ]
       },
       {
         "poi_id": "fixed-地道北京菜餐厅",
@@ -141,7 +162,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+            "source": "gaode",
+            "matched_name": "景山公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-景山公园",
@@ -177,7 +207,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+            "source": "gaode",
+            "matched_name": "景山公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-景山公园-万春亭",
@@ -213,7 +252,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+            "source": "gaode",
+            "matched_name": "景山公园-万春亭"
+          }
+        ]
       },
       {
         "poi_id": "fixed-北海公园东门",
@@ -249,7 +297,16 @@
           "看日落"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+            "source": "gaode",
+            "matched_name": "北海公园东门售票处"
+          }
+        ]
       }
     ],
     "segments": [
@@ -408,7 +465,10 @@
         "category": "起点",
         "rating": 4.5,
         "matched_keywords": [],
-        "tags": []
+        "tags": [],
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-天安门广场",
@@ -438,6 +498,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+            "source": "gaode",
+            "matched_name": "天安门广场"
+          }
         ]
       },
       {
@@ -468,6 +537,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+            "source": "gaode",
+            "matched_name": "故宫博物院"
+          }
         ]
       },
       {
@@ -498,6 +576,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+            "source": "gaode",
+            "matched_name": "景山公园"
+          }
         ]
       },
       {
@@ -528,6 +615,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+            "source": "gaode",
+            "matched_name": "景山公园"
+          }
         ]
       },
       {
@@ -558,6 +654,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+            "source": "gaode",
+            "matched_name": "景山公园-万春亭"
+          }
         ]
       },
       {
@@ -588,6 +693,15 @@
           "地道北京菜",
           "附近",
           "看日落"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+            "source": "gaode",
+            "matched_name": "北海公园东门售票处"
+          }
         ]
       }
     ],
@@ -708,7 +822,10 @@
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
-              "tags": []
+              "tags": [],
+              "photo_url": "",
+              "photo_source": "",
+              "photos": []
             },
             {
               "order": 1,
@@ -741,6 +858,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+                  "source": "gaode",
+                  "matched_name": "天安门广场"
+                }
               ]
             },
             {
@@ -774,6 +900,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+                  "source": "gaode",
+                  "matched_name": "故宫博物院"
+                }
               ]
             }
           ],
@@ -815,6 +950,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+                  "source": "gaode",
+                  "matched_name": "景山公园"
+                }
               ]
             }
           ],
@@ -856,6 +1000,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+                  "source": "gaode",
+                  "matched_name": "景山公园"
+                }
               ]
             },
             {
@@ -889,6 +1042,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+                  "source": "gaode",
+                  "matched_name": "景山公园-万春亭"
+                }
               ]
             }
           ],
@@ -930,6 +1092,15 @@
                 "地道北京菜",
                 "附近",
                 "看日落"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+                  "source": "gaode",
+                  "matched_name": "北海公园东门售票处"
+                }
               ]
             }
           ],
@@ -961,7 +1132,10 @@
       "rating": 4.5,
       "recommend_reason": "与本次路线主题匹配",
       "matched_keywords": [],
-      "tags": []
+      "tags": [],
+      "photo_url": "",
+      "photo_source": "",
+      "photos": []
     },
     "fixed-天安门广场": {
       "poi_id": "fixed-天安门广场",
@@ -988,6 +1162,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+          "source": "gaode",
+          "matched_name": "天安门广场"
+        }
       ]
     },
     "fixed-故宫博物院-午门": {
@@ -1015,6 +1198,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+          "source": "gaode",
+          "matched_name": "故宫博物院"
+        }
       ]
     },
     "fixed-地道北京菜餐厅": {
@@ -1042,6 +1234,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+          "source": "gaode",
+          "matched_name": "景山公园"
+        }
       ]
     },
     "fixed-景山公园": {
@@ -1069,6 +1270,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+          "source": "gaode",
+          "matched_name": "景山公园"
+        }
       ]
     },
     "fixed-景山公园-万春亭": {
@@ -1096,6 +1306,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
+          "source": "gaode",
+          "matched_name": "景山公园-万春亭"
+        }
       ]
     },
     "fixed-北海公园东门": {
@@ -1123,6 +1342,15 @@
         "地道北京菜",
         "附近",
         "看日落"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
+          "source": "gaode",
+          "matched_name": "北海公园东门售票处"
+        }
       ]
     }
   },

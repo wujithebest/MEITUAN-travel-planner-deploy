@@ -57,6 +57,8 @@ interface PanelPoiData {
   transport_text: string;
   recommend_reason: string;
   photo_url?: string;
+  photo_source?: string;
+  photos?: Array<{ url?: string; contentUrl?: string; [key: string]: any }>;
   rating?: string | number;
   address?: string;
   parent_anchor?: string;
@@ -238,6 +240,59 @@ function formatDistance(km: number): string {
   return `${Math.round(km * 1000)}m`;
 }
 
+function firstPhotoUrl(source: any): string {
+  if (!source) return '';
+  const direct = source.photo_url || source.imageUrl || source.image_url || source.photo || source.image;
+  if (typeof direct === 'string' && direct.trim()) return direct;
+  const photos = Array.isArray(source.photos) ? source.photos : [];
+  const first = photos.find((photo: any) => {
+    const url = photo?.url || photo?.contentUrl || photo?.content_url;
+    return typeof url === 'string' && url.trim();
+  });
+  return first?.url || first?.contentUrl || first?.content_url || '';
+}
+
+function buildFallbackPanelDays(points: any[]): PanelDayData[] {
+  const slots = new Map<string, PanelPoiData[]>();
+  points.forEach((pt: any, index: number) => {
+    const slot = String(pt.display_slot || pt.slot || pt.time_slot || 'morning');
+    const existing = slots.get(slot) || [];
+    existing.push({
+      order: pt.display_order ?? pt.route_order ?? index,
+      name: pt.name || '',
+      kind: pt.kind || '',
+      day_index: Number(pt.day ?? pt.day_index ?? 1),
+      slot,
+      location: pt.location || '',
+      is_start: pt.kind === 'start' || pt.kind === 'origin' || pt.is_start === true,
+      transport_text: pt.transport_text || (pt.kind === 'start' ? '起点' : ''),
+      recommend_reason: pt.recommend_reason || '',
+      photo_url: firstPhotoUrl(pt),
+      photo_source: pt.photo_source || '',
+      photos: Array.isArray(pt.photos) ? pt.photos : [],
+      rating: pt.rating ?? pt.gaode_rating ?? null,
+      address: pt.address || pt.formatted_address || '',
+      poi_id: pt.poi_id || '',
+      gaode_poi_id: pt.gaode_poi_id || '',
+      typecode: pt.typecode || '',
+      category: pt.category || '',
+      matched_keywords: pt.matched_keywords || [],
+      tags: pt.tags || [],
+    } as PanelPoiData);
+    slots.set(slot, existing);
+  });
+
+  return [{
+    day_index: 1,
+    slots: [...slots.entries()].map(([type, pois]) => ({
+      type,
+      label: type,
+      time_range: '',
+      pois,
+    })),
+  }];
+}
+
 const TRANSPORT_ICON: Record<string, string> = {
   '步行': '🚶', '骑行': '🚴', '自驾': '🚗',
   '地铁/公交': '🚇', '公交': '🚌', '驾车': '🚗',
@@ -279,7 +334,13 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
 
   // Build enriched POI list from panelDays + points
   const flatPois = useMemo(() => {
-    if (!panelDays || panelDays.length === 0) return [];
+    // A fixed snapshot normally supplies panel_days. If an older snapshot or
+    // a partial response omits it, keep the route visible from route_data.points
+    // instead of rendering an empty sidebar.
+    const effectivePanelDays = panelDays && panelDays.length > 0
+      ? panelDays
+      : buildFallbackPanelDays(points);
+    if (effectivePanelDays.length === 0) return [];
     const poiMap = new Map<string, any>();
     for (const pt of points) {
       const key = pt.name || pt.poi_id || '';
@@ -287,7 +348,7 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
     }
 
     const result: any[] = [];
-    for (const day of panelDays) {
+    for (const day of effectivePanelDays) {
       for (const slot of (day.slots || [])) {
         for (const poi of (slot.pois || [])) {
           const enriched = poiMap.get(poi.name) || {};
@@ -296,7 +357,9 @@ export const RoutePlacesList: React.FC<RoutePlacesListProps> = ({
             day_index: day.day_index,
             slot: slot.type,
             slotLabel: slot.label,
-            photo_url: poi.photo_url || enriched.photo_url || '',
+            photo_url: firstPhotoUrl(poi) || firstPhotoUrl(enriched),
+            photo_source: poi.photo_source || enriched.photo_source || '',
+            photos: poi.photos || enriched.photos || [],
             rating: poi.rating ?? enriched.rating ?? enriched.gaode_rating ?? null,
             typecode: enriched.typecode || '',
             category: enriched.category || '',

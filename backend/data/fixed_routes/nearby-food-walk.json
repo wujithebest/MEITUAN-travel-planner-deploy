@@ -33,7 +33,10 @@
         "matched_keywords": [],
         "tags": [],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-北小河公园",
@@ -65,7 +68,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+            "source": "gaode",
+            "matched_name": "北小河公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-望京SOHO",
@@ -97,7 +109,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+            "source": "gaode",
+            "matched_name": "望京SOHO"
+          }
+        ]
       },
       {
         "poi_id": "fixed-望京好吃餐厅",
@@ -129,7 +150,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+            "source": "gaode",
+            "matched_name": "老五串屋"
+          }
+        ]
       },
       {
         "poi_id": "fixed-望京公园",
@@ -161,7 +191,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+            "source": "gaode",
+            "matched_name": "望京公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-望京小街",
@@ -193,7 +232,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+            "source": "gaode",
+            "matched_name": "望京小街"
+          }
+        ]
       },
       {
         "poi_id": "fixed-北小河沿岸步道",
@@ -225,7 +273,16 @@
           "散散步"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+            "source": "gaode",
+            "matched_name": "北小河滨河绿道"
+          }
+        ]
       }
     ],
     "segments": [
@@ -376,7 +433,10 @@
         "category": "起点",
         "rating": 4.5,
         "matched_keywords": [],
-        "tags": []
+        "tags": [],
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-北小河公园",
@@ -402,6 +462,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+            "source": "gaode",
+            "matched_name": "北小河公园"
+          }
         ]
       },
       {
@@ -428,6 +497,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+            "source": "gaode",
+            "matched_name": "望京SOHO"
+          }
         ]
       },
       {
@@ -454,6 +532,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+            "source": "gaode",
+            "matched_name": "老五串屋"
+          }
         ]
       },
       {
@@ -480,6 +567,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+            "source": "gaode",
+            "matched_name": "望京公园"
+          }
         ]
       },
       {
@@ -506,6 +602,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+            "source": "gaode",
+            "matched_name": "望京小街"
+          }
         ]
       },
       {
@@ -532,6 +637,15 @@
           "逛逛",
           "好吃的",
           "散散步"
+        ],
+        "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+            "source": "gaode",
+            "matched_name": "北小河滨河绿道"
+          }
         ]
       }
     ],
@@ -652,7 +766,10 @@
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
-              "tags": []
+              "tags": [],
+              "photo_url": "",
+              "photo_source": "",
+              "photos": []
             },
             {
               "order": 1,
@@ -681,6 +798,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+                  "source": "gaode",
+                  "matched_name": "北小河公园"
+                }
               ]
             },
             {
@@ -710,6 +836,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+                  "source": "gaode",
+                  "matched_name": "望京SOHO"
+                }
               ]
             }
           ],
@@ -747,6 +882,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+                  "source": "gaode",
+                  "matched_name": "老五串屋"
+                }
               ]
             }
           ],
@@ -784,6 +928,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+                  "source": "gaode",
+                  "matched_name": "望京公园"
+                }
               ]
             },
             {
@@ -813,6 +966,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+                  "source": "gaode",
+                  "matched_name": "望京小街"
+                }
               ]
             }
           ],
@@ -850,6 +1012,15 @@
                 "逛逛",
                 "好吃的",
                 "散散步"
+              ],
+              "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+                  "source": "gaode",
+                  "matched_name": "北小河滨河绿道"
+                }
               ]
             }
           ],
@@ -881,7 +1052,10 @@
       "rating": 4.5,
       "recommend_reason": "与本次路线主题匹配",
       "matched_keywords": [],
-      "tags": []
+      "tags": [],
+      "photo_url": "",
+      "photo_source": "",
+      "photos": []
     },
     "fixed-北小河公园": {
       "poi_id": "fixed-北小河公园",
@@ -904,6 +1078,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
+          "source": "gaode",
+          "matched_name": "北小河公园"
+        }
       ]
     },
     "fixed-望京SOHO": {
@@ -927,6 +1110,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
+          "source": "gaode",
+          "matched_name": "望京SOHO"
+        }
       ]
     },
     "fixed-望京好吃餐厅": {
@@ -950,6 +1142,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
+          "source": "gaode",
+          "matched_name": "老五串屋"
+        }
       ]
     },
     "fixed-望京公园": {
@@ -973,6 +1174,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
+          "source": "gaode",
+          "matched_name": "望京公园"
+        }
       ]
     },
     "fixed-望京小街": {
@@ -996,6 +1206,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
+          "source": "gaode",
+          "matched_name": "望京小街"
+        }
       ]
     },
     "fixed-北小河沿岸步道": {
@@ -1019,6 +1238,15 @@
         "逛逛",
         "好吃的",
         "散散步"
+      ],
+      "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
+          "source": "gaode",
+          "matched_name": "北小河滨河绿道"
+        }
       ]
     }
   },

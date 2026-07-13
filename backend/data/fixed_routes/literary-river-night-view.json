@@ -33,7 +33,10 @@
         "matched_keywords": [],
         "tags": [],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-798艺术区",
@@ -67,7 +70,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+            "source": "gaode",
+            "matched_name": "798·751园区"
+          }
+        ]
       },
       {
         "poi_id": "fixed-将府公园",
@@ -101,7 +113,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+            "source": "gaode",
+            "matched_name": "将府公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-清淡晚餐餐厅",
@@ -135,7 +156,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+            "source": "gaode",
+            "matched_name": "THE WOODS餐厅"
+          }
+        ]
       },
       {
         "poi_id": "fixed-亮马河国际风情水岸",
@@ -169,7 +199,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+            "source": "gaode",
+            "matched_name": "亮马河国际风情水岸公园"
+          }
+        ]
       },
       {
         "poi_id": "fixed-蓝色港湾",
@@ -203,7 +242,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+            "source": "gaode",
+            "matched_name": "SOLANA蓝色港湾"
+          }
+        ]
       },
       {
         "poi_id": "fixed-亮马河夜景观景点",
@@ -237,7 +285,16 @@
           "拍照"
         ],
         "parent_anchor": "",
-        "visit_duration_min": 60
+        "visit_duration_min": 60,
+        "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+            "source": "gaode",
+            "matched_name": "亮马河畔拍摄亮马河畔玻璃栈道与建筑夜景"
+          }
+        ]
       }
     ],
     "segments": [
@@ -392,7 +449,10 @@
         "category": "起点",
         "rating": 4.5,
         "matched_keywords": [],
-        "tags": []
+        "tags": [],
+        "photo_url": "",
+        "photo_source": "",
+        "photos": []
       },
       {
         "poi_id": "fixed-798艺术区",
@@ -420,6 +480,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+            "source": "gaode",
+            "matched_name": "798·751园区"
+          }
         ]
       },
       {
@@ -448,6 +517,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+            "source": "gaode",
+            "matched_name": "将府公园"
+          }
         ]
       },
       {
@@ -476,6 +554,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+            "source": "gaode",
+            "matched_name": "THE WOODS餐厅"
+          }
         ]
       },
       {
@@ -504,6 +591,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+            "source": "gaode",
+            "matched_name": "亮马河国际风情水岸公园"
+          }
         ]
       },
       {
@@ -532,6 +628,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+            "source": "gaode",
+            "matched_name": "SOLANA蓝色港湾"
+          }
         ]
       },
       {
@@ -560,6 +665,15 @@
           "河边散步",
           "夜景",
           "拍照"
+        ],
+        "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+        "photo_source": "gaode",
+        "photos": [
+          {
+            "url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+            "source": "gaode",
+            "matched_name": "亮马河畔拍摄亮马河畔玻璃栈道与建筑夜景"
+          }
         ]
       }
     ],
@@ -680,7 +794,10 @@
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
-              "tags": []
+              "tags": [],
+              "photo_url": "",
+              "photo_source": "",
+              "photos": []
             },
             {
               "order": 1,
@@ -711,6 +828,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+                  "source": "gaode",
+                  "matched_name": "798·751园区"
+                }
               ]
             },
             {
@@ -742,6 +868,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+                  "source": "gaode",
+                  "matched_name": "将府公园"
+                }
               ]
             }
           ],
@@ -781,6 +916,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+                  "source": "gaode",
+                  "matched_name": "THE WOODS餐厅"
+                }
               ]
             }
           ],
@@ -820,6 +964,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+                  "source": "gaode",
+                  "matched_name": "亮马河国际风情水岸公园"
+                }
               ]
             },
             {
@@ -851,6 +1004,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+                  "source": "gaode",
+                  "matched_name": "SOLANA蓝色港湾"
+                }
               ]
             },
             {
@@ -882,6 +1044,15 @@
                 "河边散步",
                 "夜景",
                 "拍照"
+              ],
+              "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+              "photo_source": "gaode",
+              "photos": [
+                {
+                  "url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+                  "source": "gaode",
+                  "matched_name": "亮马河畔拍摄亮马河畔玻璃栈道与建筑夜景"
+                }
               ]
             }
           ],
@@ -913,7 +1084,10 @@
       "rating": 4.5,
       "recommend_reason": "与本次路线主题匹配",
       "matched_keywords": [],
-      "tags": []
+      "tags": [],
+      "photo_url": "",
+      "photo_source": "",
+      "photos": []
     },
     "fixed-798艺术区": {
       "poi_id": "fixed-798艺术区",
@@ -938,6 +1112,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
+          "source": "gaode",
+          "matched_name": "798·751园区"
+        }
       ]
     },
     "fixed-将府公园": {
@@ -963,6 +1146,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
+          "source": "gaode",
+          "matched_name": "将府公园"
+        }
       ]
     },
     "fixed-清淡晚餐餐厅": {
@@ -988,6 +1180,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
+          "source": "gaode",
+          "matched_name": "THE WOODS餐厅"
+        }
       ]
     },
     "fixed-亮马河国际风情水岸": {
@@ -1013,6 +1214,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
+          "source": "gaode",
+          "matched_name": "亮马河国际风情水岸公园"
+        }
       ]
     },
     "fixed-蓝色港湾": {
@@ -1038,6 +1248,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
+          "source": "gaode",
+          "matched_name": "SOLANA蓝色港湾"
+        }
       ]
     },
     "fixed-亮马河夜景观景点": {
@@ -1063,6 +1282,15 @@
         "河边散步",
         "夜景",
         "拍照"
+      ],
+      "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+      "photo_source": "gaode",
+      "photos": [
+        {
+          "url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
+          "source": "gaode",
+          "matched_name": "亮马河畔拍摄亮马河畔玻璃栈道与建筑夜景"
+        }
       ]
     }
   },
