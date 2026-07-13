@@ -42,7 +42,7 @@ def get_fixed_route(fixture_id: str) -> dict | None:
     map_route_data = data.get("map_route_data") or {}
     if (
         not data.get("route_id")
-        or data.get("origin", {}).get("label") != "北京恒基伟业大厦"
+        or data.get("origin", {}).get("label") != "恒基伟业大厦"
         or not route_data.get("points")
         or not route_data.get("segments")
         or not map_route_data.get("markers")

@@ -3,20 +3,20 @@
   "prompt": "下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方",
   "title": "北京文艺河边夜景路线",
   "origin": {
-    "label": "北京恒基伟业大厦",
+    "label": "恒基伟业大厦",
     "city": "北京市",
     "lat": 40.008744,
     "lng": 116.488462
   },
   "route_id": "fixed-literary-river-night-view-hengji-v1",
-  "assistant_message": "【北京文艺河边夜景路线】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：文艺路线｜清淡｜河边散步｜夜景｜拍照\n路线共 6 个游览点，按顺路顺序编排。",
+  "assistant_message": "【北京文艺河边夜景路线】\n\n已从恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：文艺路线｜清淡｜河边散步｜夜景｜拍照\n路线共 6 个游览点，按顺路顺序编排。",
   "route_data": {
     "route_id": "fixed-literary-river-night-view-hengji-v1",
     "points": [
       {
-        "poi_id": "fixed-北京恒基伟业大厦",
-        "gaode_poi_id": "fixed-北京恒基伟业大厦",
-        "name": "北京恒基伟业大厦",
+        "poi_id": "fixed-恒基伟业大厦",
+        "gaode_poi_id": "fixed-恒基伟业大厦",
+        "name": "恒基伟业大厦",
         "location": "116.488462,40.008744",
         "kind": "start",
         "category": "起点",
@@ -244,7 +244,7 @@
       {
         "segment_order": 1,
         "day_index": 1,
-        "from_poi": "北京恒基伟业大厦",
+        "from_poi": "恒基伟业大厦",
         "to_poi": "798艺术区",
         "transport": "驾车",
         "duration_min": 10,
@@ -379,9 +379,9 @@
   "map_route_data": {
     "markers": [
       {
-        "poi_id": "fixed-北京恒基伟业大厦",
-        "gaode_poi_id": "fixed-北京恒基伟业大厦",
-        "name": "北京恒基伟业大厦",
+        "poi_id": "fixed-恒基伟业大厦",
+        "gaode_poi_id": "fixed-恒基伟业大厦",
+        "name": "恒基伟业大厦",
         "location": "116.488462,40.008744",
         "type": "start",
         "kind": "start",
@@ -567,7 +567,7 @@
       {
         "segment_order": 1,
         "day_index": 1,
-        "from_poi": "北京恒基伟业大厦",
+        "from_poi": "恒基伟业大厦",
         "to_poi": "798艺术区",
         "transport": "驾车",
         "duration_min": 10,
@@ -665,7 +665,7 @@
           "pois": [
             {
               "order": 0,
-              "name": "北京恒基伟业大厦",
+              "name": "恒基伟业大厦",
               "kind": "start",
               "day_index": 1,
               "slot": "afternoon",
@@ -675,8 +675,8 @@
               "recommend_reason": "与本次路线主题匹配",
               "address": "北京市",
               "rating": 4.5,
-              "poi_id": "fixed-北京恒基伟业大厦",
-              "gaode_poi_id": "fixed-北京恒基伟业大厦",
+              "poi_id": "fixed-恒基伟业大厦",
+              "gaode_poi_id": "fixed-恒基伟业大厦",
               "typecode": "",
               "category": "起点",
               "matched_keywords": [],
@@ -902,10 +902,10 @@
     }
   },
   "poi_details": {
-    "fixed-北京恒基伟业大厦": {
-      "poi_id": "fixed-北京恒基伟业大厦",
-      "gaode_poi_id": "fixed-北京恒基伟业大厦",
-      "name": "北京恒基伟业大厦",
+    "fixed-恒基伟业大厦": {
+      "poi_id": "fixed-恒基伟业大厦",
+      "gaode_poi_id": "fixed-恒基伟业大厦",
+      "name": "恒基伟业大厦",
       "location": "116.488462,40.008744",
       "address": "北京市",
       "category": "起点",
@@ -1071,6 +1071,6 @@
     "candidate_count": 4,
     "distance": 11.53,
     "duration": 53,
-    "origin": "北京恒基伟业大厦"
+    "origin": "恒基伟业大厦"
   }
 }

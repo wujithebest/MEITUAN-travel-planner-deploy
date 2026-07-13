@@ -474,49 +474,54 @@ const PlannerPage: React.FC = () => {
 
   /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
+  const [fixedRouteLoading, setFixedRouteLoading] = useState(false);
 
   /** v28: Fixed route select — fetch pre-generated JSON from backend */
   const handleFixedRouteSelect = useCallback(async (fixtureId: string) => {
-    const fixture = await getFixedRoute(fixtureId);
-    if (!fixture) {
-      console.error('[FixedRoute] backend fetch failed for:', fixtureId);
-      return;
+    if (fixedRouteLoading) return;
+    setFixedRouteLoading(true);
+    try {
+      // A previous SSE request must not be able to overwrite the fixed route.
+      chat.resetForFixedRoute();
+      const fixture = await getFixedRoute(fixtureId);
+      setHasSentInSession(true);
+      setLocalMapRouteData(null);
+      setSelectedRouteSegment(null);
+
+      const routeData = structuredClone(fixture.route_data || {});
+      const mapRouteData = structuredClone(fixture.map_route_data || {});
+      const panelDays = structuredClone(fixture.panel_days || []);
+      const completePlan = structuredClone(fixture.complete_plan || {});
+      const poiDetails = structuredClone(fixture.poi_details || {});
+      const summary = structuredClone(fixture.summary || {});
+      const messages = fixture.messages?.length
+        ? structuredClone(fixture.messages)
+        : [
+            { id: `${fixtureId}-user`, role: 'user', content: fixture.prompt || '', timestamp: Date.now() - 1000 },
+            { id: `${fixtureId}-assistant`, role: 'assistant', content: fixture.assistant_message || '', timestamp: Date.now(), routeData: mapRouteData },
+          ];
+
+      chat.replaceMessages(messages);
+      useRouteStore.getState().loadHistoryRoute({
+        title: fixture.title || fixture.prompt || '',
+        complete_plan: completePlan,
+        route_data: routeData,
+        panel_days: panelDays,
+        map_route_data: mapRouteData,
+        poi_details: poiDetails,
+        route_id: fixture.route_id || routeData?.route_id || fixtureId,
+        summary,
+        messages,
+      });
+      setRouteVersion(v => v + 1);
+      itinerary.openSidebar();
+    } catch (error: any) {
+      console.error('[FixedRoute] load failed:', fixtureId, error);
+      message.error(error?.message || '固定路线加载失败，请稍后重试');
+    } finally {
+      setFixedRouteLoading(false);
     }
-
-    setHasSentInSession(true);
-    setLocalMapRouteData(null);
-    setSelectedRouteSegment(null);
-
-    const routeData = structuredClone(fixture.route_data || {});
-    const mapRouteData = structuredClone(fixture.map_route_data || {});
-    const panelDays = structuredClone(fixture.panel_days || []);
-    const completePlan = structuredClone(fixture.complete_plan || {});
-    const poiDetails = structuredClone(fixture.poi_details || {});
-    const summary = structuredClone(fixture.summary || {});
-
-    const messages = fixture.messages?.length
-      ? structuredClone(fixture.messages)
-      : [
-          { id: `${fixtureId}-user`, role: 'user', content: fixture.prompt || '', timestamp: Date.now() - 1000 },
-          { id: `${fixtureId}-assistant`, role: 'assistant', content: fixture.assistant_message || '', timestamp: Date.now(), routeData: mapRouteData },
-        ];
-
-    chat.replaceMessages(messages);
-    useRouteStore.getState().loadHistoryRoute({
-      title: fixture.title || fixture.prompt || '',
-      complete_plan: completePlan,
-      route_data: routeData,
-      panel_days: panelDays,
-      map_route_data: mapRouteData,
-      poi_details: poiDetails,
-      route_id: fixture.route_id || routeData?.route_id || fixtureId,
-      summary,
-      messages,
-    });
-
-    setRouteVersion(v => v + 1);
-    itinerary.openSidebar();
-  }, [chat, itinerary]);
+  }, [chat, fixedRouteLoading, itinerary]);
 
   /** v18: 路线卡片点击 — 恢复对应路线的地图和行程 */
 
@@ -965,6 +970,7 @@ const PlannerPage: React.FC = () => {
             onRouteCardSelect={handleRouteCardSelect}
             activeRouteId={activeRouteId}
             onFixedRouteSelect={handleFixedRouteSelect}
+            fixedRouteLoading={fixedRouteLoading}
             onRouteCardFavorite={async (snapshot) => {
               if (snapshot) {
                 try {

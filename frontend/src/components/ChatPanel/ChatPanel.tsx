@@ -140,8 +140,10 @@ interface ChatPanelProps {
   onRouteCardFavorite?: (snapshot: any) => void;
   /** v22: 当前选中的路线 ID，用于高亮卡片 */
   activeRouteId?: string | null;
-  /** v28: 固定测试用例回调 — 加载缓存路线，不触发后端 */
-  onFixedRouteSelect?: (fixtureId: string) => void;
+  /** 固定测试用例回调 — 加载缓存路线，不触发后端 */
+  onFixedRouteSelect?: (fixtureId: string) => void | Promise<void>;
+  /** 固定路线正在读取时只禁用固定按钮，不能被普通 SSE 状态卡住 */
+  fixedRouteLoading?: boolean;
 }
 
 /**
@@ -172,6 +174,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onRouteCardFavorite,
   activeRouteId,
   onFixedRouteSelect,
+  fixedRouteLoading = false,
 }) => {
   const [inputText, setInputText] = useState('');
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -1053,7 +1056,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 <button
                   key={idx}
                   className={styles.quickPromptBtn}
-                  disabled={isLoading || isPlanningActive}
+                  disabled={fixedRouteLoading}
                   title={prompt}
                   onClick={() => {
                     const fixtureId = getQuickPromptId(prompt);

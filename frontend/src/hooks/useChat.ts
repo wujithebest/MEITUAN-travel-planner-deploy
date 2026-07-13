@@ -109,6 +109,8 @@ export interface UseChatReturn {
   replaceMessages: (nextMessages: ChatMessage[]) => void;
   /** 清空聊天 */
   clearChat: () => void;
+  /** 取消普通规划并准备加载固定路线 */
+  resetForFixedRoute: () => void;
   /** 当前高亮的天数 */
   activeDay: number | null;
   /** 设置高亮天数 */
@@ -1794,6 +1796,26 @@ export function useChat(): UseChatReturn {
     setMessages(nextMessages.length > 0 ? nextMessages : [createWelcomeMessage(null)]);
   }, []);
 
+  const resetForFixedRoute = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    clearPlanningTimer();
+    setIsLoading(false);
+    setRouteData(null);
+    setError(null);
+    setActiveDay(null);
+    setIsPlanningActive(false);
+    setCurrentPlanningStatus(null);
+    setPlanningElapsedSeconds(0);
+    finalResultRef.current = null;
+    streamingMessageIdRef.current = null;
+    accumulatedContentRef.current = '';
+    statsTextRef.current = '';
+    completeDataRef.current = null;
+  }, [clearPlanningTimer]);
+
   /**
    * 清空聊天
    */
@@ -1830,6 +1852,7 @@ export function useChat(): UseChatReturn {
     sendMessage,
     replaceMessages,
     clearChat,
+    resetForFixedRoute,
     activeDay,
     setActiveDay,
     planMode,

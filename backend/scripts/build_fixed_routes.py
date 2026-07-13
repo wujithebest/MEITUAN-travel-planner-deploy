@@ -14,7 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "data" / "fixed_routes"
 ORIGIN = {
-    "label": "北京恒基伟业大厦",
+    "label": "恒基伟业大厦",
     "city": "北京市",
     "lat": 40.008744,
     "lng": 116.488462,
@@ -174,7 +174,7 @@ def build_snapshot(
         {"name": f"{keywords[0]}备选点{idx}", "kind": "candidate", "matched_keywords": keywords}
         for idx in range(1, 5)
     ]
-    assistant_message = f"【{title}】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：{'｜'.join(keywords)}\n路线共 {len(points) - 1} 个游览点，按顺路顺序编排。"
+    assistant_message = f"【{title}】\n\n已从恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：{'｜'.join(keywords)}\n路线共 {len(points) - 1} 个游览点，按顺路顺序编排。"
 
     return {
         "id": fixture_id,
