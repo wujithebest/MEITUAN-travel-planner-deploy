@@ -89,6 +89,14 @@ jobs:
               const res = await cloudbase.hosting.setWebsiteDocument({
                 indexDocument: 'index.html',
                 errorDocument: 'index.html',
+                routingRules: [
+                  { keyPrefixEquals: 'app', replaceKeyWith: 'index.html' },
+                  { keyPrefixEquals: 'planner', replaceKeyWith: 'index.html' },
+                  { keyPrefixEquals: 'chat', replaceKeyWith: 'index.html' },
+                  { keyPrefixEquals: 'diary', replaceKeyWith: 'index.html' },
+                  { keyPrefixEquals: 'login', replaceKeyWith: 'index.html' },
+                  { keyPrefixEquals: 'register', replaceKeyWith: 'index.html' },
+                ],
               });
               console.log('setWebsiteDocument response:', JSON.stringify(res, null, 2));
               if (res.statusCode !== 200 && res.code !== 0 && res.statusCode !== undefined) {
