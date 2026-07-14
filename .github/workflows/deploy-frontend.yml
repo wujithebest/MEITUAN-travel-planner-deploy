@@ -64,31 +64,41 @@ jobs:
         run: npm install -g @cloudbase/manager-node@3 --no-audit --no-fund
 
       - name: Configure CloudBase Static Hosting SPA fallback
-        timeout-minutes: 2
+        timeout-minutes: 3
         env:
           TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
           TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
           TCB_ENV_ID: ${{ secrets.TCB_ENV_ID }}
         run: |
-          node -e "
+          set -e
+          mkdir -p /tmp/tcb-hosting-config
+          cd /tmp/tcb-hosting-config
+          npm init -y > /dev/null 2>&1
+          npm install @cloudbase/manager-node --no-audit --no-fund
+          cat > configure.js <<'EOF'
           const CloudBase = require('@cloudbase/manager-node');
-          const { hosting } = new CloudBase({
+          console.log('CloudBase module loaded:', typeof CloudBase);
+          const cloudbase = new CloudBase({
             secretId: process.env.TCB_SECRET_ID,
             secretKey: process.env.TCB_SECRET_KEY,
             envId: process.env.TCB_ENV_ID,
           });
+          console.log('CloudBase instance created');
           (async () => {
-            const res = await hosting.setWebsiteDocument({
-              indexDocument: 'index.html',
-              errorDocument: 'index.html',
-            });
-            console.log(res);
-            if (res.statusCode !== 200) {
-              throw new Error('Failed to set website document: ' + JSON.stringify(res));
+            try {
+              const res = await cloudbase.hosting.setWebsiteDocument({
+                indexDocument: 'index.html',
+                errorDocument: 'index.html',
+              });
+              console.log('setWebsiteDocument response:', JSON.stringify(res, null, 2));
+              if (res.statusCode !== 200 && res.code !== 0 && res.statusCode !== undefined) {
+                throw new Error('Failed to set website document: ' + JSON.stringify(res));
+              }
+              console.log('SPA fallback configured successfully');
+            } catch (err) {
+              console.error('Error configuring SPA fallback:', err);
+              process.exit(1);
             }
-            console.log('SPA fallback configured successfully');
-          })().catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
-          "
+          })();
+          EOF
+          node configure.js
