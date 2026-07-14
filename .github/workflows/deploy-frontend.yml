@@ -58,3 +58,37 @@ jobs:
         env:
           COS_SDK_KEEPALIVE: false
         run: tcb hosting deploy ./frontend/dist / -e ${{ secrets.TCB_ENV_ID }} --concurrency 5 --retry-count 3 --retry-interval 2000
+
+      - name: Install CloudBase Manager Node SDK
+        timeout-minutes: 3
+        run: npm install -g @cloudbase/manager-node@3 --no-audit --no-fund
+
+      - name: Configure CloudBase Static Hosting SPA fallback
+        timeout-minutes: 2
+        env:
+          TCB_SECRET_ID: ${{ secrets.TCB_SECRET_ID }}
+          TCB_SECRET_KEY: ${{ secrets.TCB_SECRET_KEY }}
+          TCB_ENV_ID: ${{ secrets.TCB_ENV_ID }}
+        run: |
+          node -e "
+          const CloudBase = require('@cloudbase/manager-node');
+          const { hosting } = new CloudBase({
+            secretId: process.env.TCB_SECRET_ID,
+            secretKey: process.env.TCB_SECRET_KEY,
+            envId: process.env.TCB_ENV_ID,
+          });
+          (async () => {
+            const res = await hosting.setWebsiteDocument({
+              indexDocument: 'index.html',
+              errorDocument: 'index.html',
+            });
+            console.log(res);
+            if (res.statusCode !== 200) {
+              throw new Error('Failed to set website document: ' + JSON.stringify(res));
+            }
+            console.log('SPA fallback configured successfully');
+          })().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          "
