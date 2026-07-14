@@ -1,0 +1,13 @@
+{
+  "run_id": "20260714-225745-v1-random8",
+  "runner_version": "v1-random8-validation-1",
+  "started_at": "2026-07-14T22:57:45",
+  "git_revision": "0e01477b86d855a90475ae86db092ed8f0881d0e",
+  "case_file": "evaluation\\cases\\benchmark_v1_draft.md",
+  "case_file_sha256": "a1f62719af7365fa2c088d92f34270ff347cdb863c52b8c07453ae3693ff3317",
+  "seed": 20260714,
+  "sample_size": 8,
+  "concurrency": 1,
+  "api_url": "http://localhost:8000/api/meituan/chat/stream",
+  "fixed_route_snapshots_excluded": true
+}

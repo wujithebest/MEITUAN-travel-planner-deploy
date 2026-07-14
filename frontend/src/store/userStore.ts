@@ -258,7 +258,7 @@ export const useUserStore = create<UserState>()(
             age: 30,
             preferences: ['art', 'history'],
             activity_pref_tag: ['文艺', '历史文化'],
-            food_preferences: ['本帮菜', '咖啡'],
+            food_preferences: [],
             budget_per_capita: 100,
             city: undefined,
             location: {
@@ -291,7 +291,7 @@ export const useUserStore = create<UserState>()(
           age: existing?.age || 30,
           preferences: existing?.preferences?.length ? existing.preferences : ['cultural', 'food'],
           activity_pref_tag: existing?.activity_pref_tag?.length ? existing.activity_pref_tag : ['文艺', '历史'],
-          food_preferences: existing?.food_preferences?.length ? existing.food_preferences : ['本帮菜', '咖啡'],
+          food_preferences: Array.isArray(existing?.food_preferences) ? existing.food_preferences : [],
           budget_per_capita: existing?.budget_per_capita ?? 100,
           city: existing?.city || undefined,
           location: existing?.location?.home_address

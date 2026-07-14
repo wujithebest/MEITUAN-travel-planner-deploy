@@ -1,0 +1,63 @@
+event: status
+data: {"type": "status", "msg": "正在加载用户信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+: heartbeat
+
+: heartbeat
+
+event: status
+data: {"type": "status", "msg": "正在查询天气...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在查询目的地信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在查询天气...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在查询目的地信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在搜索周边好去处...", "progress": null}
+
+: heartbeat
+
+event: status
+data: {"type": "status", "msg": "正在补充目的地详情...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在评估和筛选目的地...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在匹配最优组合...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在搜索周边好去处...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在补充目的地详情...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在分析目的地结构...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在搜索目的地内部景点...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在搜索餐饮推荐...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在规划详细路线...", "progress": null}
+
+: heartbeat
+
+: heartbeat
+
+event: error
+data: {"type": "error", "error": "当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。", "content": "当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。", "msg": "当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。", "progress": null}

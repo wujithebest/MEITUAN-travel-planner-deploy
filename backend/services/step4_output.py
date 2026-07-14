@@ -1,10 +1,11 @@
 from __future__ import annotations
 import uuid
+import time
 from typing import Any
 from .data_schema import CompletePlan, MicroPOI, ParsedIntent, RouteSegment
 from .day_slots import WEATHER_LOW_SCORE_THRESHOLD
 from .step2_macro import OUTDOOR_TYPECODES
-from .utils import PipelineLogger, emit_done, emit_status, push_output
+from .utils import PipelineLogger, emit_done, emit_status, push_output, record_pipeline_stage
 
 # 路线缓存：按 route_id 存储 points/segments，供重新计算端点使用
 _route_cache: dict[str, dict[str, Any]] = {}
@@ -617,6 +618,164 @@ def _generate_template_reason(parsed_intent, route_points: list[dict]) -> str:
     )
 
 
+# ═══ v28: Real POI counting + normalization helpers ═══
+
+_NON_REAL_POI_KINDS = {"start", "hint", "free_explore", "candidate", "route_only", "traffic", "empty"}
+
+
+def _is_real_route_poi_for_display(p: dict) -> bool:
+    if not p:
+        return False
+    if p.get("kind") in _NON_REAL_POI_KINDS:
+        return False
+    if p.get("hidden") is True:
+        return False
+    return bool(str(p.get("name", "")).strip())
+
+
+def _normalize_visible_poi_count(points, candidate_points, parsed_intent):
+    """Ensure visible POI count is within [min, max] by promoting/filling/trimming."""
+    min_count = max(
+        int(getattr(parsed_intent, "min_frontend_display_points", 0) or 0),
+        int(getattr(parsed_intent, "density_min_visible_pois", 0) or 0),
+    )
+    max_count = int(getattr(parsed_intent, "max_frontend_display_points", 8) or 8)
+
+    if min_count <= 0:
+        return points, candidate_points
+
+    existing_names = {str(p.get("name", "")) for p in points if p.get("name")}
+
+    def _promote(src, source_label):
+        name = str(src.get("name", "")).strip()
+        if not name or name in existing_names:
+            return False
+        p = dict(src)
+        p["kind"] = p.get("kind") if p.get("kind") not in _NON_REAL_POI_KINDS else "anchor_internal"
+        p["is_waypoint"] = True
+        p["is_display_poi"] = True
+        p["display_slot"] = p.get("display_slot") or "half_day"
+        p["density_fill_source"] = source_label
+        points.append(p)
+        existing_names.add(name)
+        return True
+
+    real = [p for p in points if _is_real_route_poi_for_display(p)]
+    if len(real) < min_count:
+        pool = []
+
+        for p in points:
+            if p.get("kind") == "anchor_internal" and p.get("is_waypoint") is False:
+                pool.append((0, p, "non_waypoint_internal"))
+
+        for c in candidate_points or []:
+            pool.append((1, c, "candidate_promote"))
+
+        for ua in getattr(parsed_intent, "_unselected_anchors", []) or []:
+            pool.append((2, ua, "step2_unselected"))
+
+        for _, item, source in pool:
+            if len([p for p in points if _is_real_route_poi_for_display(p)]) >= min_count:
+                break
+            _promote(item, source)
+
+    real = [p for p in points if _is_real_route_poi_for_display(p)]
+    if max_count and len(real) > max_count:
+        keep = []
+        real_seen = 0
+        for p in points:
+            if not _is_real_route_poi_for_display(p):
+                keep.append(p)
+                continue
+            # v28: Also protect river_stroll/night_view/required_waypoint from trimming
+            _cat = str(p.get("category", "") or p.get("planned_category", "") or "")
+            _slot = str(p.get("display_slot", "") or p.get("time_slot", "") or "")
+            protected = (
+                p.get("kind") == "meal"
+                or p.get("fixed") is True
+                or p.get("primary_target") is True
+                or p.get("role") == "required"
+                or p.get("required_waypoint") is True
+                or p.get("required_facet") is True
+                or _cat in {"river_stroll", "night_view"}
+                or _slot in {"evening", "night"}
+            )
+            if protected or real_seen < max_count:
+                keep.append(p)
+                real_seen += 1
+        points = keep
+
+    final_real = [p for p in points if _is_real_route_poi_for_display(p)]
+    print(
+        f"[DisplayDensityAudit] stage=step4_final "
+        f"real_visible={len(final_real)} min={min_count} max={max_count} "
+        f"names={[p.get('name') for p in final_real]}"
+    )
+    return points, candidate_points
+
+
+def _normalize_candidate_count(candidate_points, points, parsed_intent):
+    """Ensure candidate count is within [min, max]."""
+    min_count = max(
+        int(getattr(parsed_intent, "min_candidate_points", 0) or 0),
+        int(getattr(parsed_intent, "candidate_target", 0) or 0),
+    )
+    max_count = int(getattr(parsed_intent, "max_candidate_points", 5) or 5)
+
+    if min_count <= 0:
+        return candidate_points or []
+
+    candidate_points = candidate_points or []
+    route_names = {str(p.get("name", "")) for p in points if p.get("name")}
+    seen = {str(c.get("name", "")) for c in candidate_points if c.get("name")}
+
+    pool = []
+    for p in points:
+        if p.get("kind") == "anchor_internal" and p.get("is_waypoint") is False:
+            pool.append((0, p, "non_waypoint_internal"))
+
+    for ua in getattr(parsed_intent, "_unselected_anchors", []) or []:
+        pool.append((1, ua, "step2_unselected"))
+
+    try:
+        from .step3_micro import _candidate_pool
+        for _, cands in (_candidate_pool or {}).items():
+            for c in cands:
+                pool.append((2, c, "step3_pool"))
+    except Exception:
+        pass
+
+    for _, item, source in pool:
+        if len(candidate_points) >= min_count:
+            break
+        data = item if isinstance(item, dict) else {}
+        name = str(data.get("name", "")).strip()
+        if not name or name in route_names or name in seen:
+            continue
+        candidate_points.append({
+            "name": name,
+            "location": data.get("location") or data.get("center") or {},
+            "kind": "candidate",
+            "candidate_source": source,
+            "typecode": data.get("typecode", ""),
+            "category": data.get("category", ""),
+            "address": data.get("address", ""),
+            "rating": data.get("rating") or data.get("gaode_rating"),
+            "photo_url": data.get("photo_url", ""),
+        })
+        seen.add(name)
+
+    if max_count and len(candidate_points) > max_count:
+        candidate_points = candidate_points[:max_count]
+
+    print(
+        f"[CandidateBackupAudit] stage=step4_normalize "
+        f"min={min_count} max={max_count} final_count={len(candidate_points)} "
+        f"names={[c.get('name') for c in candidate_points]}"
+    )
+    return candidate_points
+
+
 async def run_step4(
     parsed_intent: ParsedIntent,
     complete_plan: CompletePlan,
@@ -629,8 +788,10 @@ async def run_step4(
     route_points: list[dict[str, Any]] | None = None,
     candidate_points: list[dict[str, Any]] | None = None,
     user_request: str = "",
+    enrich_photos: bool = True,
 ) -> None:
     """Step 4: 生成输出"""
+    step4_started = time.monotonic()
     logger.start_step("step_4_output")
     await emit_status("正在生成行程方案...")
 
@@ -749,6 +910,7 @@ async def run_step4(
         candidate_points=candidate_points, plan_mode=_plan_mode,
         duration=_duration, time_budget=_time_budget_val,
         parsed_intent=parsed_intent,  # v18: for planning_state in route_data
+        enrich_photos=enrich_photos,
     )
 
     # v20: Thread route-level recommendation reason to frontend
@@ -767,24 +929,19 @@ async def run_step4(
                          and not any(t in str(_route_rec_reason) for t in
                                      ["作为AI", "根据系统提示", "无法提供", "没有足够信息"]))
     if not _reason_valid and _is_exploratory:
-        print("[RouteReasonAudit] recommendation_reason_primary_invalid, attempting DeepSeek fallback")
+        # The route is already final at this point. Do not issue a second LLM
+        # request that blocks delivery; the reason generator has a local
+        # contract-preserving fallback for timeout and validation failures.
+        print("[RouteReasonAudit] recommendation_reason_primary_invalid, using local fallback")
         try:
-            _route_rec_reason = await _generate_deepseek_fallback_reason(
-                parsed_intent=parsed_intent,
-                route_points=route_points,
-                user_request=str(user_request or ""),
-            )
+            _route_rec_reason = _generate_template_reason(parsed_intent, route_points)
         except Exception as _exc:
-            print(f"[RouteReasonAudit] recommendation_reason_fallback_failed: {type(_exc).__name__}")
+            print(f"[RouteReasonAudit] recommendation_reason_local_fallback_failed: {type(_exc).__name__}")
             _route_rec_reason = ""
         if _route_rec_reason:
-            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_success")
+            print("[RouteReasonAudit] recommendation_reason_local_fallback_success")
         else:
-            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_failed, using template")
-            try:
-                _route_rec_reason = _generate_template_reason(parsed_intent, route_points)
-            except Exception:
-                _route_rec_reason = "这条路线兼顾游览体验与通行效率，地点之间衔接较为顺畅，适合按照当前时间安排轻松探索。"
+            _route_rec_reason = "这条路线兼顾游览体验与通行效率，地点之间衔接较为顺畅，适合按照当前时间安排轻松探索。"
 
     if _route_rec_reason:
         route_data["route_recommend_reason"] = _route_rec_reason
@@ -822,6 +979,9 @@ async def run_step4(
         f"route_point_count={len(route_points) if route_points else 0} "
         f"segment_count={len(route_segments) if route_segments else 0}"
     )
+    # Record before emit_done so the browser receives this metric in the
+    # terminal SSE payload rather than only finding it in server logs.
+    record_pipeline_stage("output_assembly", step4_started)
     await emit_done(map_paths=map_paths, full_plan=full_plan, route_data=route_data)
 
     await logger.log_step("step_4_output", output_count=len(anchors) + len(complete_plan.day_plans) + 1)
@@ -837,6 +997,7 @@ async def _build_route_data(
     duration: str = "",
     time_budget: float = 0,
     parsed_intent: Any = None,  # v18: ParsedIntent for planning_state output
+    enrich_photos: bool = True,
 ) -> dict[str, Any]:
     """构建路线数据，用于前端验证
 
@@ -867,6 +1028,19 @@ async def _build_route_data(
             if slot:
                 _name_period[name] = slot
 
+    # v28: Initialize meal_names at function scope — prevents NameError when
+    # _name_period is already populated (e.g. group meal conflict routes).
+    meal_names: set[str] = {
+        str(pt.get("name") or "")
+        for pt in (route_points or [])
+        if pt.get("kind") == "meal" and str(pt.get("name") or "").strip()
+    }
+    meal_order: list[str] = list(dict.fromkeys(
+        str(pt.get("name") or "")
+        for pt in (route_points or [])
+        if pt.get("kind") == "meal" and str(pt.get("name") or "").strip()
+    ))
+
     # 从 route_points 原始顺序构建有序链（不依赖 segments，因为晚餐可能没有 segment）
     # 用 route_points 作为主序列来推断 slot
     if not _name_period and route_points:
@@ -888,15 +1062,17 @@ async def _build_route_data(
                 ordered_names.append(seg.to_poi)
                 seen_names.add(seg.to_poi)
 
-        # 标记 meal POI：识别 kind=meal 的点及其在 ordered 中的位置
-        meal_names: set[str] = set()
-        meal_order: list[str] = []  # 按出现顺序排列的 meal 点名称
-        for pt in route_points:
-            if pt.get("kind") == "meal":
-                n = pt.get("name", "")
-                if n and n not in meal_names:
-                    meal_names.add(n)
-                    meal_order.append(n)
+        # Refresh meal_names + meal_order from route_points original order
+        meal_names = {
+            str(pt.get("name") or "")
+            for pt in route_points
+            if pt.get("kind") == "meal" and str(pt.get("name") or "").strip()
+        }
+        meal_order = list(dict.fromkeys(
+            str(pt.get("name") or "")
+            for pt in route_points
+            if pt.get("kind") == "meal" and str(pt.get("name") or "").strip()
+        ))
 
         # 在 ordered_names 中找到 meal 的索引
         meal_indices: list[int] = []
@@ -1003,8 +1179,14 @@ async def _build_route_data(
     # v6: compact exploratory display — quarter/half day should not split into morning/afternoon
     _is_short_route = duration == "a quarter day" or (time_budget > 0 and time_budget < 0.5)
     _is_half_route = duration == "a half day" or time_budget == 0.5
-    _compact_activity_slot = "short_trip" if _is_short_route else "half_day" if _is_half_route else ""
-    display_granularity = "short" if _is_short_route else "half_day" if _is_half_route else "day"
+    # v28: Explicit timeline routes use full day granularity even if time_budget is half
+    _explicit_timeline_v28 = bool(getattr(parsed_intent, "explicit_timeline_required", False))
+    if _explicit_timeline_v28:
+        _compact_activity_slot = ""
+        display_granularity = "day"
+    else:
+        _compact_activity_slot = "short_trip" if _is_short_route else "half_day" if _is_half_route else ""
+        display_granularity = "short" if _is_short_route else "half_day" if _is_half_route else "day"
 
     points = []
     _display_counter = 0
@@ -1059,8 +1241,19 @@ async def _build_route_data(
                     or ""
                 )
             elif _compact_activity_slot and kind not in ("meal", "restaurant"):
-                # v6: compact exploratory (quarter/half day) — use single slot, don't split morning/afternoon
-                display_slot = _compact_activity_slot
+                # v28: Preserve explicit timeline slots even for compact routes
+                _explicit_timeline = bool(getattr(parsed_intent, "explicit_timeline_required", False))
+                if _explicit_timeline:
+                    display_slot = (
+                        _explicit_slot
+                        or _name_period.get(name, "")
+                        or point.get("time_slot", "")
+                        or point.get("period", "")
+                        or _compact_activity_slot
+                    )
+                else:
+                    # v6: compact exploratory (quarter/half day) — use single slot, don't split morning/afternoon
+                    display_slot = _compact_activity_slot
             else:
                 display_slot = (
                     _explicit_slot
@@ -1124,16 +1317,40 @@ async def _build_route_data(
                 "display_slot": display_slot,
                 "is_display_poi": is_display,
                 "display_label": display_label,
+                # v28: Facet metadata for frontend rendering
+                "matched_facets": point.get("matched_facets", []),
+                "matched_keywords": point.get("matched_keywords", []),
+                "required_facet": point.get("required_facet", False),
+                "primary_target": point.get("primary_target", False),
+                "role": point.get("role", ""),
+                "facet_source": point.get("facet_source", ""),
+                "facet_query": point.get("facet_query", ""),
             })
 
+    # v28: Final audit — required facet POIs must be in main points
+    _cafe_points = [p for p in points if "cafe_stop" in (p.get("matched_facets") or [])]
+    _shop_points = [p for p in points if "specialty_shop" in (p.get("matched_facets") or [])]
+    for _fid, _pts in [("cafe_stop", _cafe_points), ("specialty_shop", _shop_points)]:
+        _in_main = any(p.get("is_display_poi") for p in _pts)
+        print(
+            f"[FinalRoutePoiVisibilityAudit] "
+            f"required_facet={_fid} "
+            f"found={len(_pts) > 0} "
+            f"name={_pts[0].get('name') if _pts else 'NONE'} "
+            f"in_main_points={_in_main} "
+            f"in_candidate_points={any(p.get('kind') == 'candidate' for p in _pts)}"
+        )
+
     # v6: 过滤 — 从 points 中移除已在 candidate_points 中的非展示 anchor_internal
+    # v28: Never remove required_facet POIs
     if candidate_points:
         _cand_names: set[str] = {c.get("name", "") for c in candidate_points if c.get("name")}
         _cand_ids: set[str] = {c.get("poi_id") or c.get("gaode_poi_id", "") for c in candidate_points}
         _cand_ids.discard("")
         points = [
             p for p in points
-            if not (
+            if p.get("required_facet") is True
+            or not (
                 p.get("kind") == "anchor_internal"
                 and not p.get("is_waypoint", True)
                 and (p.get("name") in _cand_names or p.get("poi_id") in _cand_ids or p.get("gaode_poi_id") in _cand_ids)
@@ -1141,20 +1358,125 @@ async def _build_route_data(
         ]
 
     # 元数据统计
+    # v27: Cross-city hard guard — secondary defense after Step3 guard
+    _origin_loc4 = getattr(parsed_intent, "original_location", None) or {}
+    _has_cross_city_intent4 = any(
+        t in str(getattr(parsed_intent, "raw_keywords", "") or "").lower()
+        for t in ["跨城", "高铁去", "火车去", "飞到", "出差", "双城"]
+    )
+    if _origin_loc4 and _origin_loc4.get("lat") and not _has_cross_city_intent4:
+        _filtered_pts = []
+        for _p4 in points:
+            _p4_loc = _p4.get("location") or {}
+            if _p4_loc.get("lat") and _p4_loc.get("lng"):
+                _d4 = ((_p4_loc.get("lng", 0) - float(_origin_loc4.get("lng", 0))) ** 2 +
+                       (_p4_loc.get("lat", 0) - float(_origin_loc4.get("lat", 0))) ** 2) ** 0.5 * 111000
+                if _d4 > 200000:  # 200km in meters (approximate)
+                    print(
+                        f"[CrossCityGuard] stage=step4 "
+                        f"origin={_origin_loc4.get('label', '起点')} "
+                        f"poi={_p4.get('name', '')} "
+                        f"distance_m={_d4:.0f} action=drop"
+                    )
+                    continue
+            _filtered_pts.append(_p4)
+        _dropped4 = len(points) - len(_filtered_pts)
+        if _dropped4 > 0:
+            print(f"[CrossCityGuard] stage=step4 dropped={_dropped4} cross-city POIs")
+            points = _filtered_pts
+
     pts_photo = sum(1 for p in points if p.get("photo_url"))
     pts_rating = sum(1 for p in points if p.get("rating") is not None)
     pts_addr = sum(1 for p in points if p.get("address"))
     print(f"[DEBUG step4] route_data.points count={len(points)} withPhoto={pts_photo} withRating={pts_rating} withAddress={pts_addr}")
     # v22: Candidate points fallback — ensure at least 2-3 theme backup candidates
     _cand_count = len(candidate_points or [])
-    if _cand_count < 2:
-        print(f"[CandidateBackupAudit] scenario=low_candidates before={_cand_count} "
-              f"attempting step2_unselected fallback")
-        # Try to pull in step2 unselected anchors as backup candidates
-        _unselected = list(getattr(parsed_intent, "_unselected_anchors", []) or [])
+    # v26: Multi-facet art needs 3-4 candidates; raise trigger from 2 to 4
+    _is_multi_facet_cand = (
+        getattr(parsed_intent, "activity_facet", "") == "multi_facet_art_photo_cafe_shop"
+        or getattr(parsed_intent, "theme_coverage_policy", "") == "cover_required_facets"
+    )
+    _cand_target = getattr(parsed_intent, "candidate_target", 0) or 0
+    if _is_multi_facet_cand and _cand_target <= 0:
+        _cand_target = 4
+    _cand_trigger = max(2, _cand_target - 2) if _is_multi_facet_cand else 2
+    _cand_max_add = _cand_target if _is_multi_facet_cand else 3
+    _cand_radius = 5000 if _is_multi_facet_cand else 3000
+
+    if _cand_count < _cand_trigger or (_is_multi_facet_cand and _cand_count < _cand_target):
+        _scenario = "art_photo_cafe_shop" if _is_multi_facet_cand else "low_candidates"
+        print(f"[CandidateBackupAudit] scenario={_scenario} target={_cand_target} "
+              f"before={_cand_count} radius={_cand_radius}m attempting fallback")
+
+        # v27: First, try to fill from Step3 internal candidate pool (_candidate_pool)
         _added = 0
-        for ua in _unselected[:6]:
-            if _added >= 3:
+        if _is_multi_facet_cand:
+            from .step3_micro import _candidate_pool
+            _pool = list(_candidate_pool or [])
+            # Filter pool: must not duplicate route points or existing candidates
+            _route_names = {str(p.get("name", "") or "") for p in points}
+            _route_ids = {str(p.get("poi_id", "") or "") or str(p.get("gaode_poi_id", "") or "") for p in points}
+            _exist_cand_names = {str(c.get("name", "") or "") for c in (candidate_points or [])}
+            _pool_filtered = []
+            for _pp in _pool:
+                _pn = str(_pp.get("name", "") or "")
+                _pid = str(_pp.get("poi_id", "") or "") or str(_pp.get("gaode_poi_id", "") or "")
+                if _pn in _route_names or _pn in _exist_cand_names:
+                    continue
+                if _pid and _pid in _route_ids:
+                    continue
+                # Theme check: must match cafe/shop/art/photo facets
+                _pn_lower = _pn.lower()
+                _ptc = str(_pp.get("typecode", "") or "")
+                _pcat = str(_pp.get("category", "") or "").lower()
+                _ptags = str(_pp.get("tags", "") or "").lower()
+                _ptext = f"{_pn_lower} {_pcat} {_ptags}"
+                _is_theme_ok = any(
+                    t in _ptext for t in [
+                        "咖啡", "coffee", "cafe", "茶", "tea",
+                        "买手", "文创", "杂货", "集合店", "特色小店",
+                        "画廊", "艺术", "展览", "美术馆", "设计",
+                        "书店", "书局", "书吧",
+                    ]
+                )
+                if not _is_theme_ok:
+                    continue
+                # Distance check
+                _pp_loc = _pp.get("location") or {}
+                if _pp_loc.get("lat") and _pp_loc.get("lng"):
+                    _near = False
+                    for rp in points[:15]:
+                        rp_loc = rp.get("location")
+                        if rp_loc and isinstance(rp_loc, dict) and rp_loc.get("lat"):
+                            _d = ((_pp_loc.get("lng", 0) - float(rp_loc.get("lng", 0))) ** 2 +
+                                  (_pp_loc.get("lat", 0) - float(rp_loc.get("lat", 0))) ** 2) ** 0.5 * 111000
+                            if _d < _cand_radius:
+                                _near = True
+                                break
+                    if _near:
+                        _pool_filtered.append(_pp)
+                else:
+                    # No location — still add as low-confidence candidate if theme matches
+                    _pool_filtered.append(_pp)
+            # Add pool items as candidates
+            for _pp in _pool_filtered[:_cand_max_add - _added]:
+                (candidate_points or []).append({
+                    "name": _pp.get("name", ""),
+                    "location": _pp.get("location"),
+                    "kind": "candidate",
+                    "candidate_source": "step3_pool",
+                    "matched_facets": _pp.get("matched_facets") or [],
+                    "typecode": _pp.get("typecode", ""),
+                })
+                _added += 1
+            if _added > 0:
+                print(f"[CandidateBackupAudit] scenario={_scenario} "
+                      f"source=step3_pool added={_added}")
+
+        # v27: Then, try to pull in step2 unselected anchors as backup candidates
+        _unselected = list(getattr(parsed_intent, "_unselected_anchors", []) or [])
+        for ua in _unselected[:10]:
+            if _added >= _cand_max_add:
                 break
             _ua_name = ua.get("name") or ua.get("label", "")
             if not _ua_name:
@@ -1168,7 +1490,7 @@ async def _build_route_data(
             _ua_loc = ua.get("location") or ua.get("center") or ua.get("coord")
             _ua_lng = _ua_loc.get("lng") if isinstance(_ua_loc, dict) else None
             _ua_lat = _ua_loc.get("lat") if isinstance(_ua_loc, dict) else None
-            # Distance check: must be within 3km of any main route POI
+            # Distance check: v26 — expanded radius for multi_facet_art
             _near = False
             if _ua_lng and _ua_lat:
                 for rp in points[:15]:
@@ -1176,7 +1498,7 @@ async def _build_route_data(
                     if rp_loc and isinstance(rp_loc, dict):
                         _d = ((_ua_lng - float(rp_loc.get("lng", 0))) ** 2 +
                               (_ua_lat - float(rp_loc.get("lat", 0))) ** 2) ** 0.5 * 111000
-                        if _d < 3000:
+                        if _d < _cand_radius:
                             _near = True
                             break
             if _near:
@@ -1188,11 +1510,69 @@ async def _build_route_data(
                     "matched_facets": ua.get("matched_facets") or ua.get("tags", []),
                 })
                 _added += 1
-        print(f"[CandidateBackupAudit] scenario=art_photo_cafe_shop "
+        print(f"[CandidateBackupAudit] scenario={_scenario} "
               f"before={_cand_count} after={len(candidate_points or [])} "
-              f"source=step2_unselected added={_added}")
+              f"source=step3_pool+step2_unselected added={_added}")
+
+    # v28: Final candidate fill from non-display anchor_internal POIs
+    # v28: Generalized candidate fill — applies to ALL quality-contract routes, not just multi_facet_art
+    _required_candidates = max(
+        int(getattr(parsed_intent, "min_candidate_points", 0) or 0),
+        int(getattr(parsed_intent, "candidate_target", 0) or 0),
+    )
+    _needs_candidate_fill = (
+        _required_candidates > 0
+        or int(getattr(parsed_intent, "density_target_visible_pois", 0) or 0) >= 6
+        or bool(getattr(parsed_intent, "explicit_timeline_required", False))
+    )
+
+    if _needs_candidate_fill:
+        target = max(_required_candidates, 4)
+        candidate_points = candidate_points or []
+        existing = {str(c.get("name", "")) for c in candidate_points}
+        route_names = {str(p.get("name", "")) for p in points}
+
+        if len(candidate_points) < target:
+            # Source 1: non-display anchor_internal in points
+            fallback_pool = []
+            for p in points:
+                if p.get("kind") != "anchor_internal":
+                    continue
+                if p.get("is_waypoint") is not False:
+                    continue
+                name = str(p.get("name", ""))
+                if not name or name in existing or name in route_names:
+                    continue
+                fallback_pool.append(p)
+
+            for p in fallback_pool:
+                if len(candidate_points) >= target:
+                    break
+                candidate_points.append({
+                    "name": p.get("name", ""),
+                    "location": p.get("location", {}),
+                    "kind": "candidate",
+                    "candidate_source": "step4_non_display_fill",
+                    "typecode": p.get("typecode", ""),
+                    "category": p.get("category", ""),
+                    "address": p.get("address", ""),
+                    "rating": p.get("rating") or p.get("gaode_rating"),
+                    "photo_url": p.get("photo_url", ""),
+                })
+
+        if len(candidate_points) > target:
+            candidate_points = candidate_points[:target]
+
+        print(
+            f"[CandidateBackupAudit] stage=step4_final "
+            f"target={target} final_count={len(candidate_points)}"
+        )
 
     print(f"[DEBUG step4] route_data.candidate_points count={len(candidate_points or [])} sample={[(c.get('name',''), c.get('candidate_source','')) for c in (candidate_points or [])[:5]]}")
+
+    # v28: Hard normalize visible POI count to 6-8 and candidates to 4-5
+    points, candidate_points = _normalize_visible_poi_count(points, candidate_points or [], parsed_intent)
+    candidate_points = _normalize_candidate_count(candidate_points, points, parsed_intent)
 
     # display_slot 统计
     _slot_counts: dict[str, int] = {}
@@ -1201,12 +1581,13 @@ async def _build_route_data(
         _slot_counts[s] = _slot_counts.get(s, 0) + 1
     print(f"[DEBUG step4] display_slot summary={_slot_counts}")
 
-    try:
-        from services.poi_photo_service import enrich_points_with_photos
-        _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
-        points = await enrich_points_with_photos(points, city=_photo_city)
-    except Exception:
-        pass
+    if enrich_photos:
+        try:
+            from services.poi_photo_service import enrich_points_with_photos
+            _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
+            points = await enrich_points_with_photos(points, city=_photo_city)
+        except Exception:
+            pass
     
     # ---- Step 3: 转换 segments，补充稳定编号字段 ----
     # 构建 display_order 反向映射: name → display_order
@@ -1259,8 +1640,8 @@ async def _build_route_data(
     # ---- [RouteDebug] 调试日志 ----
     print("[RouteDebug] points:")
     for pt in points:
-        print(f"  route_order={pt['route_order']} display_order={pt.get('display_order')} "
-              f"name={pt['name']} kind={pt['kind']} is_waypoint={pt['is_waypoint']} "
+        print(f"  route_order={pt.get('route_order')} display_order={pt.get('display_order')} "
+              f"name={pt.get('name')} kind={pt.get('kind')} is_waypoint={pt.get('is_waypoint')} "
               f"display_slot={pt.get('display_slot','')} location=({pt['location']['lng']},{pt['location']['lat']})")
     print("[RouteDebug] segments:")
     for seg in segments:

@@ -1,0 +1,585 @@
+{
+  "type": "complete",
+  "content": {
+    "map_paths": [
+      "Day1: ./services/maps/route_20260714_133551_day1.html"
+    ],
+    "full_plan": {
+      "summary": "为您规划了小半天的上海市之旅，从上海桃浦出发，串联克劳森精酿到天扬泳健会，含餐饮推荐。",
+      "city": "上海市",
+      "duration": "a quarter day",
+      "time_budget": 0.25,
+      "days": [
+        {
+          "day_index": 1,
+          "anchors": [
+            {
+              "name": "上海御厨高端西餐厅烘焙咖啡设备",
+              "recommend_reason": "核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；匹配理由：命中美食偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约9分钟"
+            }
+          ],
+          "meal_slots": [
+            {
+              "meal": "lunch",
+              "time_range": [
+                11.5,
+                13.5
+              ],
+              "poi_name": "筷子兄弟餐厅(同进理想城店)",
+              "requested_keywords": [
+                "好吃的",
+                "餐厅",
+                "美食",
+                "小吃"
+              ],
+              "fixed_poi_name": "找个地方",
+              "previous_poi": "午餐搜索点-上海御厨高端西餐厅烘焙咖啡设备",
+              "meal_walk_distance_km": 0.09
+            }
+          ]
+        }
+      ]
+    },
+    "route_data": {
+      "points": [
+        {
+          "poi_id": "上海桃浦:121.352,31.281",
+          "gaode_poi_id": "",
+          "name": "上海桃浦",
+          "location": {
+            "lat": 31.281,
+            "lng": 121.352
+          },
+          "kind": "start",
+          "day": 1,
+          "typecode": "",
+          "category": "",
+          "address": "",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 1,
+          "display_order": 0,
+          "display_slot": "short_trip",
+          "is_display_poi": true,
+          "display_label": "起点",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0M6DX8WLJ",
+          "gaode_poi_id": "B0M6DX8WLJ",
+          "name": "克劳森精酿",
+          "location": {
+            "lat": 31.291525,
+            "lng": 121.334125
+          },
+          "kind": "anchor_internal",
+          "day": 1,
+          "typecode": "080304",
+          "category": "080304",
+          "address": "同进理想城南1门旁",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "上海御厨高端西餐厅烘焙咖啡设备",
+          "sub_anchor_name": "上海御厨高端西餐厅烘焙咖啡设备",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": true,
+          "walk_from_route_min": 0,
+          "route_annotation": "沿途经过",
+          "route_order": 2,
+          "display_order": 1,
+          "display_slot": "short_trip",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0I23KVN14",
+          "gaode_poi_id": "B0I23KVN14",
+          "name": "筷子兄弟餐厅(同进理想城店)",
+          "location": {
+            "lat": 31.29162,
+            "lng": 121.334206
+          },
+          "kind": "meal",
+          "day": 1,
+          "typecode": "050100",
+          "category": "050100",
+          "address": "桃浦金通路1118号同进理想城",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/804e6ba57c6d4f1dd087e66cea952cb1",
+          "photo_source": "gaode",
+          "parent_anchor": "午餐搜索点-上海御厨高端西餐厅烘焙咖啡设备",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": 60,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "同建筑",
+          "route_order": 3,
+          "display_order": 2,
+          "display_slot": "lunch",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0FFF5OZ5D",
+          "gaode_poi_id": "B0FFF5OZ5D",
+          "name": "天扬泳健会",
+          "location": {
+            "lat": 31.291422,
+            "lng": 121.33346
+          },
+          "kind": "anchor_internal",
+          "day": 1,
+          "typecode": "080111|080101",
+          "category": "080111|080101",
+          "address": "金通路1118号",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/f7155d9c844098023effd0041e717b71",
+          "photo_source": "gaode",
+          "parent_anchor": "上海御厨高端西餐厅烘焙咖啡设备",
+          "sub_anchor_name": "上海御厨高端西餐厅烘焙咖啡设备",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "沿途经过",
+          "route_order": 4,
+          "display_order": 3,
+          "display_slot": "short_trip",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "该区域适合自由漫步，沿途可随意拍照游览:121.33346,31.291422",
+          "gaode_poi_id": "",
+          "name": "该区域适合自由漫步，沿途可随意拍照游览",
+          "location": {
+            "lat": 31.291422,
+            "lng": 121.33346
+          },
+          "kind": "hint",
+          "day": 1,
+          "typecode": "",
+          "category": "",
+          "address": "",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 5,
+          "display_order": null,
+          "display_slot": "short_trip",
+          "is_display_poi": false,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        }
+      ],
+      "segments": [
+        {
+          "from_poi": "上海桃浦",
+          "to_poi": "克劳森精酿",
+          "day_index": 1,
+          "transport": "地铁/公交",
+          "duration_min": 30.3,
+          "distance_km": 2.9,
+          "polyline": [
+            [
+              31.281002,
+              121.351974
+            ],
+            [
+              31.281693,
+              121.348167
+            ],
+            [
+              31.280457,
+              121.341896
+            ],
+            [
+              31.280554,
+              121.337835
+            ],
+            [
+              31.291476,
+              121.334874
+            ],
+            [
+              31.291079,
+              121.333401
+            ],
+            [
+              31.291498,
+              121.334129
+            ]
+          ],
+          "period": "morning",
+          "color": "#E67E22",
+          "is_dashed": true,
+          "segment_order": 1,
+          "from_order": 1,
+          "to_order": 2,
+          "from_display_order": 0,
+          "to_display_order": 1,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": [
+            {
+              "mode": "transit",
+              "label": "公共交通",
+              "transport": "地铁/公交",
+              "distance_km": 2.9,
+              "duration_min": 30.3
+            },
+            {
+              "mode": "driving",
+              "label": "驾车",
+              "transport": "自驾",
+              "distance_km": 3.33,
+              "duration_min": 10.1,
+              "estimated_fare_yuan": 15
+            }
+          ]
+        },
+        {
+          "from_poi": "克劳森精酿",
+          "to_poi": "天扬泳健会",
+          "day_index": 1,
+          "transport": "步行",
+          "duration_min": 1.0,
+          "distance_km": 0.08,
+          "polyline": [
+            [
+              31.291497,
+              121.334132
+            ],
+            [
+              31.29138,
+              121.33372
+            ],
+            [
+              31.29135,
+              121.333572
+            ],
+            [
+              31.291467,
+              121.333451
+            ]
+          ],
+          "period": "afternoon",
+          "color": "#2980B9",
+          "is_dashed": false,
+          "segment_order": 2,
+          "from_order": 2,
+          "to_order": 4,
+          "from_display_order": 1,
+          "to_display_order": 3,
+          "degraded": false,
+          "polyline_source": "same_sub_anchor_walk",
+          "route_error": "",
+          "transport_options": []
+        }
+      ],
+      "hints": {
+        "上海御厨高端西餐厅烘焙咖啡设备": "该区域适合自由漫步，沿途可随意拍照游览"
+      },
+      "waypoint_annotations": {
+        "上海桃浦": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "克劳森精酿": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "天扬泳健会": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "筷子兄弟餐厅(同进理想城店)": {
+          "is_waypoint": false,
+          "walk_from_route_min": 0,
+          "day": 1,
+          "same_building": true
+        }
+      },
+      "route_id": "8a825a09-13c4-446c-854b-83f1b95b717d",
+      "candidate_points": [],
+      "plan_mode": "exploratory",
+      "total_days": 1,
+      "display_granularity": "short",
+      "planning_state": {
+        "plan_mode": "exploratory",
+        "parsed_intent": {
+          "duration": "a quarter day",
+          "start_time": "2026-07-14T13:34:00+00:00",
+          "raw_keywords": [
+            "吃饭",
+            "走一走"
+          ],
+          "search_keywords": [
+            "上海 餐厅",
+            "上海 美食",
+            "上海 小吃",
+            "上海 咖啡",
+            "上海 甜品",
+            "上海 购物中心",
+            "上海 商场",
+            "上海 公园"
+          ],
+          "micro_keywords": [
+            "餐厅",
+            "小吃",
+            "咖啡",
+            "商场",
+            "公园",
+            "绿地",
+            "街区",
+            "散步"
+          ],
+          "fixed_pois": [],
+          "delete_list": [],
+          "food_pref_keywords": [
+            "好吃的",
+            "餐厅",
+            "美食",
+            "小吃"
+          ],
+          "meal_search_keywords": [
+            "好吃的 餐厅",
+            "餐厅 餐厅"
+          ],
+          "budget_per_capita": null,
+          "transport_hint": "公共交通",
+          "evening_requested": false,
+          "plan_mode": "exploratory",
+          "planned_waypoints": [
+            {
+              "type": "fixed",
+              "name": null,
+              "search_keyword": "吃饭",
+              "category": "meal",
+              "stay_minutes": 30,
+              "search_keywords": [
+                "吃饭"
+              ]
+            },
+            {
+              "type": "fixed",
+              "name": null,
+              "search_keyword": "走一走",
+              "category": "visit",
+              "stay_minutes": 30,
+              "search_keywords": [
+                "走一走"
+              ]
+            }
+          ]
+        }
+      },
+      "parsed_intent": {
+        "duration": "a quarter day",
+        "start_time": "2026-07-14T13:34:00+00:00",
+        "raw_keywords": [
+          "吃饭",
+          "走一走"
+        ],
+        "search_keywords": [
+          "上海 餐厅",
+          "上海 美食",
+          "上海 小吃",
+          "上海 咖啡",
+          "上海 甜品",
+          "上海 购物中心",
+          "上海 商场",
+          "上海 公园"
+        ],
+        "micro_keywords": [
+          "餐厅",
+          "小吃",
+          "咖啡",
+          "商场",
+          "公园",
+          "绿地",
+          "街区",
+          "散步"
+        ],
+        "fixed_pois": [],
+        "delete_list": [],
+        "food_pref_keywords": [
+          "好吃的",
+          "餐厅",
+          "美食",
+          "小吃"
+        ],
+        "meal_search_keywords": [
+          "好吃的 餐厅",
+          "餐厅 餐厅"
+        ],
+        "budget_per_capita": null,
+        "transport_hint": "公共交通",
+        "evening_requested": false,
+        "plan_mode": "exploratory",
+        "planned_waypoints": [
+          {
+            "type": "fixed",
+            "name": null,
+            "search_keyword": "吃饭",
+            "category": "meal",
+            "stay_minutes": 30,
+            "search_keywords": [
+              "吃饭"
+            ]
+          },
+          {
+            "type": "fixed",
+            "name": null,
+            "search_keyword": "走一走",
+            "category": "visit",
+            "stay_minutes": 30,
+            "search_keywords": [
+              "走一走"
+            ]
+          }
+        ]
+      },
+      "route_recommend_reason": "这条路线结合了你对不走远, 附近3公里内, 第一段不超过5公里的兴趣，串联克劳森精酿、筷子兄弟餐厅(同进理想城店)等地点。各站点空间相对集中、游览顺序较为顺畅，适合按照当前时间安排轻松探索。"
+    }
+  },
+  "progress": 100,
+  "stats": {
+    "elapsed_seconds": 70.5,
+    "deepseek_calls": 1,
+    "deepseek_prompt_tokens": 2066,
+    "deepseek_completion_tokens": 482,
+    "total_tokens": 2548,
+    "gaode_calls": 34,
+    "bocha_calls": 0,
+    "stage_durations_ms": {
+      "step1_intent": 26089,
+      "step2_macro": 18076,
+      "step3_micro": 21834,
+      "exploratory_route": 39911,
+      "reason_generation": 0,
+      "photo_enrichment": 4468,
+      "output_assembly": 0
+    }
+  }
+}

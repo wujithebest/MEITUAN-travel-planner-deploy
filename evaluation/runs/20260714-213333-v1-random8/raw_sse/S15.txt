@@ -1,0 +1,18 @@
+event: status
+data: {"type": "status", "msg": "正在加载用户信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+: heartbeat
+
+: heartbeat
+
+event: status
+data: {"type": "status", "msg": "正在查询天气...", "progress": null}
+
+event: error
+data: {"type": "error", "error": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。", "content": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。", "msg": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。", "progress": null}

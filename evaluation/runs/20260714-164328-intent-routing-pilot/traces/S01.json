@@ -1,0 +1,44 @@
+{
+  "case_id": "S01",
+  "input": "帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点",
+  "expected": {
+    "conversation_mode": "new_plan",
+    "plan_mode": "exploratory"
+  },
+  "baseline": {
+    "duration_ms": 32550,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "exploratory",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": "no route context; auto-detected plan_mode"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 29835,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "exploratory",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": ""
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

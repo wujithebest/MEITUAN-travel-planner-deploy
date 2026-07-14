@@ -53,6 +53,7 @@ class PipelineStats:
     deepseek_completion_tokens: int = 0
     gaode_calls: int = 0
     bocha_calls: int = 0
+    stage_durations_ms: dict[str, int] = dataclasses.field(default_factory=dict)
 
     @property
     def total_tokens(self) -> int:
@@ -71,6 +72,7 @@ class PipelineStats:
             "total_tokens": self.total_tokens,
             "gaode_calls": self.gaode_calls,
             "bocha_calls": self.bocha_calls,
+            "stage_durations_ms": dict(self.stage_durations_ms),
         }
 
 
@@ -85,6 +87,14 @@ def reset_pipeline_stats() -> PipelineStats:
 
 def get_pipeline_stats() -> PipelineStats | None:
     return _pipeline_stats
+
+
+def record_pipeline_stage(name: str, started_at: float | None) -> None:
+    """Record a named stage without changing the SSE contract for existing clients."""
+    stats = get_pipeline_stats()
+    if stats is None or started_at is None:
+        return
+    stats.stage_durations_ms[str(name)] = int((time.monotonic() - started_at) * 1000)
 
 
 sse_queue: asyncio.Queue | None = None
@@ -168,12 +178,32 @@ async def emit_done(
         }
         if stats is not None:
             payload["stats"] = stats.to_dict()
+        # Dynamic evaluation is opt-in. Normal client responses are unchanged.
+        try:
+            from .evaluation_hooks import get_evaluation_trace_payload, record_terminal
+
+            record_terminal(
+                "complete",
+                point_count=len((route_data or {}).get("points", []) or []),
+                segment_count=len((route_data or {}).get("segments", []) or []),
+            )
+            evaluation_trace = get_evaluation_trace_payload()
+            if evaluation_trace is not None:
+                payload["evaluation_trace"] = evaluation_trace
+        except Exception:
+            pass
         data = json.dumps(payload, ensure_ascii=False)
         await sse_queue.put(f"event: complete\ndata: {data}\n\n")
 
 
 async def emit_error(error_message: str) -> None:
     """发送错误消息（兼容多种字段名，前端按 error/content/msg 优先级读取）"""
+    try:
+        from .evaluation_hooks import record_terminal
+
+        record_terminal("error", error=error_message)
+    except Exception:
+        pass
     if sse_queue is not None:
         data = json.dumps({
             "type": "error",

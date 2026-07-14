@@ -1,0 +1,31 @@
+event: status
+data: {"type": "status", "msg": "正在加载用户信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在解析您的出行意图...", "progress": null}
+
+: heartbeat
+
+event: status
+data: {"type": "status", "msg": "正在查询天气...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在查询目的地信息...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在为您精准规划路线...", "progress": null}
+
+event: status
+data: {"type": "status", "msg": "正在搜索您的目标地点...", "progress": null}
+
+: heartbeat
+
+: heartbeat
+
+: heartbeat
+
+event: error
+data: {"type": "error", "error": "未能满足以下明确行程需求：北京菜。已保留其他行程要求，请调整该地点或目标类型后重试。", "content": "未能满足以下明确行程需求：北京菜。已保留其他行程要求，请调整该地点或目标类型后重试。", "msg": "未能满足以下明确行程需求：北京菜。已保留其他行程要求，请调整该地点或目标类型后重试。", "progress": null}

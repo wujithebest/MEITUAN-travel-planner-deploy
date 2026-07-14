@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from . import config
 from .day_slots import infer_capacity_from_typecode
-from .utils import ConfigurationError, DependencyMissingError, ExternalAPIError, LLMCallError, emit_status, parse_coord_param, safe_float
+from .utils import ConfigurationError, DependencyMissingError, ExternalAPIError, LLMCallError, emit_status, haversine_km, parse_coord_param, safe_float
 
 # v22: Transient network error patterns (TLS/connection/EOF) for graceful degradation
 _TRANSIENT_ERROR_PATTERNS = [
@@ -533,6 +533,7 @@ def _normalize_poi(raw: dict[str, Any]) -> dict[str, Any] | None:
 
     return {
         "name": raw.get("name", ""),
+        "type": raw.get("type", ""),
         "typecode": raw.get("typecode", ""),
         "location": parsed,
         "id": raw.get("id") or raw.get("gaode_poi_id") or raw.get("uid") or raw.get("name", ""),
@@ -551,12 +552,18 @@ def _normalize_poi(raw: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _check_gaode_response(data: dict[str, Any], api_name: str) -> None:
+    if not isinstance(data, dict):
+        raise ExternalAPIError(
+            f"高德 {api_name} 接口返回格式异常：期望 JSON 对象，实际为 {type(data).__name__}"
+        )
     if str(data.get("status", "1")) == "0":
         info = data.get("info") or data.get("infocode") or "未知错误"
         raise ExternalAPIError(f"高德 {api_name} 接口返回失败：{info}")
 
 
 def _is_gaode_qps_error(data: dict[str, Any]) -> bool:
+    if not isinstance(data, dict):
+        return False
     if str(data.get("status", "1")) != "0":
         return False
     info = str(data.get("info") or "")
@@ -602,6 +609,10 @@ async def _gaode_get_json(api_name: str, url: str, params: dict[str, Any]) -> di
                     except Exception:
                         _prefer_curl_get = True
                         data = await asyncio.to_thread(_curl_get_json, url, params, min(config.GAODE_TIMEOUT, API_TIMEOUT))
+                if not isinstance(data, dict):
+                    raise ExternalAPIError(
+                        f"高德 {api_name} 接口返回格式异常：期望 JSON 对象，实际为 {type(data).__name__}"
+                    )
                 if _is_gaode_qps_error(data):
                     last_qps_error = data
                     if attempt < config.GAODE_QPS_MAX_RETRIES - 1:
@@ -642,6 +653,8 @@ async def gaode_around_search(
     show_fields: str = "biz_ext",
     offset: int = 20,
     sortrule: str = "",
+    fallback_city: str = "",
+    strict_nearby_fallback: bool = False,
 ) -> list[dict]:
     _require_key("高德地图", "GAODE_API_KEY", config.GAODE_API_KEY)
     url = config.GAODE_BASE_URL + config.GAODE_ENDPOINTS["around_search"]
@@ -662,11 +675,38 @@ async def gaode_around_search(
         normalized = [_normalize_poi(item) for item in pois]
         return [item for item in normalized if item]
     except (ConfigurationError, ExternalAPIError) as exc:
-        # v22: Transient TLS/network error → fallback to text_search
+        # v22: Transient TLS/network error → fallback to text_search.
+        # For strict nearby planning, text search must be constrained back to
+        # the same city/radius/type contract before it can replace around data.
         if _is_transient_api_error(exc):
             print(f"[WARN gaode_around_search] Transient error, trying text_search fallback: {str(exc)[:100]}")
             try:
-                return await gaode_text_search(keywords, city="", show_fields=show_fields)
+                fallback_results = await gaode_text_search(
+                    keywords,
+                    city=fallback_city,
+                    show_fields=show_fields,
+                    city_limit=bool(fallback_city),
+                )
+                if strict_nearby_fallback:
+                    center = parse_coord_location(location)
+                    allowed_prefixes = [token.rstrip("0") for token in types.split("|") if token]
+                    filtered: list[dict] = []
+                    for item in fallback_results:
+                        poi_location = item.get("location")
+                        if center and isinstance(poi_location, dict):
+                            if haversine_km(center, poi_location) * 1000 > radius + 30:
+                                continue
+                        typecode = str(item.get("typecode") or "")
+                        if allowed_prefixes and not any(typecode.startswith(prefix) for prefix in allowed_prefixes):
+                            continue
+                        filtered.append(item)
+                    print(
+                        f"[GaodeFallbackAudit] keyword={keywords} city={fallback_city} "
+                        f"raw={len(fallback_results)} filtered={len(filtered)} "
+                        f"radius={radius} types={types}"
+                    )
+                    return filtered
+                return fallback_results
             except Exception:
                 pass
             # Return empty list for transient errors — don't fail the whole route

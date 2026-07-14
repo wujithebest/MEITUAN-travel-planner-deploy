@@ -255,7 +255,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         if (result.status === 'fulfilled') {
           const data = result.value.data?.data || result.value.data || [];
           const items = Array.isArray(data) ? data : [];
-          const city = SUPPORTED_DEPARTURE_CITIES[i];
+          // `results` follows the filtered request list, not the full supported-city list.
+          // For a Beijing-only search, index 0 must remain Beijing instead of falling back to
+          // SUPPORTED_DEPARTURE_CITIES[0] (Shanghai).
+          const city = searchCities[i] || '';
           items.forEach((item: any) => {
             // v22: Only accept items with valid coordinates
             const lng = item.lng ?? item.location?.lng;

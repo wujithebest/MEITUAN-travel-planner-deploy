@@ -1,0 +1,19 @@
+{
+  "case_id": "S02",
+  "profile": "P-BJ-FOOD",
+  "message": "想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落。",
+  "expected": "planned Beijing culture route with Tiananmen, Forbidden City area, Beijing-cuisine lunch, Jingshan sunset.",
+  "hard_constraints": "Fixed anchors and time order retained.",
+  "wall_clock_ms": 135810,
+  "terminal_event": "error",
+  "error": "当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "technical_invalid",
+    "verdict": "FAIL",
+    "checks": [
+      "当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。"
+    ]
+  }
+}

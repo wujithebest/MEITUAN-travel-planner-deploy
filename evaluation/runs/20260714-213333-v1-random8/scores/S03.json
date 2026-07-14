@@ -1,0 +1,30 @@
+{
+  "case_id": "S03",
+  "profile": "P-SH-LOCAL",
+  "message": "待会儿去附近逛逛，找一家好吃的，再散散步。",
+  "expected": "nearby food + walk, derived from origin and profile.",
+  "hard_constraints": "Search remains near origin; food and walk both present.",
+  "wall_clock_ms": 71210,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "REVIEW",
+    "checks": [
+      "可见 POI 过少：1 个",
+      "路线段不足：1/0",
+      "需求证据不足：散步"
+    ],
+    "visible_poi_count": 1,
+    "polyline_segment_count": 1,
+    "poi_names": [
+      "韩记小吃(瑞香苑小区店)"
+    ],
+    "missed_anchors": [],
+    "missing_feature_evidence": [
+      "散步"
+    ]
+  }
+}

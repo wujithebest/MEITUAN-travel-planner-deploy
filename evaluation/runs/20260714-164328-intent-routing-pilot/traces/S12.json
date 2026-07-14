@@ -1,0 +1,44 @@
+{
+  "case_id": "S12",
+  "input": "下班后想在附近买点水果，再找个地方简单吃晚饭",
+  "expected": {
+    "conversation_mode": "new_plan",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 17901,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": "no route context; auto-detected plan_mode"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 17572,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": ""
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

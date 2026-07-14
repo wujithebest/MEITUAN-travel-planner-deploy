@@ -1,0 +1,1039 @@
+{
+  "type": "complete",
+  "content": {
+    "map_paths": [],
+    "full_plan": {
+      "summary": "为您规划了两天一夜的北京市之旅，从北京饭店出发，串联玉东郊野公园-玉峰塔影到足轻松。",
+      "city": "北京市",
+      "duration": "two days",
+      "time_budget": 0.5,
+      "days": [
+        {
+          "day_index": 1,
+          "anchors": [],
+          "meal_slots": []
+        }
+      ]
+    },
+    "route_data": {
+      "points": [
+        {
+          "poi_id": "start:116.4123,39.9059",
+          "gaode_poi_id": "start:116.4123,39.9059",
+          "name": "起点·北京饭店",
+          "location": {
+            "lat": 39.9059,
+            "lng": 116.4123
+          },
+          "kind": "start",
+          "day": 1,
+          "typecode": "",
+          "category": "",
+          "address": "",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 1,
+          "display_order": 0,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "起点",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0FFMAP2US",
+          "gaode_poi_id": "B0FFMAP2US",
+          "name": "玉东郊野公园-玉峰塔影",
+          "location": {
+            "lat": 39.994227,
+            "lng": 116.259193
+          },
+          "kind": "visit",
+          "day": 1,
+          "typecode": "110200",
+          "category": "visit",
+          "address": "颐西路玉东郊野公园(东北角)",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "https://aos-comment.amap.com/B0FFMAP2US/comment/2c450d050332b23164f05c84319ee4f3_2048_2048_80.jpg",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 2,
+          "display_order": 1,
+          "display_slot": "morning",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0HU9H5CAD",
+          "gaode_poi_id": "B0HU9H5CAD",
+          "name": "洞庭楚湘(香山颐和店)",
+          "location": {
+            "lat": 40.006052,
+            "lng": 116.264819
+          },
+          "kind": "meal",
+          "day": 1,
+          "typecode": "050108",
+          "category": "meal",
+          "address": "北京城区香山路75号(军科一号院3号楼一层03号)",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "https://aos-comment.amap.com/B0HU9H5CAD/comment/content_media_external_file_100005279_1752632552372_62282258.jpg",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“北京菜”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 3,
+          "display_order": 2,
+          "display_slot": "lunch",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0LR0YM4AJ",
+          "gaode_poi_id": "B0LR0YM4AJ",
+          "name": "足轻松",
+          "location": {
+            "lat": 39.839794,
+            "lng": 116.385934
+          },
+          "kind": "visit",
+          "day": 1,
+          "typecode": "071400",
+          "category": "visit",
+          "address": "北京城区马家堡东路七克拉1号楼1-2号",
+          "rating": "4.0",
+          "gaode_rating": "4.0",
+          "avg_cost": 100.0,
+          "photo_url": "https://store.is.autonavi.com/showpic/0dafb4e7c2257e7d840f9c92c9f7acd1",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“继续轻松”的途经点需求；通勤成本：按路线顺序衔接。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 4,
+          "display_order": 3,
+          "display_slot": "afternoon",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        }
+      ],
+      "segments": [
+        {
+          "from_poi": "起点·北京饭店",
+          "to_poi": "玉东郊野公园-玉峰塔影",
+          "day_index": 1,
+          "transport": "地铁/公交",
+          "duration_min": 71.4,
+          "distance_km": 22.22,
+          "polyline": [
+            [
+              39.905735,
+              116.412308
+            ],
+            [
+              39.905708,
+              116.411598
+            ],
+            [
+              39.907829,
+              116.411499
+            ],
+            [
+              39.90807,
+              116.412148
+            ],
+            [
+              39.907209,
+              116.380525
+            ],
+            [
+              39.907478,
+              116.31029
+            ],
+            [
+              39.913363,
+              116.310288
+            ],
+            [
+              39.915083,
+              116.309242
+            ],
+            [
+              39.916676,
+              116.305857
+            ],
+            [
+              39.91749,
+              116.300203
+            ],
+            [
+              39.918324,
+              116.298802
+            ],
+            [
+              39.919453,
+              116.297982
+            ],
+            [
+              39.925852,
+              116.297932
+            ],
+            [
+              39.927913,
+              116.297384
+            ],
+            [
+              39.930685,
+              116.295437
+            ],
+            [
+              39.946437,
+              116.29382
+            ],
+            [
+              39.957318,
+              116.294786
+            ],
+            [
+              39.970999,
+              116.285973
+            ],
+            [
+              39.972739,
+              116.286852
+            ],
+            [
+              39.973592,
+              116.288171
+            ],
+            [
+              39.974414,
+              116.293357
+            ],
+            [
+              39.97459,
+              116.292137
+            ],
+            [
+              39.973804,
+              116.287916
+            ],
+            [
+              39.976885,
+              116.283805
+            ],
+            [
+              39.978992,
+              116.279438
+            ],
+            [
+              39.98006,
+              116.275239
+            ],
+            [
+              39.980402,
+              116.270839
+            ],
+            [
+              39.984694,
+              116.265313
+            ],
+            [
+              39.98624,
+              116.262016
+            ],
+            [
+              39.986774,
+              116.262733
+            ],
+            [
+              39.987804,
+              116.262177
+            ],
+            [
+              39.98756,
+              116.261696
+            ],
+            [
+              39.988148,
+              116.260185
+            ],
+            [
+              39.990494,
+              116.259277
+            ],
+            [
+              39.991676,
+              116.259346
+            ],
+            [
+              39.992489,
+              116.259949
+            ],
+            [
+              39.994225,
+              116.259232
+            ]
+          ],
+          "period": "morning",
+          "color": "#E67E22",
+          "is_dashed": true,
+          "segment_order": 1,
+          "from_order": 1,
+          "to_order": 2,
+          "from_display_order": 0,
+          "to_display_order": 1,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        },
+        {
+          "from_poi": "玉东郊野公园-玉峰塔影",
+          "to_poi": "洞庭楚湘(香山颐和店)",
+          "day_index": 1,
+          "transport": "自驾",
+          "duration_min": 15.7,
+          "distance_km": 3.17,
+          "polyline": [
+            [
+              39.994235,
+              116.259223
+            ],
+            [
+              39.994429,
+              116.258917
+            ],
+            [
+              39.994477,
+              116.258434
+            ],
+            [
+              39.994938,
+              116.257747
+            ],
+            [
+              39.994064,
+              116.257393
+            ],
+            [
+              39.993554,
+              116.257334
+            ],
+            [
+              39.993061,
+              116.257136
+            ],
+            [
+              39.993045,
+              116.256776
+            ],
+            [
+              39.99312,
+              116.256106
+            ],
+            [
+              39.99356,
+              116.256041
+            ],
+            [
+              39.994096,
+              116.255414
+            ],
+            [
+              39.993844,
+              116.253981
+            ],
+            [
+              39.993748,
+              116.252887
+            ],
+            [
+              39.993806,
+              116.25256
+            ],
+            [
+              39.994145,
+              116.251825
+            ],
+            [
+              39.994203,
+              116.25146
+            ],
+            [
+              39.995185,
+              116.251911
+            ],
+            [
+              39.995362,
+              116.252141
+            ],
+            [
+              39.995743,
+              116.253145
+            ],
+            [
+              39.99702,
+              116.255306
+            ],
+            [
+              39.997261,
+              116.256041
+            ],
+            [
+              39.997529,
+              116.257324
+            ],
+            [
+              40.002524,
+              116.257297
+            ],
+            [
+              40.005919,
+              116.257029
+            ],
+            [
+              40.005995,
+              116.264153
+            ],
+            [
+              40.00589,
+              116.264749
+            ]
+          ],
+          "period": "lunch",
+          "color": "#D35400",
+          "is_dashed": true,
+          "segment_order": 2,
+          "from_order": 2,
+          "to_order": 3,
+          "from_display_order": 1,
+          "to_display_order": 2,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        },
+        {
+          "from_poi": "洞庭楚湘(香山颐和店)",
+          "to_poi": "足轻松",
+          "day_index": 1,
+          "transport": "地铁/公交",
+          "duration_min": 93.4,
+          "distance_km": 29.93,
+          "polyline": [
+            [
+              40.00589,
+              116.264748
+            ],
+            [
+              40.005207,
+              116.267052
+            ],
+            [
+              40.005505,
+              116.269707
+            ],
+            [
+              40.006153,
+              116.270325
+            ],
+            [
+              40.007153,
+              116.270218
+            ],
+            [
+              40.008762,
+              116.26899
+            ],
+            [
+              40.008644,
+              116.270424
+            ],
+            [
+              40.01181,
+              116.270706
+            ],
+            [
+              40.012192,
+              116.269958
+            ],
+            [
+              40.008526,
+              116.27037
+            ],
+            [
+              40.002751,
+              116.275138
+            ],
+            [
+              40.001639,
+              116.282659
+            ],
+            [
+              39.9969,
+              116.294932
+            ],
+            [
+              39.997521,
+              116.302685
+            ],
+            [
+              40.000022,
+              116.311858
+            ],
+            [
+              39.999488,
+              116.31395
+            ],
+            [
+              39.998121,
+              116.315831
+            ],
+            [
+              39.99298,
+              116.315756
+            ],
+            [
+              39.977961,
+              116.316974
+            ],
+            [
+              39.96393,
+              116.322321
+            ],
+            [
+              39.941147,
+              116.325414
+            ],
+            [
+              39.939478,
+              116.326336
+            ],
+            [
+              39.938449,
+              116.329126
+            ],
+            [
+              39.937997,
+              116.332473
+            ],
+            [
+              39.938607,
+              116.344799
+            ],
+            [
+              39.939783,
+              116.34927
+            ],
+            [
+              39.940476,
+              116.354608
+            ],
+            [
+              39.940679,
+              116.370131
+            ],
+            [
+              39.940025,
+              116.371918
+            ],
+            [
+              39.938154,
+              116.372728
+            ],
+            [
+              39.908324,
+              116.374276
+            ],
+            [
+              39.875168,
+              116.374382
+            ],
+            [
+              39.873685,
+              116.374918
+            ],
+            [
+              39.871116,
+              116.37803
+            ],
+            [
+              39.863271,
+              116.379012
+            ],
+            [
+              39.861982,
+              116.378266
+            ],
+            [
+              39.857294,
+              116.371952
+            ],
+            [
+              39.855532,
+              116.371469
+            ],
+            [
+              39.84585,
+              116.371154
+            ],
+            [
+              39.845364,
+              116.386391
+            ],
+            [
+              39.84016,
+              116.386482
+            ],
+            [
+              39.839794,
+              116.385849
+            ]
+          ],
+          "period": "afternoon",
+          "color": "#2980B9",
+          "is_dashed": true,
+          "segment_order": 3,
+          "from_order": 3,
+          "to_order": 4,
+          "from_display_order": 2,
+          "to_display_order": 3,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        }
+      ],
+      "hints": {},
+      "waypoint_annotations": {
+        "起点·北京饭店": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "玉东郊野公园-玉峰塔影": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "洞庭楚湘(香山颐和店)": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "足轻松": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        }
+      },
+      "route_id": "26fa8bf8-0076-47e1-b1e0-85e3327ccff2",
+      "candidate_points": [
+        {
+          "poi_id": "B0FFH14A8K",
+          "gaode_poi_id": "B0FFH14A8K",
+          "name": "粥公粥婆精品家常菜(青龙桥店)",
+          "lat": 40.006087,
+          "lng": 116.264613,
+          "location": {
+            "lat": 40.006087,
+            "lng": 116.264613
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "050100",
+          "category": "050100",
+          "address": "北京城区青龙桥厢红旗东门外军科一号院外3号楼",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 1,
+          "target_label": "北京菜",
+          "display_slot": "meal",
+          "candidate_score": 0.0,
+          "distance": 16809
+        },
+        {
+          "poi_id": "B0M615HKCT",
+          "gaode_poi_id": "B0M615HKCT",
+          "name": "轻松筹",
+          "lat": 39.948675,
+          "lng": 116.420825,
+          "location": {
+            "lat": 39.948675,
+            "lng": 116.420825
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "160000",
+          "category": "160000",
+          "address": "雍和大厦东楼(雍和宫地铁站B东南口步行270米)",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 2,
+          "target_label": "继续轻松",
+          "display_slot": "",
+          "candidate_score": 0.0,
+          "distance": 4811
+        },
+        {
+          "poi_id": "B0G3LZFYRS",
+          "gaode_poi_id": "B0G3LZFYRS",
+          "name": "倍轻松(北京国贸中心店)",
+          "lat": 39.912268,
+          "lng": 116.459883,
+          "location": {
+            "lat": 39.912268,
+            "lng": 116.459883
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "060300|061200",
+          "category": "060300|061200",
+          "address": "建国门外大街1号国贸商城地下2层倍轻松3B218号",
+          "rating": "3.7",
+          "gaode_rating": "3.7",
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/71d3f98d2c3cacaf2ec200f337c6b791",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 2,
+          "target_label": "继续轻松",
+          "display_slot": "",
+          "candidate_score": 3.7,
+          "distance": 4119
+        },
+        {
+          "poi_id": "B0FFM70A85",
+          "gaode_poi_id": "B0FFM70A85",
+          "name": "倍轻松(世纪金源购物中心西区店)",
+          "lat": 39.9583,
+          "lng": 116.287725,
+          "location": {
+            "lat": 39.9583,
+            "lng": 116.287725
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "060300|061200",
+          "category": "060300|061200",
+          "address": "远大路1号世纪金源购物中心4层4025倍轻松",
+          "rating": "3.9",
+          "gaode_rating": "3.9",
+          "avg_cost": null,
+          "photo_url": "https://aos-comment.amap.com/B0FFM70A85/headerImg/ffab90843c82458a6605add5570a148c_2048_2048_80.jpg",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 2,
+          "target_label": "继续轻松",
+          "display_slot": "",
+          "candidate_score": 3.9,
+          "distance": 12115
+        }
+      ],
+      "plan_mode": "planned",
+      "total_days": 1,
+      "display_granularity": "day",
+      "planning_state": {
+        "plan_mode": "planned",
+        "parsed_intent": {
+          "duration": "two days",
+          "start_time": "2026-07-18T09:00:00+00:00",
+          "raw_keywords": [
+            "颐和园",
+            "中午",
+            "吃饭",
+            "下午",
+            "轻松走走"
+          ],
+          "search_keywords": [
+            "北京 颐和园",
+            "北京 北京菜",
+            "北京 公园",
+            "北京 散步"
+          ],
+          "micro_keywords": [
+            "颐和园 漫步",
+            "公园 散步",
+            "北京菜 餐厅",
+            "轻松 游览"
+          ],
+          "fixed_pois": [
+            {
+              "name": "继续轻松",
+              "user_time_budget": "afternoon"
+            }
+          ],
+          "delete_list": [],
+          "food_pref_keywords": [
+            "北京菜"
+          ],
+          "meal_search_keywords": [
+            "北京菜",
+            "北京菜 餐厅",
+            "京味菜",
+            "老北京菜"
+          ],
+          "budget_per_capita": null,
+          "transport_hint": "公共交通",
+          "evening_requested": false,
+          "plan_mode": "planned",
+          "planned_waypoints": [
+            {
+              "type": "placeholder",
+              "name": null,
+              "search_keyword": "公园",
+              "category": "visit",
+              "stay_minutes": 120,
+              "search_keywords": [
+                "公园",
+                "滨江步道",
+                "步行街",
+                "绿地"
+              ]
+            },
+            {
+              "type": "placeholder",
+              "name": null,
+              "search_keyword": "北京菜",
+              "category": "meal",
+              "stay_minutes": 60,
+              "search_keywords": [
+                "北京菜",
+                "北京菜 餐厅",
+                "北京菜 餐厅",
+                "京味菜",
+                "老北京菜"
+              ]
+            },
+            {
+              "type": "fixed",
+              "name": "继续轻松",
+              "search_keyword": "继续轻松",
+              "category": "visit",
+              "stay_minutes": 120,
+              "search_keywords": [
+                "继续轻松"
+              ]
+            }
+          ]
+        }
+      },
+      "parsed_intent": {
+        "duration": "two days",
+        "start_time": "2026-07-18T09:00:00+00:00",
+        "raw_keywords": [
+          "颐和园",
+          "中午",
+          "吃饭",
+          "下午",
+          "轻松走走"
+        ],
+        "search_keywords": [
+          "北京 颐和园",
+          "北京 北京菜",
+          "北京 公园",
+          "北京 散步"
+        ],
+        "micro_keywords": [
+          "颐和园 漫步",
+          "公园 散步",
+          "北京菜 餐厅",
+          "轻松 游览"
+        ],
+        "fixed_pois": [
+          {
+            "name": "继续轻松",
+            "user_time_budget": "afternoon"
+          }
+        ],
+        "delete_list": [],
+        "food_pref_keywords": [
+          "北京菜"
+        ],
+        "meal_search_keywords": [
+          "北京菜",
+          "北京菜 餐厅",
+          "京味菜",
+          "老北京菜"
+        ],
+        "budget_per_capita": null,
+        "transport_hint": "公共交通",
+        "evening_requested": false,
+        "plan_mode": "planned",
+        "planned_waypoints": [
+          {
+            "type": "placeholder",
+            "name": null,
+            "search_keyword": "公园",
+            "category": "visit",
+            "stay_minutes": 120,
+            "search_keywords": [
+              "公园",
+              "滨江步道",
+              "步行街",
+              "绿地"
+            ]
+          },
+          {
+            "type": "placeholder",
+            "name": null,
+            "search_keyword": "北京菜",
+            "category": "meal",
+            "stay_minutes": 60,
+            "search_keywords": [
+              "北京菜",
+              "北京菜 餐厅",
+              "北京菜 餐厅",
+              "京味菜",
+              "老北京菜"
+            ]
+          },
+          {
+            "type": "fixed",
+            "name": "继续轻松",
+            "search_keyword": "继续轻松",
+            "category": "visit",
+            "stay_minutes": 120,
+            "search_keywords": [
+              "继续轻松"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "progress": 100,
+  "stats": {
+    "elapsed_seconds": 61.7,
+    "deepseek_calls": 1,
+    "deepseek_prompt_tokens": 14715,
+    "deepseek_completion_tokens": 1583,
+    "total_tokens": 16298,
+    "gaode_calls": 24,
+    "bocha_calls": 0,
+    "stage_durations_ms": {
+      "step1_intent": 18776,
+      "planned_route": 39643,
+      "photo_enrichment": 3320,
+      "output_assembly": 1
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "case_count": 5,
+  "baseline_accuracy": 0.6,
+  "unified_accuracy": 0.6,
+  "baseline_mean_duration_ms": 27174,
+  "unified_mean_duration_ms": 20006,
+  "latency_delta_ms": -7168
+}

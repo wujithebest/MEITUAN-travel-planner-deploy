@@ -1,0 +1,19 @@
+{
+  "case_id": "S12",
+  "profile": "P-SH-LOCAL",
+  "message": "下班后想在附近买点水果，再找个地方简单吃晚饭。",
+  "expected": "nearby errands + dinner route.",
+  "hard_constraints": "Fruit shopping and dinner are both present and close to origin.",
+  "wall_clock_ms": 25561,
+  "terminal_event": "error",
+  "error": "未能满足以下明确行程需求：晚饭。已保留其他行程要求，请调整该地点或目标类型后重试。",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "technical_invalid",
+    "verdict": "FAIL",
+    "checks": [
+      "未能满足以下明确行程需求：晚饭。已保留其他行程要求，请调整该地点或目标类型后重试。"
+    ]
+  }
+}

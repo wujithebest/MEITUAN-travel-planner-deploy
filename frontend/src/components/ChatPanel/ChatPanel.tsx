@@ -18,29 +18,36 @@ import { Input, Tooltip, Modal as AntModal } from 'antd';
 import { ChatMessage } from '@/hooks/useChat';
 import { useRouteStore } from '@/store/routeStore';
 import { useUserStore, type User } from '@/store/userStore';
+import { buildRouteTagContext } from '@/utils/routePreferenceTags';
 import styles from './ChatPanel.module.css';
 
 const { TextArea } = Input;
 
-// v22: Unified test prompts (same for all cities)
+// v22: Unified test prompts with fixture IDs for fixed route caching
 const QUICK_PROMPTS_NORMAL = [
-  '帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点',
-  '想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落',
-  '待会儿去附近逛逛，找一家好吃的，再散散步。',
+  { id: 'literary-photo-cafe', text: '帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点' },
+  { id: 'tiananmen-forbidden-city-jingshan', text: '想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落' },
+  { id: 'nearby-food-walk', text: '待会儿去附近逛逛，找一家好吃的，再散散步。' },
 ];
 
 const QUICK_PROMPTS_HARD = [
-  '明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步',
-  '下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方',
-  '帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去景山公园。',
+  { id: 'spicy-compatible-restaurant', text: '明天朋友来北京找我，我不吃辣但他想吃川菜，帮我找一家两边都能接受的餐厅，吃完想在附近散散步' },
+  { id: 'literary-river-night-view', text: '下午推荐一条北京文艺路线，晚饭想吃点清淡的，吃完去河边走走，最后找个拍夜景的地方' },
+  { id: 'beihai-roast-duck-sanlihe', text: '帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去三里河公园。' },
 ];
 
 export function getQuickPrompts(_user: User | null): string[] {
-  return [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD];
+  return [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD].map(p => p.text);
 }
 
-export function getQuickPromptsNormal(): string[] { return QUICK_PROMPTS_NORMAL; }
-export function getQuickPromptsHard(): string[] { return QUICK_PROMPTS_HARD; }
+export function getQuickPromptId(text: string): string {
+  return [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD].find(p => p.text === text)?.id || '';
+}
+
+const QUICK_PROMPT_ENTRIES = [...QUICK_PROMPTS_NORMAL, ...QUICK_PROMPTS_HARD];
+
+export function getQuickPromptsNormal(): string[] { return QUICK_PROMPTS_NORMAL.map(p => p.text); }
+export function getQuickPromptsHard(): string[] { return QUICK_PROMPTS_HARD.map(p => p.text); }
 
 export function detectDepartureCity(user: User | null): 'Beijing' | 'Shanghai' {
   const homeLocation = user?.home_location;
@@ -132,6 +139,10 @@ interface ChatPanelProps {
   onRouteCardFavorite?: (snapshot: any) => void;
   /** v22: 当前选中的路线 ID，用于高亮卡片 */
   activeRouteId?: string | null;
+  /** 固定测试用例回调 — 加载缓存路线，不触发后端 */
+  onFixedRouteSelect?: (fixtureId: string) => void | Promise<void>;
+  /** 固定路线正在读取时只禁用固定按钮，不能被普通 SSE 状态卡住 */
+  fixedRouteLoading?: boolean;
 }
 
 /**
@@ -161,6 +172,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onRouteCardSelect,
   onRouteCardFavorite,
   activeRouteId,
+  onFixedRouteSelect,
+  fixedRouteLoading = false,
 }) => {
   const [inputText, setInputText] = useState('');
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -422,9 +435,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const snapshot = message.routeSnapshot;
     const mapData = snapshot?.map_route_data || message.routeData;
     const markers = Array.isArray(mapData?.markers) ? mapData.markers : [];
+    const NON_REAL_POI_KINDS_1 = new Set([
+      'start', 'hint', 'free_explore', 'candidate', 'route_only', 'traffic', 'empty',
+    ]);
     const poiCount =
       snapshot?.summary?.poi_count
-      || markers.filter((m: any) => m.type !== 'candidate' && m.kind !== 'hint').length;
+      || markers.filter((m: any) => m?.name && !NON_REAL_POI_KINDS_1.has(m.kind) && !m.hidden).length;
 
     const statsText = message.routeCardSubtitle || (message as any).statsText || '';
 
@@ -509,7 +525,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   ): Array<{ label: string; content: string }> => {
     const points: any[] = snapshot?.route_data?.points || [];
     const mealCount = points.filter((p: any) => p.kind === 'meal' || p.kind === 'restaurant').length;
-    const poiCount = points.filter((p: any) => p.kind !== 'start' && p.kind !== 'origin').length;
+    const NON_REAL_KINDS_2 = new Set([
+      'start', 'hint', 'free_explore', 'candidate', 'route_only', 'traffic', 'empty',
+    ]);
+    const poiCount = points.filter((p: any) => p?.name && !NON_REAL_KINDS_2.has(p.kind) && !p.hidden).length;
     const lines: Array<{ label: string; content: string }> = [];
 
     for (const label of valueLabels) {
@@ -549,26 +568,40 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return lines;
   };
 
+  // v28: Unified route tag context — used by both left panel and right sidebar
+
   const renderRouteRecReason = (message: ChatMessage) => {
     const snapshot = message.routeSnapshot;
-    // Find user input text
     const userInput =
       snapshot?.user_input ||
       snapshot?.complete_plan?.parsed_intent?.raw_text ||
       message.content ||
       '';
-    const rawKeywords = extractUserKeywords(userInput);
-    // v22: Also extract display tags from input (e.g. [适合拍照][文艺路线])
-    const inputTags = extractUserInputTags(userInput);
-    // Merge: deduped keywords + tags
-    const keywords = [...new Set([...rawKeywords, ...inputTags])].slice(0, 6);
+
+    // v28: Build unified tag context
+    const routeTagContext = buildRouteTagContext(
+      userInput,
+      snapshot?.complete_plan?.parsed_intent,
+      useUserStore.getState().user,
+    );
+
+    const keywords = routeTagContext.matchedKeywords.slice(0, 8);
 
     // Collect matched preferences
     const user = useUserStore.getState().user;
     const prefs: string[] = [];
-    if (user) {
+    // v28: Only show explicit food preferences from the current request
+    const explicitFoodPrefs =
+      snapshot?.complete_plan?.parsed_intent?.explicit_food_pref_keywords || [];
+    if (explicitFoodPrefs.length > 0) {
+      prefs.push(...explicitFoodPrefs);
+    } else if (user) {
+      // Only use profile food prefs if current request explicitly mentions food/cuisine
+      const hasFoodRequest = /餐厅|饭馆|饭店|菜|日料|火锅|川菜|粤菜|湘菜|烤鸭|涮|小吃|面馆|美食/.test(userInput);
+      if (hasFoodRequest) {
+        (user.food_preferences || []).forEach((t: string) => { if (t) prefs.push(t); });
+      }
       (user.activity_pref_tag || []).forEach((t: string) => { if (t) prefs.push(t); });
-      (user.food_preferences || []).forEach((t: string) => { if (t) prefs.push(t); });
       (user.preferences || []).forEach((id: string) => {
         const map: Record<string, string> = {
           history: '历史文化', food: '美食探店', nature: '自然风光',
@@ -1027,15 +1060,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         {shouldShowQuickPrompts && (
           <div className={styles.quickPrompts} data-guide="quick-prompts">
             <div className={styles.quickPromptsList}>
-              {quickPrompts.map((prompt, idx) => (
+              {QUICK_PROMPT_ENTRIES.map(({ id, text: prompt }) => (
                 <button
-                  key={idx}
+                  type="button"
+                  key={id}
                   className={styles.quickPromptBtn}
-                  disabled={isLoading}
+                  disabled={fixedRouteLoading}
                   title={prompt}
-                  onClick={() => {
-                    setInputText(prompt);
-                    requestAnimationFrame(() => inputRef.current?.focus?.());
+                  data-fixture-id={id}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (onFixedRouteSelect) {
+                      void onFixedRouteSelect(id);
+                    }
                   }}
                 >
                   {prompt}

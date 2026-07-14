@@ -1,0 +1,14 @@
+{
+  "run_id": "20260714-165444-intent-routing-pilot",
+  "scope": "llm-recognition-only",
+  "cases": [
+    "S01",
+    "S12",
+    "M01",
+    "M03",
+    "M08"
+  ],
+  "started_at": "2026-07-14T08:54:44.561862+00:00",
+  "baseline": "legacy dispatch plus Step1 extraction",
+  "candidate": "single Step1 extraction with routing context"
+}

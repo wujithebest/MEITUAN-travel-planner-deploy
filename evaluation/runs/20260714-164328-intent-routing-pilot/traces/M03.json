@@ -1,0 +1,62 @@
+{
+  "case_id": "M03",
+  "input": "不想去咖啡馆了，改成书店",
+  "expected": {
+    "conversation_mode": "point_edit",
+    "plan_mode": "exploratory"
+  },
+  "baseline": {
+    "duration_ms": 18097,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "local_replan",
+      "point_operations": [
+        {
+          "action": "replace",
+          "target_name": "地球咖啡",
+          "new_name": "书店"
+        }
+      ],
+      "intent_patch": {},
+      "reason": "用户明确要求将咖啡馆替换为书店，属于单点替换操作，不改变整体路线结构和模式。"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 19265,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "step1",
+      "point_operations": [
+        {
+          "action": "remove_category",
+          "category": "cafe",
+          "reason": "用户不想去咖啡馆了"
+        },
+        {
+          "action": "add",
+          "category": "visit",
+          "search_keyword": "书店",
+          "reason": "改成书店"
+        }
+      ],
+      "intent_patch": {},
+      "reason": ""
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

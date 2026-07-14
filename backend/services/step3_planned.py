@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import re
 import time
 from typing import Any
 
@@ -22,6 +23,17 @@ from .api_client import gaode_around_search, gaode_text_search
 from .data_schema import ParsedIntent, PlannedWaypoint, RouteSegment
 from .route_backbone import is_valid_route_poi
 from .utils import PipelineLogger, ZeroOutputError, coord_to_param, emit_status, haversine_km, push_output
+
+
+def _normalized_poi_identity(value: str) -> str:
+    return re.sub(r"[\s\-()（）\[\]【】·]", "", str(value or "")).lower()
+
+
+def _fixed_poi_name_matches(requested_name: str, candidate_name: str) -> bool:
+    """Require an actual identity match before accepting a fixed POI result."""
+    requested = _normalized_poi_identity(requested_name)
+    candidate = _normalized_poi_identity(candidate_name)
+    return bool(requested and len(requested) >= 2 and (requested in candidate or candidate in requested))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -299,7 +311,6 @@ _PLANNED_BLOCKED_TERMS = {
     "common": ["停车场", "停车楼", "公交站", "地铁站", "公厕", "卫生间", "入口", "出口", "充电桩", "ATM"],
 }
 
-
 def _contains_any(text: str, terms: list[str]) -> bool:
     lowered = text.lower()
     return any(term.lower() in lowered for term in terms)
@@ -341,11 +352,13 @@ async def _search_planned_keywords_for_radius(
     radius: int,
     search_radius: int,
     category_types: str,
+    city: str,
 ) -> list[dict[str, Any]]:
-    """同一半径下并发搜索多个关键词，单批最多 3 个。
+    """Search keyword alternatives concurrently while preserving their priority.
 
     实际 QPS 仍由 api_client._gaode_rate_limit 全局控制。
-    保持 search_keywords 原始优先级顺序去重。
+    The first query that produces valid candidates wins; broad fallback terms
+    must never replace an explicit user target merely because they are closer.
     """
     loc_str = coord_to_param(current_center)
 
@@ -359,27 +372,26 @@ async def _search_planned_keywords_for_radius(
                 show_fields=config.GAODE_SHOW_FIELDS,
                 offset=8,
                 sortrule="distance",
+                fallback_city=city,
+                strict_nearby_fallback=True,
             )
             return search_keyword, results or []
         except Exception:
             return search_keyword, []
 
-    merged: list[dict[str, Any]] = []
-    seen: set[str] = set()
-
     for i in range(0, len(search_keywords), 3):
         batch = search_keywords[i:i + 3]
         batch_results = await asyncio.gather(*[_one(kw) for kw in batch])
+        for query, results in batch_results:
+            if results:
+                print(
+                    f"[PlannedSearchKeywordAudit] keyword={query} "
+                    f"result_count={len(results)} "
+                    f"top_names={[str(item.get('name', '')) for item in results[:3]]}"
+                )
+                return results
 
-        for _, results in batch_results:
-            for r in results:
-                key = r.get("id") or r.get("gaode_poi_id") or f"{r.get('name', '')}|{r.get('location', '')}"
-                if key in seen:
-                    continue
-                seen.add(key)
-                merged.append(r)
-
-    return merged
+    return []
 
 
 def _planned_semantic_score(
@@ -397,6 +409,12 @@ def _planned_semantic_score(
     if _contains_any(text, _PLANNED_BLOCKED_TERMS["common"]):
         return None
     if excluded_terms and _contains_any(text, excluded_terms):
+        return None
+
+    # A contract waypoint was explicitly requested by the user.  Its required
+    # terms are therefore a filter, not merely a ranking bonus: this prevents
+    # a closer unrelated restaurant/gym from replacing roast duck or a walk.
+    if getattr(wp, "must_match_terms", False) and required_terms and not _contains_any(text, required_terms):
         return None
 
     score = 0.0
@@ -672,6 +690,7 @@ async def resolve_planned_waypoints_with_candidates(
             search_center_name=getattr(wp, "search_center_name", None),
             search_center_location=getattr(wp, "search_center_location", None),
             time_slot=getattr(wp, "time_slot", None),
+            must_match_terms=bool(getattr(wp, "must_match_terms", False)),
         )
 
         # Default recursion uses the previous selected waypoint.  A local
@@ -750,11 +769,20 @@ async def resolve_planned_waypoints_with_candidates(
                             valid_results.append(r)
 
                     valid_results = _budget_filter_raw_results(valid_results, budget_threshold)
+                    name_matched = [
+                        item for item in valid_results
+                        if _fixed_poi_name_matches(wp_copy.name, str(item.get("name") or ""))
+                    ]
 
-                    if valid_results:
-                        main_poi = valid_results[0]
-                        if len(valid_results) > 1:
-                            candidates = valid_results[1:4]
+                    if name_matched:
+                        main_poi = name_matched[0]
+                        if len(name_matched) > 1:
+                            candidates = name_matched[1:4]
+                    elif valid_results:
+                        print(
+                            f"[PlannedFixedPoiAudit] rejected_unmatched_text_result "
+                            f"requested={wp_copy.name} candidates={[str(item.get('name') or '') for item in valid_results[:3]]}"
+                        )
             except Exception:
                 pass
 
@@ -772,6 +800,7 @@ async def resolve_planned_waypoints_with_candidates(
                         radius=radius,
                         search_radius=search_radius,
                         category_types=category_types,
+                        city=city,
                     )
                     print(f"[DEBUG planned_search] idx={idx} keyword={keyword} radius={radius} keywords={search_keywords} results={len(results)} elapsed={time.monotonic() - search_started:.2f}s")
                     if results:
