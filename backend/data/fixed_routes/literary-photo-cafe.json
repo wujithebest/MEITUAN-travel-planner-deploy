@@ -56,19 +56,13 @@
         "route_order": 1,
         "recommend_reason": "适合拍照、文艺路线、节奏轻松",
         "matched_keywords": [
-          "咖啡",
           "拍照",
           "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
           "拍照",
           "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "parent_anchor": "",
@@ -101,20 +95,12 @@
         "route_order": 2,
         "recommend_reason": "适合拍照、文艺路线",
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -147,19 +133,13 @@
         "recommend_reason": "咖啡馆、特色小店",
         "matched_keywords": [
           "咖啡",
-          "拍照",
-          "文艺路线",
           "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "特色小店"
         ],
         "tags": [
           "咖啡",
-          "拍照",
-          "文艺路线",
           "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "特色小店"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -191,20 +171,12 @@
         "route_order": 4,
         "recommend_reason": "文艺路线、适合拍照",
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -236,18 +208,10 @@
         "route_order": 5,
         "recommend_reason": "特色小店、节奏轻松",
         "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
           "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
           "特色小店",
           "节奏轻松"
         ],
@@ -281,19 +245,11 @@
         "route_order": 6,
         "recommend_reason": "适合拍照、节奏轻松",
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "parent_anchor": "",
@@ -399,50 +355,26 @@
       {
         "name": "咖啡备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "咖啡备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "咖啡备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "咖啡备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "咖啡、拍照、文艺路线、咖啡馆、特色小店、节奏轻松",
@@ -484,19 +416,13 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "咖啡",
           "拍照",
           "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
           "拍照",
           "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -523,20 +449,12 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
         "photo_source": "gaode",
@@ -563,19 +481,13 @@
         "rating": 4.5,
         "matched_keywords": [
           "咖啡",
-          "拍照",
-          "文艺路线",
           "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "特色小店"
         ],
         "tags": [
           "咖啡",
-          "拍照",
-          "文艺路线",
           "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "特色小店"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
         "photo_source": "gaode",
@@ -601,20 +513,12 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
-          "节奏轻松"
+          "文艺路线"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
         "photo_source": "gaode",
@@ -640,18 +544,10 @@
         "category": "购物",
         "rating": 4.5,
         "matched_keywords": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
           "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
-          "拍照",
-          "文艺路线",
-          "咖啡馆",
           "特色小店",
           "节奏轻松"
         ],
@@ -679,19 +575,11 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "tags": [
-          "咖啡",
           "拍照",
-          "文艺路线",
-          "咖啡馆",
-          "特色小店",
           "节奏轻松"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
@@ -844,19 +732,13 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "咖啡",
                 "拍照",
                 "文艺路线",
-                "咖啡馆",
-                "特色小店",
                 "节奏轻松"
               ],
               "tags": [
-                "咖啡",
                 "拍照",
                 "文艺路线",
-                "咖啡馆",
-                "特色小店",
                 "节奏轻松"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -886,20 +768,12 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "文艺路线"
               ],
               "tags": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "文艺路线"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
               "photo_source": "gaode",
@@ -937,19 +811,13 @@
               "category": "餐饮",
               "matched_keywords": [
                 "咖啡",
-                "拍照",
-                "文艺路线",
                 "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "特色小店"
               ],
               "tags": [
                 "咖啡",
-                "拍照",
-                "文艺路线",
                 "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "特色小店"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
               "photo_source": "gaode",
@@ -986,20 +854,12 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "文艺路线"
               ],
               "tags": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
-                "节奏轻松"
+                "文艺路线"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
               "photo_source": "gaode",
@@ -1028,18 +888,10 @@
               "typecode": "060000",
               "category": "购物",
               "matched_keywords": [
-                "咖啡",
-                "拍照",
-                "文艺路线",
-                "咖啡馆",
                 "特色小店",
                 "节奏轻松"
               ],
               "tags": [
-                "咖啡",
-                "拍照",
-                "文艺路线",
-                "咖啡馆",
                 "特色小店",
                 "节奏轻松"
               ],
@@ -1078,19 +930,11 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
                 "节奏轻松"
               ],
               "tags": [
-                "咖啡",
                 "拍照",
-                "文艺路线",
-                "咖啡馆",
-                "特色小店",
                 "节奏轻松"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
@@ -1148,19 +992,13 @@
       "rating": 4.5,
       "recommend_reason": "适合拍照、文艺路线、节奏轻松",
       "matched_keywords": [
-        "咖啡",
         "拍照",
         "文艺路线",
-        "咖啡馆",
-        "特色小店",
         "节奏轻松"
       ],
       "tags": [
-        "咖啡",
         "拍照",
         "文艺路线",
-        "咖啡馆",
-        "特色小店",
         "节奏轻松"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -1184,20 +1022,12 @@
       "rating": 4.5,
       "recommend_reason": "适合拍照、文艺路线",
       "matched_keywords": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "文艺路线"
       ],
       "tags": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "文艺路线"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
       "photo_source": "gaode",
@@ -1221,19 +1051,13 @@
       "recommend_reason": "咖啡馆、特色小店",
       "matched_keywords": [
         "咖啡",
-        "拍照",
-        "文艺路线",
         "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "特色小店"
       ],
       "tags": [
         "咖啡",
-        "拍照",
-        "文艺路线",
         "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "特色小店"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/2ea346c9393bda920000002847014821?type=pic",
       "photo_source": "gaode",
@@ -1256,20 +1080,12 @@
       "rating": 4.5,
       "recommend_reason": "文艺路线、适合拍照",
       "matched_keywords": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "文艺路线"
       ],
       "tags": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
-        "节奏轻松"
+        "文艺路线"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/d028908fe9c477f12289bd7d22967c37",
       "photo_source": "gaode",
@@ -1292,18 +1108,10 @@
       "rating": 4.5,
       "recommend_reason": "特色小店、节奏轻松",
       "matched_keywords": [
-        "咖啡",
-        "拍照",
-        "文艺路线",
-        "咖啡馆",
         "特色小店",
         "节奏轻松"
       ],
       "tags": [
-        "咖啡",
-        "拍照",
-        "文艺路线",
-        "咖啡馆",
         "特色小店",
         "节奏轻松"
       ],
@@ -1328,19 +1136,11 @@
       "rating": 4.5,
       "recommend_reason": "适合拍照、节奏轻松",
       "matched_keywords": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
         "节奏轻松"
       ],
       "tags": [
-        "咖啡",
         "拍照",
-        "文艺路线",
-        "咖啡馆",
-        "特色小店",
         "节奏轻松"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",

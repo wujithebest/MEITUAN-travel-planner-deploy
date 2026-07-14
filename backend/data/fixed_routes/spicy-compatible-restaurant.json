@@ -58,16 +58,12 @@
         "matched_keywords": [
           "口味兼容",
           "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "不吃辣"
         ],
         "tags": [
           "口味兼容",
           "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "不吃辣"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -99,18 +95,10 @@
         "route_order": 2,
         "recommend_reason": "附近餐厅备选",
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "餐厅"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "餐厅"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -142,17 +130,9 @@
         "route_order": 3,
         "recommend_reason": "餐后附近散步",
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "parent_anchor": "",
@@ -185,17 +165,9 @@
         "route_order": 4,
         "recommend_reason": "餐后附近散步",
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "parent_anchor": "",
@@ -228,17 +200,9 @@
         "route_order": 5,
         "recommend_reason": "附近散步",
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "parent_anchor": "",
@@ -270,20 +234,8 @@
         "display_order": 6,
         "route_order": 6,
         "recommend_reason": "餐后散散步",
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ],
-        "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ],
+        "matched_keywords": [],
+        "tags": [],
         "parent_anchor": "",
         "visit_duration_min": 60,
         "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
@@ -387,46 +339,26 @@
       {
         "name": "口味兼容备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "口味兼容备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "口味兼容备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "口味兼容备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "口味兼容、川菜、不吃辣、餐厅、附近散步",
@@ -470,16 +402,12 @@
         "matched_keywords": [
           "口味兼容",
           "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "不吃辣"
         ],
         "tags": [
           "口味兼容",
           "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "不吃辣"
         ],
         "photo_url": "https://aos-comment.amap.com/B0FFIINRO2/comment/d1c1d1b034cc4cf65c0845ec4580decd_2048_2048_80.jpg",
         "photo_source": "gaode",
@@ -505,18 +433,10 @@
         "category": "餐饮",
         "rating": 4.5,
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "餐厅"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
+          "餐厅"
         ],
         "photo_url": "https://aos-comment.amap.com/B0FFH0OE12/comment/content_media_external_file_1899351_ss__1757134708591_21184617.jpg",
         "photo_source": "gaode",
@@ -542,17 +462,9 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
@@ -579,17 +491,9 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -616,17 +520,9 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
           "附近散步"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
@@ -652,20 +548,8 @@
         "address": "北京市",
         "category": "风景名胜",
         "rating": 4.5,
-        "matched_keywords": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ],
-        "tags": [
-          "口味兼容",
-          "川菜",
-          "不吃辣",
-          "餐厅",
-          "附近散步"
-        ],
+        "matched_keywords": [],
+        "tags": [],
         "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
         "photo_source": "gaode",
         "photos": [
@@ -826,16 +710,12 @@
               "matched_keywords": [
                 "口味兼容",
                 "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
+                "不吃辣"
               ],
               "tags": [
                 "口味兼容",
                 "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
+                "不吃辣"
               ],
               "photo_url": "https://aos-comment.amap.com/B0FFIINRO2/comment/d1c1d1b034cc4cf65c0845ec4580decd_2048_2048_80.jpg",
               "photo_source": "gaode",
@@ -872,18 +752,10 @@
               "typecode": "050000",
               "category": "餐饮",
               "matched_keywords": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
+                "餐厅"
               ],
               "tags": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
+                "餐厅"
               ],
               "photo_url": "https://aos-comment.amap.com/B0FFH0OE12/comment/content_media_external_file_1899351_ss__1757134708591_21184617.jpg",
               "photo_source": "gaode",
@@ -912,17 +784,9 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "tags": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
@@ -952,17 +816,9 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "tags": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -1000,17 +856,9 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "tags": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
                 "附近散步"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
@@ -1039,20 +887,8 @@
               "gaode_poi_id": "fixed-北小河沿岸步道",
               "typecode": "110000",
               "category": "风景名胜",
-              "matched_keywords": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
-              ],
-              "tags": [
-                "口味兼容",
-                "川菜",
-                "不吃辣",
-                "餐厅",
-                "附近散步"
-              ],
+              "matched_keywords": [],
+              "tags": [],
               "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
               "photo_source": "gaode",
               "photos": [
@@ -1110,16 +946,12 @@
       "matched_keywords": [
         "口味兼容",
         "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
+        "不吃辣"
       ],
       "tags": [
         "口味兼容",
         "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
+        "不吃辣"
       ],
       "photo_url": "https://aos-comment.amap.com/B0FFIINRO2/comment/d1c1d1b034cc4cf65c0845ec4580decd_2048_2048_80.jpg",
       "photo_source": "gaode",
@@ -1142,18 +974,10 @@
       "rating": 4.5,
       "recommend_reason": "附近餐厅备选",
       "matched_keywords": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
+        "餐厅"
       ],
       "tags": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
+        "餐厅"
       ],
       "photo_url": "https://aos-comment.amap.com/B0FFH0OE12/comment/content_media_external_file_1899351_ss__1757134708591_21184617.jpg",
       "photo_source": "gaode",
@@ -1176,17 +1000,9 @@
       "rating": 4.5,
       "recommend_reason": "餐后附近散步",
       "matched_keywords": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "tags": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
@@ -1210,17 +1026,9 @@
       "rating": 4.5,
       "recommend_reason": "餐后附近散步",
       "matched_keywords": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "tags": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -1244,17 +1052,9 @@
       "rating": 4.5,
       "recommend_reason": "附近散步",
       "matched_keywords": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "tags": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
         "附近散步"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
@@ -1277,20 +1077,8 @@
       "typecode": "110000",
       "rating": 4.5,
       "recommend_reason": "餐后散散步",
-      "matched_keywords": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
-      ],
-      "tags": [
-        "口味兼容",
-        "川菜",
-        "不吃辣",
-        "餐厅",
-        "附近散步"
-      ],
+      "matched_keywords": [],
+      "tags": [],
       "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
       "photo_source": "gaode",
       "photos": [

@@ -112,11 +112,19 @@ def build_snapshot(
     points: list[dict[str, Any]],
     keywords: list[str],
 ) -> dict[str, Any]:
+    def poi_keywords(item: dict[str, Any]) -> list[str]:
+        """Keep only route keywords evidenced by this POI's name or reason."""
+        corpus = " ".join([
+            str(item.get("name") or ""),
+            str(item.get("recommend_reason") or ""),
+        ]).lower()
+        return [keyword for keyword in keywords if keyword.lower() in corpus]
+
     for idx, item in enumerate(points):
         item["display_order"] = idx if item["kind"] != "start" else 0
         item["route_order"] = idx
-        item["matched_keywords"] = keywords if item["kind"] != "start" else []
-        item["tags"] = keywords if item["kind"] != "start" else []
+        item["matched_keywords"] = poi_keywords(item) if item["kind"] != "start" else []
+        item["tags"] = list(item["matched_keywords"])
 
     segments: list[dict[str, Any]] = []
     for idx, (source, target) in enumerate(zip(points, points[1:]), start=1):
@@ -221,7 +229,7 @@ def build_snapshot(
     }
 
     candidate_points = [
-        {"name": f"{keywords[0]}备选点{idx}", "kind": "candidate", "matched_keywords": keywords}
+        {"name": f"{keywords[0]}备选点{idx}", "kind": "candidate", "matched_keywords": [], "tags": []}
         for idx in range(1, 5)
     ]
     assistant_message = f"【{title}】\n\n已从北京恒基伟业大厦出发，为你加载预先生成的固定路线。\n命中：{'｜'.join(keywords)}\n路线共 {len(points) - 1} 个游览点，按顺路顺序编排。"

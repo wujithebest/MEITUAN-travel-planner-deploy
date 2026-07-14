@@ -57,16 +57,10 @@
         "recommend_reason": "北京文艺路线、适合拍照",
         "matched_keywords": [
           "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
           "拍照"
         ],
         "tags": [
           "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
           "拍照"
         ],
         "parent_anchor": "",
@@ -99,18 +93,10 @@
         "route_order": 2,
         "recommend_reason": "文艺路线、轻松",
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "文艺路线"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "文艺路线"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -142,18 +128,10 @@
         "route_order": 3,
         "recommend_reason": "晚饭、清淡",
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "清淡"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "清淡"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -185,18 +163,10 @@
         "route_order": 4,
         "recommend_reason": "河边散步",
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -228,18 +198,10 @@
         "route_order": 5,
         "recommend_reason": "河边散步、文艺",
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -271,18 +233,10 @@
         "route_order": 6,
         "recommend_reason": "拍夜景",
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "夜景"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "夜景"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -387,46 +341,26 @@
       {
         "name": "文艺路线备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "文艺路线备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "文艺路线备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "文艺路线备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "文艺路线、清淡、河边散步、夜景、拍照",
@@ -469,16 +403,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
           "拍照"
         ],
         "tags": [
           "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
           "拍照"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
@@ -505,18 +433,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "文艺路线"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "文艺路线"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
         "photo_source": "gaode",
@@ -542,18 +462,10 @@
         "category": "餐饮",
         "rating": 4.5,
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "清淡"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "清淡"
         ],
         "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
         "photo_source": "gaode",
@@ -579,18 +491,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
         "photo_source": "gaode",
@@ -616,18 +520,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "河边散步"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
         "photo_source": "gaode",
@@ -653,18 +549,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "夜景"
         ],
         "tags": [
-          "文艺路线",
-          "清淡",
-          "河边散步",
-          "夜景",
-          "拍照"
+          "夜景"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
         "photo_source": "gaode",
@@ -817,16 +705,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
                 "拍照"
               ],
               "tags": [
                 "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
                 "拍照"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
@@ -856,18 +738,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "文艺路线"
               ],
               "tags": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "文艺路线"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
               "photo_source": "gaode",
@@ -904,18 +778,10 @@
               "typecode": "050000",
               "category": "餐饮",
               "matched_keywords": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "清淡"
               ],
               "tags": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "清淡"
               ],
               "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
               "photo_source": "gaode",
@@ -952,18 +818,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "河边散步"
               ],
               "tags": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "河边散步"
               ],
               "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
               "photo_source": "gaode",
@@ -992,18 +850,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "河边散步"
               ],
               "tags": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "河边散步"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
               "photo_source": "gaode",
@@ -1032,18 +882,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "夜景"
               ],
               "tags": [
-                "文艺路线",
-                "清淡",
-                "河边散步",
-                "夜景",
-                "拍照"
+                "夜景"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
               "photo_source": "gaode",
@@ -1101,16 +943,10 @@
       "recommend_reason": "北京文艺路线、适合拍照",
       "matched_keywords": [
         "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
         "拍照"
       ],
       "tags": [
         "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
         "拍照"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/42a5f4dfacfbf2d38d20905cdc15f5ff",
@@ -1134,18 +970,10 @@
       "rating": 4.5,
       "recommend_reason": "文艺路线、轻松",
       "matched_keywords": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "文艺路线"
       ],
       "tags": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "文艺路线"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/f3e6600aedf04077c58b45297bb2fe58",
       "photo_source": "gaode",
@@ -1168,18 +996,10 @@
       "rating": 4.5,
       "recommend_reason": "晚饭、清淡",
       "matched_keywords": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "清淡"
       ],
       "tags": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "清淡"
       ],
       "photo_url": "https://aos-comment.amap.com/B0H2OSCEJP/comment/content_media_external_images_media_2134138_1662295139314_93314268.jpg",
       "photo_source": "gaode",
@@ -1202,18 +1022,10 @@
       "rating": 4.5,
       "recommend_reason": "河边散步",
       "matched_keywords": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "河边散步"
       ],
       "tags": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "河边散步"
       ],
       "photo_url": "https://comment-oss-online.oss-cn-wulanchabu.aliyuncs.com/B0HDZD0BPT/comment/content_media_external_images_media_83111_1651498221364_0a2bd4a8.jpg",
       "photo_source": "gaode",
@@ -1236,18 +1048,10 @@
       "rating": 4.5,
       "recommend_reason": "河边散步、文艺",
       "matched_keywords": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "河边散步"
       ],
       "tags": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "河边散步"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/3a8f8e0b0d624aad00884514f61ae09e",
       "photo_source": "gaode",
@@ -1270,18 +1074,10 @@
       "rating": 4.5,
       "recommend_reason": "拍夜景",
       "matched_keywords": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "夜景"
       ],
       "tags": [
-        "文艺路线",
-        "清淡",
-        "河边散步",
-        "夜景",
-        "拍照"
+        "夜景"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/85e66fd0c4a08714fc1a01631ba57d5f",
       "photo_source": "gaode",

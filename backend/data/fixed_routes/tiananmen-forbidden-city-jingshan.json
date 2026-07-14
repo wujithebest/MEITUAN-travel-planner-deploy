@@ -56,20 +56,12 @@
         "route_order": 1,
         "recommend_reason": "天安门、附近、顺路",
         "matched_keywords": [
-          "景山公园",
           "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
           "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -101,20 +93,12 @@
         "route_order": 2,
         "recommend_reason": "故宫、附近、顺路",
         "matched_keywords": [
-          "景山公园",
-          "天安门",
           "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
           "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -146,20 +130,10 @@
         "route_order": 3,
         "recommend_reason": "地道北京菜、午餐",
         "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "地道北京菜"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "地道北京菜"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -192,18 +166,10 @@
         "recommend_reason": "景山公园、下午、看日落",
         "matched_keywords": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "tags": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "parent_anchor": "",
@@ -237,18 +203,10 @@
         "recommend_reason": "看日落、景山公园",
         "matched_keywords": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "tags": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "parent_anchor": "",
@@ -281,20 +239,10 @@
         "route_order": 6,
         "recommend_reason": "附近、顺路",
         "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -399,50 +347,26 @@
       {
         "name": "景山公园备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "景山公园备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "景山公园备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "景山公园备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "景山公园、天安门、故宫、地道北京菜、附近、看日落",
@@ -484,20 +408,12 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "景山公园",
           "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
           "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
         "photo_source": "gaode",
@@ -523,20 +439,12 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "景山公园",
-          "天安门",
           "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
           "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
         "photo_source": "gaode",
@@ -562,20 +470,10 @@
         "category": "餐饮",
         "rating": 4.5,
         "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "地道北京菜"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "地道北京菜"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
         "photo_source": "gaode",
@@ -602,18 +500,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "tags": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
@@ -641,18 +531,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "tags": [
           "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
           "看日落"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
@@ -679,20 +561,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "tags": [
-          "景山公园",
-          "天安门",
-          "故宫",
-          "地道北京菜",
-          "附近",
-          "看日落"
+          "附近"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
         "photo_source": "gaode",
@@ -844,20 +716,12 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "景山公园",
                 "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "tags": [
-                "景山公园",
                 "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
               "photo_source": "gaode",
@@ -886,20 +750,12 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "景山公园",
-                "天安门",
                 "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "tags": [
-                "景山公园",
-                "天安门",
                 "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
               "photo_source": "gaode",
@@ -936,20 +792,10 @@
               "typecode": "050000",
               "category": "餐饮",
               "matched_keywords": [
-                "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "地道北京菜"
               ],
               "tags": [
-                "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "地道北京菜"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
               "photo_source": "gaode",
@@ -987,18 +833,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
                 "看日落"
               ],
               "tags": [
                 "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
                 "看日落"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
@@ -1029,18 +867,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
                 "看日落"
               ],
               "tags": [
                 "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
                 "看日落"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
@@ -1078,20 +908,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "tags": [
-                "景山公园",
-                "天安门",
-                "故宫",
-                "地道北京菜",
-                "附近",
-                "看日落"
+                "附近"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
               "photo_source": "gaode",
@@ -1148,20 +968,12 @@
       "rating": 4.5,
       "recommend_reason": "天安门、附近、顺路",
       "matched_keywords": [
-        "景山公园",
         "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "tags": [
-        "景山公园",
         "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "photo_url": "https://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
       "photo_source": "gaode",
@@ -1184,20 +996,12 @@
       "rating": 4.5,
       "recommend_reason": "故宫、附近、顺路",
       "matched_keywords": [
-        "景山公园",
-        "天安门",
         "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "tags": [
-        "景山公园",
-        "天安门",
         "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
       "photo_source": "gaode",
@@ -1220,20 +1024,10 @@
       "rating": 4.5,
       "recommend_reason": "地道北京菜、午餐",
       "matched_keywords": [
-        "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "地道北京菜"
       ],
       "tags": [
-        "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "地道北京菜"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
       "photo_source": "gaode",
@@ -1257,18 +1051,10 @@
       "recommend_reason": "景山公园、下午、看日落",
       "matched_keywords": [
         "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
         "看日落"
       ],
       "tags": [
         "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
         "看日落"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
@@ -1293,18 +1079,10 @@
       "recommend_reason": "看日落、景山公园",
       "matched_keywords": [
         "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
         "看日落"
       ],
       "tags": [
         "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
         "看日落"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/7e238674f2a8cb5e6110bb69ffc118c5",
@@ -1328,20 +1106,10 @@
       "rating": 4.5,
       "recommend_reason": "附近、顺路",
       "matched_keywords": [
-        "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "tags": [
-        "景山公园",
-        "天安门",
-        "故宫",
-        "地道北京菜",
-        "附近",
-        "看日落"
+        "附近"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/5b2e4f5d80ee0c42286de21bc1157257",
       "photo_source": "gaode",

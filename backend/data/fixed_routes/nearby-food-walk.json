@@ -57,15 +57,11 @@
         "recommend_reason": "附近、逛逛、散步",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -98,15 +94,11 @@
         "recommend_reason": "附近、逛逛",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -139,15 +131,11 @@
         "recommend_reason": "附近、好吃的",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "好吃的"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "好吃的"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -180,14 +168,10 @@
         "recommend_reason": "附近、散散步",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "parent_anchor": "",
@@ -221,15 +205,11 @@
         "recommend_reason": "附近、逛逛",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -262,14 +242,10 @@
         "recommend_reason": "附近、散散步",
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "parent_anchor": "",
@@ -375,42 +351,26 @@
       {
         "name": "附近备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "附近备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "附近备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "附近备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "附近、逛逛、好吃的、散散步",
@@ -453,15 +413,11 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
         "photo_source": "gaode",
@@ -488,15 +444,11 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
         "photo_source": "gaode",
@@ -523,15 +475,11 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "好吃的"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "好吃的"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
         "photo_source": "gaode",
@@ -558,14 +506,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -593,15 +537,11 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
-          "散散步"
+          "逛逛"
         ],
         "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
         "photo_source": "gaode",
@@ -628,14 +568,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "tags": [
           "附近",
-          "逛逛",
-          "好吃的",
           "散散步"
         ],
         "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
@@ -789,15 +725,11 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
               "photo_source": "gaode",
@@ -827,15 +759,11 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
               "photo_source": "gaode",
@@ -873,15 +801,11 @@
               "category": "餐饮",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "好吃的"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "好吃的"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
               "photo_source": "gaode",
@@ -919,14 +843,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
                 "散散步"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
                 "散散步"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -957,15 +877,11 @@
               "category": "购物",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
-                "散散步"
+                "逛逛"
               ],
               "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
               "photo_source": "gaode",
@@ -1003,14 +919,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "附近",
-                "逛逛",
-                "好吃的",
                 "散散步"
               ],
               "tags": [
                 "附近",
-                "逛逛",
-                "好吃的",
                 "散散步"
               ],
               "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",
@@ -1069,15 +981,11 @@
       "recommend_reason": "附近、逛逛、散步",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/5e4d47a94a61e9940000003049346583?type=pic",
       "photo_source": "gaode",
@@ -1101,15 +1009,11 @@
       "recommend_reason": "附近、逛逛",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/3ad5738e88f410cbdd3f3e7bf3a0b3e0",
       "photo_source": "gaode",
@@ -1133,15 +1037,11 @@
       "recommend_reason": "附近、好吃的",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "好吃的"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "好吃的"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/ef35f9657c26ee10560f6a21f4905e31",
       "photo_source": "gaode",
@@ -1165,14 +1065,10 @@
       "recommend_reason": "附近、散散步",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
         "散散步"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
         "散散步"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/1a8a4714f28369ba99037e4f7af427ee",
@@ -1197,15 +1093,11 @@
       "recommend_reason": "附近、逛逛",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
-        "散散步"
+        "逛逛"
       ],
       "photo_url": "https://aos-comment.amap.com/BZDCPW020C/comment/82464db51cef9d0690b754a7e860b950_2048_2048_80.jpg",
       "photo_source": "gaode",
@@ -1229,14 +1121,10 @@
       "recommend_reason": "附近、散散步",
       "matched_keywords": [
         "附近",
-        "逛逛",
-        "好吃的",
         "散散步"
       ],
       "tags": [
         "附近",
-        "逛逛",
-        "好吃的",
         "散散步"
       ],
       "photo_url": "https://aos-comment.amap.com/B0FFL6DX6K/comment/content_media_external_file_1000070239_ss__1763530674663_44469627.jpg",

@@ -56,18 +56,10 @@
         "route_order": 1,
         "recommend_reason": "北海公园、先去走走",
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "北海公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "北海公园"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -100,16 +92,10 @@
         "recommend_reason": "北海公园、顺路",
         "matched_keywords": [
           "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
           "顺路"
         ],
         "tags": [
           "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
           "顺路"
         ],
         "parent_anchor": "",
@@ -142,18 +128,10 @@
         "route_order": 3,
         "recommend_reason": "中午、烤鸭",
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "烤鸭"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "烤鸭"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -185,18 +163,10 @@
         "route_order": 4,
         "recommend_reason": "前往三里河公园途中",
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -228,18 +198,10 @@
         "route_order": 5,
         "recommend_reason": "下午、三里河公园",
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -271,18 +233,10 @@
         "route_order": 6,
         "recommend_reason": "三里河公园、散步",
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "parent_anchor": "",
         "visit_duration_min": 60,
@@ -387,46 +341,26 @@
       {
         "name": "北海公园备选点1",
         "kind": "candidate",
-        "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "北海公园备选点2",
         "kind": "candidate",
-        "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "北海公园备选点3",
         "kind": "candidate",
-        "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
-        ]
+        "matched_keywords": [],
+        "tags": []
       },
       {
         "name": "北海公园备选点4",
         "kind": "candidate",
-        "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
-        ]
+        "matched_keywords": [],
+        "tags": []
       }
     ],
     "route_recommend_reason": "北海公园、烤鸭、三里河公园、先后顺序、顺路",
@@ -468,18 +402,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "北海公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "北海公园"
         ],
         "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
         "photo_source": "gaode",
@@ -506,16 +432,10 @@
         "rating": 4.5,
         "matched_keywords": [
           "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
           "顺路"
         ],
         "tags": [
           "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
           "顺路"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
@@ -542,18 +462,10 @@
         "category": "餐饮",
         "rating": 4.5,
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "烤鸭"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "烤鸭"
         ],
         "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
         "photo_source": "gaode",
@@ -579,18 +491,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
         "photo_source": "gaode",
@@ -616,18 +520,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
         "photo_source": "gaode",
@@ -653,18 +549,10 @@
         "category": "风景名胜",
         "rating": 4.5,
         "matched_keywords": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "tags": [
-          "北海公园",
-          "烤鸭",
-          "三里河公园",
-          "先后顺序",
-          "顺路"
+          "三里河公园"
         ],
         "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
         "photo_source": "gaode",
@@ -816,18 +704,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "北海公园"
               ],
               "tags": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "北海公园"
               ],
               "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
               "photo_source": "gaode",
@@ -857,16 +737,10 @@
               "category": "风景名胜",
               "matched_keywords": [
                 "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
                 "顺路"
               ],
               "tags": [
                 "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
                 "顺路"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
@@ -904,18 +778,10 @@
               "typecode": "050000",
               "category": "餐饮",
               "matched_keywords": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "烤鸭"
               ],
               "tags": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "烤鸭"
               ],
               "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
               "photo_source": "gaode",
@@ -952,18 +818,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "tags": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
               "photo_source": "gaode",
@@ -992,18 +850,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "tags": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
               "photo_source": "gaode",
@@ -1040,18 +890,10 @@
               "typecode": "110000",
               "category": "风景名胜",
               "matched_keywords": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "tags": [
-                "北海公园",
-                "烤鸭",
-                "三里河公园",
-                "先后顺序",
-                "顺路"
+                "三里河公园"
               ],
               "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
               "photo_source": "gaode",
@@ -1108,18 +950,10 @@
       "rating": 4.5,
       "recommend_reason": "北海公园、先去走走",
       "matched_keywords": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "北海公园"
       ],
       "tags": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "北海公园"
       ],
       "photo_url": "https://aos-comment.amap.com/B000A84CXD/headerImg/770E9509_88B5_4C96_964E_2F5B46C3F2A6_L0_001__7240072_1660370573863_e7541978.jpg",
       "photo_source": "gaode",
@@ -1143,16 +977,10 @@
       "recommend_reason": "北海公园、顺路",
       "matched_keywords": [
         "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
         "顺路"
       ],
       "tags": [
         "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
         "顺路"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/f12de1ed0ba76f7ee8d6a1997e2d81ab",
@@ -1176,18 +1004,10 @@
       "rating": 4.5,
       "recommend_reason": "中午、烤鸭",
       "matched_keywords": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "烤鸭"
       ],
       "tags": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "烤鸭"
       ],
       "photo_url": "https://aos-comment.amap.com/B0K01Z9FV2/comment/file_media_Photo_5793_IMG_1768193830_6589_IMG_20260112_125530_jpg_ss__1768204551497_51350828.jpg",
       "photo_source": "gaode",
@@ -1210,18 +1030,10 @@
       "rating": 4.5,
       "recommend_reason": "前往三里河公园途中",
       "matched_keywords": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "tags": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/05e07124c0699c350000001173518133?type=pic",
       "photo_source": "gaode",
@@ -1244,18 +1056,10 @@
       "rating": 4.5,
       "recommend_reason": "下午、三里河公园",
       "matched_keywords": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "tags": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
       "photo_source": "gaode",
@@ -1278,18 +1082,10 @@
       "rating": 4.5,
       "recommend_reason": "三里河公园、散步",
       "matched_keywords": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "tags": [
-        "北海公园",
-        "烤鸭",
-        "三里河公园",
-        "先后顺序",
-        "顺路"
+        "三里河公园"
       ],
       "photo_url": "https://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
       "photo_source": "gaode",
