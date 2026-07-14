@@ -1,18 +1,23 @@
 """Build the six immutable demo route snapshots.
 
 The generated JSON files are served read-only by the fixed-route endpoint.
-This script is intentionally offline and deterministic: clicking a demo case
-must never run the normal LLM/POI pipeline.
+The normal build is offline and deterministic: clicking a demo case must never
+run the normal LLM/POI pipeline.  The optional ``--refresh-gaode`` command is
+only used when regenerating the checked-in static route geometry cache.
 """
 from __future__ import annotations
 
+import argparse
+import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "data" / "fixed_routes"
+GEOMETRY_CACHE_PATH = ROOT / "data" / "fixed_route_geometry.json"
 ORIGIN = {
     "label": "北京恒基伟业大厦",
     "city": "北京市",
@@ -67,6 +72,91 @@ def photo_fields(name: str) -> dict[str, Any]:
     }
 
 
+def segment_key(source_name: str, target_name: str) -> str:
+    return f"{source_name}->{target_name}"
+
+
+def load_geometry_cache() -> dict[str, dict[str, dict[str, Any]]]:
+    if not GEOMETRY_CACHE_PATH.exists():
+        return {}
+    try:
+        return json.loads(GEOMETRY_CACHE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"无法读取固定路线高德几何缓存: {GEOMETRY_CACHE_PATH}") from exc
+
+
+def load_gaode_key() -> str:
+    key = os.getenv("GAODE_KEY") or os.getenv("GAODE_API_KEY")
+    if key:
+        return key.strip()
+    env_path = ROOT / ".env"
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith(("GAODE_KEY=", "GAODE_API_KEY=")):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+def merge_step_polylines(steps: list[dict[str, Any]]) -> str:
+    coordinates: list[str] = []
+    for step in steps:
+        raw_polyline = step.get("polyline") or ""
+        for coordinate in raw_polyline.split(";"):
+            coordinate = coordinate.strip()
+            if coordinate and (not coordinates or coordinate != coordinates[-1]):
+                coordinates.append(coordinate)
+    return ";".join(coordinates)
+
+
+async def fetch_geometry_cache() -> dict[str, dict[str, dict[str, Any]]]:
+    import httpx
+
+    api_key = load_gaode_key()
+    if not api_key:
+        raise RuntimeError("未找到 GAODE_KEY，无法刷新高德固定路线几何缓存")
+
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    shared_segments: dict[str, dict[str, Any]] = {}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for fixture_id, _prompt, _title, points, _keywords in ROUTES:
+            fixture_segments: dict[str, dict[str, Any]] = {}
+            for source, target in zip(points, points[1:]):
+                key = segment_key(source["name"], target["name"])
+                if key not in shared_segments:
+                    response = await client.get(
+                        "https://restapi.amap.com/v3/direction/driving",
+                        params={
+                            "key": api_key,
+                            "origin": source["location"],
+                            "destination": target["location"],
+                            "extensions": "all",
+                            "output": "JSON",
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    paths = (payload.get("route") or {}).get("paths") or []
+                    if payload.get("status") != "1" or not paths:
+                        raise RuntimeError(
+                            f"高德驾车路线失败: {source['name']} -> {target['name']} "
+                            f"({payload.get('info', 'unknown')})"
+                        )
+                    path = paths[0]
+                    polyline = merge_step_polylines(path.get("steps") or [])
+                    if len(polyline.split(";")) < 2:
+                        raise RuntimeError(f"高德路线折线为空: {source['name']} -> {target['name']}")
+                    shared_segments[key] = {
+                        "polyline": polyline,
+                        "distance_km": round(float(path.get("distance") or 0) / 1000, 2),
+                        "duration_min": max(1, round(float(path.get("duration") or 0) / 60)),
+                        "polyline_source": "gaode_fixed_snapshot",
+                    }
+                    await asyncio.sleep(0.12)
+                fixture_segments[key] = shared_segments[key]
+            result[fixture_id] = fixture_segments
+    return result
+
+
 def point(
     name: str,
     lng: float,
@@ -111,6 +201,7 @@ def build_snapshot(
     title: str,
     points: list[dict[str, Any]],
     keywords: list[str],
+    geometry_cache: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     def poi_keywords(item: dict[str, Any]) -> list[str]:
         """Keep only route keywords evidenced by this POI's name or reason."""
@@ -131,16 +222,28 @@ def build_snapshot(
         source_lng, source_lat = map(float, source["location"].split(","))
         target_lng, target_lat = map(float, target["location"].split(","))
         distance = round(max(0.25, ((target_lng - source_lng) ** 2 + (target_lat - source_lat) ** 2) ** 0.5 * 92), 2)
+        geometry = ((geometry_cache or {}).get(fixture_id) or {}).get(
+            segment_key(source["name"], target["name"])
+        )
+        if not geometry:
+            raise RuntimeError(
+                f"固定路线缺少高德道路几何: {source['name']} -> {target['name']}。"
+                "请先运行 build_fixed_routes.py --refresh-gaode"
+            )
+        segment_distance = float(geometry["distance_km"])
+        segment_duration = int(geometry["duration_min"])
+        segment_polyline = geometry["polyline"]
+        segment_source = geometry.get("polyline_source", "gaode_fixed_snapshot")
         segments.append({
             "segment_order": idx,
             "day_index": 1,
             "from_poi": source["name"],
             "to_poi": target["name"],
             "transport": "驾车",
-            "duration_min": max(4, int(distance * 4.5)),
-            "distance_km": distance,
-            "polyline": f"{source['location']};{target['location']}",
-            "polyline_source": "fixed_snapshot",
+            "duration_min": segment_duration,
+            "distance_km": segment_distance,
+            "polyline": segment_polyline,
+            "polyline_source": segment_source,
             "period": target.get("display_slot", "morning"),
             "display_slot": target.get("display_slot", "morning"),
             "color": "#E67E22" if idx % 2 else "#2980B9",
@@ -334,9 +437,26 @@ ROUTES = [
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="生成固定路线快照")
+    parser.add_argument(
+        "--refresh-gaode",
+        action="store_true",
+        help="构建阶段调用高德驾车 API，刷新静态路线几何缓存",
+    )
+    args = parser.parse_args()
+
+    geometry_cache = load_geometry_cache()
+    if args.refresh_gaode:
+        geometry_cache = asyncio.run(fetch_geometry_cache())
+        GEOMETRY_CACHE_PATH.write_text(
+            json.dumps(geometry_cache, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print(f"wrote {GEOMETRY_CACHE_PATH}")
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     for fixture_id, prompt_text, title, points, keywords in ROUTES:
-        snapshot = build_snapshot(fixture_id, prompt_text, title, points, keywords)
+        snapshot = build_snapshot(fixture_id, prompt_text, title, points, keywords, geometry_cache)
         filepath = OUTPUT_DIR / f"{fixture_id}.json"
         filepath.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"wrote {filepath} ({len(points) - 1} POIs, {len(snapshot['route_data']['segments'])} segments)")

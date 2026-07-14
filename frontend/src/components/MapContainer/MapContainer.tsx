@@ -608,9 +608,9 @@ export default function MapContainer({
     path: any[], distanceKm?: number, source?: string, degraded?: boolean,
   ): boolean {
     if (!path || path.length < 2) return true;
-    // Fixed demo snapshots intentionally use deterministic endpoint-to-endpoint
-    // segments. They are complete route segments, not degraded fallbacks.
-    if (source === 'fixed_snapshot') return false;
+    // Fixed demo snapshots contain precomputed Amap road geometry and are
+    // complete route segments, not degraded fallbacks.
+    if (source === 'fixed_snapshot' || source === 'gaode_fixed_snapshot') return false;
     if (['fallback_straight', 'route_api_failed', 'invalid_geometry',
       'discontinuous_polyline', 'sparse_polyline'].includes(source || '')) return true;
     if (degraded && path.length <= 3) return true;
