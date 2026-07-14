@@ -214,6 +214,8 @@ def _extract_intent_data(parsed_intent):
         "budget_per_capita": getattr(parsed_intent, 'budget_per_capita', None),
         "transport_hint": getattr(parsed_intent, 'transport_hint', '公共交通'),
         "evening_requested": getattr(parsed_intent, 'evening_requested', False),
+        "nearby_single_meal_request":
+            getattr(parsed_intent, "nearby_single_meal_request", False),
     }
 
     for fp in getattr(parsed_intent, 'fixed_pois', []):
@@ -242,6 +244,7 @@ def _restore_parsed_intent_from_context(intent_data, user_profile=None):
     data.setdefault("poi_query_type", data.get("poi_query_type") or "theme_route")
     data.setdefault("primary_query", data.get("primary_query") or "")
     data.setdefault("plan_mode", data.get("plan_mode") or "exploratory")
+    data.setdefault("nearby_single_meal_request", False)
 
     start_time = data.get("start_time")
     if isinstance(start_time, str) and start_time:
@@ -320,6 +323,7 @@ from services.utils import (
     init_sse_queue,
     get_sse_queue,
     reset_pipeline_stats,
+    record_pipeline_stage,
     SSE_EVENT_STATUS,
     SSE_EVENT_RESULT,
     SSE_EVENT_DONE,
@@ -327,7 +331,7 @@ from services.utils import (
 )
 from services.data_schema import CompletePlan, MicroPOI, RouteSegment, ParsedIntent
 from services.mock_profile import get_mock_profile, build_profile_from_guest
-from services.step1_intent import run_step1
+from services.step1_intent import run_step1, is_nearby_multi_stop_local_request
 from services.step2_macro import run_step2
 from services.step3_micro import run_step3
 from services.step4_output import run_step4
@@ -349,6 +353,7 @@ from services.conversation_replan import (
     is_category_exclusion_decision,
     _detect_category_exclusion,
     PlanningDispatchDecision,
+    decision_from_step1_intent,
 )
 from services.conversation_clarification import (
     clarification_reply,
@@ -378,6 +383,23 @@ def _match_route_point(text: str, names: list[str]) -> str | None:
         if name in text or text in name:
             return name
     return None
+
+
+def _is_nearby_single_meal_request(text: str) -> bool:
+    """v28: Narrow detection for 'nearby + single meal' → planned fast path.
+
+    Returns True only for simple nearby meal queries like '附近找一家饭馆'.
+    Excludes exploration queries with '逛逛/散步/走走/路线/然后/再去'."""
+    text = str(text or "").strip()
+    nearby_terms = ("附近", "周边", "就近", "旁边", "附近的")
+    meal_terms = ("饭馆", "餐馆", "餐厅", "饭店", "吃饭", "用餐", "找一家吃的", "找家饭馆")
+    exploration_terms = ("逛逛", "散步", "走走", "转转", "游玩", "路线", "然后", "再去", "先去", "接着")
+
+    has_nearby = any(term in text for term in nearby_terms)
+    has_meal = any(term in text for term in meal_terms)
+    has_exploration = any(term in text for term in exploration_terms)
+
+    return has_nearby and has_meal and not has_exploration
 
 
 def _looks_like_full_planning_request(text: str) -> bool:
@@ -1410,9 +1432,35 @@ async def _run_pipeline_stream(
                         f"[DEBUG clarification] action=resume_with_context "
                         f"step1_request={step1_request[:120]}"
                     )
+
+            # One LLM Step1 call is now the source of truth for both routing
+            # and structured intent.  Legacy rule/LLM dispatch remains below
+            # only as a failure compatibility path and is skipped here.
+            await emit_status("正在解析您的出行意图...")
+            _step1_started = time.monotonic()
+            parsed_intent = await run_step1(
+                user_request,
+                user_profile,
+                current_time,
+                logger_obj,
+                plan_mode="auto",
+                routing_context=conv_ctx,
+            )
+            record_pipeline_stage("step1_intent", _step1_started)
+            dispatch_decision = decision_from_step1_intent(parsed_intent, conv_ctx)
+            plan_mode_for_step1 = dispatch_decision.target_plan_mode
+            print(
+                "[UnifiedRoutingAudit] source=step1_llm "
+                f"conversation_mode={dispatch_decision.conversation_mode} "
+                f"target_plan_mode={dispatch_decision.target_plan_mode} "
+                f"earliest_step={dispatch_decision.earliest_step} "
+                f"confidence={dispatch_decision.confidence} "
+                f"reason={dispatch_decision.reason}"
+            )
+
             # v21: Also run dispatch when previous messages exist (failed previous turn)
             _has_prev_msgs = bool(route_context and route_context.previous_user_messages)
-            if route_context and (route_context.points or _has_prev_msgs):
+            if route_context and (route_context.points or _has_prev_msgs) and dispatch_decision is None:
                 # v21: Recover pending_plan from previous messages even if route failed
                 if _has_prev_msgs and not route_context.points:
                     print(
@@ -1459,10 +1507,30 @@ async def _run_pipeline_stream(
                         dispatch_decision = _planning_dispatch_fast_fallback(user_request, conv_ctx, None)
                         if dispatch_decision is not None:
                             plan_mode_for_step1 = dispatch_decision.target_plan_mode or "auto"
-            else:
+            elif dispatch_decision is None:
                 # No route context: first message, just detect plan_mode from text
                 target_pm = _detect_plan_mode_from_text(user_request)
-                plan_mode_for_step1 = target_pm
+                _step1_plan_mode = target_pm
+
+                # A multi-stop nearby chain is decided by Step1's LLM contract.
+                # The existing single-meal shortcut stays as a compatibility fallback.
+                if is_nearby_multi_stop_local_request(user_request):
+                    # PlanningDispatchDecision only records an executable final mode,
+                    # while Step1 accepts "auto" and lets the LLM make the decision.
+                    target_pm = "exploratory"
+                    _step1_plan_mode = "auto"
+                    print(
+                        "[RoutingDecisionAudit] stage=router "
+                        "request_kind=nearby_local_chain target_plan_mode=auto source=step1_llm"
+                    )
+                elif _is_nearby_single_meal_request(user_request):
+                    target_pm = "planned"
+                    print(
+                        "[SingleMealPlannedAudit] "
+                        "mode=planned reason=nearby_single_meal_request"
+                    )
+
+                plan_mode_for_step1 = _step1_plan_mode
                 dispatch_decision = PlanningDispatchDecision(
                     conversation_mode="new_plan",
                     target_plan_mode=target_pm,
@@ -1620,13 +1688,11 @@ async def _run_pipeline_stream(
                 else:
                     pass
 
-            # Step 1: 意图识别
-            await emit_status("正在解析您的出行意图...")
-            # [DEBUG-跨时段] 打印实际收到的 user_request
-            print(f"[DEBUG meituan_chat] received step1_request={step1_request[:120]} "
-                  f"plan_mode_for_step1={plan_mode_for_step1}")
-            parsed_intent = await run_step1(
-                step1_request, user_profile, current_time, logger_obj, plan_mode=plan_mode_for_step1
+            # Step1 has already produced both the dispatch decision and parsed
+            # intent above.  Do not make a second LLM call after routing.
+            print(
+                f"[UnifiedRoutingAudit] reuse_step1_intent=true "
+                f"plan_mode={getattr(parsed_intent, 'plan_mode', '')}"
             )
 
             # Step 2: 宏观规划 + Step 3: 微观规划
@@ -1639,8 +1705,18 @@ async def _run_pipeline_stream(
                 getattr(fp, "activity_facet", "") == "shopping_stroll"
                 for fp in (getattr(parsed_intent, "fixed_pois", []) or [])
             )
-            if _has_expansion:
+            # An explicit action chain is a user-authored execution contract.
+            # Its waypoints may widen their own search radius, but that must
+            # not replace the full chain with macro exploration and lose order.
+            if _has_expansion and not getattr(parsed_intent, "execution_contract_required", False):
                 parsed_intent.plan_mode = "exploratory"
+            elif _has_expansion:
+                print(
+                    "[ExecutionContractAudit] expansion_override=skipped "
+                    "reason=preserve_explicit_action_order"
+                )
+
+            _route_plan_started = time.monotonic()
 
             # v21: Utility lookup fast path — restroom/toilet nearby search
             _is_utility = getattr(parsed_intent, 'utility_lookup_requested', False)
@@ -1680,19 +1756,25 @@ async def _run_pipeline_stream(
                     # 调用 planned 专用快速流水线
                     micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points, complete_plan = \
                         await _run_planned_pipeline_fast(parsed_intent, user_profile, complete_plan, logger_obj)
+                    record_pipeline_stage("planned_route", _route_plan_started)
                 else:
                     # ── 自由探索模式：完整 step2 + step3 ──
                     await emit_status("正在查询天气...")
                     await emit_status("正在查询目的地信息...")
+                    _step2_started = time.monotonic()
                     complete_plan = await run_step2(
                         parsed_intent, user_profile, logger_obj
                     )
+                    record_pipeline_stage("step2_macro", _step2_started)
 
                     await emit_status("正在搜索周边好去处...")
                     await emit_status("正在补充目的地详情...")
+                    _step3_started = time.monotonic()
                     result = await run_step3(parsed_intent, complete_plan, logger_obj)
+                    record_pipeline_stage("step3_micro", _step3_started)
                     # step3 返回: (micro_pois, route_segments, map_path, hints, waypoint_annotations, points, candidate_points)
                     micro_pois, route_segments, map_file_path, anchor_hints, waypoint_annotations, route_points, candidate_points = result
+                    record_pipeline_stage("exploratory_route", _route_plan_started)
 
             # v22: Push early route_data immediately after Step3 — don't wait for enrichment
             _early_start = time.monotonic()
@@ -1727,26 +1809,68 @@ async def _run_pipeline_stream(
             print(f"[EarlyRoute] route_ready elapsed_ms={_early_elapsed:.0f} "
                   f"points={len(_early_points)} segments={len(_early_segments)}")
 
-            # v20: Generate per-POI recommendation reasons via DeepSeek (all plan modes)
-            # v21: Skip for utility AND planned mode — planned has deterministic reasons
+            # Step3 has finalised POIs and real route segments. Reasons and
+            # images are independent enrichment tasks, so run them together
+            # rather than making the final response wait for them serially.
             _is_planned = getattr(parsed_intent, 'plan_mode', '') == 'planned'
+            _reason_task = None
+            _reason_started = None
             if route_points and not getattr(parsed_intent, 'utility_lookup_requested', False) and not _is_planned:
-                try:
-                    from services.reason_generator import generate_exploratory_reasons
-                    _city = getattr(parsed_intent, "resolved_city", "") or \
-                            (user_profile.permanent_city[0] if user_profile.permanent_city else "")
-                    route_points = await asyncio.wait_for(
-                        generate_exploratory_reasons(
-                            route_points=route_points,
-                            parsed_intent=parsed_intent,
-                            user_profile=user_profile,
-                            city=_city,
-                            user_request=user_request,
-                        ),
-                        timeout=3.0,  # v22: tightened timeout — don't block route delivery
+                from services.reason_generator import generate_exploratory_reasons
+                _city = getattr(parsed_intent, "resolved_city", "") or \
+                        (user_profile.permanent_city[0] if user_profile.permanent_city else "")
+                _reason_started = time.monotonic()
+                _reason_task = asyncio.create_task(
+                    generate_exploratory_reasons(
+                        route_points=route_points,
+                        parsed_intent=parsed_intent,
+                        user_profile=user_profile,
+                        city=_city,
+                        user_request=user_request,
                     )
+                )
+
+            _photo_task = None
+            _photo_started = None
+            # Only enrich POIs which the client can render.  Internal route
+            # markers never show a picture, so querying them only adds latency.
+            _photo_targets = [
+                point for point in route_points
+                if point.get("kind") not in {"start", "origin", "hint", "free_explore", "route_only", "traffic", "empty"}
+                and bool(point.get("is_display_poi", point.get("is_waypoint", True)))
+            ]
+            if _photo_targets:
+                from services.poi_photo_service import enrich_points_with_photos
+                _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
+                _photo_started = time.monotonic()
+                _photo_task = asyncio.create_task(
+                    enrich_points_with_photos(_photo_targets, city=_photo_city)
+                )
+
+            if _reason_task is not None:
+                try:
+                    route_points = await asyncio.wait_for(_reason_task, timeout=5.5)
                 except Exception as _re:
                     print(f"[ReasonGen] generation failed (non-blocking): {_re}")
+                finally:
+                    record_pipeline_stage("reason_generation", _reason_started)
+
+            if _photo_task is not None:
+                try:
+                    _photo_points = await _photo_task
+                    _photo_by_key = {
+                        str(point.get("poi_id") or point.get("name") or ""): point
+                        for point in (_photo_points or [])
+                    }
+                    for point in route_points:
+                        source = _photo_by_key.get(str(point.get("poi_id") or point.get("name") or ""))
+                        if source and source.get("photo_url"):
+                            point["photo_url"] = source["photo_url"]
+                            point["photo_source"] = source.get("photo_source", "")
+                except Exception as _photo_exc:
+                    print(f"[PhotoEnrichment] failed (non-blocking): {_photo_exc}")
+                finally:
+                    record_pipeline_stage("photo_enrichment", _photo_started)
 
             # Step 4: 生成输出
             # 注意：run_step4 内部会发送 "正在生成行程方案..."、"路线规划完成！" 和 emit_done
@@ -1759,8 +1883,10 @@ async def _run_pipeline_stream(
                 route_points=route_points,  # 传递路线点用于前端验证
                 candidate_points=candidate_points,  # v6: 传递候选 POI 点
                 user_request=user_request,
+                enrich_photos=False,
             )
             _enrich_elapsed = (time.monotonic() - _enrich_start) * 1000
+            record_pipeline_stage("output_assembly", _enrich_start)
             print(f"[Enrichment] complete elapsed_ms={_enrich_elapsed:.0f}")
 
         except ZeroOutputError as exc:
@@ -2438,6 +2564,18 @@ async def _run_planned_pipeline_fast(
             f"请修改区域或目标类型后重试。"
         )
 
+    if getattr(parsed_intent, "execution_contract_required", False):
+        missing = [
+            (wp.name or wp.search_keyword or "途经点")
+            for wp in resolved_wps
+            if not getattr(wp, "resolved_location", None)
+        ]
+        if missing:
+            raise ZeroOutputError(
+                "未能满足以下明确行程需求：" + "、".join(missing) + "。"
+                "已保留其他行程要求，请调整该地点或目标类型后重试。"
+            )
+
     # 2. 判断时间标签
     current_time = getattr(parsed_intent, 'start_time', None)
     meal_label = _infer_meal_label_from_time(current_time) if current_time else ""
@@ -2473,13 +2611,17 @@ async def _run_planned_pipeline_fast(
     if not complete_plan.day_plans:
         complete_plan.day_plans = [DayPlan(day_index=1, anchors=[], meal_slots=[])]
 
-    # 6. v21: Timeline completion — auto-insert meals/gaps before segments
-    from services.timeline_completion import complete_route_timeline
-    _city = getattr(parsed_intent, "resolved_city", "") or (
-        user_profile.permanent_city[0] if user_profile.permanent_city else "")
-    route_points = await complete_route_timeline(
-        route_points, parsed_intent, user_profile, _city,
-    )
+    # Auto timeline filling is useful for broad plans but must never insert or
+    # reorder stops inside an explicit user action chain.
+    if not getattr(parsed_intent, "execution_contract_required", False):
+        from services.timeline_completion import complete_route_timeline
+        _city = getattr(parsed_intent, "resolved_city", "") or (
+            user_profile.permanent_city[0] if user_profile.permanent_city else "")
+        route_points = await complete_route_timeline(
+            route_points, parsed_intent, user_profile, _city,
+        )
+    else:
+        print("[ExecutionContractAudit] timeline_completion=skipped reason=preserve_explicit_waypoint_order")
 
     # 7. 生成 route_segments
     await emit_status("正在规划路线...")

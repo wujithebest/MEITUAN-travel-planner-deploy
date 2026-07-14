@@ -1,0 +1,29 @@
+{
+  "case_id": "S24",
+  "profile": "P-SH-LOCAL",
+  "message": "待会儿想在附近找个地方吃饭，饭后走一走。",
+  "expected": "immediate nearby meal + walk.",
+  "hard_constraints": "Food and walk are both near origin.",
+  "wall_clock_ms": 70516,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "PASS",
+    "checks": [
+      "可见 POI 3 个",
+      "路线段完整：2/2"
+    ],
+    "visible_poi_count": 3,
+    "polyline_segment_count": 2,
+    "poi_names": [
+      "克劳森精酿",
+      "筷子兄弟餐厅(同进理想城店)",
+      "天扬泳健会"
+    ],
+    "missed_anchors": [],
+    "missing_feature_evidence": []
+  }
+}

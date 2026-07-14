@@ -264,7 +264,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "afternoon",
         "display_slot": "afternoon",
-        "color": "#E67E22"
+        "color": "#2980B9"
       },
       {
         "segment_order": 2,
@@ -292,7 +292,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "dinner",
         "display_slot": "dinner",
-        "color": "#E67E22"
+        "color": "#C0392B"
       },
       {
         "segment_order": 4,
@@ -306,7 +306,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       },
       {
         "segment_order": 5,
@@ -320,7 +320,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#E67E22"
+        "color": "#8E44AD"
       },
       {
         "segment_order": 6,
@@ -334,7 +334,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       }
     ],
     "candidate_points": [
@@ -578,7 +578,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "afternoon",
         "display_slot": "afternoon",
-        "color": "#E67E22"
+        "color": "#2980B9"
       },
       {
         "segment_order": 2,
@@ -606,7 +606,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "dinner",
         "display_slot": "dinner",
-        "color": "#E67E22"
+        "color": "#C0392B"
       },
       {
         "segment_order": 4,
@@ -620,7 +620,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       },
       {
         "segment_order": 5,
@@ -634,7 +634,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#E67E22"
+        "color": "#8E44AD"
       },
       {
         "segment_order": 6,
@@ -648,7 +648,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       }
     ],
     "center": [

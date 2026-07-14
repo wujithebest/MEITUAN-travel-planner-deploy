@@ -7,6 +7,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { sendMeituanMessageStream, extractMeituanMapData, MeituanRouteData, GuestProfile, ChatRouteContext } from '@/api/meituanChat';
 import { useRouteStore } from '@/store/routeStore';
+import { getRoutePeriodColor } from '@/utils/routePeriod';
 import { useUserStore } from '@/store/userStore';
 import { FALLBACK_HOME_LOCATION, normalizeLocationPayload } from '@/utils/locationDefaults';
 import type { CompletePlan, DayPlan, TimeSlot, TimeSlotType, Activity, RestaurantRecommendation, POI } from '@/types/plan';
@@ -1070,6 +1071,29 @@ export function useChat(): UseChatReturn {
       return pt.is_display_poi !== false && pt.is_waypoint !== false && !!pt.name;
     });
 
+    // Normalize location to {lng, lat} | null so backend never receives a raw
+    // Gaode "lng,lat" string that would crash .get()-based dict access.
+    const normalizeRouteContextLocation = (value: unknown): { lng: number; lat: number } | null => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const raw = value as Record<string, unknown>;
+        const lng = Number(raw.lng ?? raw.longitude);
+        const lat = Number(raw.lat ?? raw.latitude);
+        return Number.isFinite(lng) && Number.isFinite(lat) ? { lng, lat } : null;
+      }
+      if (typeof value === 'string') {
+        const [lngRaw, latRaw] = value.split(',').map(item => Number(item.trim()));
+        return Number.isFinite(lngRaw) && Number.isFinite(latRaw)
+          ? { lng: lngRaw, lat: latRaw }
+          : null;
+      }
+      return null;
+    };
+
+    const contextPoints = displayPoints.map((pt: any) => ({
+      ...pt,
+      location: normalizeRouteContextLocation(pt.location),
+    }));
+
     const pointNames = [...new Set(displayPoints.map((pt: any) => String(pt.name || '').trim()).filter(Boolean))];
     const candidateNames: string[] = [];
     const markers = Array.isArray(mapRouteData?.markers) ? mapRouteData.markers : [];
@@ -1089,7 +1113,7 @@ export function useChat(): UseChatReturn {
       route_id: routeId,
       point_names: pointNames,
       candidate_names: [...new Set(candidateNames)],
-      points: displayPoints,
+      points: contextPoints,
       segments: rawSegments.map((seg: any) => ({
         from_poi: seg.from_poi,
         to_poi: seg.to_poi,
@@ -1278,11 +1302,7 @@ export function useChat(): UseChatReturn {
                 
                 if (routeData) {
                   // 转换 segments 为 polylines
-                  // 颜色优先级: seg.color > route_color > strokeColor > period映射 > transport fallback
-                  const PERIOD_COLOR_MAP: Record<string, string> = {
-                    morning: '#E67E22', lunch: '#D35400', afternoon: '#2980B9',
-                    dinner: '#C0392B', evening: '#8E44AD', half_day: '#E67E22',
-                  };
+                  // 时间段是路线颜色的权威来源；旧快照中的颜色仅作为兼容回退。
                   const LINE_COLORS = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#E74C3C', '#F39C12'];
                   const polylines = (routeData.segments || [])
                     .filter((seg: any) => {
@@ -1317,11 +1337,8 @@ export function useChat(): UseChatReturn {
                       polylineStr = seg.polyline;
                     }
                     // 颜色优先级链
-                    let segColor = seg.color || seg.route_color || seg.strokeColor || '';
-                    if (!segColor) {
-                      const period = seg.period || seg.slot || '';
-                      segColor = PERIOD_COLOR_MAP[period] || '';
-                    }
+                    const period = seg.display_slot || seg.period || seg.slot || '';
+                    let segColor = getRoutePeriodColor(period) || seg.color || seg.route_color || seg.strokeColor || '';
                     if (!segColor) {
                       segColor = LINE_COLORS[sIdx % LINE_COLORS.length];
                     }

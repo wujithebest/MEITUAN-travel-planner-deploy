@@ -1,0 +1,513 @@
+{
+  "type": "complete",
+  "content": {
+    "map_paths": [],
+    "full_plan": {
+      "summary": "为您规划了小半天的上海市之旅，从上海桃浦出发，串联袁记云饺(上海市普陀区雪松路店)到绿杨路街角公园。",
+      "city": "上海市",
+      "duration": "a quarter day",
+      "time_budget": 0.5,
+      "days": [
+        {
+          "day_index": 1,
+          "anchors": [],
+          "meal_slots": []
+        }
+      ]
+    },
+    "route_data": {
+      "points": [
+        {
+          "poi_id": "start:121.352,31.281",
+          "gaode_poi_id": "start:121.352,31.281",
+          "name": "起点·上海桃浦",
+          "location": {
+            "lat": 31.281,
+            "lng": 121.352
+          },
+          "kind": "start",
+          "day": 1,
+          "typecode": "",
+          "category": "",
+          "address": "",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 1,
+          "display_order": 0,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "起点",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0JD0SQNR3",
+          "gaode_poi_id": "B0JD0SQNR3",
+          "name": "袁记云饺(上海市普陀区雪松路店)",
+          "location": {
+            "lat": 31.283037,
+            "lng": 121.354103
+          },
+          "kind": "meal",
+          "day": 1,
+          "typecode": "050100",
+          "category": "meal",
+          "address": "雪松路333号附近",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "https://store.is.autonavi.com/showpic/24d8c4f250f7147f3ac600fc4842f0ff?operate=original?operate=original?operate=original?operate=original",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“附近”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 2,
+          "display_order": 1,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0LG0R6NLO",
+          "gaode_poi_id": "B0LG0R6NLO",
+          "name": "绿杨路街角公园",
+          "location": {
+            "lat": 31.284773,
+            "lng": 121.353127
+          },
+          "kind": "visit",
+          "day": 1,
+          "typecode": "110101",
+          "category": "visit",
+          "address": "绿杨路与雪松路交叉口西南20米",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "https://store.is.autonavi.com/showpic/840907fea8043cd0de74e53d15b7ce4a",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 3,
+          "display_order": 2,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        }
+      ],
+      "segments": [
+        {
+          "from_poi": "起点·上海桃浦",
+          "to_poi": "袁记云饺(上海市普陀区雪松路店)",
+          "day_index": 1,
+          "transport": "步行",
+          "duration_min": 6.5,
+          "distance_km": 0.49,
+          "polyline": [
+            [
+              31.281003,
+              121.351975
+            ],
+            [
+              31.281085,
+              121.351988
+            ],
+            [
+              31.28092,
+              121.353199
+            ],
+            [
+              31.281133,
+              121.353242
+            ],
+            [
+              31.280968,
+              121.354427
+            ],
+            [
+              31.283021,
+              121.354019
+            ]
+          ],
+          "period": "lunch",
+          "color": "#D35400",
+          "is_dashed": false,
+          "segment_order": 1,
+          "from_order": 1,
+          "to_order": 2,
+          "from_display_order": 0,
+          "to_display_order": 1,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        },
+        {
+          "from_poi": "袁记云饺(上海市普陀区雪松路店)",
+          "to_poi": "绿杨路街角公园",
+          "day_index": 1,
+          "transport": "步行",
+          "duration_min": 3.4,
+          "distance_km": 0.25,
+          "polyline": [
+            [
+              31.283021,
+              121.354015
+            ],
+            [
+              31.283889,
+              121.353832
+            ],
+            [
+              31.284431,
+              121.35362
+            ],
+            [
+              31.284996,
+              121.353264
+            ],
+            [
+              31.284896,
+              121.353051
+            ]
+          ],
+          "period": "afternoon",
+          "color": "#2980B9",
+          "is_dashed": false,
+          "segment_order": 2,
+          "from_order": 2,
+          "to_order": 3,
+          "from_display_order": 1,
+          "to_display_order": 2,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        }
+      ],
+      "hints": {},
+      "waypoint_annotations": {
+        "起点·上海桃浦": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "袁记云饺(上海市普陀区雪松路店)": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "绿杨路街角公园": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        }
+      },
+      "route_id": "940bfa1a-6d8c-4385-8f9a-cb6d61cdd44a",
+      "candidate_points": [
+        {
+          "poi_id": "B0LB9DXRNA",
+          "gaode_poi_id": "B0LB9DXRNA",
+          "name": "上海市外环环城林带启动石",
+          "lat": 31.283647,
+          "lng": 121.357163,
+          "location": {
+            "lat": 31.283647,
+            "lng": 121.357163
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110200",
+          "category": "110200",
+          "address": "启动林公园内",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 1,
+          "target_label": "公园",
+          "display_slot": "",
+          "candidate_score": 0.0,
+          "distance": 572
+        },
+        {
+          "poi_id": "B0IKJC7KOC",
+          "gaode_poi_id": "B0IKJC7KOC",
+          "name": "启动林公园",
+          "lat": 31.284134,
+          "lng": 121.357036,
+          "location": {
+            "lat": 31.284134,
+            "lng": 121.357036
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110101",
+          "category": "110101",
+          "address": "绿杨路与雪松路交叉口东380米",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 1,
+          "target_label": "公园",
+          "display_slot": "",
+          "candidate_score": 0.0,
+          "distance": 592
+        }
+      ],
+      "plan_mode": "planned",
+      "total_days": 1,
+      "display_granularity": "short",
+      "planning_state": {
+        "plan_mode": "planned",
+        "parsed_intent": {
+          "duration": "a quarter day",
+          "start_time": "2026-07-14T15:53:00+00:00",
+          "raw_keywords": [
+            "附近",
+            "吃饭",
+            "饭后",
+            "走一走"
+          ],
+          "search_keywords": [
+            "上海 餐厅",
+            "上海 美食",
+            "上海 小吃",
+            "上海 咖啡",
+            "上海 甜品",
+            "上海 购物中心",
+            "上海 商场",
+            "上海 公园"
+          ],
+          "micro_keywords": [
+            "餐厅",
+            "小吃",
+            "咖啡",
+            "商场",
+            "公园",
+            "绿地",
+            "街区",
+            "散步"
+          ],
+          "fixed_pois": [],
+          "delete_list": [],
+          "food_pref_keywords": [
+            "好吃的",
+            "餐厅",
+            "美食",
+            "小吃"
+          ],
+          "meal_search_keywords": [
+            "附近",
+            "吃饭",
+            "好吃的 餐厅",
+            "餐厅 餐厅"
+          ],
+          "budget_per_capita": null,
+          "transport_hint": "公共交通",
+          "evening_requested": false,
+          "plan_mode": "planned",
+          "planned_waypoints": [
+            {
+              "type": "placeholder",
+              "name": null,
+              "search_keyword": "附近",
+              "category": "meal",
+              "stay_minutes": 50,
+              "search_keywords": [
+                "附近",
+                "附近 餐厅",
+                "附近店"
+              ]
+            },
+            {
+              "type": "placeholder",
+              "name": null,
+              "search_keyword": "公园",
+              "category": "visit",
+              "stay_minutes": 45,
+              "search_keywords": [
+                "公园",
+                "滨江步道",
+                "步行街",
+                "绿地"
+              ]
+            }
+          ]
+        }
+      },
+      "parsed_intent": {
+        "duration": "a quarter day",
+        "start_time": "2026-07-14T15:53:00+00:00",
+        "raw_keywords": [
+          "附近",
+          "吃饭",
+          "饭后",
+          "走一走"
+        ],
+        "search_keywords": [
+          "上海 餐厅",
+          "上海 美食",
+          "上海 小吃",
+          "上海 咖啡",
+          "上海 甜品",
+          "上海 购物中心",
+          "上海 商场",
+          "上海 公园"
+        ],
+        "micro_keywords": [
+          "餐厅",
+          "小吃",
+          "咖啡",
+          "商场",
+          "公园",
+          "绿地",
+          "街区",
+          "散步"
+        ],
+        "fixed_pois": [],
+        "delete_list": [],
+        "food_pref_keywords": [
+          "好吃的",
+          "餐厅",
+          "美食",
+          "小吃"
+        ],
+        "meal_search_keywords": [
+          "附近",
+          "吃饭",
+          "好吃的 餐厅",
+          "餐厅 餐厅"
+        ],
+        "budget_per_capita": null,
+        "transport_hint": "公共交通",
+        "evening_requested": false,
+        "plan_mode": "planned",
+        "planned_waypoints": [
+          {
+            "type": "placeholder",
+            "name": null,
+            "search_keyword": "附近",
+            "category": "meal",
+            "stay_minutes": 50,
+            "search_keywords": [
+              "附近",
+              "附近 餐厅",
+              "附近店"
+            ]
+          },
+          {
+            "type": "placeholder",
+            "name": null,
+            "search_keyword": "公园",
+            "category": "visit",
+            "stay_minutes": 45,
+            "search_keywords": [
+              "公园",
+              "滨江步道",
+              "步行街",
+              "绿地"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "progress": 100,
+  "stats": {
+    "elapsed_seconds": 29.1,
+    "deepseek_calls": 1,
+    "deepseek_prompt_tokens": 2098,
+    "deepseek_completion_tokens": 524,
+    "total_tokens": 2622,
+    "gaode_calls": 13,
+    "bocha_calls": 0,
+    "stage_durations_ms": {
+      "step1_intent": 13956,
+      "planned_route": 13519,
+      "photo_enrichment": 1645,
+      "output_assembly": 1
+    }
+  }
+}

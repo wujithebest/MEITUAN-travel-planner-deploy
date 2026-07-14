@@ -1,0 +1,106 @@
+{
+  "case_id": "S02",
+  "input": "想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落",
+  "expected": {
+    "path": "full_llm"
+  },
+  "baseline": {
+    "duration_ms": 44771,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a full day",
+      "raw_keywords": [
+        "天安门",
+        "故宫",
+        "北京菜",
+        "景山公园",
+        "日落"
+      ],
+      "search_keywords": [
+        "天安门",
+        "故宫",
+        "北京菜 餐厅",
+        "景山公园",
+        "日落 观景"
+      ],
+      "waypoints": [
+        {
+          "name": "天安门",
+          "search_keyword": null,
+          "category": "visit"
+        },
+        {
+          "name": "故宫",
+          "search_keyword": null,
+          "category": "visit"
+        },
+        {
+          "name": null,
+          "search_keyword": "北京菜",
+          "category": "meal"
+        },
+        {
+          "name": "景山公园",
+          "search_keyword": null,
+          "category": "visit"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {}
+    }
+  },
+  "sparse": {
+    "duration_ms": 20940,
+    "path": "full_llm",
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a full day",
+      "raw_keywords": [
+        "天安门",
+        "故宫",
+        "北京菜",
+        "景山公园",
+        "日落"
+      ],
+      "search_keywords": [
+        "天安门 攻略",
+        "故宫 攻略",
+        "北京菜 餐厅",
+        "景山公园 攻略",
+        "日落 观景"
+      ],
+      "waypoints": [
+        {
+          "name": "天安门",
+          "search_keyword": "天安门",
+          "category": "visit"
+        },
+        {
+          "name": "故宫",
+          "search_keyword": "故宫",
+          "category": "visit"
+        },
+        {
+          "name": null,
+          "search_keyword": "北京菜",
+          "category": "meal"
+        },
+        {
+          "name": "景山公园",
+          "search_keyword": "景山公园",
+          "category": "visit"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "path": true
+      }
+    }
+  }
+}

@@ -579,7 +579,7 @@ def validate_plan_reality(
     if _min_visible and visible_count < _min_visible:
         violations.append(f"min_visible_poi_missing:{visible_count}<{_min_visible}")
 
-    return PlanRealityResult(
+    result = PlanRealityResult(
         valid=len(violations) == 0,
         primary_intent_coverage=(
             primary_count / max(visible_count, 1) if visible_count > 0 else 0.0
@@ -594,6 +594,13 @@ def validate_plan_reality(
         violations=violations,
         feature_evidence=feature_evidence,
     )
+    try:
+        from .evaluation_hooks import record_plan_reality
+
+        record_plan_reality(result)
+    except Exception:
+        pass
+    return result
 
 
 def plan_reality_audit_log(

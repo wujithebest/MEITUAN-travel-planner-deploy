@@ -1,0 +1,39 @@
+{
+  "case_id": "S15",
+  "profile": "P-BJ-ART",
+  "message": "周末和朋友在北京轻松逛一天，想拍照、喝咖啡、不要太赶。",
+  "expected": "relaxed photo and coffee day.",
+  "hard_constraints": "Photo + coffee + relaxed pace; no forced fixed anchor.",
+  "wall_clock_ms": 161441,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {
+    "step1_intent": 76536,
+    "step2_macro": 16078,
+    "step3_micro": 56134,
+    "exploratory_route": 72213,
+    "reason_generation": 5003,
+    "photo_enrichment": 12360
+  },
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "PASS",
+    "checks": [
+      "可见 POI 5 个",
+      "路线段完整：5/4",
+      "需求证据可见：咖啡、拍照"
+    ],
+    "visible_poi_count": 5,
+    "polyline_segment_count": 5,
+    "poi_names": [
+      "瑞幸咖啡(北京绿地中心店)",
+      "星巴克(北京望京东路咖啡店)",
+      "瑞幸咖啡(北京服装学院樱花店)",
+      "樱花宾馆-咖啡厅",
+      "噫吁唏艺术馆"
+    ],
+    "missed_anchors": [],
+    "missing_feature_evidence": []
+  }
+}

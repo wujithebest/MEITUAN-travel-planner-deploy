@@ -1,0 +1,1125 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 3040,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 3040,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 3041,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 26149,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 26150,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 29158,
+    "data": {
+      "type": "status",
+      "msg": "正在为您精准规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 29159,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索您的目标地点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 41317,
+    "data": {
+      "type": "status",
+      "msg": "正在规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 52547,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"poi_id\": \"start:116.4123,39.9059\", \"gaode_poi_id\": \"\", \"name\": \"起点·北京饭店\", \"location\": {\"lat\": 39.9059, \"lng\": 116.4123}, \"kind\": \"start\", \"day\": 1, \"is_waypoint\": true, \"is_display_poi\": false, \"is_candidate\": false, \"is_start\": true, \"target_index\": -1, \"display_order\": 0, \"route_order\": 0, \"display_label\": \"起点\", \"plan_mode\": \"planned\"}, {\"poi_id\": \"B000A60DA1\", \"gaode_poi_id\": \"B000A60DA1\", \"name\": \"天安门\", \"lat\": 39.909187, \"lng\": 116.397463, \"location\": {\"lat\": 39.909187, \"lng\": 116.397463}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110202\", \"category\": \"visit\", \"address\": \"长安街北侧\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/17a36a737908810a310387c7d53e878a\", \"photo_source\": \"gaode\", \"recommend_reason\": \"匹配理由：符合“天安门”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 0, \"target_label\": \"天安门\", \"display_slot\": \"\", \"display_order\": 1, \"route_order\": 1, \"stay_minutes\": 90, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B000A8UIN8\", \"gaode_poi_id\": \"B000A8UIN8\", \"name\": \"故宫博物院\", \"lat\": 39.917839, \"lng\": 116.397029, \"location\": {\"lat\": 39.917839, \"lng\": 116.397029}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110201|140100\", \"category\": \"visit\", \"address\": \"景山前街4号\", \"rating\": \"4.9\", \"gaode_rating\": \"4.9\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79\", \"photo_source\": \"gaode\", \"recommend_reason\": \"匹配理由：符合“故宫”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 1, \"target_label\": \"故宫\", \"display_slot\": \"\", \"display_order\": 2, \"route_order\": 2, \"stay_minutes\": 90, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0FFFTCGNX\", \"gaode_poi_id\": \"B0FFFTCGNX\", \"name\": \"景运门故宫餐厅\", \"lat\": 39.918509, \"lng\": 116.398455, \"location\": {\"lat\": 39.918509, \"lng\": 116.398455}, \"kind\": \"meal\", \"day\": 1, \"typecode\": \"050100\", \"category\": \"meal\", \"address\": \"故宫博物院内(保和殿东侧景运门外、钟表馆对面)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 2, \"target_label\": \"餐厅\", \"display_slot\": \"\", \"display_order\": 3, \"route_order\": 3, \"stay_minutes\": 50, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B000A7I1OL\", \"gaode_poi_id\": \"B000A7I1OL\", \"name\": \"景山公园\", \"lat\": 39.925875, \"lng\": 116.396551, \"location\": {\"lat\": 39.925875, \"lng\": 116.396551}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110101\", \"category\": \"visit\", \"address\": \"景山西街44号\", \"rating\": \"4.8\", \"gaode_rating\": \"4.8\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef\", \"photo_source\": \"gaode\", \"recommend_reason\": \"匹配理由：符合“景山公园”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 3, \"target_label\": \"景山公园\", \"display_slot\": \"afternoon\", \"display_order\": 4, \"route_order\": 4, \"stay_minutes\": 90, \"plan_mode\": \"planned\"}], \"segments\": [{\"from_poi\": \"起点·北京饭店\", \"to_poi\": \"天安门\", \"day_index\": 1, \"transport\": \"地铁/公交\", \"duration_min\": 20.9, \"distance_km\": 2.0, \"polyline\": [[39.905735, 116.412308], [39.905708, 116.411598], [39.907829, 116.411499], [39.90807, 116.412148], [39.907955, 116.397499], [39.909184, 116.397446]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"天安门\", \"to_poi\": \"故宫博物院\", \"day_index\": 1, \"transport\": \"自驾\", \"duration_min\": 8.1, \"distance_km\": 1.51, \"polyline\": [[39.909186, 116.397439], [39.912766, 116.397276], [39.912729, 116.396332], [39.913539, 116.396273], [39.913646, 116.396155], [39.913523, 116.392936], [39.913587, 116.392759], [39.914831, 116.392646], [39.914869, 116.39343], [39.915202, 116.393263], [39.916666, 116.393215], [39.917015, 116.393285], [39.917079, 116.395516]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"故宫博物院\", \"to_poi\": \"景运门故宫餐厅\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 4.6, \"distance_km\": 0.35, \"polyline\": [[39.91783, 116.396862], [39.918203, 116.39684], [39.918238, 116.396623], [39.918511, 116.396602], [39.918546, 116.396914], [39.918854, 116.396888], [39.918906, 116.398646], [39.918529, 116.398615]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"景运门故宫餐厅\", \"to_poi\": \"景山公园\", \"day_index\": 1, \"transport\": \"自驾\", \"duration_min\": 17.4, \"distance_km\": 2.5, \"polyline\": [[39.917149, 116.39976], [39.917165, 116.40042], [39.916977, 116.400425], [39.91687, 116.40028], [39.916752, 116.400441], [39.915105, 116.400521], [39.915175, 116.402978], [39.919654, 116.402785], [39.923576, 116.402511], [39.923398, 116.396756], [39.923747, 116.396766], [39.924005, 116.398301], [39.924198, 116.398875], [39.924439, 116.399078], [39.924885, 116.399164], [39.92526, 116.399003], [39.925217, 116.398617], [39.925287, 116.397952], [39.925528, 116.397394], [39.925673, 116.397308], [39.925845, 116.397002], [39.925831, 116.396566]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}], \"candidate_points\": [{\"poi_id\": \"B000A83C1S\", \"gaode_poi_id\": \"B000A83C1S\", \"name\": \"天安门广场\", \"lat\": 39.903182, \"lng\": 116.397755, \"location\": {\"lat\": 39.903182, \"lng\": 116.397755}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110210|110105\", \"category\": \"110210|110105\", \"address\": \"东长安街\", \"rating\": \"4.9\", \"gaode_rating\": \"4.9\", \"avg_cost\": null, \"photo_url\": \"http://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"天安门\", \"display_slot\": \"\", \"candidate_score\": 4.9, \"distance\": 1276}, {\"poi_id\": \"BV10006499\", \"gaode_poi_id\": \"BV10006499\", \"name\": \"天安门东(地铁站)\", \"lat\": 39.90778, \"lng\": 116.401216, \"location\": {\"lat\": 39.90778, \"lng\": 116.401216}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"150500\", \"category\": \"150500\", \"address\": \"1号线/八通线\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/9fb9a485ec5c22cf6526f24346c9a228\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"天安门\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 968}, {\"poi_id\": \"B0FFFRLTUT\", \"gaode_poi_id\": \"B0FFFRLTUT\", \"name\": \"天安门广场-国旗\", \"lat\": 39.906928, \"lng\": 116.397554, \"location\": {\"lat\": 39.906928, \"lng\": 116.397554}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110200\", \"category\": \"110200\", \"address\": \"东华门街道景山前街4号天安门广场内(北侧)\", \"rating\": \"4.7\", \"gaode_rating\": \"4.7\", \"avg_cost\": null, \"photo_url\": \"https://store.is.autonavi.com/showpic/179cea10d65c7e055f0483b200ea651d\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"天安门\", \"display_slot\": \"\", \"candidate_score\": 4.7, \"distance\": 1262}, {\"poi_id\": \"B000A84GDN\", \"gaode_poi_id\": \"B000A84GDN\", \"name\": \"故宫博物院-午门\", \"lat\": 39.913582, \"lng\": 116.397228, \"location\": {\"lat\": 39.913582, \"lng\": 116.397228}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110200\", \"category\": \"110200\", \"address\": \"东华门街道景山前街4号故宫博物院内(南侧)\", \"rating\": \"3.8\", \"gaode_rating\": \"3.8\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/dcd78b35cb123744056c03072ecdea17\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"故宫\", \"display_slot\": \"\", \"candidate_score\": 3.8, \"distance\": 1543}, {\"poi_id\": \"B0FFKL520U\", \"gaode_poi_id\": \"B0FFKL520U\", \"name\": \"故宫博物院检票处\", \"lat\": 39.913619, \"lng\": 116.396952, \"location\": {\"lat\": 39.913619, \"lng\": 116.396952}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"070000\", \"category\": \"070000\", \"address\": \"景山前街4号故宫博物院内(南侧)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"https://aos-comment.amap.com/B0FFKL520U/comment/content_media_external_file_1000038288_ss__1764285845512_72382297.jpg\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"故宫\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 1565}, {\"poi_id\": \"B0FFFT7UKC\", \"gaode_poi_id\": \"B0FFFT7UKC\", \"name\": \"故宫博物院-文华殿\", \"lat\": 39.915573, \"lng\": 116.399345, \"location\": {\"lat\": 39.915573, \"lng\": 116.399345}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110200\", \"category\": \"110200\", \"address\": \"景山前街4号故宫博物院内(东南角)\", \"rating\": \"5.0\", \"gaode_rating\": \"5.0\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/49c809890c999dac71048b8eddb28976\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"故宫\", \"display_slot\": \"\", \"candidate_score\": 5.0, \"distance\": 1542}, {\"poi_id\": \"B0FFI2XH20\", \"gaode_poi_id\": \"B0FFI2XH20\", \"name\": \"冰窖餐厅\", \"lat\": 39.917514, \"lng\": 116.395284, \"location\": {\"lat\": 39.917514, \"lng\": 116.395284}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"景山前街4号故宫博物院\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 1942}, {\"poi_id\": \"B0FFI1BA2H\", \"gaode_poi_id\": \"B0FFI1BA2H\", \"name\": \"坤宁宫东院餐厅\", \"lat\": 39.921089, \"lng\": 116.397327, \"location\": {\"lat\": 39.921089, \"lng\": 116.397327}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"坤宁宫\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 2117}, {\"poi_id\": \"B0K6LULW1F\", \"gaode_poi_id\": \"B0K6LULW1F\", \"name\": \"楚粤楼\", \"lat\": 39.918504, \"lng\": 116.402534, \"location\": {\"lat\": 39.918504, \"lng\": 116.402534}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"北池子大街与北池子二条交叉口西北100米\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 1630}, {\"poi_id\": \"B000A9LFEH\", \"gaode_poi_id\": \"B000A9LFEH\", \"name\": \"景山公园-绮望楼\", \"lat\": 39.924029, \"lng\": 116.39672, \"location\": {\"lat\": 39.924029, \"lng\": 116.39672}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110200\", \"category\": \"110200\", \"address\": \"什刹海街道景山西街44号(故宫后门对面)景山公园内(南侧)\", \"rating\": \"4.6\", \"gaode_rating\": \"4.6\", \"avg_cost\": null, \"photo_url\": \"https://aos-comment.amap.com/B000A9LFEH/comment/content_media_external_file_1000026869_ss__1767533632970_94423019.jpg\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 3, \"target_label\": \"景山公园\", \"display_slot\": \"\", \"candidate_score\": 4.6, \"distance\": 2414}, {\"poi_id\": \"B0FFG73EA0\", \"gaode_poi_id\": \"B0FFG73EA0\", \"name\": \"景山公园综合服务窗口\", \"lat\": 39.925743, \"lng\": 116.393997, \"location\": {\"lat\": 39.925743, \"lng\": 116.393997}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"070306\", \"category\": \"070306\", \"address\": \"景山西街与陟山门街交叉口东50米\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/46ce2179fda2d229a1f2e78650320678\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 3, \"target_label\": \"景山公园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 2702}, {\"poi_id\": \"B0H6GHZMLX\", \"gaode_poi_id\": \"B0H6GHZMLX\", \"name\": \"景山公园东门售票处\", \"lat\": 39.925992, \"lng\": 116.399309, \"location\": {\"lat\": 39.925992, \"lng\": 116.399309}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"070306\", \"category\": \"070306\", \"address\": \"景山西街44号景山公园内(东侧)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"https://store.is.autonavi.com/showpic/c51b7e965eb115770000002871954377?type=pic\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 3, \"target_label\": \"景山公园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 2493}], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"起点·北京饭店\", \"location\": \"116.4123,39.9059\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"天安门\", \"location\": \"116.397463,39.909187\", \"type\": \"waypoint\", \"display_order\": 1, \"kind\": \"visit\", \"day_index\": 1}, {\"name\": \"故宫博物院\", \"location\": \"116.397029,39.917839\", \"type\": \"waypoint\", \"display_order\": 2, \"kind\": \"visit\", \"day_index\": 1}, {\"name\": \"景运门故宫餐厅\", \"location\": \"116.398455,39.918509\", \"type\": \"waypoint\", \"display_order\": 3, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"景山公园\", \"location\": \"116.396551,39.925875\", \"type\": \"waypoint\", \"display_order\": 4, \"kind\": \"visit\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"116.412308,39.905735;116.411598,39.905708;116.411499,39.907829;116.412148,39.90807;116.397499,39.907955;116.397446,39.909184\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.397439,39.909186;116.397276,39.912766;116.396332,39.912729;116.396273,39.913539;116.396155,39.913646;116.392936,39.913523;116.392759,39.913587;116.392646,39.914831;116.39343,39.914869;116.393263,39.915202;116.393215,39.916666;116.393285,39.917015;116.395516,39.917079\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.396862,39.91783;116.39684,39.918203;116.396623,39.918238;116.396602,39.918511;116.396914,39.918546;116.396888,39.918854;116.398646,39.918906;116.398615,39.918529\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.39976,39.917149;116.40042,39.917165;116.400425,39.916977;116.40028,39.91687;116.400441,39.916752;116.400521,39.915105;116.402978,39.915175;116.402785,39.919654;116.402511,39.923576;116.396756,39.923398;116.396766,39.923747;116.398301,39.924005;116.398875,39.924198;116.399078,39.924439;116.399164,39.924885;116.399003,39.92526;116.398617,39.925217;116.397952,39.925287;116.397394,39.925528;116.397308,39.925673;116.397002,39.925845;116.396566,39.925831\", \"color\": \"#52c41a\"}], \"center\": [116.4123, 39.9059]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 56185,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 56186,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 56187,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了周三半天的北京市之旅，从北京饭店出发，串联天安门到景山公园。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 56188,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 56188,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 56189,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [],
+        "full_plan": {
+          "summary": "为您规划了周三半天的北京市之旅，从北京饭店出发，串联天安门到景山公园。",
+          "city": "北京市",
+          "duration": "a half day",
+          "time_budget": 0.5,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [],
+              "meal_slots": []
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "start:116.4123,39.9059",
+              "gaode_poi_id": "start:116.4123,39.9059",
+              "name": "起点·北京饭店",
+              "location": {
+                "lat": 39.9059,
+                "lng": 116.4123
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A60DA1",
+              "gaode_poi_id": "B000A60DA1",
+              "name": "天安门",
+              "location": {
+                "lat": 39.909187,
+                "lng": 116.397463
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110202",
+              "category": "visit",
+              "address": "长安街北侧",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/17a36a737908810a310387c7d53e878a",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“天安门”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A8UIN8",
+              "gaode_poi_id": "B000A8UIN8",
+              "name": "故宫博物院",
+              "location": {
+                "lat": 39.917839,
+                "lng": 116.397029
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110201|140100",
+              "category": "visit",
+              "address": "景山前街4号",
+              "rating": "4.9",
+              "gaode_rating": "4.9",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/2f968490d105bb2741e17f90b85c6b79",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“故宫”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 3,
+              "display_order": 2,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0FFFTCGNX",
+              "gaode_poi_id": "B0FFFTCGNX",
+              "name": "景运门故宫餐厅",
+              "location": {
+                "lat": 39.918509,
+                "lng": 116.398455
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050100",
+              "category": "meal",
+              "address": "故宫博物院内(保和殿东侧景运门外、钟表馆对面)",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/a2f8db77f2dcc1c80000003115688352?type=pic",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 4,
+              "display_order": 3,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A7I1OL",
+              "gaode_poi_id": "B000A7I1OL",
+              "name": "景山公园",
+              "location": {
+                "lat": 39.925875,
+                "lng": 116.396551
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110101",
+              "category": "visit",
+              "address": "景山西街44号",
+              "rating": "4.8",
+              "gaode_rating": "4.8",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“景山公园”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 5,
+              "display_order": 4,
+              "display_slot": "afternoon",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A83C1S",
+              "gaode_poi_id": "B000A83C1S",
+              "name": "天安门广场",
+              "lat": 39.903182,
+              "lng": 116.397755,
+              "location": {
+                "lat": 39.903182,
+                "lng": 116.397755
+              },
+              "kind": "anchor_internal",
+              "is_waypoint": true,
+              "is_display_poi": true,
+              "day": 1,
+              "typecode": "110210|110105",
+              "category": "110210|110105",
+              "address": "东长安街",
+              "rating": "4.9",
+              "gaode_rating": "4.9",
+              "avg_cost": null,
+              "photo_url": "http://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "天安门",
+              "display_slot": "half_day",
+              "candidate_score": 4.9,
+              "distance": 1276,
+              "density_fill_source": "candidate_promote"
+            },
+            {
+              "poi_id": "BV10006499",
+              "gaode_poi_id": "BV10006499",
+              "name": "天安门东(地铁站)",
+              "lat": 39.90778,
+              "lng": 116.401216,
+              "location": {
+                "lat": 39.90778,
+                "lng": 116.401216
+              },
+              "kind": "anchor_internal",
+              "is_waypoint": true,
+              "is_display_poi": true,
+              "day": 1,
+              "typecode": "150500",
+              "category": "150500",
+              "address": "1号线/八通线",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/9fb9a485ec5c22cf6526f24346c9a228",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "天安门",
+              "display_slot": "half_day",
+              "candidate_score": 0.0,
+              "distance": 968,
+              "density_fill_source": "candidate_promote"
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "起点·北京饭店",
+              "to_poi": "天安门",
+              "day_index": 1,
+              "transport": "地铁/公交",
+              "duration_min": 20.9,
+              "distance_km": 2.0,
+              "polyline": [
+                [
+                  39.905735,
+                  116.412308
+                ],
+                [
+                  39.905708,
+                  116.411598
+                ],
+                [
+                  39.907829,
+                  116.411499
+                ],
+                [
+                  39.90807,
+                  116.412148
+                ],
+                [
+                  39.907955,
+                  116.397499
+                ],
+                [
+                  39.909184,
+                  116.397446
+                ]
+              ],
+              "period": "morning",
+              "color": "#E67E22",
+              "is_dashed": true,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 2,
+              "from_display_order": 0,
+              "to_display_order": 1,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "天安门",
+              "to_poi": "故宫博物院",
+              "day_index": 1,
+              "transport": "自驾",
+              "duration_min": 8.1,
+              "distance_km": 1.51,
+              "polyline": [
+                [
+                  39.909186,
+                  116.397439
+                ],
+                [
+                  39.912766,
+                  116.397276
+                ],
+                [
+                  39.912729,
+                  116.396332
+                ],
+                [
+                  39.913539,
+                  116.396273
+                ],
+                [
+                  39.913646,
+                  116.396155
+                ],
+                [
+                  39.913523,
+                  116.392936
+                ],
+                [
+                  39.913587,
+                  116.392759
+                ],
+                [
+                  39.914831,
+                  116.392646
+                ],
+                [
+                  39.914869,
+                  116.39343
+                ],
+                [
+                  39.915202,
+                  116.393263
+                ],
+                [
+                  39.916666,
+                  116.393215
+                ],
+                [
+                  39.917015,
+                  116.393285
+                ],
+                [
+                  39.917079,
+                  116.395516
+                ]
+              ],
+              "period": "morning",
+              "color": "#E67E22",
+              "is_dashed": true,
+              "segment_order": 2,
+              "from_order": 2,
+              "to_order": 3,
+              "from_display_order": 1,
+              "to_display_order": 2,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "故宫博物院",
+              "to_poi": "景运门故宫餐厅",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 4.6,
+              "distance_km": 0.35,
+              "polyline": [
+                [
+                  39.91783,
+                  116.396862
+                ],
+                [
+                  39.918203,
+                  116.39684
+                ],
+                [
+                  39.918238,
+                  116.396623
+                ],
+                [
+                  39.918511,
+                  116.396602
+                ],
+                [
+                  39.918546,
+                  116.396914
+                ],
+                [
+                  39.918854,
+                  116.396888
+                ],
+                [
+                  39.918906,
+                  116.398646
+                ],
+                [
+                  39.918529,
+                  116.398615
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": false,
+              "segment_order": 3,
+              "from_order": 3,
+              "to_order": 4,
+              "from_display_order": 2,
+              "to_display_order": 3,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "景运门故宫餐厅",
+              "to_poi": "景山公园",
+              "day_index": 1,
+              "transport": "自驾",
+              "duration_min": 17.4,
+              "distance_km": 2.5,
+              "polyline": [
+                [
+                  39.917149,
+                  116.39976
+                ],
+                [
+                  39.917165,
+                  116.40042
+                ],
+                [
+                  39.916977,
+                  116.400425
+                ],
+                [
+                  39.91687,
+                  116.40028
+                ],
+                [
+                  39.916752,
+                  116.400441
+                ],
+                [
+                  39.915105,
+                  116.400521
+                ],
+                [
+                  39.915175,
+                  116.402978
+                ],
+                [
+                  39.919654,
+                  116.402785
+                ],
+                [
+                  39.923576,
+                  116.402511
+                ],
+                [
+                  39.923398,
+                  116.396756
+                ],
+                [
+                  39.923747,
+                  116.396766
+                ],
+                [
+                  39.924005,
+                  116.398301
+                ],
+                [
+                  39.924198,
+                  116.398875
+                ],
+                [
+                  39.924439,
+                  116.399078
+                ],
+                [
+                  39.924885,
+                  116.399164
+                ],
+                [
+                  39.92526,
+                  116.399003
+                ],
+                [
+                  39.925217,
+                  116.398617
+                ],
+                [
+                  39.925287,
+                  116.397952
+                ],
+                [
+                  39.925528,
+                  116.397394
+                ],
+                [
+                  39.925673,
+                  116.397308
+                ],
+                [
+                  39.925845,
+                  116.397002
+                ],
+                [
+                  39.925831,
+                  116.396566
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": true,
+              "segment_order": 4,
+              "from_order": 4,
+              "to_order": 5,
+              "from_display_order": 3,
+              "to_display_order": 4,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            }
+          ],
+          "hints": {},
+          "waypoint_annotations": {
+            "起点·北京饭店": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "天安门": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "故宫博物院": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "景运门故宫餐厅": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "景山公园": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "eedf8bfd-cc53-4a68-885f-52621d1af563",
+          "candidate_points": [
+            {
+              "poi_id": "B000A83C1S",
+              "gaode_poi_id": "B000A83C1S",
+              "name": "天安门广场",
+              "lat": 39.903182,
+              "lng": 116.397755,
+              "location": {
+                "lat": 39.903182,
+                "lng": 116.397755
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110210|110105",
+              "category": "110210|110105",
+              "address": "东长安街",
+              "rating": "4.9",
+              "gaode_rating": "4.9",
+              "avg_cost": null,
+              "photo_url": "http://aos-cdn-image.amap.com/sns/ugccomment/fab72424-5643-4c14-9486-ae1c8475eab7.jpg",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "天安门",
+              "display_slot": "",
+              "candidate_score": 4.9,
+              "distance": 1276
+            },
+            {
+              "poi_id": "BV10006499",
+              "gaode_poi_id": "BV10006499",
+              "name": "天安门东(地铁站)",
+              "lat": 39.90778,
+              "lng": 116.401216,
+              "location": {
+                "lat": 39.90778,
+                "lng": 116.401216
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "150500",
+              "category": "150500",
+              "address": "1号线/八通线",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/9fb9a485ec5c22cf6526f24346c9a228",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "天安门",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 968
+            },
+            {
+              "poi_id": "B0FFFRLTUT",
+              "gaode_poi_id": "B0FFFRLTUT",
+              "name": "天安门广场-国旗",
+              "lat": 39.906928,
+              "lng": 116.397554,
+              "location": {
+                "lat": 39.906928,
+                "lng": 116.397554
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110200",
+              "category": "110200",
+              "address": "东华门街道景山前街4号天安门广场内(北侧)",
+              "rating": "4.7",
+              "gaode_rating": "4.7",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/179cea10d65c7e055f0483b200ea651d",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "天安门",
+              "display_slot": "",
+              "candidate_score": 4.7,
+              "distance": 1262
+            },
+            {
+              "poi_id": "B000A84GDN",
+              "gaode_poi_id": "B000A84GDN",
+              "name": "故宫博物院-午门",
+              "lat": 39.913582,
+              "lng": 116.397228,
+              "location": {
+                "lat": 39.913582,
+                "lng": 116.397228
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110200",
+              "category": "110200",
+              "address": "东华门街道景山前街4号故宫博物院内(南侧)",
+              "rating": "3.8",
+              "gaode_rating": "3.8",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/dcd78b35cb123744056c03072ecdea17",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 1,
+              "target_label": "故宫",
+              "display_slot": "",
+              "candidate_score": 3.8,
+              "distance": 1543
+            }
+          ],
+          "plan_mode": "planned",
+          "total_days": 1,
+          "display_granularity": "day",
+          "planning_state": {
+            "plan_mode": "planned",
+            "parsed_intent": {
+              "duration": "a half day",
+              "start_time": "2026-07-15T14:00:00+00:00",
+              "raw_keywords": [
+                "天安门",
+                "故宫",
+                "地道北京菜",
+                "景山公园",
+                "日落"
+              ],
+              "search_keywords": [
+                "北京 图书馆",
+                "北京 阅读空间",
+                "北京 独立书店",
+                "北京 安静咖啡馆",
+                "北京 口袋公园",
+                "北京 小型城市公园",
+                "北京 安静花园",
+                "北京 景山公园 日落 观景"
+              ],
+              "micro_keywords": [
+                "图书馆 安静",
+                "书店 阅读",
+                "咖啡馆 安静",
+                "茶馆 品茶",
+                "公园 散步",
+                "美术馆 展览",
+                "天安门 故宫 周边漫步",
+                "地道北京菜 探店"
+              ],
+              "fixed_pois": [
+                {
+                  "name": "景山公园",
+                  "user_time_budget": "afternoon"
+                },
+                {
+                  "name": "天安门",
+                  "user_time_budget": null
+                },
+                {
+                  "name": "故宫",
+                  "user_time_budget": null
+                }
+              ],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "地道北京菜"
+              ],
+              "meal_search_keywords": [
+                "地道北京菜 餐厅",
+                "京味菜"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": true,
+              "plan_mode": "planned",
+              "planned_waypoints": [
+                {
+                  "type": "fixed",
+                  "name": "天安门",
+                  "search_keyword": "天安门",
+                  "category": "visit",
+                  "stay_minutes": 90,
+                  "search_keywords": [
+                    "天安门"
+                  ]
+                },
+                {
+                  "type": "fixed",
+                  "name": "故宫",
+                  "search_keyword": "故宫",
+                  "category": "visit",
+                  "stay_minutes": 90,
+                  "search_keywords": [
+                    "故宫"
+                  ]
+                },
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "餐厅",
+                  "category": "meal",
+                  "stay_minutes": 50,
+                  "search_keywords": [
+                    "餐厅",
+                    "饭馆",
+                    "饭店",
+                    "小馆"
+                  ]
+                },
+                {
+                  "type": "fixed",
+                  "name": "景山公园",
+                  "search_keyword": "景山公园",
+                  "category": "visit",
+                  "stay_minutes": 90,
+                  "search_keywords": [
+                    "景山公园"
+                  ]
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "a half day",
+            "start_time": "2026-07-15T14:00:00+00:00",
+            "raw_keywords": [
+              "天安门",
+              "故宫",
+              "地道北京菜",
+              "景山公园",
+              "日落"
+            ],
+            "search_keywords": [
+              "北京 图书馆",
+              "北京 阅读空间",
+              "北京 独立书店",
+              "北京 安静咖啡馆",
+              "北京 口袋公园",
+              "北京 小型城市公园",
+              "北京 安静花园",
+              "北京 景山公园 日落 观景"
+            ],
+            "micro_keywords": [
+              "图书馆 安静",
+              "书店 阅读",
+              "咖啡馆 安静",
+              "茶馆 品茶",
+              "公园 散步",
+              "美术馆 展览",
+              "天安门 故宫 周边漫步",
+              "地道北京菜 探店"
+            ],
+            "fixed_pois": [
+              {
+                "name": "景山公园",
+                "user_time_budget": "afternoon"
+              },
+              {
+                "name": "天安门",
+                "user_time_budget": null
+              },
+              {
+                "name": "故宫",
+                "user_time_budget": null
+              }
+            ],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "地道北京菜"
+            ],
+            "meal_search_keywords": [
+              "地道北京菜 餐厅",
+              "京味菜"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": true,
+            "plan_mode": "planned",
+            "planned_waypoints": [
+              {
+                "type": "fixed",
+                "name": "天安门",
+                "search_keyword": "天安门",
+                "category": "visit",
+                "stay_minutes": 90,
+                "search_keywords": [
+                  "天安门"
+                ]
+              },
+              {
+                "type": "fixed",
+                "name": "故宫",
+                "search_keyword": "故宫",
+                "category": "visit",
+                "stay_minutes": 90,
+                "search_keywords": [
+                  "故宫"
+                ]
+              },
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "餐厅",
+                "category": "meal",
+                "stay_minutes": 50,
+                "search_keywords": [
+                  "餐厅",
+                  "饭馆",
+                  "饭店",
+                  "小馆"
+                ]
+              },
+              {
+                "type": "fixed",
+                "name": "景山公园",
+                "search_keyword": "景山公园",
+                "category": "visit",
+                "stay_minutes": 90,
+                "search_keywords": [
+                  "景山公园"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 55.6,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 14820,
+        "deepseek_completion_tokens": 2113,
+        "total_tokens": 16933,
+        "gaode_calls": 19,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 28567,
+          "planned_route": 23388,
+          "photo_enrichment": 3631,
+          "output_assembly": 1
+        }
+      }
+    }
+  }
+]

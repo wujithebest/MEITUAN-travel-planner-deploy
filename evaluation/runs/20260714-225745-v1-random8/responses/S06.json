@@ -1,0 +1,879 @@
+{
+  "type": "complete",
+  "content": {
+    "map_paths": [],
+    "full_plan": {
+      "summary": "为您规划了周三一天的北京市之旅，从北京饭店出发，串联北海公园到三里河公园。",
+      "city": "北京市",
+      "duration": "a full day",
+      "time_budget": 0.5,
+      "days": [
+        {
+          "day_index": 1,
+          "anchors": [],
+          "meal_slots": []
+        }
+      ]
+    },
+    "route_data": {
+      "points": [
+        {
+          "poi_id": "start:116.4123,39.9059",
+          "gaode_poi_id": "start:116.4123,39.9059",
+          "name": "起点·北京饭店",
+          "location": {
+            "lat": 39.9059,
+            "lng": 116.4123
+          },
+          "kind": "start",
+          "day": 1,
+          "typecode": "",
+          "category": "",
+          "address": "",
+          "rating": null,
+          "gaode_rating": null,
+          "avg_cost": null,
+          "photo_url": "",
+          "photo_source": "",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 1,
+          "display_order": 0,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "起点",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B000A80UL1",
+          "gaode_poi_id": "B000A80UL1",
+          "name": "北海公园",
+          "location": {
+            "lat": 39.928775,
+            "lng": 116.391802
+          },
+          "kind": "visit",
+          "day": 1,
+          "typecode": "110101",
+          "category": "visit",
+          "address": "文津街1号",
+          "rating": "4.8",
+          "gaode_rating": "4.8",
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/68a92863a790f69d2221f7c53906c8c2",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“北海公园”的途经点需求；通勤成本：按路线顺序衔接。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 2,
+          "display_order": 1,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0IAKCH613",
+          "gaode_poi_id": "B0IAKCH613",
+          "name": "原鄉本味景山西街烤鸭店",
+          "location": {
+            "lat": 39.92601,
+            "lng": 116.39349
+          },
+          "kind": "meal",
+          "day": 1,
+          "typecode": "050100",
+          "category": "meal",
+          "address": "景山西街19号",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/2f9f1dd3ccccc181b370dbe9bbe8bc3c",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“烤鸭”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 3,
+          "display_order": 2,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        },
+        {
+          "poi_id": "B0FFJFEUJK",
+          "gaode_poi_id": "B0FFJFEUJK",
+          "name": "三里河公园",
+          "location": {
+            "lat": 39.894304,
+            "lng": 116.40547
+          },
+          "kind": "visit",
+          "day": 1,
+          "typecode": "110101",
+          "category": "visit",
+          "address": "北京前门街道中芦草园胡同与草厂三条交叉口西40米",
+          "rating": "4.7",
+          "gaode_rating": "4.7",
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/22f70e8a6afa2e798d5d7be3135f2248",
+          "photo_source": "gaode",
+          "parent_anchor": "",
+          "sub_anchor_name": "",
+          "recommend_reason": "匹配理由：符合“三里河公园”的途经点需求；通勤成本：按路线顺序衔接。",
+          "ugc_review_summary": "",
+          "ugc_source": "",
+          "ugc_source_type": "",
+          "ugc_source_url": "",
+          "ugc_evidence_count": 0,
+          "ugc_match_confidence": 0.0,
+          "ugc_status": "disabled",
+          "ugc_scope": "",
+          "ugc_source_name": "",
+          "ugc_label": "",
+          "visit_duration_min": null,
+          "is_waypoint": true,
+          "is_passthrough": false,
+          "walk_from_route_min": 0,
+          "route_annotation": "",
+          "route_order": 4,
+          "display_order": 3,
+          "display_slot": "",
+          "is_display_poi": true,
+          "display_label": "",
+          "matched_facets": [],
+          "matched_keywords": [],
+          "required_facet": false,
+          "primary_target": false,
+          "role": "",
+          "facet_source": "",
+          "facet_query": ""
+        }
+      ],
+      "segments": [
+        {
+          "from_poi": "起点·北京饭店",
+          "to_poi": "北海公园",
+          "day_index": 1,
+          "transport": "地铁/公交",
+          "duration_min": 45.3,
+          "distance_km": 6.41,
+          "polyline": [
+            [
+              39.905735,
+              116.412308
+            ],
+            [
+              39.905708,
+              116.411598
+            ],
+            [
+              39.907829,
+              116.411499
+            ],
+            [
+              39.90807,
+              116.412148
+            ],
+            [
+              39.90807,
+              116.411415
+            ],
+            [
+              39.908493,
+              116.411354
+            ],
+            [
+              39.92662,
+              116.410888
+            ],
+            [
+              39.932521,
+              116.408804
+            ],
+            [
+              39.933757,
+              116.406739
+            ],
+            [
+              39.933755,
+              116.39922
+            ],
+            [
+              39.934173,
+              116.396921
+            ],
+            [
+              39.934651,
+              116.396412
+            ],
+            [
+              39.937583,
+              116.396219
+            ],
+            [
+              39.937096,
+              116.396584
+            ],
+            [
+              39.937309,
+              116.39621
+            ],
+            [
+              39.935326,
+              116.396202
+            ],
+            [
+              39.933426,
+              116.393166
+            ],
+            [
+              39.933247,
+              116.390053
+            ],
+            [
+              39.932705,
+              116.390129
+            ],
+            [
+              39.933151,
+              116.391884
+            ],
+            [
+              39.932777,
+              116.391327
+            ],
+            [
+              39.929466,
+              116.39209
+            ],
+            [
+              39.928776,
+              116.39164
+            ]
+          ],
+          "period": "morning",
+          "color": "#E67E22",
+          "is_dashed": true,
+          "segment_order": 1,
+          "from_order": 1,
+          "to_order": 2,
+          "from_display_order": 0,
+          "to_display_order": 1,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        },
+        {
+          "from_poi": "北海公园",
+          "to_poi": "原鄉本味景山西街烤鸭店",
+          "day_index": 1,
+          "transport": "步行",
+          "duration_min": 8.5,
+          "distance_km": 0.64,
+          "polyline": [
+            [
+              39.92875,
+              116.391636
+            ],
+            [
+              39.927856,
+              116.391736
+            ],
+            [
+              39.927122,
+              116.391302
+            ],
+            [
+              39.926602,
+              116.390651
+            ],
+            [
+              39.926055,
+              116.390859
+            ],
+            [
+              39.925868,
+              116.390851
+            ],
+            [
+              39.925768,
+              116.392622
+            ],
+            [
+              39.92566,
+              116.392813
+            ],
+            [
+              39.925642,
+              116.393681
+            ],
+            [
+              39.926011,
+              116.393676
+            ]
+          ],
+          "period": "lunch",
+          "color": "#D35400",
+          "is_dashed": false,
+          "segment_order": 2,
+          "from_order": 2,
+          "to_order": 3,
+          "from_display_order": 1,
+          "to_display_order": 2,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        },
+        {
+          "from_poi": "原鄉本味景山西街烤鸭店",
+          "to_poi": "三里河公园",
+          "day_index": 1,
+          "transport": "自驾",
+          "duration_min": 16.6,
+          "distance_km": 5.03,
+          "polyline": [
+            [
+              39.926012,
+              116.393671
+            ],
+            [
+              39.923243,
+              116.39381
+            ],
+            [
+              39.923114,
+              116.391675
+            ],
+            [
+              39.92298,
+              116.391396
+            ],
+            [
+              39.922422,
+              116.390763
+            ],
+            [
+              39.921934,
+              116.39101
+            ],
+            [
+              39.914789,
+              116.391402
+            ],
+            [
+              39.908432,
+              116.391885
+            ],
+            [
+              39.907917,
+              116.391895
+            ],
+            [
+              39.907289,
+              116.391654
+            ],
+            [
+              39.906881,
+              116.3916
+            ],
+            [
+              39.903486,
+              116.391804
+            ],
+            [
+              39.903137,
+              116.391627
+            ],
+            [
+              39.902842,
+              116.391627
+            ],
+            [
+              39.900267,
+              116.391836
+            ],
+            [
+              39.900267,
+              116.39365
+            ],
+            [
+              39.900079,
+              116.396858
+            ],
+            [
+              39.900187,
+              116.399701
+            ],
+            [
+              39.900594,
+              116.402683
+            ],
+            [
+              39.900728,
+              116.406787
+            ],
+            [
+              39.899682,
+              116.406835
+            ],
+            [
+              39.898867,
+              116.406615
+            ],
+            [
+              39.897403,
+              116.40653
+            ],
+            [
+              39.896512,
+              116.406573
+            ],
+            [
+              39.895214,
+              116.406272
+            ],
+            [
+              39.894366,
+              116.405907
+            ],
+            [
+              39.894481,
+              116.405575
+            ]
+          ],
+          "period": "afternoon",
+          "color": "#2980B9",
+          "is_dashed": true,
+          "segment_order": 3,
+          "from_order": 3,
+          "to_order": 4,
+          "from_display_order": 2,
+          "to_display_order": 3,
+          "degraded": false,
+          "polyline_source": "",
+          "route_error": "",
+          "transport_options": []
+        }
+      ],
+      "hints": {},
+      "waypoint_annotations": {
+        "起点·北京饭店": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "北海公园": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "原鄉本味景山西街烤鸭店": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        },
+        "三里河公园": {
+          "is_waypoint": true,
+          "walk_from_route_min": 0,
+          "day": 1
+        }
+      },
+      "route_id": "9a8e90e0-eeb6-4807-8f23-37b8ea74fe3d",
+      "candidate_points": [
+        {
+          "poi_id": "B0H26KYE7E",
+          "gaode_poi_id": "B0H26KYE7E",
+          "name": "北海公园(北岸)",
+          "lat": 39.933076,
+          "lng": 116.390044,
+          "location": {
+            "lat": 39.933076,
+            "lng": 116.390044
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110101",
+          "category": "110101",
+          "address": "文津街1号北海公园(北海北地铁站B东北口步行220米)",
+          "rating": "4.0",
+          "gaode_rating": "4.0",
+          "avg_cost": null,
+          "photo_url": "http://store.is.autonavi.com/showpic/fcd051eaefa32bd52919ba94e38b825f",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 0,
+          "target_label": "北海公园",
+          "display_slot": "",
+          "candidate_score": 4.0,
+          "distance": 3568
+        },
+        {
+          "poi_id": "B0M60MLSR3",
+          "gaode_poi_id": "B0M60MLSR3",
+          "name": "北海公园荷花湖",
+          "lat": 39.923362,
+          "lng": 116.389552,
+          "location": {
+            "lat": 39.923362,
+            "lng": 116.389552
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110200",
+          "category": "110200",
+          "address": "文津街1号北海公园(西南角)",
+          "rating": "3.4",
+          "gaode_rating": "3.4",
+          "avg_cost": null,
+          "photo_url": "https://store.is.autonavi.com/showpic/9c101d498a65527f0000003080052244?type=pic",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 0,
+          "target_label": "北海公园",
+          "display_slot": "",
+          "candidate_score": 3.4,
+          "distance": 2744
+        },
+        {
+          "poi_id": "B0FFF4HZGA",
+          "gaode_poi_id": "B0FFF4HZGA",
+          "name": "北海公园游船",
+          "lat": 39.926749,
+          "lng": 116.390986,
+          "location": {
+            "lat": 39.926749,
+            "lng": 116.390986
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110101",
+          "category": "110101",
+          "address": "文津街1号北海公园东门",
+          "rating": "4.0",
+          "gaode_rating": "4.0",
+          "avg_cost": null,
+          "photo_url": "https://aos-comment.amap.com/B0FFF4HZGA/headerImg/cf33db3bc852ef83e610adc0bcd0ff4c_2048_2048_80.jpg",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 0,
+          "target_label": "北海公园",
+          "display_slot": "",
+          "candidate_score": 4.0,
+          "distance": 2945
+        },
+        {
+          "poi_id": "B0MUUSVVY4",
+          "gaode_poi_id": "B0MUUSVVY4",
+          "name": "三里河公园-门口(打卡点)",
+          "lat": 39.895141,
+          "lng": 116.404021,
+          "location": {
+            "lat": 39.895141,
+            "lng": 116.404021
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "110209",
+          "category": "110209",
+          "address": "三里河公园",
+          "rating": "2.6",
+          "gaode_rating": "2.6",
+          "avg_cost": null,
+          "photo_url": "https://store.is.autonavi.com/showpic/97a41ab769d6aa14c57e5f839076ef8d",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 2,
+          "target_label": "三里河公园",
+          "display_slot": "",
+          "candidate_score": 2.6,
+          "distance": 1389
+        },
+        {
+          "poi_id": "B000A8WS92",
+          "gaode_poi_id": "B000A8WS92",
+          "name": "三里河",
+          "lat": 39.922764,
+          "lng": 116.339645,
+          "location": {
+            "lat": 39.922764,
+            "lng": 116.339645
+          },
+          "kind": "candidate",
+          "is_waypoint": false,
+          "is_display_poi": false,
+          "day": 1,
+          "typecode": "190700",
+          "category": "190700",
+          "address": "西城区",
+          "rating": "",
+          "gaode_rating": "",
+          "avg_cost": null,
+          "photo_url": "https://store.is.autonavi.com/showpic/3401f2cad7f608240000002255398760?type=pic",
+          "photo_source": "gaode",
+          "is_candidate": true,
+          "source": "planned_candidate",
+          "target_index": 2,
+          "target_label": "三里河公园",
+          "display_slot": "",
+          "candidate_score": 0.0,
+          "distance": 6474
+        }
+      ],
+      "plan_mode": "planned",
+      "total_days": 1,
+      "display_granularity": "day",
+      "planning_state": {
+        "plan_mode": "planned",
+        "parsed_intent": {
+          "duration": "a full day",
+          "start_time": "2026-07-15T14:00:00+00:00",
+          "raw_keywords": [
+            "北海公园",
+            "烤鸭",
+            "三里河公园"
+          ],
+          "search_keywords": [
+            "北京 公园",
+            "北京 城市公园",
+            "北京 森林公园",
+            "北京 湿地公园",
+            "北京 北海公园",
+            "北京 烤鸭 餐厅"
+          ],
+          "micro_keywords": [
+            "公园 打卡",
+            "城市公园 打卡",
+            "森林公园 打卡"
+          ],
+          "fixed_pois": [
+            {
+              "name": "北海公园",
+              "user_time_budget": null
+            },
+            {
+              "name": "三里河公园",
+              "user_time_budget": null
+            }
+          ],
+          "delete_list": [],
+          "food_pref_keywords": [
+            "烤鸭"
+          ],
+          "meal_search_keywords": [
+            "烤鸭 餐厅"
+          ],
+          "budget_per_capita": null,
+          "transport_hint": "公共交通",
+          "evening_requested": false,
+          "plan_mode": "planned",
+          "planned_waypoints": [
+            {
+              "type": "fixed",
+              "name": "北海公园",
+              "search_keyword": "北海公园",
+              "category": "visit",
+              "stay_minutes": 90,
+              "search_keywords": [
+                "北海公园"
+              ]
+            },
+            {
+              "type": "placeholder",
+              "name": null,
+              "search_keyword": "烤鸭",
+              "category": "meal",
+              "stay_minutes": 50,
+              "search_keywords": [
+                "烤鸭",
+                "烤鸭 餐厅",
+                "烤鸭店"
+              ]
+            },
+            {
+              "type": "fixed",
+              "name": "三里河公园",
+              "search_keyword": "三里河公园",
+              "category": "visit",
+              "stay_minutes": 90,
+              "search_keywords": [
+                "三里河公园"
+              ]
+            }
+          ]
+        }
+      },
+      "parsed_intent": {
+        "duration": "a full day",
+        "start_time": "2026-07-15T14:00:00+00:00",
+        "raw_keywords": [
+          "北海公园",
+          "烤鸭",
+          "三里河公园"
+        ],
+        "search_keywords": [
+          "北京 公园",
+          "北京 城市公园",
+          "北京 森林公园",
+          "北京 湿地公园",
+          "北京 北海公园",
+          "北京 烤鸭 餐厅"
+        ],
+        "micro_keywords": [
+          "公园 打卡",
+          "城市公园 打卡",
+          "森林公园 打卡"
+        ],
+        "fixed_pois": [
+          {
+            "name": "北海公园",
+            "user_time_budget": null
+          },
+          {
+            "name": "三里河公园",
+            "user_time_budget": null
+          }
+        ],
+        "delete_list": [],
+        "food_pref_keywords": [
+          "烤鸭"
+        ],
+        "meal_search_keywords": [
+          "烤鸭 餐厅"
+        ],
+        "budget_per_capita": null,
+        "transport_hint": "公共交通",
+        "evening_requested": false,
+        "plan_mode": "planned",
+        "planned_waypoints": [
+          {
+            "type": "fixed",
+            "name": "北海公园",
+            "search_keyword": "北海公园",
+            "category": "visit",
+            "stay_minutes": 90,
+            "search_keywords": [
+              "北海公园"
+            ]
+          },
+          {
+            "type": "placeholder",
+            "name": null,
+            "search_keyword": "烤鸭",
+            "category": "meal",
+            "stay_minutes": 50,
+            "search_keywords": [
+              "烤鸭",
+              "烤鸭 餐厅",
+              "烤鸭店"
+            ]
+          },
+          {
+            "type": "fixed",
+            "name": "三里河公园",
+            "search_keyword": "三里河公园",
+            "category": "visit",
+            "stay_minutes": 90,
+            "search_keywords": [
+              "三里河公园"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "progress": 100,
+  "stats": {
+    "elapsed_seconds": 48.7,
+    "deepseek_calls": 1,
+    "deepseek_prompt_tokens": 14885,
+    "deepseek_completion_tokens": 2018,
+    "total_tokens": 16903,
+    "gaode_calls": 14,
+    "bocha_calls": 0,
+    "stage_durations_ms": {
+      "step1_intent": 24265,
+      "planned_route": 23329,
+      "photo_enrichment": 1051,
+      "output_assembly": 1
+    }
+  }
+}

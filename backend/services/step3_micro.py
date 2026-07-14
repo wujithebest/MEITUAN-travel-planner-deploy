@@ -952,6 +952,14 @@ def _is_specialty_shop_facet_raw(raw: dict) -> bool:
     return tc.startswith(("0601", "0609", "0610", "0803"))
 
 
+def _is_art_culture_facet_raw(raw: dict) -> bool:
+    text = _raw_text(raw)
+    tc = str(raw.get("typecode") or "")
+    if any(t in text for t in ["艺术", "画廊", "美术馆", "展览", "博物馆", "创意园", "文创", "798", "751"]):
+        return True
+    return tc.startswith(("0801", "0803", "1101", "1102", "1401", "1405"))
+
+
 async def _search_anchor_internals(
     sub_anchors: list[SubAnchor],
     city: str,
@@ -1021,6 +1029,17 @@ async def _search_anchor_internals(
             })
             request_meta.append((sub, "specialty_shop"))
 
+        if required_facet_ids and "art_culture_lifestyle" in required_facet_ids:
+            requests.append({
+                "location": loc_str,
+                "keywords": "艺术空间 美术馆 画廊 展览 创意园 文创园",
+                "radius": max(radius, 1500),
+                "types": "080100|080300|110100|110200|140100|140500",
+                "show_fields": config.GAODE_SHOW_FIELDS,
+                "offset": 20,
+            })
+            request_meta.append((sub, "art_culture_lifestyle"))
+
     # v28: Defensive audit log
     if len(requests) != len(request_meta):
         print(
@@ -1086,6 +1105,13 @@ async def _search_anchor_internals(
                     if not _is_specialty_shop_facet_raw(raw):
                         continue
                     raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), "specialty_shop"]))
+                    raw["is_display_poi"] = True
+                    raw["is_waypoint"] = True
+
+                if facet == "art_culture_lifestyle":
+                    if not _is_art_culture_facet_raw(raw):
+                        continue
+                    raw["matched_facets"] = list(dict.fromkeys([*(raw.get("matched_facets") or []), "art_culture_lifestyle"]))
                     raw["is_display_poi"] = True
                     raw["is_waypoint"] = True
 
@@ -2546,8 +2572,26 @@ async def _walking_distance_km(reference: dict[str, Any], item: MicroPOI) -> flo
     destination = coord_to_param(item.location)
     if not origin or not destination:
         raise ZeroOutputError(f"餐饮距离校验缺少坐标：{reference.get('name')} -> {item.name}")
-    route = await gaode_walking_route(origin, destination, require_polyline=False)
-    return route.get("distance_km", 0)
+    straight_km = haversine_km(reference.get("location"), item.location)
+    try:
+        # This call only improves meal ranking; it must not turn a usable
+        # exploratory route into a hard failure when the map provider is slow.
+        route = await asyncio.wait_for(
+            gaode_walking_route(origin, destination, require_polyline=False),
+            timeout=4.0,
+        )
+        distance = float(route.get("distance_km", 0) or 0)
+        return distance if distance > 0 else straight_km
+    except Exception as exc:
+        # A modest road-distance multiplier retains conservative filtering
+        # while avoiding retries for every meal candidate during an outage.
+        fallback_distance = round(straight_km * 1.25, 3)
+        print(
+            "[MealDistanceDegradeAudit] source=straight_line "
+            f"reference={reference.get('name')} candidate={item.name} "
+            f"error={type(exc).__name__} distance_km={fallback_distance}"
+        )
+        return fallback_distance
 
 
 # v3.1 F1：餐饮跨江过滤参数（上海特化：黄浦江两岸经度差>0.007°即跨江）
@@ -3694,6 +3738,8 @@ def _point_matches_facet(point: dict, facet_id: str) -> bool:
         return any(t in text for t in ["咖啡", "coffee", "cafe"]) or str(point.get("typecode") or "").startswith(("0504", "0505", "0509", "0510"))
     if facet_id == "specialty_shop":
         return any(t in text for t in ["买手店", "特色小店", "文创", "杂货", "集合店", "生活方式"])
+    if facet_id == "art_culture_lifestyle":
+        return any(t in text for t in ["艺术", "画廊", "美术馆", "展览", "博物馆", "创意园", "文创", "798", "751"])
     return False
 
 
@@ -3733,16 +3779,15 @@ async def _ensure_required_facet_points(
         centers = [p.get("location") for p in points if p.get("location")]
 
     for facet_id in missing:
-        terms = (
-            ["咖啡馆", "咖啡店", "精品咖啡", "独立咖啡馆", "coffee", "cafe"]
-            if facet_id == "cafe_stop"
-            else ["特色小店", "买手店", "文创店", "生活方式集合店", "杂货店"]
-        )
-        types_str = (
-            "050400|050500|050900|051000|050200"
-            if facet_id == "cafe_stop"
-            else "060100|060900|061000|080300"
-        )
+        if facet_id == "cafe_stop":
+            terms = ["咖啡馆", "咖啡店", "精品咖啡", "独立咖啡馆", "coffee", "cafe"]
+            types_str = "050400|050500|050900|051000|050200"
+        elif facet_id == "art_culture_lifestyle":
+            terms = ["艺术空间", "美术馆", "画廊", "展览", "创意园", "文创园"]
+            types_str = "080100|080300|110100|110200|140100|140500"
+        else:
+            terms = ["特色小店", "买手店", "文创店", "生活方式集合店", "杂货店"]
+            types_str = "060100|060900|061000|080300"
 
         candidates: list[dict[str, Any]] = []
         # v28: Per-keyword independent search with progressive radius
@@ -3771,6 +3816,8 @@ async def _ensure_required_facet_points(
                         if facet_id == "cafe_stop" and not _is_cafe_facet_raw(raw):
                             continue
                         if facet_id == "specialty_shop" and not _is_specialty_shop_facet_raw(raw):
+                            continue
+                        if facet_id == "art_culture_lifestyle" and not _is_art_culture_facet_raw(raw):
                             continue
                         loc = raw.get("location")
                         if isinstance(loc, str):

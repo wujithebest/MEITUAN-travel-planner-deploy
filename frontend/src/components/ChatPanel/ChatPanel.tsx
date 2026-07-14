@@ -590,9 +590,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Collect matched preferences
     const user = useUserStore.getState().user;
     const prefs: string[] = [];
-    if (user) {
+    // v28: Only show explicit food preferences from the current request
+    const explicitFoodPrefs =
+      snapshot?.complete_plan?.parsed_intent?.explicit_food_pref_keywords || [];
+    if (explicitFoodPrefs.length > 0) {
+      prefs.push(...explicitFoodPrefs);
+    } else if (user) {
+      // Only use profile food prefs if current request explicitly mentions food/cuisine
+      const hasFoodRequest = /餐厅|饭馆|饭店|菜|日料|火锅|川菜|粤菜|湘菜|烤鸭|涮|小吃|面馆|美食/.test(userInput);
+      if (hasFoodRequest) {
+        (user.food_preferences || []).forEach((t: string) => { if (t) prefs.push(t); });
+      }
       (user.activity_pref_tag || []).forEach((t: string) => { if (t) prefs.push(t); });
-      (user.food_preferences || []).forEach((t: string) => { if (t) prefs.push(t); });
       (user.preferences || []).forEach((id: string) => {
         const map: Record<string, string> = {
           history: '历史文化', food: '美食探店', nature: '自然风光',

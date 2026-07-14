@@ -1,0 +1,96 @@
+[
+  {
+    "case_id": "S02",
+    "profile": "P-BJ-FOOD",
+    "message": "想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落。",
+    "expected": "planned Beijing culture route with Tiananmen, Forbidden City area, Beijing-cuisine lunch, Jingshan sunset.",
+    "hard_constraints": "Fixed anchors and time order retained.",
+    "wall_clock_ms": 56190,
+    "terminal_event": "complete",
+    "error": "",
+    "stage_stats": {
+      "step1_intent": 28567,
+      "planned_route": 23388,
+      "photo_enrichment": 3631
+    },
+    "route_title": "",
+    "quality": {
+      "status": "complete",
+      "verdict": "REVIEW",
+      "checks": [
+        "可见 POI 6 个",
+        "路线段不足：4/5",
+        "固定锚点可见：天安门、故宫、景山"
+      ],
+      "visible_poi_count": 6,
+      "polyline_segment_count": 4,
+      "poi_names": [
+        "天安门",
+        "故宫博物院",
+        "景运门故宫餐厅",
+        "景山公园",
+        "天安门广场",
+        "天安门东(地铁站)"
+      ],
+      "missed_anchors": [],
+      "missing_feature_evidence": []
+    }
+  },
+  {
+    "case_id": "S10",
+    "profile": "P-BJ-FOOD",
+    "message": "周末想去颐和园逛逛，中午在附近吃饭，下午继续轻松走走。",
+    "expected": "simple park day with nearby meal and walk.",
+    "hard_constraints": "Yiheyuan is retained; meal is nearby; relaxed pace.",
+    "wall_clock_ms": 41297,
+    "terminal_event": "error",
+    "error": "未能满足以下明确行程需求：继续轻松。已保留其他行程要求，请调整该地点或目标类型后重试。",
+    "stage_stats": {},
+    "route_title": "",
+    "quality": {
+      "status": "technical_invalid",
+      "verdict": "FAIL",
+      "checks": [
+        "未能满足以下明确行程需求：继续轻松。已保留其他行程要求，请调整该地点或目标类型后重试。"
+      ]
+    }
+  },
+  {
+    "case_id": "S15",
+    "profile": "P-BJ-ART",
+    "message": "周末和朋友在北京轻松逛一天，想拍照、喝咖啡、不要太赶。",
+    "expected": "relaxed photo and coffee day.",
+    "hard_constraints": "Photo + coffee + relaxed pace; no forced fixed anchor.",
+    "wall_clock_ms": 108922,
+    "terminal_event": "complete",
+    "error": "",
+    "stage_stats": {
+      "step1_intent": 38761,
+      "step2_macro": 17465,
+      "step3_micro": 47019,
+      "exploratory_route": 64485,
+      "reason_generation": 5002,
+      "photo_enrichment": 5587
+    },
+    "route_title": "",
+    "quality": {
+      "status": "complete",
+      "verdict": "PASS",
+      "checks": [
+        "可见 POI 4 个",
+        "路线段完整：4/3",
+        "需求证据可见：咖啡、拍照"
+      ],
+      "visible_poi_count": 4,
+      "polyline_segment_count": 4,
+      "poi_names": [
+        "瑞幸咖啡(北京绿地中心店)",
+        "星巴克(北京望京东路咖啡店)",
+        "瑞幸咖啡(北京服装学院樱花店)",
+        "樱花宾馆-咖啡厅"
+      ],
+      "missed_anchors": [],
+      "missing_feature_evidence": []
+    }
+  }
+]

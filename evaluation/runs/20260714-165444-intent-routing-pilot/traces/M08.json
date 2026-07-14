@@ -1,0 +1,47 @@
+{
+  "case_id": "M08",
+  "input": "不吃饭了，改成下午逛展和喝咖啡",
+  "expected": {
+    "conversation_mode": "new_plan",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 19605,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "earliest_step": "step2",
+      "point_operations": [],
+      "intent_patch": {
+        "theme": "逛展和喝咖啡",
+        "time": "下午"
+      },
+      "reason": "用户要求去掉吃饭，改为下午逛展和喝咖啡，属于修改路线主题和时间偏好，保留原有路线结构，因此为refine_current。没有指定具体顺序或途经点，属于自由探索，target_plan_mode为exploratory。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 22221,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": "用户明确取消原餐饮路线，改为下午逛展和喝咖啡，需全新规划"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

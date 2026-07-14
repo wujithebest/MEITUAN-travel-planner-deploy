@@ -1,0 +1,47 @@
+{
+  "case_id": "M08",
+  "input": "不吃饭了，改成下午逛展和喝咖啡",
+  "expected": {
+    "conversation_mode": "new_plan",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 21862,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "earliest_step": "step2",
+      "point_operations": [],
+      "intent_patch": {
+        "theme": "逛展和喝咖啡",
+        "time": "下午"
+      },
+      "reason": "用户要求去掉吃饭，改为下午逛展和喝咖啡，属于修改路线主题和时间偏好，保留原有路线结构，因此为refine_current。没有明确顺序任务，只是泛泛的逛展和喝咖啡，因此target_plan_mode为exploratory。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 23237,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": "step1 unified routing"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

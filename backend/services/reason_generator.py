@@ -1,7 +1,7 @@
 """Batch DeepSeek recommendation reason generation for all plan modes.
 
-Called AFTER Step3 finalises route_points.  One batch DeepSeek call per
-plan; bocha enrichment is batched.  Failure never blocks the route.
+Called AFTER Step3 finalises route_points. One bounded DeepSeek batch call
+creates optional presentation copy; failure never blocks the route.
 """
 
 from __future__ import annotations
@@ -13,7 +13,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .api_client import bocha_search_batch, call_llm
+from . import config
+from .api_client import call_llm
 
 
 # ── Pydantic response models ──────────────────────────
@@ -59,6 +60,7 @@ _REASON_SYSTEM_PROMPT = """你是本地旅行路线的个性化推荐理由生�
 9. 不要输出Markdown。
 10. 只输出严格JSON。
 11. items数量和poi_id必须与输入POI一一对应。
+12. evidence_ids 只能使用每个POI输入中的 allowed_evidence_ids；不得输出未提供的 bocha 或其他来源证据。
 
 示例 recommend_reason：
 "上午：乍浦路桥拍陆家嘴机位
@@ -77,7 +79,7 @@ _REASON_SYSTEM_PROMPT = """你是本地旅行路线的个性化推荐理由生�
       "route_fit": "路线位置价值",
       "recommend_reason": "最终展示的50至100字中文理由",
       "matched_preferences": [{"term": "冷门", "source": "explicit", "evidence": "博查摘要或热度证据"}],
-      "evidence_ids": ["gaode:typecode", "gaode:rating", "bocha:0"],
+      "evidence_ids": ["仅使用该POI的allowed_evidence_ids"],
       "confidence": 0.86
     }
   ]
@@ -86,8 +88,17 @@ _REASON_SYSTEM_PROMPT = """你是本地旅行路线的个性化推荐理由生�
 
 # ── Context builder ────────────────────────────────────
 def _build_poi_context(poi: dict[str, Any]) -> dict[str, Any]:
+    poi_id = str(poi.get("poi_id") or poi.get("name", ""))
+    allowed_evidence_ids = [f"route:{poi_id}"]
+    if poi.get("typecode"):
+        allowed_evidence_ids.append(f"gaode:typecode:{poi.get('typecode')}")
+    if poi.get("rating") or poi.get("gaode_rating"):
+        allowed_evidence_ids.append("gaode:rating")
+    for term in list(poi.get("matched_keywords", []) or [])[:6]:
+        if str(term).strip():
+            allowed_evidence_ids.append(f"route:match:{str(term).strip()}")
     return {
-        "poi_id": str(poi.get("poi_id") or poi.get("name", "")),
+        "poi_id": poi_id,
         "name": str(poi.get("name", "")),
         "kind": str(poi.get("kind", "")),
         "typecode": str(poi.get("typecode", "")),
@@ -100,6 +111,9 @@ def _build_poi_context(poi: dict[str, Any]) -> dict[str, Any]:
         "display_order": poi.get("display_order"),
         "enrichment_text": str(poi.get("enrichment_text", "")[:300]),
         "enrichment_heat": poi.get("enrichment_heat", 0),
+        "matched_facets": list(poi.get("matched_facets", []) or [])[:8],
+        "matched_keywords": list(poi.get("matched_keywords", []) or [])[:10],
+        "allowed_evidence_ids": allowed_evidence_ids,
     }
 
 
@@ -120,41 +134,76 @@ def _build_user_context(parsed_intent: Any, user_profile: Any, user_request: str
     return ctx
 
 
-# ── BoCha enrichment ──────────────────────────────────
-async def _enrich_pois_with_bocha(
-    pois: list[dict[str, Any]],
-    parsed_intent: Any,
-    city: str = "",
-) -> None:
-    queries = []
-    # Recommendation prose is optional.  Enrich at most three displayed POIs;
-    # the route itself must never wait on every micro point.
-    for poi in pois[:3]:
-        if poi.get("enrichment_text") and len(poi.get("enrichment_text", "")) > 50:
-            continue
-        name = poi.get("name", "")
-        prefs = " ".join(getattr(parsed_intent, "raw_keywords", []) or [])[:40]
-        city_label = city[:-1] if city.endswith("市") else city
-        queries.append(f"{city_label} {name} {prefs} 特色 游玩体验")
-    if not queries:
-        return
-    try:
-        results = await asyncio.wait_for(bocha_search_batch(queries), timeout=5.0)
-        for i, items in enumerate(results):
-            if i < len(pois) and items:
-                snippet = " ".join(
-                    str(item.get("snippet", "") or item.get("content", "") or "")
-                    for item in items[:3]
-                )[:400]
-                if snippet:
-                    pois[i]["enrichment_text"] = (
-                        (pois[i].get("enrichment_text", "") or "") + " | " + snippet
-                    )[:600]
-                    pois[i]["enrichment_heat"] = max(
-                        float(pois[i].get("enrichment_heat", 0) or 0), 0.3
-                    )
-    except (asyncio.TimeoutError, Exception):
-        pass
+def _local_match_terms(poi: dict[str, Any], user_ctx: dict[str, Any]) -> list[str]:
+    """Use only route facts already available to the renderer as fallback evidence."""
+    terms: list[str] = []
+    for field in ("matched_keywords", "matched_facets"):
+        for value in poi.get(field, []) or []:
+            text = str(value or "").strip()
+            if text and text not in terms:
+                terms.append(text)
+
+    if not terms:
+        source_terms = [
+            *(user_ctx.get("preferences", []) or []),
+            *(user_ctx.get("food_prefs", []) or []),
+            *(user_ctx.get("constraints", []) or []),
+        ]
+        for value in source_terms:
+            text = str(value or "").strip()
+            if text and text not in terms:
+                terms.append(text)
+            if len(terms) >= 2:
+                break
+    return terms[:3]
+
+
+def _local_poi_reason(poi: dict[str, Any], user_ctx: dict[str, Any]) -> tuple[str, str]:
+    """Fill the same renderer fields when the optional LLM reason is unavailable."""
+    kind = str(poi.get("kind", "") or "")
+    category = str(poi.get("category", "") or "")
+    slot = str(poi.get("display_slot", "") or "")
+    slot_label = {
+        "morning": "上午",
+        "lunch": "午餐",
+        "afternoon": "下午",
+        "dinner": "晚餐",
+        "evening": "夜晚",
+    }.get(slot, "行程中")
+    terms = _local_match_terms(poi, user_ctx)
+    term_text = "、".join(terms) if terms else "本次行程"
+
+    if kind == "meal" or category == "meal":
+        detail = "贴合当前餐饮安排，方便在游览衔接处停留。"
+    elif kind == "cafe" or "cafe" in category.lower() or "咖啡" in str(poi.get("name", "")):
+        detail = "适合作为途中休息点，兼顾咖啡停留与行程节奏。"
+    elif kind in {"park", "riverfront", "walk"}:
+        detail = "适合步行停留，给路线留出轻松的活动节奏。"
+    else:
+        detail = "与前后地点衔接顺路，可作为本次行程的有效停留点。"
+
+    short = _generate_short_reason(
+        str(poi.get("name", "")), str(poi.get("typecode", "")), kind, category,
+    )[:20]
+    return f"{slot_label}：命中{term_text}，{detail}", short
+
+
+def _local_route_reason(route_points: list[dict[str, Any]], user_ctx: dict[str, Any]) -> str:
+    display_names = [
+        str(poi.get("name", "")) for poi in route_points
+        if poi.get("kind") not in {"start", "origin", "hint", "free_explore", "route_only"}
+        and str(poi.get("name", ""))
+    ]
+    terms: list[str] = []
+    for poi in route_points:
+        for term in _local_match_terms(poi, user_ctx):
+            if term not in terms:
+                terms.append(term)
+    if not terms:
+        terms = [str(item) for item in (user_ctx.get("preferences", []) or [])[:3] if str(item)]
+    theme = "、".join(terms[:3]) or "本次需求"
+    endpoints = "到".join(display_names[:2]) if len(display_names) >= 2 else (display_names[0] if display_names else "核心地点")
+    return f"路线围绕{theme}安排，串联{endpoints}等已选地点，按当前顺路顺序组织，并兼顾游览与停留节奏。"
 
 
 # ── Short reason fallback generator ────────────────────
@@ -294,14 +343,9 @@ async def generate_exploratory_reasons(
     valid_count = 0
     empty_count = 0
 
-    # 2. BoCha enrichment
-    try:
-        await _enrich_pois_with_bocha(display_pois, parsed_intent, city)
-        bocha_count = 1
-    except Exception:
-        pass
-
-    # 3. Build context
+    # 2. Build context. Recommendation copy is intentionally LLM-only: POI
+    # selection has already finished, and optional web enrichment used to add
+    # a slow, failure-prone dependency without changing the route itself.
     user_ctx = _build_user_context(parsed_intent, user_profile, user_request)
     poi_ctxs = [_build_poi_context(p) for p in display_pois]
 
@@ -316,17 +360,18 @@ async def generate_exploratory_reasons(
         {"role": "user", "content": prompt},
     ]
 
-    # 4. Call DeepSeek (one batch call)
+    # 3. Call DeepSeek once for the whole route. Keep the output budget tight:
+    # each item is short structured UI copy rather than a second planning task.
     route_reason = ""
     try:
         response = await asyncio.wait_for(
             call_llm(
                 RouteReasonResponse,
                 messages,
-                max_tokens=3000,
+                max_tokens=config.REASON_LLM_MAX_TOKENS,
                 temperature=0.3,
             ),
-            timeout=8.0,
+            timeout=config.REASON_LLM_TIMEOUT,
         )
         deepseek_count = 1
 
@@ -362,8 +407,14 @@ async def generate_exploratory_reasons(
                 poi["_reason_confidence"] = float(item.get("confidence", 0.5))
                 valid_count += 1
             else:
-                poi["recommend_reason"] = ""
-                poi["short_recommend_reason"] = ""
+                fallback_reason, fallback_short_reason = _local_poi_reason(poi, user_ctx)
+                poi["recommend_reason"] = poi.get("recommend_reason") or fallback_reason
+                poi["short_recommend_reason"] = poi.get("short_recommend_reason") or fallback_short_reason
+                fallback_terms = _local_match_terms(poi, user_ctx)
+                poi["_reason_matched_prefs"] = [
+                    {"term": term, "source": "route_match"} for term in fallback_terms
+                ]
+                poi["_reason_evidence"] = [f"route:{pid}"]
                 empty_count += 1
                 print(
                     f"[ReasonAudit] plan_mode={user_ctx['plan_mode']} poi_id={pid} "
@@ -383,14 +434,27 @@ async def generate_exploratory_reasons(
         deepseek_count = 0
         empty_count = len(display_pois)
         for poi in display_pois:
-            poi["recommend_reason"] = ""
+            fallback_reason, fallback_short_reason = _local_poi_reason(poi, user_ctx)
+            poi["recommend_reason"] = poi.get("recommend_reason") or fallback_reason
+            poi["short_recommend_reason"] = poi.get("short_recommend_reason") or fallback_short_reason
+            fallback_terms = _local_match_terms(poi, user_ctx)
+            poi["_reason_matched_prefs"] = [
+                {"term": term, "source": "route_match"} for term in fallback_terms
+            ]
+            poi["_reason_evidence"] = [
+                f"route:{poi.get('poi_id') or poi.get('name', '')}"
+            ]
             print(
                 f"[ReasonAudit] plan_mode={user_ctx.get('plan_mode','')} poi_id={poi.get('poi_id') or poi.get('name','')} "
                 f"poi_name={poi.get('name','')} "
                 f"reason_written=False source=deepseek failure_reason={type(exc).__name__}"
             )
 
-    # Always write route_reason to all display POIs for frontend transport
+    if not route_reason:
+        route_reason = _local_route_reason(display_pois, user_ctx)
+
+    # Always write route_reason to all display POIs for frontend transport.
+    # This preserves the current frontend contract even if the LLM times out.
     for poi in display_pois:
         poi["_route_recommend_reason"] = route_reason
         # v20: Fallback short reason if DeepSeek didn't provide one

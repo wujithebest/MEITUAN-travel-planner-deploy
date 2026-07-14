@@ -1,0 +1,34 @@
+{
+  "case_id": "S10",
+  "profile": "P-BJ-FOOD",
+  "message": "周末想去颐和园逛逛，中午在附近吃饭，下午继续轻松走走。",
+  "expected": "simple park day with nearby meal and walk.",
+  "hard_constraints": "Yiheyuan is retained; meal is nearby; relaxed pace.",
+  "wall_clock_ms": 64637,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {
+    "step1_intent": 31906,
+    "planned_route": 31278,
+    "photo_enrichment": 1395
+  },
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "PASS",
+    "checks": [
+      "可见 POI 3 个",
+      "路线段完整：3/2",
+      "固定锚点可见：颐和园"
+    ],
+    "visible_poi_count": 3,
+    "polyline_segment_count": 3,
+    "poi_names": [
+      "颐和园",
+      "肯德基(北宫门店)",
+      "自得湖最佳喂鱼点"
+    ],
+    "missed_anchors": [],
+    "missing_feature_evidence": []
+  }
+}

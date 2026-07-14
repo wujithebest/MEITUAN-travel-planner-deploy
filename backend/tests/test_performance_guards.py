@@ -2,10 +2,12 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.data_schema import ExtractedPlace, FixedPoi, ParsedIntent
-from services import step1_intent, step2_macro
+from services import api_client, step1_intent, step2_macro
 
 
 def test_fixed_pois_override_home_city_and_use_local_start(monkeypatch) -> None:
@@ -70,3 +72,37 @@ def test_route_timeout_degrades_to_haversine_estimate(monkeypatch) -> None:
     assert result["degraded"] is True
     assert result["polyline_source"] == "haversine_estimate"
     assert result["duration_min"] >= 5
+
+
+def test_malformed_route_result_degrades_to_haversine_estimate(monkeypatch) -> None:
+    async def malformed_route(*args, **kwargs):
+        return "unexpected route payload"
+
+    monkeypatch.setattr(step2_macro, "_route_from_origin", malformed_route)
+    parsed = ParsedIntent(
+        duration="a quarter day",
+        original_location={"lat": 39.99, "lng": 116.33},
+    )
+    place = ExtractedPlace(
+        name="测试饭馆",
+        time_capacity="quarter_day",
+        typecode="050000",
+        location={"lat": 40.00, "lng": 116.34},
+        gaode_poi_id="test-restaurant",
+    )
+
+    result = asyncio.run(
+        step2_macro._route_from_origin_bounded(
+            parsed, place, "北京市", timeout_seconds=0.1,
+        )
+    )
+
+    assert result is not None
+    assert result["degraded"] is True
+    assert result["polyline_source"] == "haversine_estimate"
+    assert step2_macro._route_duration_minutes("unexpected route payload") is None
+
+
+def test_gaode_non_object_response_is_reported_as_external_api_error() -> None:
+    with pytest.raises(api_client.ExternalAPIError, match="返回格式异常"):
+        api_client._check_gaode_response("unexpected response", "周边搜索")

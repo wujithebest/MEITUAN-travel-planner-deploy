@@ -1,0 +1,547 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 64,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 64,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 64,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 6076,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 7716,
+    "data": {
+      "type": "status",
+      "msg": "正在为您精准规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 7716,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索您的目标地点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 42370,
+    "data": {
+      "type": "status",
+      "msg": "正在规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 45325,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"poi_id\": \"start:121.352,31.281\", \"gaode_poi_id\": \"\", \"name\": \"起点·上海桃浦\", \"location\": {\"lat\": 31.281, \"lng\": 121.352}, \"kind\": \"start\", \"day\": 1, \"is_waypoint\": true, \"is_display_poi\": false, \"is_candidate\": false, \"is_start\": true, \"target_index\": -1, \"display_order\": 0, \"route_order\": 0, \"display_label\": \"起点\", \"plan_mode\": \"planned\"}, {\"name\": \"萨莉亚意式餐厅(新邻天地店)\", \"location\": {\"lat\": 31.281066, \"lng\": 121.348347}, \"kind\": \"meal\", \"category\": \"meal\", \"display_slot\": \"dinner\", \"auto_inserted\": true, \"auto_insert_reason\": \"meal_window\", \"is_waypoint\": true, \"is_display_poi\": true, \"visit_min\": 75, \"day\": 1, \"typecode\": \"050205\", \"display_order\": 1, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0FFIXLUC8\", \"gaode_poi_id\": \"B0FFIXLUC8\", \"name\": \"果品行(红棉路店)\", \"lat\": 31.282513, \"lng\": 121.35076, \"location\": {\"lat\": 31.282513, \"lng\": 121.35076}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"060704\", \"category\": \"purchase\", \"address\": \"红棉路286号桃浦中学对面\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“水果”的顺路采购需求；通勤成本：按当前位置附近优先筛选，适合下班途中短暂停留。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 0, \"target_label\": \"水果\", \"display_slot\": \"\", \"display_order\": 2, \"route_order\": 1, \"stay_minutes\": 20, \"plan_mode\": \"planned\"}], \"segments\": [{\"from_poi\": \"起点·上海桃浦\", \"to_poi\": \"萨莉亚意式餐厅(新邻天地店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 6.1, \"distance_km\": 0.46, \"polyline\": [[31.281003, 121.351975], [31.281085, 121.351988], [31.281137, 121.351619], [31.281363, 121.351654], [31.281589, 121.350113], [31.281701, 121.348472], [31.281437, 121.34826], [31.281432, 121.34832], [31.281076, 121.34842]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"萨莉亚意式餐厅(新邻天地店)\", \"to_poi\": \"果品行(红棉路店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 5.5, \"distance_km\": 0.41, \"polyline\": [[31.281072, 121.34842], [31.281419, 121.348364], [31.281432, 121.34826], [31.281701, 121.348464], [31.28151, 121.350768], [31.282496, 121.350924]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}], \"candidate_points\": [], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"起点·上海桃浦\", \"location\": \"121.352,31.281\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"萨莉亚意式餐厅(新邻天地店)\", \"location\": \"121.348347,31.281066\", \"type\": \"waypoint\", \"display_order\": 1, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"果品行(红棉路店)\", \"location\": \"121.35076,31.282513\", \"type\": \"waypoint\", \"display_order\": 2, \"kind\": \"visit\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"121.351975,31.281003;121.351988,31.281085;121.351619,31.281137;121.351654,31.281363;121.350113,31.281589;121.348472,31.281701;121.34826,31.281437;121.34832,31.281432;121.34842,31.281076\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"121.34842,31.281072;121.348364,31.281419;121.34826,31.281432;121.348464,31.281701;121.350768,31.28151;121.350924,31.282496\", \"color\": \"#52c41a\"}], \"center\": [121.352, 31.281]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 48815,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 48815,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 48816,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了小半天的上海市之旅，从上海桃浦出发，串联萨莉亚意式餐厅(新邻天地店)到果品行(红棉路店)。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 48816,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 48816,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 48818,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [],
+        "full_plan": {
+          "summary": "为您规划了小半天的上海市之旅，从上海桃浦出发，串联萨莉亚意式餐厅(新邻天地店)到果品行(红棉路店)。",
+          "city": "上海市",
+          "duration": "a quarter day",
+          "time_budget": 0.5,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [],
+              "meal_slots": []
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "start:121.352,31.281",
+              "gaode_poi_id": "start:121.352,31.281",
+              "name": "起点·上海桃浦",
+              "location": {
+                "lat": 31.281,
+                "lng": 121.352
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "萨莉亚意式餐厅(新邻天地店):121.348347,31.281066",
+              "gaode_poi_id": "",
+              "name": "萨莉亚意式餐厅(新邻天地店)",
+              "location": {
+                "lat": 31.281066,
+                "lng": 121.348347
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050205",
+              "category": "meal",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "https://aos-comment.amap.com/B0FFH9LIC6/comment/d9feb969ffaf6a367d6e2d55d363d326_2048_2048_80.jpg",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": 75,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "dinner",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0FFIXLUC8",
+              "gaode_poi_id": "B0FFIXLUC8",
+              "name": "果品行(红棉路店)",
+              "location": {
+                "lat": 31.282513,
+                "lng": 121.35076
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "060704",
+              "category": "purchase",
+              "address": "红棉路286号桃浦中学对面",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/f025fc64d3f77ef6ec2c389c15f750eb",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“水果”的顺路采购需求；通勤成本：按当前位置附近优先筛选，适合下班途中短暂停留。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 3,
+              "display_order": 2,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "起点·上海桃浦",
+              "to_poi": "萨莉亚意式餐厅(新邻天地店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 6.1,
+              "distance_km": 0.46,
+              "polyline": [
+                [
+                  31.281003,
+                  121.351975
+                ],
+                [
+                  31.281085,
+                  121.351988
+                ],
+                [
+                  31.281137,
+                  121.351619
+                ],
+                [
+                  31.281363,
+                  121.351654
+                ],
+                [
+                  31.281589,
+                  121.350113
+                ],
+                [
+                  31.281701,
+                  121.348472
+                ],
+                [
+                  31.281437,
+                  121.34826
+                ],
+                [
+                  31.281432,
+                  121.34832
+                ],
+                [
+                  31.281076,
+                  121.34842
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": false,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 2,
+              "from_display_order": 0,
+              "to_display_order": 1,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "萨莉亚意式餐厅(新邻天地店)",
+              "to_poi": "果品行(红棉路店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 5.5,
+              "distance_km": 0.41,
+              "polyline": [
+                [
+                  31.281072,
+                  121.34842
+                ],
+                [
+                  31.281419,
+                  121.348364
+                ],
+                [
+                  31.281432,
+                  121.34826
+                ],
+                [
+                  31.281701,
+                  121.348464
+                ],
+                [
+                  31.28151,
+                  121.350768
+                ],
+                [
+                  31.282496,
+                  121.350924
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": false,
+              "segment_order": 2,
+              "from_order": 2,
+              "to_order": 3,
+              "from_display_order": 1,
+              "to_display_order": 2,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            }
+          ],
+          "hints": {},
+          "waypoint_annotations": {
+            "起点·上海桃浦": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "萨莉亚意式餐厅(新邻天地店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "果品行(红棉路店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "037606ef-c8c8-4073-ba42-7535450e3c98",
+          "candidate_points": [],
+          "plan_mode": "planned",
+          "total_days": 1,
+          "display_granularity": "short",
+          "planning_state": {
+            "plan_mode": "planned",
+            "parsed_intent": {
+              "duration": "a quarter day",
+              "start_time": "2026-07-14T18:00:00+00:00",
+              "raw_keywords": [
+                "水果",
+                "晚饭"
+              ],
+              "search_keywords": [
+                "上海 买点水果",
+                "上海 水果",
+                "上海 晚饭"
+              ],
+              "micro_keywords": [
+                "买点水果 查询"
+              ],
+              "fixed_pois": [],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "咖啡",
+                "本帮菜"
+              ],
+              "meal_search_keywords": [
+                "晚饭",
+                "咖啡",
+                "本帮菜 餐厅"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": false,
+              "plan_mode": "planned",
+              "planned_waypoints": [
+                {
+                  "type": "fixed",
+                  "name": null,
+                  "search_keyword": "水果",
+                  "category": "purchase",
+                  "stay_minutes": 30,
+                  "search_keywords": [
+                    "水果"
+                  ]
+                },
+                {
+                  "type": "fixed",
+                  "name": null,
+                  "search_keyword": "晚饭",
+                  "category": "meal",
+                  "stay_minutes": 30,
+                  "search_keywords": [
+                    "晚饭"
+                  ]
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "a quarter day",
+            "start_time": "2026-07-14T18:00:00+00:00",
+            "raw_keywords": [
+              "水果",
+              "晚饭"
+            ],
+            "search_keywords": [
+              "上海 买点水果",
+              "上海 水果",
+              "上海 晚饭"
+            ],
+            "micro_keywords": [
+              "买点水果 查询"
+            ],
+            "fixed_pois": [],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "咖啡",
+              "本帮菜"
+            ],
+            "meal_search_keywords": [
+              "晚饭",
+              "咖啡",
+              "本帮菜 餐厅"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": false,
+            "plan_mode": "planned",
+            "planned_waypoints": [
+              {
+                "type": "fixed",
+                "name": null,
+                "search_keyword": "水果",
+                "category": "purchase",
+                "stay_minutes": 30,
+                "search_keywords": [
+                  "水果"
+                ]
+              },
+              {
+                "type": "fixed",
+                "name": null,
+                "search_keyword": "晚饭",
+                "category": "meal",
+                "stay_minutes": 30,
+                "search_keywords": [
+                  "晚饭"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 48.8,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 2069,
+        "deepseek_completion_tokens": 487,
+        "total_tokens": 2556,
+        "gaode_calls": 12,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 7667,
+          "planned_route": 37613,
+          "photo_enrichment": 3489,
+          "output_assembly": 0
+        }
+      }
+    }
+  }
+]

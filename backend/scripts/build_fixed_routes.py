@@ -234,6 +234,15 @@ def build_snapshot(
         segment_duration = int(geometry["duration_min"])
         segment_polyline = geometry["polyline"]
         segment_source = geometry.get("polyline_source", "gaode_fixed_snapshot")
+        period = target.get("display_slot", "morning")
+        period_colors = {
+            "morning": "#E67E22",
+            "lunch": "#D35400",
+            "afternoon": "#2980B9",
+            "dinner": "#C0392B",
+            "evening": "#8E44AD",
+            "half_day": "#E67E22",
+        }
         segments.append({
             "segment_order": idx,
             "day_index": 1,
@@ -244,9 +253,9 @@ def build_snapshot(
             "distance_km": segment_distance,
             "polyline": segment_polyline,
             "polyline_source": segment_source,
-            "period": target.get("display_slot", "morning"),
-            "display_slot": target.get("display_slot", "morning"),
-            "color": "#E67E22" if idx % 2 else "#2980B9",
+            "period": period,
+            "display_slot": period,
+            "color": period_colors.get(period, "#E67E22"),
         })
 
     markers = []

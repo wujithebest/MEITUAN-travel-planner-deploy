@@ -1072,11 +1072,14 @@ async def _route_from_origin_bounded(
 ) -> dict | None:
     """Bound route-API long tails and fall back to a distance estimate."""
     try:
-        return await asyncio.wait_for(
+        route = await asyncio.wait_for(
             _route_from_origin(parsed_intent, place, city),
             timeout=timeout_seconds,
         )
-    except (asyncio.TimeoutError, ExternalAPIError) as exc:
+        if route is None or isinstance(route, dict):
+            return route
+        raise TypeError(f"unexpected route result type: {type(route).__name__}")
+    except (asyncio.TimeoutError, ExternalAPIError, TypeError, AttributeError, ValueError) as exc:
         origin = parsed_intent.original_location or {}
         distance = haversine_km(origin, place.location) if origin and place.location else 0.0
         estimated_minutes = max(5.0, distance * 4.0) if distance else None
@@ -1090,6 +1093,17 @@ async def _route_from_origin_bounded(
             "degraded": True,
             "polyline_source": "haversine_estimate",
         }
+
+
+def _route_duration_minutes(route: Any) -> float | None:
+    """Read a route duration without allowing malformed provider data to crash planning."""
+    if not isinstance(route, dict):
+        return None
+    value = route.get("duration_min")
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _clean_reason_text(text: str) -> str:
@@ -1456,7 +1470,7 @@ async def _fixed_anchors(parsed_intent: ParsedIntent, user_profile: UserProfile)
             places.append(extracted)
     routes = await asyncio.gather(*[_route_from_origin(parsed_intent, place, city) for place in places])
     for place, route in zip(places, routes):
-        transit = route.get("duration_min") if route else None
+        transit = _route_duration_minutes(route)
         scored = _score_place(place, parsed_intent, transit, fixed=True, user_profile=user_profile)
         effective_capacity = _effective_capacity_for_request(scored.final_capacity or scored.time_capacity, parsed_intent, is_fixed=True)
         data = scored.model_dump()
@@ -1734,18 +1748,29 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
             if len(search_kws) >= keyword_limit:
                 break
 
-    requests = [
-        {
-            "location": coord_to_param(location),
-            "keywords": keyword,
-            "radius": radius,
-            "types": "|".join(allowed_types),
-            "show_fields": config.GAODE_SHOW_FIELDS,
-            "offset": 20,
-        }
-        for location in locations
-        for keyword in search_kws
-    ]
+    search_kws = list(dict.fromkeys(keyword for keyword in search_kws if keyword))
+    requests: list[dict] = []
+    seen_requests: set[tuple[str, str, int, str]] = set()
+    for location in locations:
+        location_param = coord_to_param(location)
+        for keyword in search_kws:
+            request_key = (location_param, keyword, radius, "|".join(allowed_types))
+            if request_key in seen_requests:
+                continue
+            seen_requests.add(request_key)
+            requests.append({
+                "location": location_param,
+                "keywords": keyword,
+                "radius": radius,
+                "types": request_key[3],
+                "show_fields": config.GAODE_SHOW_FIELDS,
+                "offset": 20,
+            })
+    print(
+        "[Step2RecallAudit] macro_request_count="
+        f"{len(requests)} keyword_count={len(search_kws)} location_count={len(locations)} "
+        "gaode_max_concurrency=3"
+    )
     results = await gaode_around_search_batch(requests)
     places = [_to_extracted(raw) for group in results for raw in group]
     raw_count = len(places)
@@ -1886,8 +1911,15 @@ async def _theme_recall_places(
     parsed_intent: ParsedIntent,
     user_profile: UserProfile,
     city: str,
+    bocha_state: dict[str, Any] | None = None,
 ) -> list[ExtractedPlace]:
     """v15: Bocha主题召回 — 从博查攻略语义中抽取主题片区/POI名称，高德校准后加入候选池"""
+    if bocha_state is not None and not bocha_state.get("available", True):
+        print(
+            "[Step2BochaAudit] stage=theme_recall skipped=true "
+            f"reason=previous_optional_failure detail={bocha_state.get('failure', '')[:120]}"
+        )
+        return []
     theme_id = getattr(parsed_intent, "theme_profile", None)
     if not theme_id or theme_id not in OFFICIAL_THEME_PROFILES:
         return []
@@ -1954,14 +1986,21 @@ async def _theme_recall_places(
 
         return False
 
-    all_web_items: list[dict] = []
-    for query in recall_queries[:3]:
+    async def _recall_one(query: str) -> list[list[dict]]:
         try:
-            results = await bocha_search_batch([query.format(city=city_short)])
-            for items in results:
-                all_web_items.extend(items)
+            return await bocha_search_batch([query.format(city=city_short)])
         except Exception as exc:
+            if bocha_state is not None:
+                bocha_state["available"] = False
+                bocha_state["failure"] = f"theme_recall:{type(exc).__name__}"
             print(f"[WARN step2] theme recall bocha search failed '{query}': {exc}")
+            return []
+
+    all_web_items: list[dict] = []
+    recall_groups = await asyncio.gather(*[_recall_one(query) for query in recall_queries[:3]])
+    for results in recall_groups:
+        for items in results:
+            all_web_items.extend(items)
 
     if not all_web_items:
         return []
@@ -1985,12 +2024,24 @@ async def _theme_recall_places(
     if not candidate_names:
         return []
 
+    # High-Gaode concurrency remains centrally limited to 3.  Dispatching this
+    # independent calibration batch concurrently removes avoidable serial wait
+    # while preserving candidate order and the same validation below.
+    async def _calibrate_name(name: str) -> list[dict]:
+        try:
+            return await gaode_text_search(name, city=city, show_fields=config.GAODE_SHOW_FIELDS)
+        except Exception as exc:
+            print(f"[WARN step2] theme recall geocode failed '{name}': {exc}")
+            return []
+
+    names_to_calibrate = candidate_names[:8]
+    calibrated_groups = await asyncio.gather(*[_calibrate_name(name) for name in names_to_calibrate])
+
     # 高德坐标校准（最多校准8个名称）
     places: list[ExtractedPlace] = []
     import re as _re2
-    for name in candidate_names[:8]:
+    for name, raws in zip(names_to_calibrate, calibrated_groups):
         try:
-            raws = await gaode_text_search(name, city=city, show_fields=config.GAODE_SHOW_FIELDS)
             for raw in raws:
                 place = _to_extracted(raw)
                 if not place or not place.location:
@@ -2045,14 +2096,18 @@ async def _theme_recall_places(
                 places.append(place)
                 break
         except Exception as exc:
-            print(f"[WARN step2] theme recall geocode failed '{name}': {exc}")
+            print(f"[WARN step2] theme recall candidate processing failed '{name}': {exc}")
 
     if places:
         print(f"[DEBUG step2] theme recall found {len(places)} places: {[(p.name, p.location) for p in places]}")
     return places
 
 
-async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[ExtractedPlace]:
+async def _enrich_places(
+    places: list[ExtractedPlace],
+    city: str,
+    bocha_state: dict[str, Any] | None = None,
+) -> list[ExtractedPlace]:
     # Enrich only the strongest two candidates.  This runs before final
     # selection, so enriching six candidates amplified every BoCha long tail.
     enrich_limit = 2
@@ -2062,6 +2117,9 @@ async def _enrich_places(places: list[ExtractedPlace], city: str) -> list[Extrac
     try:
         results = await asyncio.wait_for(bocha_search_batch(queries), timeout=7.0)
     except Exception as exc:
+        if bocha_state is not None:
+            bocha_state["available"] = False
+            bocha_state["failure"] = f"candidate_enrichment:{type(exc).__name__}"
         print(f"[WARN step2] candidate enrichment degraded: {type(exc).__name__}: {exc}")
         return places
     for place, web_items in zip(places[:enrich_limit], results):
@@ -2261,7 +2319,7 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
         ])
         scored = []
         for place, route in zip(top_places, top_routes):
-            transit = route.get("duration_min") if route else None
+            transit = _route_duration_minutes(route)
             scored.append(_score_place(place, parsed_intent, transit, user_profile=user_profile))
         for place, est_transit in rest_places:
             scored.append(_score_place(place, parsed_intent, est_transit, user_profile=user_profile))
@@ -2271,7 +2329,7 @@ async def _score_places(places: list[ExtractedPlace], parsed_intent: ParsedInten
         ])
         scored = []
         for place, route in zip(places, routes):
-            transit = route.get("duration_min") if route else None
+            transit = _route_duration_minutes(route)
             scored.append(_score_place(place, parsed_intent, transit, user_profile=user_profile))
     scored.sort(key=lambda item: item.final_score, reverse=True)
     if _is_nearby_request(parsed_intent):
@@ -4479,7 +4537,14 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         else:
             top_places_for_route = list(places)
         # 2. 并行：bocha enrich + transit route calls
-        enrich_task = asyncio.create_task(_enrich_places(places, city_name))
+        # Bocha is optional enrichment.  Once it has failed for this route,
+        # skip subsequent optional theme recall instead of paying the same
+        # timeout again; Gaode retrieval, scoring, and anchor selection remain.
+        bocha_state: dict[str, Any] = {
+            "available": bool(config.BOCHA_API_KEY),
+            "failure": "missing_api_key" if not config.BOCHA_API_KEY else "",
+        }
+        enrich_task = asyncio.create_task(_enrich_places(places, city_name, bocha_state))
 
         async def _fetch_routes():
             return await asyncio.gather(*[
@@ -4493,11 +4558,16 @@ async def run_step2(parsed_intent: ParsedIntent, user_profile: UserProfile, logg
         transit_map: dict[str, float | None] = {}
         for place, route in zip(top_places_for_route, top_routes):
             pid = getattr(place, "gaode_poi_id", None) or place.name
-            transit_map[pid] = route.get("duration_min") if route else None
+            transit_map[pid] = _route_duration_minutes(route)
         await logger.log_step("step_2_3_bocha_enrich", output_count=min(len(places_enriched), 10))
 
         # v15: 主题召回 — 用博查搜索主题攻略语义，补充 destination_anchor
-        theme_recall_places = await _theme_recall_places(parsed_intent, user_profile, city_name)
+        theme_recall_places = await _theme_recall_places(
+            parsed_intent,
+            user_profile,
+            city_name,
+            bocha_state=bocha_state,
+        )
         if theme_recall_places:
             places_enriched = list(places_enriched) + theme_recall_places
 

@@ -1,0 +1,84 @@
+{
+  "case_id": "M08",
+  "input": "不吃饭了，改成下午逛展和喝咖啡",
+  "expected": {
+    "conversation_mode": "new_plan",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 20724,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "exploratory",
+      "earliest_step": "step2",
+      "point_operations": [
+        {
+          "action": "remove",
+          "target_name": "川菜餐厅",
+          "new_name": ""
+        }
+      ],
+      "intent_patch": {
+        "theme": "展览和咖啡",
+        "time_slot": "下午"
+      },
+      "reason": "用户要求去掉吃饭（川菜餐厅），改为下午逛展和喝咖啡，属于修改路线主题和时间偏好，保留原有公园，因此为refine_current。目标模式为exploratory，因为未指定具体地点顺序。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": false
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 17802,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "exploratory",
+      "earliest_step": "step1",
+      "point_operations": [
+        {
+          "action": "remove",
+          "point_name": "川菜餐厅"
+        },
+        {
+          "action": "remove",
+          "point_name": "附近公园"
+        }
+      ],
+      "intent_patch": {
+        "food_pref_keywords": [],
+        "meal_search_keywords": [],
+        "raw_keywords": [
+          "逛展",
+          "喝咖啡"
+        ],
+        "search_keywords": [
+          "展览",
+          "展会",
+          "美术馆",
+          "博物馆",
+          "咖啡店",
+          "咖啡"
+        ],
+        "micro_keywords": [
+          "艺术展览",
+          "当代艺术",
+          "咖啡店 打卡",
+          "独立咖啡馆"
+        ],
+        "theme_profile": "expo_event_trade"
+      },
+      "reason": "用户明确替换餐饮为逛展和咖啡，需更新路线意图"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": false
+      }
+    }
+  }
+}

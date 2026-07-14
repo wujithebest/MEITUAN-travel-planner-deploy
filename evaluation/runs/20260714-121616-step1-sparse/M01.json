@@ -1,0 +1,61 @@
+{
+  "case_id": "M01",
+  "input": "不想吃烤鸭。想吃川菜",
+  "expected": {
+    "plan_mode": "planned",
+    "conversation_mode": "refine_current",
+    "path": "full_llm"
+  },
+  "baseline": {
+    "duration_ms": 32285,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "duration": "a full day",
+      "raw_keywords": [
+        "川菜"
+      ],
+      "search_keywords": [
+        "川菜",
+        "川菜馆",
+        "麻辣",
+        "火锅"
+      ],
+      "waypoints": []
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "conversation_mode": true
+      }
+    }
+  },
+  "sparse": {
+    "duration_ms": 32540,
+    "path": "full_llm",
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "duration": "a full day",
+      "raw_keywords": [
+        "川菜"
+      ],
+      "search_keywords": [
+        "川菜",
+        "川菜馆",
+        "麻辣",
+        "火锅"
+      ],
+      "waypoints": []
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "conversation_mode": true,
+        "path": true
+      }
+    }
+  }
+}

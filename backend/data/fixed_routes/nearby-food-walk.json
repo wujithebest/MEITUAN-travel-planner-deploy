@@ -288,7 +288,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "morning",
         "display_slot": "morning",
-        "color": "#2980B9"
+        "color": "#E67E22"
       },
       {
         "segment_order": 3,
@@ -302,7 +302,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "lunch",
         "display_slot": "lunch",
-        "color": "#E67E22"
+        "color": "#D35400"
       },
       {
         "segment_order": 4,
@@ -330,7 +330,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "afternoon",
         "display_slot": "afternoon",
-        "color": "#E67E22"
+        "color": "#2980B9"
       },
       {
         "segment_order": 6,
@@ -344,7 +344,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       }
     ],
     "candidate_points": [
@@ -612,7 +612,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "morning",
         "display_slot": "morning",
-        "color": "#2980B9"
+        "color": "#E67E22"
       },
       {
         "segment_order": 3,
@@ -626,7 +626,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "lunch",
         "display_slot": "lunch",
-        "color": "#E67E22"
+        "color": "#D35400"
       },
       {
         "segment_order": 4,
@@ -654,7 +654,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "afternoon",
         "display_slot": "afternoon",
-        "color": "#E67E22"
+        "color": "#2980B9"
       },
       {
         "segment_order": 6,
@@ -668,7 +668,7 @@
         "polyline_source": "gaode_fixed_snapshot",
         "period": "evening",
         "display_slot": "evening",
-        "color": "#2980B9"
+        "color": "#8E44AD"
       }
     ],
     "center": [

@@ -1,0 +1,69 @@
+{
+  "case_id": "M01",
+  "input": "不想吃烤鸭。想吃川菜",
+  "expected": {
+    "conversation_mode": "refine_current",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 32981,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "local_replan",
+      "point_operations": [
+        {
+          "action": "replace",
+          "target_name": "烤鸭店",
+          "new_name": "川菜馆"
+        }
+      ],
+      "intent_patch": {},
+      "reason": "用户明确表示不想吃烤鸭，想吃川菜，属于替换单个POI，且原有路线为planned模式，保持planned。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": false
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 18138,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {
+        "food_pref_keywords": [
+          "川菜"
+        ],
+        "meal_search_keywords": [
+          "川菜 餐厅",
+          "川菜馆",
+          "麻辣",
+          "四川菜"
+        ],
+        "search_keywords": [
+          "川菜 餐厅",
+          "川菜馆",
+          "麻辣",
+          "四川菜"
+        ],
+        "delete_list": [
+          "烤鸭"
+        ]
+      },
+      "reason": "用户在当前路线基础上修改餐饮偏好：从烤鸭改为川菜，并明确排除烤鸭。保留北海公园和景山公园，更新餐饮关键词。"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  }
+}

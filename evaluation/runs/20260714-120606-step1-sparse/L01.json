@@ -1,0 +1,66 @@
+{
+  "case_id": "L01",
+  "input": "附近找一家饭馆",
+  "expected": {
+    "plan_mode": "planned",
+    "waypoint_categories": [
+      "meal"
+    ],
+    "path": "compact_llm"
+  },
+  "baseline": {
+    "duration_ms": 32591,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "exploratory",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "饭馆"
+      ],
+      "search_keywords": [
+        "餐厅",
+        "小吃",
+        "面馆",
+        "快餐"
+      ],
+      "waypoints": []
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "plan_mode": false,
+        "waypoint_categories": false
+      }
+    }
+  },
+  "sparse": {
+    "duration_ms": 3888,
+    "path": "compact_llm",
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "饭馆"
+      ],
+      "search_keywords": [
+        "饭馆"
+      ],
+      "waypoints": [
+        {
+          "name": null,
+          "search_keyword": "饭馆",
+          "category": "meal"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "waypoint_categories": true,
+        "path": true
+      }
+    }
+  }
+}

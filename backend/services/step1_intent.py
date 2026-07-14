@@ -1,10 +1,11 @@
 from __future__ import annotations
 import asyncio
+import copy
 import datetime as dt
 import json
 import re
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import config
 from .api_client import call_llm, gaode_geocode, gaode_text_search, gaode_weather
@@ -25,6 +26,38 @@ from .poi_typecodes import (
     get_excluded_typecode_prefixes,
     get_semantic_terms,
 )
+
+
+class CompactStep1Intent(BaseModel):
+    """Minimal first-turn local-task contract used by sparse Step1 activation.
+
+    It intentionally excludes theme planning and multi-turn editing fields.  A
+    response must pass the local-task validator below before it is converted to
+    ParsedIntent; otherwise Step1 repeats the request through the full contract.
+    """
+
+    is_route_planning_request: bool = True
+    duration: str = "a quarter day"
+    raw_keywords: list[str] = Field(default_factory=list)
+    search_keywords: list[str] = Field(default_factory=list)
+    food_pref_keywords: list[str] = Field(default_factory=list)
+    meal_search_keywords: list[str] = Field(default_factory=list)
+    meal_constraints: list[dict] = Field(default_factory=list)
+    other_constraints: list[str] = Field(default_factory=list)
+    plan_mode: str = "planned"
+    planned_waypoints: list[PlannedWaypoint] = Field(default_factory=list)
+    poi_query_type: str = ""
+    category_id: str | None = None
+    primary_query: str = ""
+    explicit_meal_intent: bool = False
+    allowed_typecode_prefixes: list[str] = Field(default_factory=list)
+    primary_required_terms: list[str] = Field(default_factory=list)
+    primary_excluded_terms: list[str] = Field(default_factory=list)
+    proximity_requested: bool = True
+    proximity_radius_m: int | None = None
+    activity_facet: str = ""
+    required_features: list[str] = Field(default_factory=list)
+    preferred_features: list[str] = Field(default_factory=list)
 
 
 # ── v24: conversation_context parsing helpers ──
@@ -202,6 +235,7 @@ FOOD_STYLE_ALIASES = {
     "寿司": ["日料", "日本料理", "寿司"],
     "本帮菜": ["本帮菜", "上海菜", "江浙菜"],
     "上海菜": ["本帮菜", "上海菜", "江浙菜"],
+    "北京菜": ["北京菜", "京味", "老北京", "炸酱面", "烤鸭", "卤煮", "爆肚"],
     "川菜": ["川菜", "四川菜"],
     "粤菜": ["粤菜", "广东菜"],
     "火锅": ["火锅"],
@@ -1919,14 +1953,191 @@ def _deterministic_fallback_parsed_intent(
     )
 
 
+_COMPACT_STEP1_LOCAL_TERMS = ("附近", "周边", "周围", "旁边", "就近", "待会儿", "一会儿", "现在", "下班")
+_COMPACT_STEP1_ACTION_TERMS = (
+    "找", "买", "吃", "喝", "理发", "剪发", "看电影", "唱歌", "电玩", "玩游戏",
+)
+_COMPACT_STEP1_COMPLEX_TERMS = (
+    "明天", "后天", "周末", "上午", "下午", "中午", "傍晚", "晚上", "夜景", "夜游",
+    "一日", "一天", "两天", "多天", "先去", "最后", "文艺", "拍照", "特色小店", "河边",
+    "预算", "人均", "地铁", "公交", "打车", "不想", "不要", "别去", "改成", "替换",
+    "朋友", "同行", "一起", "不吃辣", "亲子", "老人", "故宫", "天安门", "北海公园",
+    "景山", "三里河", "外滩", "迪士尼", "颐和园",
+)
+
+
+def _is_compact_step1_candidate(
+    user_request: str,
+    routing_context: dict | None = None,
+) -> bool:
+    """Allow only low-ambiguity local tasks onto the compact LLM contract.
+
+    This is a safety gate, not an intent classifier.  The compact LLM still
+    determines POI categories and waypoint order.  Any context, timeline,
+    named showcase route, negative edit, or complex preference stays on the
+    complete Step1 prompt.
+    """
+    has_active_route_context = bool(
+        isinstance(routing_context, dict)
+        and (
+            routing_context.get("previous_intent")
+            or routing_context.get("previous_complete_plan")
+            or routing_context.get("points")
+            or routing_context.get("point_names")
+        )
+    )
+    if not config.STEP1_SPARSE_ACTIVATION_ENABLED or has_active_route_context or _has_conversation_context(user_request):
+        return False
+    text = _extract_latest_user_input(user_request).strip()
+    if not text or len(text) > 80:
+        return False
+    if not any(term in text for term in _COMPACT_STEP1_LOCAL_TERMS):
+        return False
+    if not any(term in text for term in _COMPACT_STEP1_ACTION_TERMS):
+        return False
+    if any(term in text for term in _COMPACT_STEP1_COMPLEX_TERMS):
+        return False
+    return True
+
+
+def _compact_intent_is_executable(parsed: CompactStep1Intent, user_request: str) -> bool:
+    """Reject a compact response unless it can safely enter the existing pipeline."""
+    if not parsed.is_route_planning_request or parsed.plan_mode != "planned":
+        return False
+    waypoints = list(parsed.planned_waypoints or [])
+    if not waypoints:
+        return False
+    if any(not (wp.name or wp.search_keyword) for wp in waypoints):
+        return False
+    if any(wp.category not in {"meal", "cafe", "purchase", "service", "visit", "home"} for wp in waypoints):
+        return False
+    has_order = any(term in user_request for term in ("再", "然后", "接着", "之后", "顺便", "吃完"))
+    if has_order and len(waypoints) < 2:
+        return False
+    return bool(parsed.search_keywords or parsed.primary_query or waypoints)
+
+
+async def _llm_parse_compact(
+    user_request: str,
+    current_time: dt.datetime,
+) -> CompactStep1Intent:
+    """Use a small schema and prompt for simple nearby first-turn tasks only."""
+    time_str = current_time.strftime("%Y-%m-%d %H:%M")
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是本地即时出行意图解析器。只处理首轮、附近或即时的简单找点任务。"
+                "不规划主题路线，不使用用户画像，不编造具体POI。"
+                "把每个用户明确想完成的动作都输出为有序 planned_waypoints："
+                "餐饮=meal，咖啡/奶茶/茶饮=cafe，购买=purchase，理发等=service，其他去处=visit。"
+                "只要有两个动作，必须保留用户顺序，不能把后一个目标塞进 meal_constraints。"
+                "计划模式固定为 planned；附近是搜索范围，不是途经点。"
+                "search_keyword 必须是可供地图直接搜索的用户目标或通用类别词。"
+                "严格按 response_model 返回 JSON。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"当前时间：{time_str}\n"
+                f"用户输入：{user_request}\n"
+                "仅提取：时长、关键词、餐饮关键词、附近约束、POI类别、以及有序途经点。"
+            ),
+        },
+    ]
+    return await call_llm(
+        response_model=CompactStep1Intent,
+        messages=messages,
+        max_tokens=config.DEEPSEEK_MAX_TOKENS_STEP_1_COMPACT,
+        temperature=config.DEEPSEEK_TEMPERATURE,
+        max_retries=0,
+    )
+
+
+async def parse_step1_llm_stage(
+    user_request: str,
+    current_time: dt.datetime,
+    *,
+    plan_mode: str = "auto",
+    planned_rule_hints: list[PlannedWaypoint] | None = None,
+    fallback_city: str = "",
+    routing_context: dict | None = None,
+) -> tuple[ParsedIntent, str]:
+    """Select compact or complete Step1 parsing while preserving full fallback."""
+    compact_candidate = plan_mode == "auto" and _is_compact_step1_candidate(user_request, routing_context)
+    if compact_candidate:
+        try:
+            compact = await _llm_parse_compact(user_request, current_time)
+            if _compact_intent_is_executable(compact, user_request):
+                print(
+                    "[Step1SparseAudit] path=compact_llm accepted=true "
+                    f"waypoints={[(wp.search_keyword or wp.name, wp.category) for wp in compact.planned_waypoints]}"
+                )
+                return ParsedIntent(**compact.model_dump()), "compact_llm"
+            print("[Step1SparseAudit] path=compact_llm accepted=false reason=invalid_contract fallback=full_llm")
+        except Exception as exc:
+            print(
+                "[Step1SparseAudit] path=compact_llm accepted=false "
+                f"reason={type(exc).__name__} fallback=full_llm"
+            )
+    else:
+        print("[Step1SparseAudit] path=full_llm reason=complex_or_contextual")
+
+    parsed = await _llm_parse(
+        user_request,
+        current_time,
+        plan_mode=plan_mode,
+        planned_rule_hints=planned_rule_hints,
+        fallback_city=fallback_city,
+        routing_context=routing_context,
+    )
+    return parsed, "full_llm"
+
+
 async def _llm_parse(
     user_request: str,
     current_time: dt.datetime,
     plan_mode: str = "auto",  # v18: "auto" — LLM 自己判断 exploratory/planned
     planned_rule_hints: list[PlannedWaypoint] | None = None,
     fallback_city: str = "",  # v24: city for deterministic fallback when LLM fails
+    routing_context: dict | None = None,
 ) -> ParsedIntent:
     time_str = current_time.strftime("%Y-%m-%d %H:%M")
+
+    # Keep conversation state compact and structured.  The model receives the
+    # latest utterance separately, so previous route data cannot be mistaken for
+    # fresh user requirements.
+    routing_context_text = ""
+    if routing_context:
+        previous_intent = routing_context.get("previous_intent") or {}
+        previous_intent = {
+            key: previous_intent.get(key)
+            for key in (
+                "duration", "plan_mode", "raw_keywords", "search_keywords",
+                "food_pref_keywords", "meal_search_keywords", "fixed_pois",
+                "planned_waypoints", "transport_hint", "other_constraints",
+                "excluded_typecode_prefixes", "original_location_label",
+            )
+            if previous_intent.get(key) not in (None, "", [], {})
+        }
+        route_points = [
+            {
+                "name": point.get("name", ""),
+                "kind": point.get("kind", ""),
+                "day": point.get("day", 1),
+                "display_slot": point.get("display_slot", ""),
+                "location": point.get("location"),
+            }
+            for point in (routing_context.get("points") or [])[:20]
+            if isinstance(point, dict)
+        ]
+        routing_context_text = json.dumps({
+            "has_current_route": bool(route_points),
+            "previous_intent": previous_intent,
+            "recent_user_messages": (routing_context.get("recent_user_messages") or [])[-3:],
+            "current_route_points": route_points,
+        }, ensure_ascii=False, default=str)
 
     # v6: 构造 rule hints 文本，帮助 LLM 更稳定地提取 planned_waypoints
     planned_rule_hints_text = ""
@@ -1967,6 +2178,7 @@ async def _llm_parse(
             + (" ⚠️ 精准规划/连续决策时必填" if plan_mode == "planned" else " ⚠️ 仅在用户明确表达有序任务序列时填写") +
             "\n"
             '   用户表达了一系列按顺序执行的动作时（如"先X，然后Y，再Z"），提取为有序途经点。\n'
+            '   路由硬约束：只要用户明确说出两个及以上需要完成的地点或品类，即使没有“先”，也必须设置 plan_mode="planned" 并逐项输出 planned_waypoints；不得把其中任一明确目标仅放进 meal_constraints。\n'
             '   每个途经点含：type(fixed|placeholder)、name、search_keyword、category、stay_minutes、search_keywords、required_terms、excluded_terms。\n'
             '   search_keyword：该点的主检索词，必须是可搜索品类或具体地点名，不要使用"附近/顺路/下班路上/找个地方"这类上下文词。\n'
             '   search_keywords：2-5个地图检索词，按优先级排列；不要编造具体POI名称。\n'
@@ -1977,6 +2189,7 @@ async def _llm_parse(
             '         简单吃饭/晚饭→category=meal、search_keyword="餐厅"、search_keywords=["餐厅","小吃","面馆","快餐"]、required_terms=["餐厅","饭店","小吃","面馆","快餐"]、excluded_terms=["咖啡","奶茶","茶饮","甜品","面包"]。\n'
             '         日料/火锅/烧烤等→category=meal、search_keyword=品类名，并生成对应品类检索词和required_terms。\n'
             '         咖啡/奶茶→category=cafe，不要归入meal。\n'
+            '         例如“附近找一下饭馆，再找一家咖啡店”必须输出顺序为 meal(餐厅) → cafe(咖啡店) 的两个 planned_waypoints；“附近”仅是搜索中心，不是 waypoint。\n'
             '   通用提取原则：先识别用户真正想完成的动作，再映射成可搜索POI类型。不要把语气词、路线词、位置词当成POI。\n'
             '   生活服务映射：理发/理个发/剪头发/美发/洗剪吹→category=service，search_keyword="理发店"，search_keywords=["理发店","美发店","发廊","剪发","发型设计"]，required_terms 必须包含理发/美发/发廊/剪发/造型/发型，excluded_terms 必须排除快递、收发室、驿站、菜鸟、丰巢、代收、物流、打印快印、维修、开锁、洗衣、房产中介等泛生活服务。\n'
             '   采购映射：买药→"药店"；买花→"花店"；买蛋糕/面包→"蛋糕店"/"面包店"；买饮料零食→"便利店"；买菜/生鲜→"生鲜超市"/"菜市场"。\n'
@@ -2093,6 +2306,7 @@ async def _llm_parse(
                    if plan_mode == "auto" else "自由探索，无需planned_waypoints")
                 + "）</context>\n"
                 + planned_rule_hints_text +
+                (f"<routing_context>{routing_context_text}</routing_context>\n" if routing_context_text else "") +
                 "\n"
                 f"<user_input>{user_request}</user_input>\n"
                 "\n"
@@ -2194,6 +2408,9 @@ async def _llm_parse(
                     '上午/下午/晚上/傍晚明确两个以上时段→plan_mode="planned", duration="a full day"。\n'
                     "即使用探索性动词，分时段也必须用planned模式。"
                     "每个时段独立为一个planned_waypoint，不得合并或丢弃。\n"
+                    "附近/周边场景中，若用户明确说“找A，再找B/然后找B”，这是有序精准规划："
+                    "plan_mode必须为planned，planned_waypoints必须按原顺序保留A和B；"
+                    "B必须保留用户原始地点类型作为search_keyword，不能塞进meal_constraints或忽略。\n"
                     '"再、还要、另外、顺便"追加时段→继承已有waypoints末尾追加，不替换。\n'
                     "morning+afternoon+evening→a full day(固定)。\n"
                     "</multi_period_rules>\n"
@@ -2285,6 +2502,19 @@ async def _llm_parse(
                 "</shopping_route_rules>\n"
                 "\n"
                 "<thinking_steps>\n"
+                "0. 同时做路由决策：conversation_mode 只能是 new_plan/refine_current/point_edit/follow_up/answer_only。"
+                "没有 current_route 时必须为 new_plan；有 current_route 时，替换/删除/增加单点为 point_edit，"
+                "调整预算、主题、餐饮偏好或时段为 refine_current，明确承接上一站附近搜索为 follow_up。\n"
+                "   对 refine_current，必须基于 routing_context.previous_intent 输出合并后的完整意图：最新输入覆盖明确字段，"
+                "未提及字段继承；否定词优先，不能保留被否定类别。\n"
+                "   同时填写 earliest_step、dispatch_confidence、dispatch_reason、intent_patch、include_constraints、"
+                "exclude_constraints、point_operations。point_operations 仅用于明确单点 add/remove/replace。\n"
+                "   多轮边界示例：已有文艺路线时“不要咖啡馆了，改成书店”必须是 point_edit，"
+                "point_operations 至少包含 remove_category(cafe) 和 add(书店)，不能只写 refine_current。\n"
+                "   已有路线时“不想吃烤鸭，想吃川菜”是 refine_current，必须保留所有非餐饮点和原 plan_mode，"
+                "intent_patch 必须包含 meal_replacement=true、new_food_keywords=[川菜] 和 meal_slot；不能当作普通 POI 替换。\n"
+                "   若用户明确取消旧路线的核心活动，并改为一组新的活动，例如“不吃饭了，改成下午逛展和喝咖啡”，"
+                "必须是 new_plan，plan_mode=planned，不能继承旧餐饮路线。\n"
                 "按以下顺序逐步提取：\n"
                 "1. 判断 is_route_planning_request：是否涉及出行/路线/游玩/餐饮\n"
                 "2. 识别 duration：根据时长描述词选择枚举值\n"
@@ -5048,6 +5278,394 @@ def _extract_north_sea_lunch_sanlihe_route(text: str):
             excluded_terms=[], stay_minutes=120,
         ),
     ]
+
+
+def _is_nearby_single_meal_request(text: str) -> bool:
+    """v28: Narrow 'nearby + single meal' → planned fast path."""
+    text = str(text or "").strip()
+    nearby_terms = ("附近", "周边", "就近", "旁边", "附近的")
+    meal_terms = ("饭馆", "餐馆", "餐厅", "饭店", "吃饭", "用餐", "找一家吃的", "找家饭馆")
+    exploration_terms = ("逛逛", "散步", "走走", "转转", "游玩", "路线", "然后", "再去", "先在", "接着")
+    return any(t in text for t in nearby_terms) and any(t in text for t in meal_terms) and not any(t in text for t in exploration_terms)
+
+
+def _build_nearby_single_meal_waypoint(user_request: str) -> "PlannedWaypoint":
+    """Build a deterministic meal placeholder for nearby single meal queries."""
+    from .data_schema import PlannedWaypoint as PW
+    return PW(
+        type="placeholder",
+        name=None,
+        search_keyword="餐厅",
+        category="meal",
+        stay_minutes=40,
+        search_keywords=["饭馆", "餐馆", "餐厅", "饭店"],
+        required_terms=["饭馆", "餐馆", "餐厅", "饭店", "食堂", "菜馆"],
+        excluded_terms=["咖啡馆", "咖啡店", "酒吧", "甜品店", "奶茶店"],
+        search_center_name=None,
+        time_slot=None,
+    )
+
+
+def is_nearby_multi_stop_local_request(text: str) -> bool:
+    """Detect a short first-turn local chain with two ordered explicit stops.
+
+    This is intentionally narrow.  It is a routing-contract guard, not a
+    replacement for the LLM's general intent classification.
+    """
+    text = str(text or "").strip()
+    nearby_terms = ("附近", "周边", "就近", "旁边", "附近的")
+    sequence_terms = ("再", "然后", "接着", "之后", "顺便", "吃完")
+    exploration_terms = ("逛逛", "散步", "走走", "转转", "游玩", "路线", "规划", "一整天", "上午", "下午", "晚上", "夜景")
+    return (
+        any(term in text for term in nearby_terms)
+        and any(term in text for term in sequence_terms)
+        and text.count("找") >= 2
+        and not any(term in text for term in exploration_terms)
+    )
+
+
+def _reconcile_nearby_multi_stop_contract(
+    parsed: ParsedIntent,
+    llm_plan_mode: str,
+    llm_waypoints: list[PlannedWaypoint],
+) -> str:
+    """Use LLM-extracted ordered stops without hard-coding destination types."""
+    valid_waypoints = [
+        wp for wp in llm_waypoints
+        if str(getattr(wp, "name", "") or getattr(wp, "search_keyword", "") or "").strip()
+    ]
+    if len(valid_waypoints) >= 2:
+        parsed.plan_mode = "planned"
+        parsed.planned_waypoints = copy.deepcopy(valid_waypoints)
+        return "llm_waypoints"
+    return "llm_missing_waypoints"
+
+
+_EXPLICIT_EXECUTION_ORDER_TOKENS = (
+    "先", "再", "然后", "接着", "之后", "随后", "顺便", "吃完", "饭后",
+    "上午", "中午", "下午", "傍晚", "晚上", "最后",
+)
+
+_GENERIC_MEAL_TERMS = {
+    "吃饭", "餐厅", "饭馆", "饭店", "美食", "好吃的",
+    "晚饭", "晚餐", "午饭", "午餐", "中饭", "中餐", "简餐", "用餐",
+}
+
+
+def _food_style_match_terms(food: str) -> list[str]:
+    """Return user-visible cuisine aliases accepted as the same food style."""
+    normalized = str(food or "").strip()
+    if not normalized:
+        return []
+    for style, aliases in FOOD_STYLE_ALIASES.items():
+        if style in normalized or normalized in aliases:
+            return list(dict.fromkeys([normalized, style, *aliases]))
+    return [normalized]
+
+_PLACE_NAME_SUFFIXES = ("公园", "园", "宫", "门", "馆", "街", "路", "寺", "塔", "江", "河", "湖", "滩", "场", "山")
+
+
+def _extract_place_like_names(text: str) -> list[tuple[int, str]]:
+    """Extract literal place-like names from a go/stroll clause without a POI list."""
+    results: list[tuple[int, str]] = []
+    pattern = re.compile(
+        r"(?:先去|想去|去到|去|到|在)([\u4e00-\u9fffA-Za-z0-9·-]{2,24}?)(?=(?:附近|里|转转|走走|逛逛|看看|游玩|参观|$|[，,。；;]))"
+    )
+    for match in pattern.finditer(text or ""):
+        phrase = match.group(1).strip()
+        split_names = re.split(r"和|及|与|、", phrase)
+        # "颐和园" contains 和 as part of its proper name.  Split only when
+        # every fragment itself has the shape of a place name.
+        names = split_names if (
+            len(split_names) > 1
+            and all(len(item.strip()) >= 2 and item.strip().endswith(_PLACE_NAME_SUFFIXES) for item in split_names)
+        ) else [phrase]
+        for name in names:
+            name = name.strip()
+            if len(name) >= 2 and name.endswith(_PLACE_NAME_SUFFIXES):
+                results.append((text.find(name, match.start()), name))
+    return results
+
+
+def _derive_ordered_action_waypoints(
+    user_request: str,
+    parsed: ParsedIntent,
+) -> list[PlannedWaypoint]:
+    """Build a compact ordered contract from literal user actions.
+
+    It is intentionally place-agnostic: names are recognised structurally,
+    while meals, photos, cafes and walks are translated into reusable map
+    categories.  It only runs after the user has explicitly supplied order.
+    """
+    text = _extract_latest_user_input(user_request).strip()
+    if not text:
+        return []
+
+    actions: list[tuple[int, int, PlannedWaypoint]] = []
+    seen: set[tuple[int, str, str]] = set()
+    fixed_positions: list[int] = []
+
+    def add(position: int, priority: int, waypoint: PlannedWaypoint) -> None:
+        key = (position, waypoint.category, waypoint.name or waypoint.search_keyword or "")
+        if position < 0 or key in seen:
+            return
+        seen.add(key)
+        if waypoint.type == "fixed":
+            fixed_positions.append(position)
+        actions.append((position, priority, waypoint))
+
+    # A compound location such as "天安门和故宫附近" becomes two fixed
+    # waypoints.  Generic phrases do not have a place suffix and are ignored.
+    for position, name in _extract_place_like_names(text):
+        add(position, 0, PlannedWaypoint(
+                type="fixed",
+                name=name,
+                search_keyword=name,
+                category="visit",
+                stay_minutes=90,
+                search_keywords=[name],
+                required_terms=[name],
+                must_match_terms=True,
+        ))
+
+    for fixed in getattr(parsed, "fixed_pois", []) or []:
+        name = str(getattr(fixed, "name", "") or "").strip()
+        position = text.find(name)
+        if name and position >= 0:
+            add(position, 0, PlannedWaypoint(
+                type="fixed",
+                name=name,
+                search_keyword=name,
+                category="visit",
+                stay_minutes=90,
+                search_keywords=[name],
+                required_terms=[name],
+                must_match_terms=True,
+                time_slot=getattr(fixed, "user_time_budget", None),
+            ))
+
+    food_terms = list(dict.fromkeys(
+        list(getattr(parsed, "food_pref_keywords", []) or [])
+        + [str(item) for item in (getattr(parsed, "meal_search_keywords", []) or []) if str(item)]
+    ))
+    explicit_food = next(
+        (term for term in food_terms if term in text and term not in _GENERIC_MEAL_TERMS),
+        "",
+    )
+    meal_tokens = ("吃", "饭馆", "饭店", "餐厅", "晚饭", "午饭", "晚餐", "午餐")
+    meal_position = min((text.find(token) for token in meal_tokens if text.find(token) >= 0), default=-1)
+    if meal_position >= 0:
+        keyword = explicit_food or "餐厅"
+        required = _food_style_match_terms(keyword) if explicit_food else ["餐厅", "饭店", "饭馆", "小馆", "菜馆", "食堂"]
+        add(meal_position, 1, PlannedWaypoint(
+            type="placeholder",
+            search_keyword=keyword,
+            category="meal",
+            stay_minutes=50,
+            search_keywords=list(dict.fromkeys([keyword, f"{keyword} 餐厅", *required])) if explicit_food else ["餐厅", "饭馆", "饭店", "小馆"],
+            required_terms=required,
+            excluded_terms=["咖啡", "奶茶", "甜品", "面包"],
+            must_match_terms=True,
+        ))
+
+    action_specs = [
+        (("拍照", "出片", "摄影", "打卡"), "拍照打卡", "visit", 80),
+        (("咖啡", "咖啡店", "喝杯咖啡", "奶茶", "茶饮", "下午茶"), "咖啡", "cafe", 25),
+        (("散步", "走一走", "走走", "漫步", "遛弯", "逛逛"), "公园", "visit", 45),
+    ]
+    for tokens, keyword, category, stay_minutes in action_specs:
+        positions = [text.find(token) for token in tokens if text.find(token) >= 0]
+        if not positions:
+            continue
+        candidate_positions = sorted(set(positions)) if keyword == "公园" else [min(positions)]
+        required = (
+            ["艺术", "展", "创意", "观景", "地标", "建筑", "公园", "广场", "街区"]
+            if keyword == "拍照打卡"
+            else (["咖啡", "Coffee", "coffee", "奶茶", "茶饮", "星巴克", "瑞幸", "Manner"] if category == "cafe"
+                  else ["公园", "绿地", "滨江", "江", "河", "湖", "步行街", "街区", "广场"])
+        )
+        excluded = ["停车场", "办公楼", "住宅", "健身"] if keyword == "拍照打卡" else []
+        if keyword == "公园":
+            excluded = ["健身", "游泳", "运动", "酒吧", "KTV", "夜店"]
+        for position in candidate_positions:
+            # "去北海公园走走" is one fixed visit, whereas "吃完再散步" is
+            # a distinct later action.  Skip only the former occurrence.
+            if keyword == "公园" and any(0 <= position - fixed_pos <= 16 for fixed_pos in fixed_positions):
+                continue
+            add(position, 2, PlannedWaypoint(
+                type="placeholder",
+                search_keyword=keyword,
+                category=category,
+                stay_minutes=stay_minutes,
+                search_keywords=(["拍照打卡", "艺术区", "创意园", "观景台", "展览"] if keyword == "拍照打卡"
+                                 else (["咖啡店", "咖啡"] if category == "cafe" else ["公园", "滨江步道", "步行街", "绿地"])),
+                required_terms=required,
+                excluded_terms=excluded,
+                must_match_terms=True,
+            ))
+
+    actions.sort(key=lambda item: (item[0], item[1]))
+    return [waypoint for _, _, waypoint in actions]
+
+
+def _normalize_explicit_contract_waypoint(
+    waypoint: PlannedWaypoint,
+    user_request: str,
+    food_terms: list[str],
+) -> PlannedWaypoint:
+    """Normalize universally understood explicit actions into map contracts."""
+    wp = copy.deepcopy(waypoint)
+    text = " ".join([
+        str(wp.name or ""),
+        str(wp.search_keyword or ""),
+        " ".join(str(item or "") for item in (wp.search_keywords or [])),
+    ])
+    request_lower = user_request.lower()
+
+    if any(token in text for token in ("散步", "走一走", "走走", "漫步", "遛弯", "逛逛")):
+        # Area-stroll parsers sometimes carry the full clause as the search
+        # center.  Recover a literal place from it before falling back to a
+        # generic park, so "颐和园附近转转" stays anchored at 颐和园.
+        for _, place_name in _extract_place_like_names(
+            " ".join([str(getattr(wp, "search_center_name", "") or ""), user_request])
+        ):
+            wp.type = "fixed"
+            wp.name = place_name
+            wp.search_keyword = place_name
+            wp.category = "visit"
+            wp.search_keywords = [place_name]
+            wp.required_terms = [place_name]
+            wp.must_match_terms = True
+            return wp
+        wp.type = "placeholder"
+        wp.name = None
+        wp.search_keyword = "公园"
+        wp.category = "visit"
+        wp.search_keywords = ["公园", "滨江步道", "步行街", "绿地"]
+        wp.required_terms = ["公园", "绿地", "滨江", "江", "河", "湖", "步行街", "街区", "广场"]
+        wp.excluded_terms = list(dict.fromkeys((wp.excluded_terms or []) + ["健身", "游泳", "运动", "酒吧", "KTV", "夜店"]))
+        wp.must_match_terms = True
+        return wp
+
+    if any(token in text for token in ("拍照", "出片", "打卡", "摄影")):
+        wp.type = "placeholder"
+        wp.name = None
+        wp.search_keyword = "拍照打卡"
+        wp.category = "visit"
+        wp.search_keywords = ["拍照打卡", "艺术区", "创意园", "观景台", "展览"]
+        wp.required_terms = ["艺术", "展", "创意", "观景", "地标", "建筑", "公园", "广场", "街区"]
+        wp.excluded_terms = list(dict.fromkeys((wp.excluded_terms or []) + ["停车场", "办公楼", "住宅", "健身"]))
+        wp.must_match_terms = True
+        return wp
+
+    if wp.category == "meal":
+        explicit_food = next(
+            (
+                term for term in food_terms
+                if term and term.lower() in request_lower
+                and term not in _GENERIC_MEAL_TERMS
+            ),
+            "",
+        )
+        if explicit_food:
+            wp.type = "placeholder"
+            wp.name = None
+            wp.search_keyword = explicit_food
+            aliases = _food_style_match_terms(explicit_food)
+            wp.search_keywords = list(dict.fromkeys([
+                explicit_food, f"{explicit_food} 餐厅", f"{explicit_food}店", *aliases,
+            ]))
+            wp.required_terms = aliases
+            wp.must_match_terms = True
+        elif str(wp.name or wp.search_keyword or "").strip() in _GENERIC_MEAL_TERMS:
+            # Time labels such as "晚饭" describe when to eat, not what a POI
+            # is called.  Search the restaurant category rather than requiring
+            # a literal word that normal restaurant names rarely contain.
+            wp.type = "placeholder"
+            wp.name = None
+            wp.search_keyword = "餐厅"
+            wp.search_keywords = ["餐厅", "饭馆", "饭店", "小馆"]
+            wp.required_terms = ["餐厅", "饭店", "饭馆", "小馆", "菜馆", "食堂"]
+            wp.must_match_terms = True
+
+    if wp.type == "fixed" and wp.name:
+        # A phrase such as "下午继续轻松走走" is an activity description,
+        # not a map place.  Turn it into the same generic walk contract rather
+        # than attempting a text search for arbitrary adjective words.
+        escaped_name = re.escape(wp.name)
+        if not wp.name.endswith(_PLACE_NAME_SUFFIXES) and re.search(
+            rf"{escaped_name}.{{0,8}}(?:散步|走一走|走走|漫步|逛逛)", user_request
+        ):
+            wp.type = "placeholder"
+            wp.name = None
+            wp.search_keyword = "公园"
+            wp.category = "visit"
+            wp.search_keywords = ["公园", "滨江步道", "步行街", "绿地"]
+            wp.required_terms = ["公园", "绿地", "滨江", "江", "河", "湖", "步行街", "街区", "广场"]
+            wp.excluded_terms = list(dict.fromkeys((wp.excluded_terms or []) + ["健身", "游泳", "运动", "酒吧", "KTV", "夜店"]))
+            wp.must_match_terms = True
+            return wp
+        wp.required_terms = [wp.name]
+        wp.must_match_terms = True
+
+    if wp.category in {"cafe", "purchase", "service"} and (wp.name or wp.search_keyword):
+        wp.must_match_terms = True
+    return wp
+
+
+def _apply_explicit_execution_contract(
+    parsed: ParsedIntent,
+    user_request: str,
+    rule_hints: list[PlannedWaypoint],
+) -> bool:
+    """Promote explicit ordered actions to the existing planned pipeline.
+
+    This leaves broad theme discovery and multi-turn edits untouched.  It only
+    prevents an action chain that the user explicitly ordered from being
+    silently downgraded into a theme/macro exploration route.
+    """
+    text = _extract_latest_user_input(user_request).strip()
+    if not any(token in text for token in _EXPLICIT_EXECUTION_ORDER_TOKENS):
+        return False
+    # The literal text order wins when it can form a complete contract.  The
+    # existing deterministic hints and LLM waypoints remain fallbacks for
+    # requests outside this compact grammar.
+    candidates = _derive_ordered_action_waypoints(text, parsed)
+    if len(candidates) < 2:
+        candidates = list(rule_hints or [])
+    if len(candidates) < 2:
+        candidates = list(getattr(parsed, "planned_waypoints", []) or [])
+    if len(candidates) < 2:
+        return False
+
+    food_terms = list(dict.fromkeys(
+        list(getattr(parsed, "food_pref_keywords", []) or [])
+        + [str(item) for item in (getattr(parsed, "meal_search_keywords", []) or []) if str(item)]
+    ))
+    normalized = [
+        _normalize_explicit_contract_waypoint(wp, text, food_terms)
+        for wp in candidates
+        if str(getattr(wp, "name", "") or getattr(wp, "search_keyword", "") or "").strip()
+    ]
+    if len(normalized) < 2:
+        return False
+
+    parsed.planned_waypoints = normalized
+    parsed.plan_mode = "planned"
+    parsed.execution_contract_required = True
+    parsed.explicit_timeline_required = any(bool(getattr(wp, "time_slot", "")) for wp in normalized)
+
+    fixed_names = {str(getattr(fp, "name", "") or "") for fp in (parsed.fixed_pois or [])}
+    for wp in normalized:
+        if wp.type == "fixed" and wp.name and wp.name not in fixed_names:
+            parsed.fixed_pois.append(FixedPoi(name=wp.name, user_time_budget=wp.time_slot))
+            fixed_names.add(wp.name)
+
+    print(
+        "[ExecutionContractAudit] enabled=true "
+        f"waypoints={[(wp.name or wp.search_keyword, wp.category, wp.must_match_terms, wp.time_slot) for wp in normalized]}"
+    )
+    return True
 
 
 def _is_afternoon_dinner_river_night_query(text: str) -> bool:
@@ -8168,12 +8786,95 @@ async def _extract_planned_waypoints(
 
 
 
+def _normalize_unified_routing_fields(
+    parsed: ParsedIntent,
+    routing_context: dict | None,
+) -> ParsedIntent:
+    """Validate the routing envelope without reclassifying the user's intent."""
+    valid_conversation_modes = {
+        "new_plan", "refine_current", "point_edit", "follow_up", "answer_only", "unsupported",
+    }
+    conversation_mode = str(getattr(parsed, "conversation_mode", "new_plan") or "new_plan")
+    if conversation_mode not in valid_conversation_modes:
+        print(
+            "[UnifiedRoutingAudit] invalid_conversation_mode "
+            f"value={conversation_mode!r} repaired=new_plan"
+        )
+        parsed.conversation_mode = "new_plan"
+
+    valid_plan_modes = {"planned", "exploratory", "mixed"}
+    previous_mode = str(
+        ((routing_context or {}).get("previous_intent") or {}).get("plan_mode")
+        or ((routing_context or {}).get("previous_complete_plan") or {}).get("plan_mode")
+        or ""
+    )
+    plan_mode = str(getattr(parsed, "plan_mode", "exploratory") or "exploratory")
+    if plan_mode not in valid_plan_modes:
+        repaired_mode = previous_mode if previous_mode in valid_plan_modes else "exploratory"
+        print(
+            "[UnifiedRoutingAudit] invalid_plan_mode "
+            f"value={plan_mode!r} repaired={repaired_mode!r}"
+        )
+        parsed.plan_mode = repaired_mode
+    elif (
+        parsed.conversation_mode in {"refine_current", "point_edit", "follow_up"}
+        and previous_mode in valid_plan_modes
+        and plan_mode != previous_mode
+    ):
+        # A route edit changes constraints or a point; it does not silently
+        # replace the executable planning mode inherited from the current route.
+        print(
+            "[UnifiedRoutingAudit] inherited_plan_mode "
+            f"conversation_mode={parsed.conversation_mode!r} "
+            f"llm_mode={plan_mode!r} restored={previous_mode!r}"
+        )
+        parsed.plan_mode = previous_mode
+    return parsed
+
+
+def _ensure_explicit_visible_facet_coverage(parsed: Any, text: str) -> Any:
+    """Keep independently requested visible experiences from collapsing into one."""
+    raw = text or ""
+    wants_photo = any(token in raw for token in ("拍照", "出片", "摄影", "打卡"))
+    wants_cafe = any(token in raw for token in ("咖啡", "咖啡馆", "咖啡店", "奶茶", "茶饮"))
+    if not (wants_photo and wants_cafe):
+        return parsed
+
+    facets = list(getattr(parsed, "theme_facets", []) or [])
+    existing = {
+        str(item.get("id") or "")
+        for item in facets if isinstance(item, dict)
+    }
+    for facet_id, label in (
+        ("art_culture_lifestyle", "拍照地点"),
+        ("cafe_stop", "咖啡停留"),
+    ):
+        if facet_id not in existing:
+            facets.append({
+                "id": facet_id,
+                "label": label,
+                "required": True,
+                "role": "visible_poi",
+            })
+    parsed.theme_facets = facets
+    parsed.theme_coverage_policy = "cover_required_facets"
+    parsed.required_features = list(dict.fromkeys(
+        list(getattr(parsed, "required_features", []) or []) + ["拍照", "咖啡"]
+    ))
+    print(
+        "[ExplicitFacetCoverageAudit] enabled=true "
+        f"facets={[item.get('id') for item in facets if isinstance(item, dict)]}"
+    )
+    return parsed
+
+
 async def run_step1(
     user_request: str,
     user_profile: UserProfile,
     current_time: dt.datetime,
     logger: PipelineLogger,
     plan_mode: str = "auto",  # v18: "auto" | "exploratory" | "planned" — auto = LLM 自行判断
+    routing_context: dict | None = None,
 ) -> ParsedIntent:
     logger.start_step("step_1_1_llm_extract")
     await emit_status("正在解析您的出行意图...")
@@ -8183,6 +8884,9 @@ async def run_step1(
     # never the full <conversation_context> XML which contains previous_intent JSON etc.
     _nl_input = _extract_latest_user_input(user_request)
     _has_conv_ctx = _has_conversation_context(user_request)
+    _nearby_multi_stop_contract = (
+        not _has_conv_ctx and is_nearby_multi_stop_local_request(_nl_input)
+    )
     if _has_conv_ctx:
         print(
             f"[ContextParseAudit] has_conversation_context=true "
@@ -8227,14 +8931,25 @@ async def run_step1(
     if not _fallback_city:
         _fallback_city = "上海市"
 
-    parsed = await _llm_parse(
+    parsed, parse_source = await parse_step1_llm_stage(
         user_request,
         current_time,
         plan_mode=plan_mode,
         planned_rule_hints=planned_rule_hints if planned_rule_hints else None,
         fallback_city=_fallback_city,
+        routing_context=routing_context,
     )
-    parse_source = "llm_with_rule_hints" if planned_rule_hints else "llm"
+    parsed = _normalize_unified_routing_fields(parsed, routing_context)
+    _llm_plan_mode = str(getattr(parsed, "plan_mode", "exploratory") or "exploratory")
+    _llm_waypoints = copy.deepcopy(list(getattr(parsed, "planned_waypoints", []) or []))
+    if _nearby_multi_stop_contract:
+        print(
+            "[RoutingDecisionAudit] stage=step1_llm "
+            f"mode={_llm_plan_mode} "
+            f"waypoints={[(wp.search_keyword or wp.name, wp.category) for wp in _llm_waypoints]}"
+        )
+    if parse_source == "full_llm" and planned_rule_hints:
+        parse_source = "full_llm_with_rule_hints"
     await logger.log_step(
         "step_1_1_llm_extract",
         output_count=1,
@@ -8255,19 +8970,9 @@ async def run_step1(
         parsed.planned_waypoints = early_timed_waypoints
         _bind_planned_waypoint_search_centers(parsed.planned_waypoints, _nl_input)
 
-        parsed.plan_mode = "exploratory"
+        parsed.plan_mode = "planned"
+        parsed.execution_contract_required = True
         setattr(parsed, "explicit_timeline_required", True)
-
-        parsed.duration = "a full day"
-        parsed.time_budget = 1.0
-        parsed.meal_needs = ["lunch"]
-        parsed.meal_constraints = [
-            {
-                "meal": "lunch",
-                "keywords": ["北京菜", "京味菜", "老北京菜"],
-                "fixed_poi_name": None,
-            }
-        ]
 
         # Preserve morning search center, don't let only 景山 survive as fixed anchor
         first_wp = parsed.planned_waypoints[0]
@@ -8396,7 +9101,15 @@ async def run_step1(
     }
     _weather_city = getattr(parsed, "resolved_city", "") or authoritative_city or ""
     _weather_adcode = _weather_adcode_map.get(_weather_city, "310000")
-    weather_task = asyncio.create_task(gaode_weather(_weather_adcode))
+    async def _optional_weather() -> dict:
+        try:
+            timeout = 3.0 if getattr(parsed, "plan_mode", "") == "planned" else 8.0
+            return await asyncio.wait_for(gaode_weather(_weather_adcode), timeout=timeout)
+        except Exception as exc:
+            print(f"[WeatherDegradeAudit] enabled=true error={type(exc).__name__}: {exc}")
+            return {}
+
+    weather_task = asyncio.create_task(_optional_weather())
     print(f"[DEBUG weather] city={_weather_city} adcode={_weather_adcode}")
     await emit_status("正在查询天气...")
     fixed_budget, weather_info = await asyncio.gather(fixed_task, weather_task)
@@ -8415,7 +9128,17 @@ async def run_step1(
     # - "exploratory": ignore waypoints, set exploratory
     # v24: Use _nl_input (extracted latest_user_input) for ALL waypoint parsing.
     # Never pass the full <conversation_context> XML to waypoint parsers.
-    if plan_mode == "planned":
+    if _nearby_multi_stop_contract:
+        _contract_source = _reconcile_nearby_multi_stop_contract(
+            parsed, _llm_plan_mode, _llm_waypoints,
+        )
+        print(
+            "[RoutingDecisionAudit] stage=step1_contract "
+            "request_kind=nearby_local_chain "
+            f"source={_contract_source} mode={parsed.plan_mode} "
+            f"waypoints={[(wp.search_keyword or wp.name, wp.category) for wp in parsed.planned_waypoints]}"
+        )
+    elif plan_mode == "planned":
         parsed.plan_mode = "planned"
         if not parsed.planned_waypoints:
             parsed.planned_waypoints = _fallback_planned_waypoints_from_request(_nl_input)
@@ -8440,6 +9163,25 @@ async def run_step1(
         # explicit "exploratory" or other
         parsed.plan_mode = "exploratory"
 
+    # v28: Nearby single meal → planned fast path injection
+    # Must run BEFORE timed waypoint reconciliation so the injected waypoint
+    # is consumed by the planned fast path in Step2/Step3.
+    if (
+        plan_mode == "planned"
+        and not parsed.planned_waypoints
+        and _is_nearby_single_meal_request(_nl_input)
+    ):
+        parsed.planned_waypoints = [_build_nearby_single_meal_waypoint(_nl_input)]
+        parsed.plan_mode = "planned"
+        parsed.nearby_single_meal_request = True
+        print(
+            "[SingleMealPlannedAudit] "
+            "stage=step1_waypoint_inject "
+            "plan_mode=planned "
+            "waypoint_category=meal "
+            "search_keyword=餐厅"
+        )
+
     # v28: Timed waypoint reconciliation — always extract, not just for planned mode.
     # Area-meal-afternoon routes need exploratory expansion with explicit timeline order.
     timed_waypoints = _extract_timed_planned_waypoints(_nl_input)
@@ -8451,14 +9193,11 @@ async def run_step1(
         parsed.planned_waypoints = timed_waypoints
         _bind_planned_waypoint_search_centers(parsed.planned_waypoints, _nl_input)
 
-        # Use exploratory to allow macro/micro expansion for area stroll,
-        # but enforce explicit timeline order throughout.
-        parsed.plan_mode = "exploratory"
+        # Explicit time windows are a route contract, not a reason to discard
+        # their order by routing through broad exploratory recall.
+        parsed.plan_mode = "planned"
+        parsed.execution_contract_required = True
         setattr(parsed, "explicit_timeline_required", True)
-
-        parsed.duration = "a full day"
-        parsed.time_budget = 1.0
-        parsed.meal_needs = ["lunch"]
 
         # Afternoon fixed points go into fixed_pois with time_slot annotation
         existing_fixed = {fp.name for fp in (parsed.fixed_pois or [])}
@@ -8477,6 +9216,8 @@ async def run_step1(
             f"plan_mode={parsed.plan_mode} explicit_timeline_required=true"
         )
 
+    _apply_explicit_execution_contract(parsed, _nl_input, planned_rule_hints)
+
     # v24: Audit log for conversation_context parsing
     if _has_conv_ctx:
         _pws_count = len(parsed.planned_waypoints or [])
@@ -8490,6 +9231,8 @@ async def run_step1(
     # to strip negated categories from search/micro/food keywords.
     # Only activates when clear negation triggers are present ("不想去咖啡馆" etc.)
     parsed = _extract_category_exclusions_from_request(parsed, _nl_input)
+
+    parsed = _ensure_explicit_visible_facet_coverage(parsed, _nl_input or user_request)
 
     # v28: Final route quality contract enforcement
     parsed = _apply_route_quality_contract(parsed, _nl_input or user_request, stage="final")

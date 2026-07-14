@@ -1,0 +1,11 @@
+{
+  "case_count": 6,
+  "baseline_accuracy": 0.8333333333333334,
+  "sparse_accuracy": 1.0,
+  "baseline_mean_duration_ms": 34910,
+  "sparse_mean_duration_ms": 20438,
+  "compact_case_count": 3,
+  "compact_baseline_mean_duration_ms": 24037,
+  "compact_sparse_mean_duration_ms": 4204,
+  "compact_latency_delta_ms": -19833
+}

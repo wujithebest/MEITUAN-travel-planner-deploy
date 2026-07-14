@@ -1,0 +1,72 @@
+{
+  "case_id": "S01",
+  "input": "帮我推荐一条适合拍照的文艺路线，有咖啡馆和特色小店，节奏轻松一点",
+  "expected": {
+    "plan_mode": "exploratory",
+    "path": "full_llm"
+  },
+  "baseline": {
+    "duration_ms": 31668,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "exploratory",
+      "duration": "",
+      "raw_keywords": [
+        "拍照",
+        "文艺",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "search_keywords": [
+        "文艺街区",
+        "艺术展览",
+        "独立书店",
+        "创意园区",
+        "咖啡馆",
+        "特色小店",
+        "拍照打卡"
+      ],
+      "waypoints": []
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true
+      }
+    }
+  },
+  "sparse": {
+    "duration_ms": 32353,
+    "path": "full_llm",
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "exploratory",
+      "duration": "",
+      "raw_keywords": [
+        "拍照",
+        "文艺",
+        "咖啡馆",
+        "特色小店",
+        "节奏轻松"
+      ],
+      "search_keywords": [
+        "文艺街区",
+        "艺术展览",
+        "独立书店",
+        "创意园区",
+        "咖啡馆",
+        "特色小店",
+        "拍照打卡"
+      ],
+      "waypoints": []
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "path": true
+      }
+    }
+  }
+}

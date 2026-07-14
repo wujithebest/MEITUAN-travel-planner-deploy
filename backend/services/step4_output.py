@@ -1,10 +1,11 @@
 from __future__ import annotations
 import uuid
+import time
 from typing import Any
 from .data_schema import CompletePlan, MicroPOI, ParsedIntent, RouteSegment
 from .day_slots import WEATHER_LOW_SCORE_THRESHOLD
 from .step2_macro import OUTDOOR_TYPECODES
-from .utils import PipelineLogger, emit_done, emit_status, push_output
+from .utils import PipelineLogger, emit_done, emit_status, push_output, record_pipeline_stage
 
 # 路线缓存：按 route_id 存储 points/segments，供重新计算端点使用
 _route_cache: dict[str, dict[str, Any]] = {}
@@ -787,8 +788,10 @@ async def run_step4(
     route_points: list[dict[str, Any]] | None = None,
     candidate_points: list[dict[str, Any]] | None = None,
     user_request: str = "",
+    enrich_photos: bool = True,
 ) -> None:
     """Step 4: 生成输出"""
+    step4_started = time.monotonic()
     logger.start_step("step_4_output")
     await emit_status("正在生成行程方案...")
 
@@ -907,6 +910,7 @@ async def run_step4(
         candidate_points=candidate_points, plan_mode=_plan_mode,
         duration=_duration, time_budget=_time_budget_val,
         parsed_intent=parsed_intent,  # v18: for planning_state in route_data
+        enrich_photos=enrich_photos,
     )
 
     # v20: Thread route-level recommendation reason to frontend
@@ -925,24 +929,19 @@ async def run_step4(
                          and not any(t in str(_route_rec_reason) for t in
                                      ["作为AI", "根据系统提示", "无法提供", "没有足够信息"]))
     if not _reason_valid and _is_exploratory:
-        print("[RouteReasonAudit] recommendation_reason_primary_invalid, attempting DeepSeek fallback")
+        # The route is already final at this point. Do not issue a second LLM
+        # request that blocks delivery; the reason generator has a local
+        # contract-preserving fallback for timeout and validation failures.
+        print("[RouteReasonAudit] recommendation_reason_primary_invalid, using local fallback")
         try:
-            _route_rec_reason = await _generate_deepseek_fallback_reason(
-                parsed_intent=parsed_intent,
-                route_points=route_points,
-                user_request=str(user_request or ""),
-            )
+            _route_rec_reason = _generate_template_reason(parsed_intent, route_points)
         except Exception as _exc:
-            print(f"[RouteReasonAudit] recommendation_reason_fallback_failed: {type(_exc).__name__}")
+            print(f"[RouteReasonAudit] recommendation_reason_local_fallback_failed: {type(_exc).__name__}")
             _route_rec_reason = ""
         if _route_rec_reason:
-            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_success")
+            print("[RouteReasonAudit] recommendation_reason_local_fallback_success")
         else:
-            print("[RouteReasonAudit] recommendation_reason_deepseek_fallback_failed, using template")
-            try:
-                _route_rec_reason = _generate_template_reason(parsed_intent, route_points)
-            except Exception:
-                _route_rec_reason = "这条路线兼顾游览体验与通行效率，地点之间衔接较为顺畅，适合按照当前时间安排轻松探索。"
+            _route_rec_reason = "这条路线兼顾游览体验与通行效率，地点之间衔接较为顺畅，适合按照当前时间安排轻松探索。"
 
     if _route_rec_reason:
         route_data["route_recommend_reason"] = _route_rec_reason
@@ -980,6 +979,9 @@ async def run_step4(
         f"route_point_count={len(route_points) if route_points else 0} "
         f"segment_count={len(route_segments) if route_segments else 0}"
     )
+    # Record before emit_done so the browser receives this metric in the
+    # terminal SSE payload rather than only finding it in server logs.
+    record_pipeline_stage("output_assembly", step4_started)
     await emit_done(map_paths=map_paths, full_plan=full_plan, route_data=route_data)
 
     await logger.log_step("step_4_output", output_count=len(anchors) + len(complete_plan.day_plans) + 1)
@@ -995,6 +997,7 @@ async def _build_route_data(
     duration: str = "",
     time_budget: float = 0,
     parsed_intent: Any = None,  # v18: ParsedIntent for planning_state output
+    enrich_photos: bool = True,
 ) -> dict[str, Any]:
     """构建路线数据，用于前端验证
 
@@ -1578,12 +1581,13 @@ async def _build_route_data(
         _slot_counts[s] = _slot_counts.get(s, 0) + 1
     print(f"[DEBUG step4] display_slot summary={_slot_counts}")
 
-    try:
-        from services.poi_photo_service import enrich_points_with_photos
-        _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
-        points = await enrich_points_with_photos(points, city=_photo_city)
-    except Exception:
-        pass
+    if enrich_photos:
+        try:
+            from services.poi_photo_service import enrich_points_with_photos
+            _photo_city = getattr(parsed_intent, "resolved_city", "") or ""
+            points = await enrich_points_with_photos(points, city=_photo_city)
+        except Exception:
+            pass
     
     # ---- Step 3: 转换 segments，补充稳定编号字段 ----
     # 构建 display_order 反向映射: name → display_order
@@ -1636,8 +1640,8 @@ async def _build_route_data(
     # ---- [RouteDebug] 调试日志 ----
     print("[RouteDebug] points:")
     for pt in points:
-        print(f"  route_order={pt['route_order']} display_order={pt.get('display_order')} "
-              f"name={pt['name']} kind={pt['kind']} is_waypoint={pt['is_waypoint']} "
+        print(f"  route_order={pt.get('route_order')} display_order={pt.get('display_order')} "
+              f"name={pt.get('name')} kind={pt.get('kind')} is_waypoint={pt.get('is_waypoint')} "
               f"display_slot={pt.get('display_slot','')} location=({pt['location']['lng']},{pt['location']['lat']})")
     print("[RouteDebug] segments:")
     for seg in segments:
