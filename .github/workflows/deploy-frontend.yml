@@ -54,5 +54,7 @@ jobs:
         run: tcb login --apiKeyId ${{ secrets.TCB_SECRET_ID }} --apiKey ${{ secrets.TCB_SECRET_KEY }}
 
       - name: Deploy to CloudBase Static Hosting
-        timeout-minutes: 5
-        run: tcb hosting deploy ./frontend/dist / -e ${{ secrets.TCB_ENV_ID }}
+        timeout-minutes: 15
+        env:
+          COS_SDK_KEEPALIVE: false
+        run: tcb hosting deploy ./frontend/dist / -e ${{ secrets.TCB_ENV_ID }} --concurrency 5 --retry-count 3 --retry-interval 2000
