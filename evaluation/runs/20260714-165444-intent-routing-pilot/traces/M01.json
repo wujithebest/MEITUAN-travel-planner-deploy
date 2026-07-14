@@ -1,0 +1,63 @@
+{
+  "case_id": "M01",
+  "input": "不想吃烤鸭。想吃川菜",
+  "expected": {
+    "conversation_mode": "refine_current",
+    "plan_mode": "planned",
+    "required_intent_patch_keys": [
+      "meal_replacement",
+      "new_food_keywords",
+      "meal_slot"
+    ]
+  },
+  "baseline": {
+    "duration_ms": 35248,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "local_replan",
+      "point_operations": [
+        {
+          "action": "replace",
+          "target_name": "烤鸭店",
+          "new_name": "川菜"
+        }
+      ],
+      "intent_patch": {},
+      "reason": "用户明确表示不想吃烤鸭，想吃川菜，属于替换单个POI，因此conversation_mode为point_edit。当前路线为planned模式，且替换操作不改变模式，故target_plan_mode保持planned。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": false,
+        "required_intent_patch_keys": false
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 17840,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "planned",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {
+        "meal_replacement": true,
+        "new_food_keywords": [
+          "川菜"
+        ],
+        "meal_slot": "lunch"
+      },
+      "reason": "用户明确否定烤鸭并指定川菜，需替换午餐餐饮偏好，保留原有景点和计划模式"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true,
+        "required_intent_patch_keys": true
+      }
+    }
+  }
+}

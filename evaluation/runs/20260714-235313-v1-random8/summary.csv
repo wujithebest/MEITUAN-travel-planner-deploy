@@ -1,0 +1,9 @@
+﻿case_id,profile,wall_clock_s,verdict,visible_pois,polyline_segments,error
+S03,P-SH-LOCAL,33.8s,PASS,3,3,
+S24,P-SH-LOCAL,29.2s,PASS,2,2,
+S10,P-BJ-FOOD,64.6s,PASS,3,3,
+S02,P-BJ-FOOD,78.9s,FAIL,0,0,未能满足以下明确行程需求：北京菜。已保留其他行程要求，请调整该地点或目标类型后重试。
+S12,P-SH-LOCAL,19.7s,PASS,2,1,
+S06,P-BJ-FOOD,69.8s,PASS,3,3,
+S15,P-BJ-ART,103.5s,PASS,5,5,
+S21,P-BJ-ART,55.8s,PASS,3,2,

@@ -1,0 +1,55 @@
+{
+  "case_id": "M03",
+  "input": "不想去咖啡馆了，改成书店",
+  "expected": {
+    "conversation_mode": "point_edit",
+    "plan_mode": "exploratory"
+  },
+  "baseline": {
+    "duration_ms": 34330,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "local_replan",
+      "point_operations": [
+        {
+          "action": "remove",
+          "target_name": "地球咖啡",
+          "new_name": ""
+        },
+        {
+          "action": "add",
+          "target_name": "",
+          "new_name": "书店"
+        }
+      ],
+      "intent_patch": {},
+      "reason": "用户明确要求去掉咖啡馆并替换为书店，属于单点替换操作，不改变整体路线结构，因此 conversation_mode 为 point_edit。原有路线为 exploratory 模式，替换后仍保持探索性质，故 target_plan_mode 为 exploratory。"
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": true
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 16817,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "exploratory",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {},
+      "reason": ""
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": true
+      }
+    }
+  }
+}

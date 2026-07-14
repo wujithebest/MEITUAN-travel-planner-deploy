@@ -44,6 +44,98 @@ class PlanningDispatchDecision(BaseModel):
     reason: str = ""
 
 
+def decision_from_step1_intent(intent: Any, route_context: dict[str, Any] | None) -> PlanningDispatchDecision:
+    """Adapt the unified Step1 response to the existing router contract.
+
+    Normal requests never run the rule classifier before this point.  The small
+    checks here are structural guards only: a first turn cannot edit a missing
+    route, and downstream code only accepts the two executable plan modes.
+    """
+    has_route = bool(route_context and route_context.get("points"))
+    mode = str(getattr(intent, "conversation_mode", "new_plan") or "new_plan")
+    if not has_route and mode not in {"answer_only", "unsupported"}:
+        mode = "new_plan"
+    if mode not in {"new_plan", "refine_current", "point_edit", "answer_only", "unsupported", "follow_up"}:
+        mode = "new_plan"
+
+    plan_mode = str(getattr(intent, "plan_mode", "exploratory") or "exploratory")
+    target_plan_mode = "planned" if plan_mode == "planned" else "exploratory"
+    earliest_step = str(getattr(intent, "earliest_step", "step1") or "step1")
+    if earliest_step not in {"step1", "step2", "step3", "step4", "local_replan"}:
+        earliest_step = "step1"
+
+    previous_intent = (route_context or {}).get("previous_intent") or {}
+    previous_plan_mode = previous_intent.get("plan_mode") or (
+        ((route_context or {}).get("previous_complete_plan") or {}).get("plan_mode")
+    )
+    normalized_operations: list[dict[str, Any]] = []
+    for raw_operation in list(getattr(intent, "point_operations", []) or []):
+        if not isinstance(raw_operation, dict):
+            continue
+        operation = dict(raw_operation)
+        action = str(operation.get("action", "") or "")
+        if action == "remove" and (
+            operation.get("type") == "category"
+            or (
+                operation.get("category") in _CATEGORY_EXCLUSION_MAP
+                and not operation.get("target_name")
+            )
+        ):
+            operation["action"] = "remove_category"
+            operation["target_category"] = (
+                operation.get("value") or operation.get("category") or ""
+            )
+            action = "remove_category"
+        if action == "remove_category":
+            category = str(operation.get("target_category") or operation.get("category") or "")
+            category_info = next(
+                (
+                    info for info in _CATEGORY_EXCLUSION_MAP.values()
+                    if info.get("category_id") == category
+                ),
+                {},
+            )
+            operation["target_category"] = category
+            operation["target_terms"] = operation.get("target_terms") or list(
+                category_info.get("aliases", []) + category_info.get("negative_terms", [])
+            )
+            operation["target_typecodes"] = operation.get("target_typecodes") or list(
+                category_info.get("typecodes", [])
+            )
+        elif action == "add":
+            operation["new_name"] = (
+                operation.get("new_name")
+                or operation.get("search_keyword")
+                or operation.get("name")
+                or operation.get("value")
+                or ""
+            )
+        elif action in {"remove", "replace"}:
+            operation["target_name"] = operation.get("target_name") or operation.get("target") or ""
+            if action == "replace":
+                operation["new_name"] = (
+                    operation.get("new_name")
+                    or operation.get("search_keyword")
+                    or operation.get("value")
+                    or ""
+                )
+        normalized_operations.append(operation)
+
+    return PlanningDispatchDecision(
+        conversation_mode=mode,
+        target_plan_mode=target_plan_mode,
+        previous_plan_mode=previous_plan_mode,
+        mode_changed=bool(previous_plan_mode and previous_plan_mode != target_plan_mode),
+        confidence=float(getattr(intent, "dispatch_confidence", 0.0) or 0.0),
+        earliest_step=earliest_step,
+        intent_patch=dict(getattr(intent, "intent_patch", {}) or {}),
+        include_constraints=dict(getattr(intent, "include_constraints", {}) or {}),
+        exclude_constraints=dict(getattr(intent, "exclude_constraints", {}) or {}),
+        point_operations=normalized_operations,
+        reason=str(getattr(intent, "dispatch_reason", "") or "step1 unified routing"),
+    )
+
+
 # ── fast-path rules ──
 
 _NEW_CITY_TOKENS = ("杭州", "北京", "南京", "苏州", "无锡", "广州", "深圳", "成都", "重庆", "西安", "武汉",
@@ -352,6 +444,20 @@ def classify_conversation_route_change_fast(
             reason=f"meal preference replacement: {_meal_refine.get('old_food_raw', '?')} → {_meal_refine.get('new_food_raw', '?')}",
         )
 
+    # v21: Standalone nearby — check BEFORE _resolve_nearby_reference so bare
+    # queries like "找一家附近的餐馆" never touch the previous route's points.
+    if has_route and _is_standalone_nearby(text):
+        print(
+            "[NearbyDispatchAudit] standalone_nearby=true "
+            "skip_previous_destination=true reason=no_explicit_route_reference"
+        )
+        return ConversationRouteDecision(
+            mode="new_plan", confidence=0.88,
+            latest_user_intent_summary=text,
+            earliest_step="step1",
+            reason="standalone nearby request, not route continuation",
+        )
+
     # v21: Resolve "附近" context: previous_destination vs standalone
     _nearby_ref = _resolve_nearby_reference(text, route_context) if has_route else None
     print(f"[DEBUG nearby_ref] result={_nearby_ref.get('source') if _nearby_ref else 'None'} label={_nearby_ref.get('label') if _nearby_ref else ''}")
@@ -363,16 +469,6 @@ def classify_conversation_route_change_fast(
             earliest_step="step1",
             reason=f"contextual nearby lookup at previous_destination={_nearby_ref.get('label')}",
             include_constraints={"contextual_search_center": _nearby_ref},
-        )
-
-    # v21: Standalone nearby requests WITHOUT route continuation → new_plan
-    # "想在附近买点伴手礼" / "附近找个卫生间" — NO temporal/spatial continuity
-    if _is_standalone_nearby(text) and has_route:
-        return ConversationRouteDecision(
-            mode="new_plan", confidence=0.88,
-            latest_user_intent_summary=text,
-            earliest_step="step1",
-            reason="standalone nearby request, not route continuation",
         )
 
     # v21: Resolve point references before edit detection
@@ -419,6 +515,35 @@ def classify_conversation_route_change_fast(
             latest_user_intent_summary=text,
             earliest_step="step1",
             reason="explicit date + planning intent without continuation",
+        )
+
+    # v26+v27: Category-level exclusion detection — MUST run BEFORE point edit detection.
+    # "不想去咖啡馆了。修改下路线" → remove_category:cafe, not point_edit with bad target_name.
+    _cat_exclusion = _detect_category_exclusion(text, source="dispatch")
+    if _cat_exclusion and has_route:
+        print(
+            f"[CategoryExclusionAudit] source=dispatch matched=true "
+            f"category={_cat_exclusion['category_id']} action=remove_category "
+            f"text={text[:80]}"
+        )
+        return ConversationRouteDecision(
+            mode="point_edit", confidence=0.95,
+            latest_user_intent_summary=text,
+            earliest_step="local_replan",
+            point_operations=[{
+                "action": "remove_category",
+                "target_name": "",
+                "target_category": _cat_exclusion["category_id"],
+                "target_terms": _cat_exclusion["target_terms"],
+                "target_typecodes": _cat_exclusion["target_typecodes"],
+            }],
+            exclude_constraints={
+                "excluded_categories": [_cat_exclusion["category_id"]],
+                "excluded_terms": _cat_exclusion["target_terms"],
+                "excluded_typecodes": _cat_exclusion["target_typecodes"],
+                "preserve_previous_intent": True,
+            },
+            reason=f"category-level exclusion: {_cat_exclusion['category_id']} (raw={_cat_exclusion['raw_target']})",
         )
 
     # Point edit detection
@@ -546,15 +671,53 @@ def _resolve_point_references(
 
 
 # v21: Detect standalone nearby requests that should NOT inherit route
+def _normalize_route_location(value: Any) -> dict[str, float] | None:
+    """Normalize a route-context location to {lng, lat} or None.
+
+    Handles dict (with lng/lat or longitude/latitude), "lng,lat" string,
+    [lng, lat] list, and invalid/empty values — always safe, never crashes.
+    """
+    if isinstance(value, dict):
+        lng = value.get("lng", value.get("longitude"))
+        lat = value.get("lat", value.get("latitude"))
+    elif isinstance(value, str):
+        parts = [part.strip() for part in value.split(",")]
+        if len(parts) != 2:
+            return None
+        lng, lat = parts
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        lng, lat = value
+    else:
+        return None
+
+    try:
+        lng_value = float(lng)
+        lat_value = float(lat)
+    except (TypeError, ValueError):
+        return None
+
+    if not (-180 <= lng_value <= 180 and -90 <= lat_value <= 90):
+        return None
+    return {"lng": lng_value, "lat": lat_value}
+
+
 def _is_standalone_nearby(text: str) -> bool:
-    """Return True if this is a standalone nearby request, not a route continuation."""
-    _has_nearby = any(t in text for t in ["附近", "周边", "离我近", "就近"])
+    """Return True if this is a standalone nearby request with no explicit route reference.
+
+    '找一家附近的餐馆' → standalone (new task)
+    '那里附近找一家餐馆' → NOT standalone (contextual reference to previous route)
+    """
+    _has_nearby = any(t in text for t in ["附近", "周边", "离我近", "就近", "周围"])
     _has_continuation = any(t in text for t in [
         "加到当前路线", "加到路线", "路上顺便", "沿途", "再增加",
         "替换", "在刚才路线", "上个路线", "当前路线", "刚才路线",
         "把.*删", "把.*换", "把.*替",
     ])
-    return _has_nearby and not _has_continuation
+    _has_context_reference = any(t in text for t in [
+        "那里", "那儿", "那边", "那附近", "刚才那里", "刚才那边",
+        "上一个地方附近", "刚才推荐的地方附近", "那家店旁边",
+    ])
+    return _has_nearby and not _has_continuation and not _has_context_reference
 
 
 # v21: Resolve "附近" reference in multi-turn context
@@ -565,6 +728,8 @@ def _resolve_nearby_reference(
     """Resolve '附近' to previous_destination when temporal/spatial continuity exists.
 
     Returns contextual search center dict or None if no continuity.
+    All access to route_context fields is type-checked — never calls .get() on
+    non-dict values (handles str locations like "lng,lat" from Gaode).
     """
     if not route_context or not route_context.get("points"):
         return None
@@ -610,6 +775,8 @@ def _resolve_nearby_reference(
 
     # Check temporal continuity: both turns have same temporal marker
     prev_intent = route_context.get("previous_intent") or {}
+    # Safe: ensure prev_intent is a dict
+    prev_intent = prev_intent if isinstance(prev_intent, dict) else {}
     prev_req = (route_context.get("previous_user_messages") or [])[-1] if route_context.get("previous_user_messages") else ""
     if not prev_req:
         prev_req = str(prev_intent.get("raw_keywords", "") or "")
@@ -631,34 +798,37 @@ def _resolve_nearby_reference(
     if not _has_demonstrative and not (_same_temporal or _no_temporal_in_either):
         return None  # different temporal context → standalone
 
-    # Find previous destination or search area
+    # Find previous destination or search area (safe: prev_intent is always a dict)
     _dest = (prev_intent.get("search_area_label") or
              prev_intent.get("resolved_destination_name") or
              prev_intent.get("destination") or "")
-    _dest_loc = (prev_intent.get("search_area_location") or
-                 prev_intent.get("original_location") or {})
+    _dest_loc = _normalize_route_location(
+        prev_intent.get("search_area_location") or prev_intent.get("original_location")
+    )
 
-    if not _dest or not _dest_loc or not _dest_loc.get("lat"):
+    if not _dest or not _dest_loc:
         # Try to find destination from route points
-        _points = route_context.get("points", [])
-        for pt in _points:
+        raw_points = route_context.get("points", [])
+        points = [p for p in raw_points if isinstance(p, dict)] if isinstance(raw_points, list) else []
+        for pt in points:
             if pt.get("kind") == "destination" or pt.get("role") == "destination":
                 _candidate_dest = pt.get("name", "")
-                _candidate_loc = pt.get("location", {})
-                if _candidate_loc and _candidate_loc.get("lat"):
-                    _dest = _candidate_dest
+                _candidate_loc = _normalize_route_location(pt.get("location"))
+                if _candidate_loc and _candidate_dest:
+                    _dest = str(_candidate_dest)
                     _dest_loc = _candidate_loc
                     break
-        if not _dest_loc or not _dest_loc.get("lat"):
+        if not _dest or not _dest_loc:
             # Last non-start POI with valid location
-            for pt in reversed(_points):
-                _candidate_loc2 = pt.get("location", {})
-                if pt.get("kind") not in ("start",) and pt.get("name") and _candidate_loc2.get("lat"):
-                    _dest = pt.get("name", "")
-                    _dest_loc = _candidate_loc2
-                    break
+            for pt in reversed(points):
+                if pt.get("kind") not in ("start",) and pt.get("name"):
+                    _candidate_loc2 = _normalize_route_location(pt.get("location"))
+                    if _candidate_loc2:
+                        _dest = str(pt.get("name", ""))
+                        _dest_loc = _candidate_loc2
+                        break
 
-    if not _dest or not _dest_loc or not _dest_loc.get("lat"):
+    if not _dest or not _dest_loc:
         print(f"[DEBUG nearby_ref] no valid destination: dest={_dest} loc={_dest_loc}")
         return None
 
@@ -855,6 +1025,144 @@ def is_meal_preference_refine_decision(decision: "PlanningDispatchDecision | Con
         return False
     patch = getattr(decision, "intent_patch", None) or {}
     return bool(patch.get("meal_replacement", False))
+
+
+# ── v26: category-level exclusion detection ──
+
+# Mapping from user-facing category words → internal category_id + search terms + typecodes
+_CATEGORY_EXCLUSION_MAP: dict[str, dict] = {
+    "cafe": {
+        "category_id": "cafe",
+        "aliases": ["咖啡馆", "咖啡店", "咖啡厅", "咖啡", "coffee", "cafe", "café"],
+        "typecodes": ["050400", "050500"],
+        "negative_terms": ["瑞幸", "星巴克", "manner", "Manner", "Costa", "costa", "Seesaw",
+                           "M Stand", "Tim Hortons", "皮爷", "peets", "%Arabica"],
+    },
+    "specialty_shop": {
+        "category_id": "specialty_shop",
+        "aliases": ["特色小店", "买手店", "文创店", "杂货店", "生活方式集合店", "集合店"],
+        "typecodes": ["060100", "060900", "061000", "080300"],
+        "negative_terms": [],
+    },
+    "restaurant": {
+        "category_id": "restaurant",
+        "aliases": ["餐厅", "饭店", "吃饭", "正餐", "餐馆", "饭馆", "食府", "酒楼"],
+        "typecodes": ["050100", "050200", "050300"],
+        "negative_terms": [],
+    },
+    "bar": {
+        "category_id": "bar",
+        "aliases": ["酒吧", "清吧", "pub", "bar", "酒馆", "精酿"],
+        "typecodes": ["080304", "080300"],
+        "negative_terms": [],
+    },
+    "bookstore": {
+        "category_id": "bookstore",
+        "aliases": ["书店", "独立书店", "书局", "书吧"],
+        "typecodes": ["060400"],
+        "negative_terms": [],
+    },
+}
+
+# Trigger words that signal the user wants to REMOVE a category
+_CATEGORY_REMOVE_TRIGGERS = [
+    "不想去", "不想要", "不要去", "不要", "别去", "别安排", "别要",
+    "去掉", "删除", "删掉", "跳过", "略过", "不去", "免了",
+    "不要了", "不想要了", "不想去了", "不安排", "不喝", "不想喝",
+    # pattern: "X就不要了" / "X去掉" / "不安排X了" / "不喝X了" / "不想喝X了"
+]
+
+# v27: Strong negation triggers that ALWAYS indicate category removal intent
+_STRONG_CATEGORY_NEGATION_TRIGGERS = [
+    "不想去", "不想要", "不要去", "别去", "别安排", "不去",
+    "不要了", "不想要了", "不想去了", "不安排", "不喝", "不想喝",
+    "去掉", "删除", "删掉", "跳过",
+]
+
+# v26: compiled negation patterns for category exclusion
+_CATEGORY_NEGATION_RE = re.compile(
+    r"(?:"
+    + "|".join(re.escape(t) for t in _CATEGORY_REMOVE_TRIGGERS)
+    + r")\s*(.+?)(?:了|吧|呀|呢|吗|哦)?\s*(?:[，,。；;]|修改下路线|修改路线|调整下|调整路线|$)"
+)
+
+
+def _detect_category_exclusion(text: str, source: str = "fast") -> dict | None:
+    """Detect category-level exclusion patterns like '不想去咖啡馆了'.
+
+    Returns a dict with category_id, target_terms, target_typecodes, raw_target
+    if a known category is being negated.  Returns None otherwise.
+
+    This is DIFFERENT from _is_meal_preference_refine which handles cuisine
+    replacement ('不想吃烤鸭→想吃川菜').  Category exclusion removes an entire
+    POI class without specifying a replacement.
+
+    v27: Now accepts a `source` parameter for audit logging. Detection is
+    strengthened to handle trailing edit phrases like "帮我把路线改一下".
+    """
+    text = text.strip()
+
+    # Must contain a negation trigger
+    has_trigger = any(t in text for t in _CATEGORY_REMOVE_TRIGGERS)
+    if not has_trigger:
+        return None
+
+    # Must NOT be a meal preference replacement (those have food terms + "吃")
+    if any(t in text for t in ["想吃", "换成", "改成", "换为"]):
+        return None
+
+    # v27: Also reject if "吃" + food chars dominate — meal, not category
+    _has_eat = "吃" in text
+    _has_food_term = any(
+        c in text for c in ["烤鸭", "川菜", "火锅", "涮肉", "粤菜", "湘菜",
+                            "日料", "西餐", "海鲜", "素食", "清真", "面馆"]
+    )
+    if _has_eat and _has_food_term:
+        return None
+
+    # Try to match against known categories
+    text_lower = text.lower()
+    for cat_key, cat_info in _CATEGORY_EXCLUSION_MAP.items():
+        # Check if any alias appears in the text near a negation trigger
+        for alias in cat_info["aliases"]:
+            if alias.lower() in text_lower:
+                # Build full target terms: aliases + negative_terms
+                target_terms = list(dict.fromkeys(
+                    cat_info["aliases"] + cat_info["negative_terms"]
+                ))
+                result = {
+                    "category_id": cat_info["category_id"],
+                    "target_terms": target_terms,
+                    "target_typecodes": list(cat_info["typecodes"]),
+                    "raw_target": alias,
+                }
+                print(
+                    f"[CategoryExclusionAudit] source={source} matched=true "
+                    f"category={cat_info['category_id']} action=remove_category "
+                    f"text={text[:80]}"
+                )
+                return result
+
+    # v27: No explicit category alias found, but strong negation trigger present
+    # — log the miss for debugging
+    _strong = any(t in text for t in _STRONG_CATEGORY_NEGATION_TRIGGERS)
+    if _strong:
+        print(
+            f"[CategoryExclusionAudit] source={source} matched=false "
+            f"text={text[:80]} reason=strong_trigger_no_category_match"
+        )
+    return None
+
+
+def is_category_exclusion_decision(decision: "ConversationRouteDecision | PlanningDispatchDecision | None") -> bool:
+    """Check whether a dispatch decision represents a category-level exclusion."""
+    if decision is None:
+        return False
+    ops = getattr(decision, "point_operations", None) or []
+    for op in ops:
+        if isinstance(op, dict) and op.get("action") in ("remove_category",):
+            return True
+    return False
 
 
 # ── unified dispatch (LLM-first) ──

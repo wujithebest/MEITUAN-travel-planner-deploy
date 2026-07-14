@@ -1,0 +1,623 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 406,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 406,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 406,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 15332,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 16492,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 16493,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 16495,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 30653,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 35959,
+    "data": {
+      "type": "status",
+      "msg": "正在评估和筛选目的地...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 35959,
+    "data": {
+      "type": "status",
+      "msg": "正在匹配最优组合...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 35959,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 35960,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 35960,
+    "data": {
+      "type": "status",
+      "msg": "正在分析目的地结构...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 46092,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索目的地内部景点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 46092,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索餐饮推荐...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 53009,
+    "data": {
+      "type": "status",
+      "msg": "正在规划详细路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 68636,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"day\": 1, \"name\": \"上海桃浦\", \"location\": {\"lat\": 31.281, \"lng\": 121.352, \"label\": \"上海桃浦\", \"city\": \"上海市\", \"district\": \"普陀区\"}, \"kind\": \"start\", \"route_order\": 1, \"display_order\": 0, \"day_index\": 1, \"is_waypoint\": true, \"walk_from_route_min\": 0}, {\"day\": 1, \"name\": \"韩记小吃(瑞香苑小区店)\", \"location\": {\"lat\": 31.27989, \"lng\": 121.350566}, \"kind\": \"meal\", \"poi_id\": \"B0KBOK9JIS\", \"gaode_poi_id\": \"B0KBOK9JIS\", \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"瑞香苑小区西南门西220米\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"parent_anchor\": \"午餐搜索点-过路人美食上海红棉路店\", \"visit_duration_min\": 60, \"display_slot\": \"lunch\", \"route_order\": 2, \"day_index\": 1, \"is_waypoint\": true, \"walk_from_route_min\": 0}, {\"day\": 1, \"name\": \"过路人美食上海红棉路店\", \"location\": {\"lat\": 31.28248, \"lng\": 121.350813}, \"kind\": \"free_explore\", \"hint\": \"到达该区域后适合自由探索，无需固定路线\", \"route_order\": 3, \"day_index\": 1}], \"segments\": [{\"from_poi\": \"上海桃浦\", \"to_poi\": \"韩记小吃(瑞香苑小区店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 3.6, \"distance_km\": 0.27, \"polyline\": [[31.281003, 121.351975], [31.281137, 121.351619], [31.28076, 121.351354], [31.280838, 121.350634], [31.279909, 121.350451]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": [{\"mode\": \"driving\", \"label\": \"驾车\", \"transport\": \"自驾\", \"distance_km\": 0.32, \"duration_min\": 1.8, \"estimated_fare_yuan\": 14}]}], \"candidate_points\": [], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"上海桃浦\", \"location\": \"121.352,31.281\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"韩记小吃(瑞香苑小区店)\", \"location\": \"121.350566,31.27989\", \"type\": \"waypoint\", \"display_order\": 0, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"过路人美食上海红棉路店\", \"location\": \"121.350813,31.28248\", \"type\": \"waypoint\", \"display_order\": 0, \"kind\": \"free_explore\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"121.351975,31.281003;121.351619,31.281137;121.351354,31.28076;121.350634,31.280838;121.350451,31.279909\", \"color\": \"#52c41a\"}], \"center\": [121.352, 31.281]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 71207,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 71207,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 71207,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了小半天的上海市之旅，从上海桃浦出发，以韩记小吃(瑞香苑小区店)为核心，含餐饮推荐。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 71208,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】\n短途路线：过路人美食上海红棉路店\n  上海桃浦\n  推荐理由：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；匹配理由：命中美食偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约1分钟\n  到达该区域后适合自由探索，无需固定路线\n中午（12:00-14:00）：餐饮推荐 - 韩记小吃(瑞香苑小区店)（距上一站步行约0.12km）（正餐 POI）\n  上海桃浦 - 步行(4min) - 韩记小吃(瑞香苑小区店)",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 71208,
+    "data": {
+      "type": "result",
+      "msg": "· 过路人美食上海红棉路店：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；匹配理由：命中美食偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约1分钟",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 71209,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：Day1: ./services/maps/route_20260714_133442_day1.html",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 71209,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [
+          "Day1: ./services/maps/route_20260714_133442_day1.html"
+        ],
+        "full_plan": {
+          "summary": "为您规划了小半天的上海市之旅，从上海桃浦出发，以韩记小吃(瑞香苑小区店)为核心，含餐饮推荐。",
+          "city": "上海市",
+          "duration": "a quarter day",
+          "time_budget": 0.25,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [
+                {
+                  "name": "过路人美食上海红棉路店",
+                  "recommend_reason": "核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；匹配理由：命中美食偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约1分钟"
+                }
+              ],
+              "meal_slots": [
+                {
+                  "meal": "lunch",
+                  "time_range": [
+                    11.5,
+                    13.5
+                  ],
+                  "poi_name": "韩记小吃(瑞香苑小区店)",
+                  "requested_keywords": [
+                    "好吃的",
+                    "餐厅",
+                    "美食",
+                    "小吃"
+                  ],
+                  "previous_poi": "午餐搜索点-过路人美食上海红棉路店",
+                  "meal_walk_distance_km": 0.12
+                }
+              ]
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "上海桃浦:121.352,31.281",
+              "gaode_poi_id": "",
+              "name": "上海桃浦",
+              "location": {
+                "lat": 31.281,
+                "lng": 121.352
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "short_trip",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0KBOK9JIS",
+              "gaode_poi_id": "B0KBOK9JIS",
+              "name": "韩记小吃(瑞香苑小区店)",
+              "location": {
+                "lat": 31.27989,
+                "lng": 121.350566
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "瑞香苑小区西南门西220米",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/a3f5029bee6ddac9fac7067cc39ad889",
+              "photo_source": "gaode",
+              "parent_anchor": "午餐搜索点-过路人美食上海红棉路店",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": 60,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "lunch",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "过路人美食上海红棉路店:121.350813,31.28248",
+              "gaode_poi_id": "",
+              "name": "过路人美食上海红棉路店",
+              "location": {
+                "lat": 31.28248,
+                "lng": 121.350813
+              },
+              "kind": "free_explore",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 3,
+              "display_order": null,
+              "display_slot": "short_trip",
+              "is_display_poi": false,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "上海桃浦",
+              "to_poi": "韩记小吃(瑞香苑小区店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 3.6,
+              "distance_km": 0.27,
+              "polyline": [
+                [
+                  31.281003,
+                  121.351975
+                ],
+                [
+                  31.281137,
+                  121.351619
+                ],
+                [
+                  31.28076,
+                  121.351354
+                ],
+                [
+                  31.280838,
+                  121.350634
+                ],
+                [
+                  31.279909,
+                  121.350451
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": false,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 2,
+              "from_display_order": 0,
+              "to_display_order": 1,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": [
+                {
+                  "mode": "driving",
+                  "label": "驾车",
+                  "transport": "自驾",
+                  "distance_km": 0.32,
+                  "duration_min": 1.8,
+                  "estimated_fare_yuan": 14
+                }
+              ]
+            }
+          ],
+          "hints": {
+            "过路人美食上海红棉路店": "到达该区域后适合自由探索，无需固定路线"
+          },
+          "waypoint_annotations": {
+            "上海桃浦": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "韩记小吃(瑞香苑小区店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "af357342-5232-4a08-b66a-e63da55f4e0e",
+          "candidate_points": [],
+          "plan_mode": "exploratory",
+          "total_days": 1,
+          "display_granularity": "short",
+          "planning_state": {
+            "plan_mode": "exploratory",
+            "parsed_intent": {
+              "duration": "a quarter day",
+              "start_time": "2026-07-14T13:33:00+00:00",
+              "raw_keywords": [
+                "逛逛",
+                "好吃的",
+                "散散步",
+                "生活场景"
+              ],
+              "search_keywords": [
+                "上海 餐厅",
+                "上海 美食",
+                "上海 小吃",
+                "上海 咖啡",
+                "上海 甜品",
+                "上海 购物中心"
+              ],
+              "micro_keywords": [
+                "餐厅",
+                "小吃",
+                "咖啡",
+                "商场",
+                "公园"
+              ],
+              "fixed_pois": [],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "好吃的",
+                "餐厅",
+                "美食",
+                "小吃"
+              ],
+              "meal_search_keywords": [
+                "好吃的",
+                "好吃的 餐厅",
+                "餐厅 餐厅"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": false,
+              "plan_mode": "exploratory",
+              "planned_waypoints": [
+                {
+                  "type": "fixed",
+                  "name": null,
+                  "search_keyword": "好吃的",
+                  "category": "meal",
+                  "stay_minutes": 30,
+                  "search_keywords": []
+                },
+                {
+                  "type": "fixed",
+                  "name": null,
+                  "search_keyword": "散步",
+                  "category": "visit",
+                  "stay_minutes": 30,
+                  "search_keywords": []
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "a quarter day",
+            "start_time": "2026-07-14T13:33:00+00:00",
+            "raw_keywords": [
+              "逛逛",
+              "好吃的",
+              "散散步",
+              "生活场景"
+            ],
+            "search_keywords": [
+              "上海 餐厅",
+              "上海 美食",
+              "上海 小吃",
+              "上海 咖啡",
+              "上海 甜品",
+              "上海 购物中心"
+            ],
+            "micro_keywords": [
+              "餐厅",
+              "小吃",
+              "咖啡",
+              "商场",
+              "公园"
+            ],
+            "fixed_pois": [],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "好吃的",
+              "餐厅",
+              "美食",
+              "小吃"
+            ],
+            "meal_search_keywords": [
+              "好吃的",
+              "好吃的 餐厅",
+              "餐厅 餐厅"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": false,
+            "plan_mode": "exploratory",
+            "planned_waypoints": [
+              {
+                "type": "fixed",
+                "name": null,
+                "search_keyword": "好吃的",
+                "category": "meal",
+                "stay_minutes": 30,
+                "search_keywords": []
+              },
+              {
+                "type": "fixed",
+                "name": null,
+                "search_keyword": "散步",
+                "category": "visit",
+                "stay_minutes": 30,
+                "search_keywords": []
+              }
+            ]
+          },
+          "route_recommend_reason": "这条路线结合了你对不走远, 附近3公里内, 第一段不超过5公里的兴趣，串联韩记小吃(瑞香苑小区店)、韩记小吃(瑞香苑小区店)等地点。各站点空间相对集中、游览顺序较为顺畅，适合按照当前时间安排轻松探索。"
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 70.8,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 2068,
+        "deepseek_completion_tokens": 290,
+        "total_tokens": 2358,
+        "gaode_calls": 28,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 16119,
+          "step2_macro": 19468,
+          "step3_micro": 32679,
+          "exploratory_route": 52148,
+          "reason_generation": 0,
+          "photo_enrichment": 2569,
+          "output_assembly": 0
+        }
+      }
+    }
+  }
+]

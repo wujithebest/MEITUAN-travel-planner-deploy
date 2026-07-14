@@ -1,0 +1,1035 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 135,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 136,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 137,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 17536,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 17537,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 31961,
+    "data": {
+      "type": "status",
+      "msg": "正在为您精准规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 31962,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索您的目标地点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 56495,
+    "data": {
+      "type": "status",
+      "msg": "正在规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 63238,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"poi_id\": \"start:116.4123,39.9059\", \"gaode_poi_id\": \"\", \"name\": \"起点·北京饭店\", \"location\": {\"lat\": 39.9059, \"lng\": 116.4123}, \"kind\": \"start\", \"day\": 1, \"is_waypoint\": true, \"is_display_poi\": false, \"is_candidate\": false, \"is_start\": true, \"target_index\": -1, \"display_order\": 0, \"route_order\": 0, \"display_label\": \"起点\", \"plan_mode\": \"planned\"}, {\"poi_id\": \"B000A7O1CU\", \"gaode_poi_id\": \"B000A7O1CU\", \"name\": \"颐和园\", \"lat\": 39.999617, \"lng\": 116.275179, \"location\": {\"lat\": 39.999617, \"lng\": 116.275179}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110201\", \"category\": \"visit\", \"address\": \"新建宫门路19号\", \"rating\": \"4.9\", \"gaode_rating\": \"4.9\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/a4b326f43a84d36b581d7f6e856fe858\", \"photo_source\": \"gaode\", \"recommend_reason\": \"匹配理由：符合“颐和园”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 0, \"target_label\": \"颐和园\", \"display_slot\": \"\", \"display_order\": 1, \"route_order\": 1, \"stay_minutes\": 90, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B000A8W9BC\", \"gaode_poi_id\": \"B000A8W9BC\", \"name\": \"肯德基(北宫门店)\", \"lat\": 40.002845, \"lng\": 116.277447, \"location\": {\"lat\": 40.002845, \"lng\": 116.277447}, \"kind\": \"meal\", \"day\": 1, \"typecode\": \"050301\", \"category\": \"meal\", \"address\": \"颐和园北宫门三岔口33号大有商业办公楼B座一层\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"\", \"display_order\": 2, \"route_order\": 2, \"stay_minutes\": 50, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0K2HYDG03\", \"gaode_poi_id\": \"B0K2HYDG03\", \"name\": \"自得湖最佳喂鱼点\", \"lat\": 40.000362, \"lng\": 116.285976, \"location\": {\"lat\": 40.000362, \"lng\": 116.285976}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110200\", \"category\": \"visit\", \"address\": \"颐和园路107号\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 2, \"target_label\": \"公园\", \"display_slot\": \"afternoon\", \"display_order\": 3, \"route_order\": 3, \"stay_minutes\": 90, \"plan_mode\": \"planned\"}], \"segments\": [{\"from_poi\": \"起点·北京饭店\", \"to_poi\": \"颐和园\", \"day_index\": 1, \"transport\": \"地铁/公交\", \"duration_min\": 70.1, \"distance_km\": 22.39, \"polyline\": [[39.905735, 116.412308], [39.905708, 116.411598], [39.907829, 116.411499], [39.90807, 116.412148], [39.907223, 116.382901], [39.907188, 116.375954], [39.907742, 116.375954], [39.907749, 116.374275], [39.907383, 116.374275], [39.938154, 116.372728], [39.939688, 116.372154], [39.940441, 116.371279], [39.940446, 116.354072], [39.938607, 116.344799], [39.937997, 116.332473], [39.938449, 116.329126], [39.939741, 116.326047], [39.941147, 116.325414], [39.96393, 116.322321], [39.977961, 116.316974], [39.99298, 116.315756], [39.99741, 116.316073], [39.998121, 116.315831], [39.999253, 116.314365], [40.000002, 116.311631], [39.997521, 116.302685], [39.9969, 116.294932], [40.001639, 116.282659], [40.002449, 116.277138], [40.002781, 116.277199], [40.002872, 116.276573], [40.002804, 116.273964], [40.001293, 116.274139], [40.000042, 116.276031], [39.999714, 116.275177]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"颐和园\", \"to_poi\": \"肯德基(北宫门店)\", \"day_index\": 1, \"transport\": \"地铁/公交\", \"duration_min\": 22.4, \"distance_km\": 1.45, \"polyline\": [[39.99971, 116.275169], [40.000011, 116.276047], [40.001289, 116.274139], [40.0028, 116.273964], [40.00288, 116.274879], [40.003975, 116.273972], [40.002733, 116.275069], [40.002399, 116.276858], [40.003979, 116.273969], [40.002685, 116.275171], [40.002399, 116.276858], [40.003979, 116.273969], [40.002685, 116.275171], [40.002368, 116.277086], [40.003979, 116.273969], [40.002685, 116.275171], [40.002399, 116.276858], [40.003979, 116.273969], [40.002685, 116.275171], [40.002399, 116.276858], [40.003979, 116.273969], [40.002685, 116.275171], [40.00211, 116.278908], [40.00238, 116.277771], [40.003014, 116.277832], [40.002979, 116.277428]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"肯德基(北宫门店)\", \"to_poi\": \"自得湖最佳喂鱼点\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 12.2, \"distance_km\": 0.92, \"polyline\": [[40.002973, 116.277426], [40.003012, 116.27783], [40.00273, 116.277856], [40.002383, 116.277773], [40.001801, 116.281966], [40.001727, 116.285174], [40.001628, 116.285421], [40.000781, 116.285543], [40.000391, 116.285707], [40.000399, 116.285972]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}], \"candidate_points\": [{\"poi_id\": \"B0FFF3EOGB\", \"gaode_poi_id\": \"B0FFF3EOGB\", \"name\": \"颐和园-东门检票处\", \"lat\": 39.998063, \"lng\": 116.281197, \"location\": {\"lat\": 39.998063, \"lng\": 116.281197}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"070306\", \"category\": \"070306\", \"address\": \"新建宫门路19号颐和园内(东侧)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"https://aos-comment.amap.com/B0FFF3EOGB/comment/content_media_external_file_41441_ss__1766807963286_77800162.jpg\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"颐和园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 15162}, {\"poi_id\": \"B000A7J3H1\", \"gaode_poi_id\": \"B000A7J3H1\", \"name\": \"颐和园博物馆\", \"lat\": 39.997047, \"lng\": 116.280855, \"location\": {\"lat\": 39.997047, \"lng\": 116.280855}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"140100|110000\", \"category\": \"140100|110000\", \"address\": \"二龙闸颐和园新建宫门路21号院\", \"rating\": \"4.7\", \"gaode_rating\": \"4.7\", \"avg_cost\": null, \"photo_url\": \"http://store.is.autonavi.com/showpic/7d0c5acd0a14ca32d764919e06299239\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"颐和园\", \"display_slot\": \"\", \"candidate_score\": 4.7, \"distance\": 15108}, {\"poi_id\": \"BV10000288\", \"gaode_poi_id\": \"BV10000288\", \"name\": \"颐和园(公交站)\", \"lat\": 39.998299, \"lng\": 116.285573, \"location\": {\"lat\": 39.998299, \"lng\": 116.285573}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"150700\", \"category\": \"150700\", \"address\": \"303路;332路;346路;584路;夜8路;通游专线20路;通游专线20路区间\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"https://aos-comment.amap.com/BV10000288/comment/content_media_external_images_media_1000017619_ss__1742029129901_62557275.jpg\", \"photo_source\": \"gaode\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 0, \"target_label\": \"颐和园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 14908}, {\"poi_id\": \"B0L34ZFH1J\", \"gaode_poi_id\": \"B0L34ZFH1J\", \"name\": \"尹三豆汁·尹三冰激淋(颐和园十丈亭店)\", \"lat\": 39.997824, \"lng\": 116.270223, \"location\": {\"lat\": 39.997824, \"lng\": 116.270223}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"新建宫门路19号颐和园内石丈亭(石舫码头旁)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 15847}], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"起点·北京饭店\", \"location\": \"116.4123,39.9059\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"颐和园\", \"location\": \"116.275179,39.999617\", \"type\": \"waypoint\", \"display_order\": 1, \"kind\": \"visit\", \"day_index\": 1}, {\"name\": \"肯德基(北宫门店)\", \"location\": \"116.277447,40.002845\", \"type\": \"waypoint\", \"display_order\": 2, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"自得湖最佳喂鱼点\", \"location\": \"116.285976,40.000362\", \"type\": \"waypoint\", \"display_order\": 3, \"kind\": \"visit\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"116.412308,39.905735;116.411598,39.905708;116.411499,39.907829;116.412148,39.90807;116.382901,39.907223;116.375954,39.907188;116.375954,39.907742;116.374275,39.907749;116.374275,39.907383;116.372728,39.938154;116.372154,39.939688;116.371279,39.940441;116.354072,39.940446;116.344799,39.938607;116.332473,39.937997;116.329126,39.938449;116.326047,39.939741;116.325414,39.941147;116.322321,39.96393;116.316974,39.977961;116.315756,39.99298;116.316073,39.99741;116.315831,39.998121;116.314365,39.999253;116.311631,40.000002;116.302685,39.997521;116.294932,39.9969;116.282659,40.001639;116.277138,40.002449;116.277199,40.002781;116.276573,40.002872;116.273964,40.002804;116.274139,40.001293;116.276031,40.000042;116.275177,39.999714\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.275169,39.99971;116.276047,40.000011;116.274139,40.001289;116.273964,40.0028;116.274879,40.00288;116.273972,40.003975;116.275069,40.002733;116.276858,40.002399;116.273969,40.003979;116.275171,40.002685;116.276858,40.002399;116.273969,40.003979;116.275171,40.002685;116.277086,40.002368;116.273969,40.003979;116.275171,40.002685;116.276858,40.002399;116.273969,40.003979;116.275171,40.002685;116.276858,40.002399;116.273969,40.003979;116.275171,40.002685;116.278908,40.00211;116.277771,40.00238;116.277832,40.003014;116.277428,40.002979\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.277426,40.002973;116.27783,40.003012;116.277856,40.00273;116.277773,40.002383;116.281966,40.001801;116.285174,40.001727;116.285421,40.001628;116.285543,40.000781;116.285707,40.000391;116.285972,40.000399\", \"color\": \"#52c41a\"}], \"center\": [116.4123, 39.9059]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 64635,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 64635,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 64635,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了两天一夜的北京市之旅，从北京饭店出发，串联颐和园到自得湖最佳喂鱼点。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 64635,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 64636,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 64637,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [],
+        "full_plan": {
+          "summary": "为您规划了两天一夜的北京市之旅，从北京饭店出发，串联颐和园到自得湖最佳喂鱼点。",
+          "city": "北京市",
+          "duration": "two days",
+          "time_budget": 0.5,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [],
+              "meal_slots": []
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "start:116.4123,39.9059",
+              "gaode_poi_id": "start:116.4123,39.9059",
+              "name": "起点·北京饭店",
+              "location": {
+                "lat": 39.9059,
+                "lng": 116.4123
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A7O1CU",
+              "gaode_poi_id": "B000A7O1CU",
+              "name": "颐和园",
+              "location": {
+                "lat": 39.999617,
+                "lng": 116.275179
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110201",
+              "category": "visit",
+              "address": "新建宫门路19号",
+              "rating": "4.9",
+              "gaode_rating": "4.9",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/a4b326f43a84d36b581d7f6e856fe858",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“颐和园”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B000A8W9BC",
+              "gaode_poi_id": "B000A8W9BC",
+              "name": "肯德基(北宫门店)",
+              "location": {
+                "lat": 40.002845,
+                "lng": 116.277447
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050301",
+              "category": "meal",
+              "address": "颐和园北宫门三岔口33号大有商业办公楼B座一层",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/cf64ea8e22533b4bba864a3b10c322fb",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 3,
+              "display_order": 2,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0K2HYDG03",
+              "gaode_poi_id": "B0K2HYDG03",
+              "name": "自得湖最佳喂鱼点",
+              "location": {
+                "lat": 40.000362,
+                "lng": 116.285976
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110200",
+              "category": "visit",
+              "address": "颐和园路107号",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/b5e57f784987ae8f181a92bde7836142",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 4,
+              "display_order": 3,
+              "display_slot": "afternoon",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "起点·北京饭店",
+              "to_poi": "颐和园",
+              "day_index": 1,
+              "transport": "地铁/公交",
+              "duration_min": 70.1,
+              "distance_km": 22.39,
+              "polyline": [
+                [
+                  39.905735,
+                  116.412308
+                ],
+                [
+                  39.905708,
+                  116.411598
+                ],
+                [
+                  39.907829,
+                  116.411499
+                ],
+                [
+                  39.90807,
+                  116.412148
+                ],
+                [
+                  39.907223,
+                  116.382901
+                ],
+                [
+                  39.907188,
+                  116.375954
+                ],
+                [
+                  39.907742,
+                  116.375954
+                ],
+                [
+                  39.907749,
+                  116.374275
+                ],
+                [
+                  39.907383,
+                  116.374275
+                ],
+                [
+                  39.938154,
+                  116.372728
+                ],
+                [
+                  39.939688,
+                  116.372154
+                ],
+                [
+                  39.940441,
+                  116.371279
+                ],
+                [
+                  39.940446,
+                  116.354072
+                ],
+                [
+                  39.938607,
+                  116.344799
+                ],
+                [
+                  39.937997,
+                  116.332473
+                ],
+                [
+                  39.938449,
+                  116.329126
+                ],
+                [
+                  39.939741,
+                  116.326047
+                ],
+                [
+                  39.941147,
+                  116.325414
+                ],
+                [
+                  39.96393,
+                  116.322321
+                ],
+                [
+                  39.977961,
+                  116.316974
+                ],
+                [
+                  39.99298,
+                  116.315756
+                ],
+                [
+                  39.99741,
+                  116.316073
+                ],
+                [
+                  39.998121,
+                  116.315831
+                ],
+                [
+                  39.999253,
+                  116.314365
+                ],
+                [
+                  40.000002,
+                  116.311631
+                ],
+                [
+                  39.997521,
+                  116.302685
+                ],
+                [
+                  39.9969,
+                  116.294932
+                ],
+                [
+                  40.001639,
+                  116.282659
+                ],
+                [
+                  40.002449,
+                  116.277138
+                ],
+                [
+                  40.002781,
+                  116.277199
+                ],
+                [
+                  40.002872,
+                  116.276573
+                ],
+                [
+                  40.002804,
+                  116.273964
+                ],
+                [
+                  40.001293,
+                  116.274139
+                ],
+                [
+                  40.000042,
+                  116.276031
+                ],
+                [
+                  39.999714,
+                  116.275177
+                ]
+              ],
+              "period": "morning",
+              "color": "#E67E22",
+              "is_dashed": true,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 2,
+              "from_display_order": 0,
+              "to_display_order": 1,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "颐和园",
+              "to_poi": "肯德基(北宫门店)",
+              "day_index": 1,
+              "transport": "地铁/公交",
+              "duration_min": 22.4,
+              "distance_km": 1.45,
+              "polyline": [
+                [
+                  39.99971,
+                  116.275169
+                ],
+                [
+                  40.000011,
+                  116.276047
+                ],
+                [
+                  40.001289,
+                  116.274139
+                ],
+                [
+                  40.0028,
+                  116.273964
+                ],
+                [
+                  40.00288,
+                  116.274879
+                ],
+                [
+                  40.003975,
+                  116.273972
+                ],
+                [
+                  40.002733,
+                  116.275069
+                ],
+                [
+                  40.002399,
+                  116.276858
+                ],
+                [
+                  40.003979,
+                  116.273969
+                ],
+                [
+                  40.002685,
+                  116.275171
+                ],
+                [
+                  40.002399,
+                  116.276858
+                ],
+                [
+                  40.003979,
+                  116.273969
+                ],
+                [
+                  40.002685,
+                  116.275171
+                ],
+                [
+                  40.002368,
+                  116.277086
+                ],
+                [
+                  40.003979,
+                  116.273969
+                ],
+                [
+                  40.002685,
+                  116.275171
+                ],
+                [
+                  40.002399,
+                  116.276858
+                ],
+                [
+                  40.003979,
+                  116.273969
+                ],
+                [
+                  40.002685,
+                  116.275171
+                ],
+                [
+                  40.002399,
+                  116.276858
+                ],
+                [
+                  40.003979,
+                  116.273969
+                ],
+                [
+                  40.002685,
+                  116.275171
+                ],
+                [
+                  40.00211,
+                  116.278908
+                ],
+                [
+                  40.00238,
+                  116.277771
+                ],
+                [
+                  40.003014,
+                  116.277832
+                ],
+                [
+                  40.002979,
+                  116.277428
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": true,
+              "segment_order": 2,
+              "from_order": 2,
+              "to_order": 3,
+              "from_display_order": 1,
+              "to_display_order": 2,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "肯德基(北宫门店)",
+              "to_poi": "自得湖最佳喂鱼点",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 12.2,
+              "distance_km": 0.92,
+              "polyline": [
+                [
+                  40.002973,
+                  116.277426
+                ],
+                [
+                  40.003012,
+                  116.27783
+                ],
+                [
+                  40.00273,
+                  116.277856
+                ],
+                [
+                  40.002383,
+                  116.277773
+                ],
+                [
+                  40.001801,
+                  116.281966
+                ],
+                [
+                  40.001727,
+                  116.285174
+                ],
+                [
+                  40.001628,
+                  116.285421
+                ],
+                [
+                  40.000781,
+                  116.285543
+                ],
+                [
+                  40.000391,
+                  116.285707
+                ],
+                [
+                  40.000399,
+                  116.285972
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": false,
+              "segment_order": 3,
+              "from_order": 3,
+              "to_order": 4,
+              "from_display_order": 2,
+              "to_display_order": 3,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            }
+          ],
+          "hints": {},
+          "waypoint_annotations": {
+            "起点·北京饭店": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "颐和园": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "肯德基(北宫门店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "自得湖最佳喂鱼点": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "cd6a662d-7415-4afb-a970-4804529cc092",
+          "candidate_points": [
+            {
+              "poi_id": "B0FFF3EOGB",
+              "gaode_poi_id": "B0FFF3EOGB",
+              "name": "颐和园-东门检票处",
+              "lat": 39.998063,
+              "lng": 116.281197,
+              "location": {
+                "lat": 39.998063,
+                "lng": 116.281197
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "070306",
+              "category": "070306",
+              "address": "新建宫门路19号颐和园内(东侧)",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://aos-comment.amap.com/B0FFF3EOGB/comment/content_media_external_file_41441_ss__1766807963286_77800162.jpg",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "颐和园",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 15162
+            },
+            {
+              "poi_id": "B000A7J3H1",
+              "gaode_poi_id": "B000A7J3H1",
+              "name": "颐和园博物馆",
+              "lat": 39.997047,
+              "lng": 116.280855,
+              "location": {
+                "lat": 39.997047,
+                "lng": 116.280855
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "140100|110000",
+              "category": "140100|110000",
+              "address": "二龙闸颐和园新建宫门路21号院",
+              "rating": "4.7",
+              "gaode_rating": "4.7",
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/7d0c5acd0a14ca32d764919e06299239",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "颐和园",
+              "display_slot": "",
+              "candidate_score": 4.7,
+              "distance": 15108
+            },
+            {
+              "poi_id": "BV10000288",
+              "gaode_poi_id": "BV10000288",
+              "name": "颐和园(公交站)",
+              "lat": 39.998299,
+              "lng": 116.285573,
+              "location": {
+                "lat": 39.998299,
+                "lng": 116.285573
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "150700",
+              "category": "150700",
+              "address": "303路;332路;346路;584路;夜8路;通游专线20路;通游专线20路区间",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://aos-comment.amap.com/BV10000288/comment/content_media_external_images_media_1000017619_ss__1742029129901_62557275.jpg",
+              "photo_source": "gaode",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 0,
+              "target_label": "颐和园",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 14908
+            },
+            {
+              "poi_id": "B0L34ZFH1J",
+              "gaode_poi_id": "B0L34ZFH1J",
+              "name": "尹三豆汁·尹三冰激淋(颐和园十丈亭店)",
+              "lat": 39.997824,
+              "lng": 116.270223,
+              "location": {
+                "lat": 39.997824,
+                "lng": 116.270223
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "新建宫门路19号颐和园内石丈亭(石舫码头旁)",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 1,
+              "target_label": "餐厅",
+              "display_slot": "meal",
+              "candidate_score": 0.0,
+              "distance": 15847
+            }
+          ],
+          "plan_mode": "planned",
+          "total_days": 1,
+          "display_granularity": "day",
+          "planning_state": {
+            "plan_mode": "planned",
+            "parsed_intent": {
+              "duration": "two days",
+              "start_time": "2026-07-18T09:00:00+00:00",
+              "raw_keywords": [
+                "颐和园",
+                "吃饭",
+                "轻松走走"
+              ],
+              "search_keywords": [
+                "北京 颐和园",
+                "北京 北京菜",
+                "北京 公园",
+                "北京 散步",
+                "北京 景点"
+              ],
+              "micro_keywords": [
+                "颐和园 散步",
+                "公园 漫步",
+                "北京菜 餐厅"
+              ],
+              "fixed_pois": [
+                {
+                  "name": "继续轻松",
+                  "user_time_budget": "afternoon"
+                },
+                {
+                  "name": "颐和园",
+                  "user_time_budget": null
+                }
+              ],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "北京菜"
+              ],
+              "meal_search_keywords": [
+                "北京菜",
+                "餐厅",
+                "北京菜 餐厅"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": false,
+              "plan_mode": "planned",
+              "planned_waypoints": [
+                {
+                  "type": "fixed",
+                  "name": "颐和园",
+                  "search_keyword": "颐和园",
+                  "category": "visit",
+                  "stay_minutes": 90,
+                  "search_keywords": [
+                    "颐和园"
+                  ]
+                },
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "餐厅",
+                  "category": "meal",
+                  "stay_minutes": 50,
+                  "search_keywords": [
+                    "餐厅",
+                    "饭馆",
+                    "饭店",
+                    "小馆"
+                  ]
+                },
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "公园",
+                  "category": "visit",
+                  "stay_minutes": 90,
+                  "search_keywords": [
+                    "公园",
+                    "滨江步道",
+                    "步行街",
+                    "绿地"
+                  ]
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "two days",
+            "start_time": "2026-07-18T09:00:00+00:00",
+            "raw_keywords": [
+              "颐和园",
+              "吃饭",
+              "轻松走走"
+            ],
+            "search_keywords": [
+              "北京 颐和园",
+              "北京 北京菜",
+              "北京 公园",
+              "北京 散步",
+              "北京 景点"
+            ],
+            "micro_keywords": [
+              "颐和园 散步",
+              "公园 漫步",
+              "北京菜 餐厅"
+            ],
+            "fixed_pois": [
+              {
+                "name": "继续轻松",
+                "user_time_budget": "afternoon"
+              },
+              {
+                "name": "颐和园",
+                "user_time_budget": null
+              }
+            ],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "北京菜"
+            ],
+            "meal_search_keywords": [
+              "北京菜",
+              "餐厅",
+              "北京菜 餐厅"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": false,
+            "plan_mode": "planned",
+            "planned_waypoints": [
+              {
+                "type": "fixed",
+                "name": "颐和园",
+                "search_keyword": "颐和园",
+                "category": "visit",
+                "stay_minutes": 90,
+                "search_keywords": [
+                  "颐和园"
+                ]
+              },
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "餐厅",
+                "category": "meal",
+                "stay_minutes": 50,
+                "search_keywords": [
+                  "餐厅",
+                  "饭馆",
+                  "饭店",
+                  "小馆"
+                ]
+              },
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "公园",
+                "category": "visit",
+                "stay_minutes": 90,
+                "search_keywords": [
+                  "公园",
+                  "滨江步道",
+                  "步行街",
+                  "绿地"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 64.6,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 14715,
+        "deepseek_completion_tokens": 1525,
+        "total_tokens": 16240,
+        "gaode_calls": 17,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 31906,
+          "planned_route": 31278,
+          "photo_enrichment": 1395,
+          "output_assembly": 1
+        }
+      }
+    }
+  }
+]

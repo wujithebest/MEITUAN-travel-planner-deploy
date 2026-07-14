@@ -4,6 +4,7 @@
 // ============================================
 
 import { create } from 'zustand';
+import { getRoutePeriodColor, normalizeMapRouteColors } from '@/utils/routePeriod';
 import type {
   LocationInput,
   DailyRoute,
@@ -355,11 +356,6 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
   const markers: MapRouteData['markers'] = [];
   let center: [number, number] | null = null;
 
-  // 颜色优先级: seg.color > period 映射 > transport fallback
-  const PERIOD_COLOR_MAP: Record<string, string> = {
-    morning: '#E67E22', lunch: '#D35400', afternoon: '#2980B9',
-    dinner: '#C0392B', evening: '#8E44AD', half_day: '#E67E22',
-  };
   const LINE_COLORS = ['#E67E22', '#2980B9', '#27AE60', '#8E44AD', '#E74C3C', '#F39C12'];
 
   // 转换 segments 为 polylines（v7: 过滤不可绘制路线）
@@ -390,11 +386,10 @@ function convertDailyRouteDTOToMapRouteData(data: DailyRouteDTO): MapRouteData {
     } else if (typeof seg.polyline === 'string') {
       polylineStr = seg.polyline;
     }
-    let segColor = (seg as any).color || (seg as any).route_color || (seg as any).strokeColor || '';
-    if (!segColor) {
-      const period = (seg as any).period || (seg as any).slot || '';
-      segColor = PERIOD_COLOR_MAP[period] || '';
-    }
+    const period = (seg as any).display_slot || (seg as any).period || (seg as any).slot || '';
+    // Time slot is authoritative. Older snapshots contain alternating colors
+    // that can disagree with the actual morning/lunch/afternoon period.
+    let segColor = getRoutePeriodColor(period) || (seg as any).color || (seg as any).route_color || (seg as any).strokeColor || '';
     if (!segColor) {
       segColor = LINE_COLORS[sIdx % LINE_COLORS.length];
     }
@@ -1063,7 +1058,7 @@ export const useRouteStore = create<RouteState>((set, get) => ({
   loadFavoriteRoute: (favorite: any) => {
     console.log('[Store] 加载收藏路线:', favorite.title);
     const routeData = favorite.route_data;
-    let mapRouteData = favorite.map_route_data;
+    let mapRouteData = normalizeMapRouteColors(favorite.map_route_data);
 
     // Helper to detect fallback images
     const isFallbackPhoto = (url: string, source: string): boolean => {

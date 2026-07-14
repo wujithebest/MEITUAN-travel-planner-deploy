@@ -1,0 +1,74 @@
+{
+  "case_id": "M01",
+  "input": "不想吃烤鸭。想吃川菜",
+  "expected": {
+    "conversation_mode": "refine_current",
+    "plan_mode": "planned"
+  },
+  "baseline": {
+    "duration_ms": 34782,
+    "result": {
+      "conversation_mode": "point_edit",
+      "plan_mode": "exploratory",
+      "earliest_step": "local_replan",
+      "point_operations": [
+        {
+          "action": "replace",
+          "target_name": "烤鸭店",
+          "new_name": "川菜馆"
+        }
+      ],
+      "intent_patch": {},
+      "reason": "用户明确表示不想吃烤鸭，想吃川菜，属于替换单个POI，且上下文已有planned路线，因此conversation_mode为point_edit，target_plan_mode保持planned。"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": false,
+        "plan_mode": false
+      }
+    }
+  },
+  "unified": {
+    "duration_ms": 17598,
+    "result": {
+      "conversation_mode": "refine_current",
+      "plan_mode": "refine_current",
+      "earliest_step": "step1",
+      "point_operations": [],
+      "intent_patch": {
+        "food_pref_keywords": [
+          "川菜"
+        ],
+        "delete_list": [
+          "烤鸭"
+        ],
+        "meal_search_keywords": [
+          "川菜 餐厅",
+          "川菜馆",
+          "麻辣",
+          "四川菜"
+        ],
+        "search_keywords": [
+          "川菜 餐厅",
+          "川菜馆",
+          "麻辣",
+          "四川菜"
+        ],
+        "micro_keywords": [
+          "川菜 探店",
+          "麻辣 美食",
+          "四川小吃"
+        ]
+      },
+      "reason": "用户明确替换餐饮偏好，从烤鸭改为川菜，保留原有景点"
+    },
+    "score": {
+      "passed": false,
+      "matched": {
+        "conversation_mode": true,
+        "plan_mode": false
+      }
+    }
+  }
+}

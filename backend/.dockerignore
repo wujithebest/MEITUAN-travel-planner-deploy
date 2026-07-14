@@ -8,7 +8,11 @@ __pycache__/
 .mypy_cache/
 .venv/
 venv/
-data/
+# Keep the immutable fixed-route snapshots in the image. Other generated data
+# remains excluded from the Docker build context.
+data/*
+!data/fixed_routes/
+!data/fixed_routes/*.json
 logs/
 services/logs/
 services/maps/

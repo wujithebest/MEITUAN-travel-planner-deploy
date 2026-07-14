@@ -1,0 +1,43 @@
+{
+  "case_id": "S02",
+  "profile": "P-BJ-FOOD",
+  "message": "想去天安门和故宫附近转转，中午吃顿地道的北京菜，下午去景山公园看日落。",
+  "expected": "planned Beijing culture route with Tiananmen, Forbidden City area, Beijing-cuisine lunch, Jingshan sunset.",
+  "hard_constraints": "Fixed anchors and time order retained.",
+  "wall_clock_ms": 125494,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {
+    "step1_intent": 46015,
+    "step2_macro": 15571,
+    "step3_micro": 51966,
+    "exploratory_route": 67537,
+    "reason_generation": 5002,
+    "photo_enrichment": 11862
+  },
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "REVIEW",
+    "checks": [
+      "可见 POI 6 个",
+      "路线段完整：6/5",
+      "固定锚点未见：天安门、故宫"
+    ],
+    "visible_poi_count": 6,
+    "polyline_segment_count": 6,
+    "poi_names": [
+      "亚朵竹居流动图书馆(北京前门大栅栏)",
+      "春风习习杂志图书馆(前门店)",
+      "峨嵋酒家(鲜鱼口老字号美食街店)",
+      "亚朵竹居流动图书馆(北京天坛祈年大街)",
+      "景山公园",
+      "老曹菜馆(8号店)"
+    ],
+    "missed_anchors": [
+      "天安门",
+      "故宫"
+    ],
+    "missing_feature_evidence": []
+  }
+}

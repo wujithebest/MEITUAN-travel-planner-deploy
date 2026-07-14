@@ -158,9 +158,13 @@ if len(parsed_intent.search_keywords) == 0:
         city = user_profile.permanent_city[0]
         parsed_intent.search_keywords = [f"{city} 景点 推荐", f"{city} 好玩的地方", f"{city} 周末 去哪"]
 
-# 4. food_pref_keywords：为空时注入food_pref_tag（供Step3餐饮搜索使用）
-if len(parsed_intent.food_pref_keywords) == 0 and len(user_profile.food_pref_tag) > 0:
-    parsed_intent.food_pref_keywords = user_profile.food_pref_tag
+# v28: food_pref_keywords must only represent explicit user-requested cuisine.
+# Profile food_pref_tag is stored in a separate field and must NOT be injected
+# into food_pref_keywords / meal_search_keywords / matched_preferences.
+# Keeping this block commented out so it can be re-enabled if a migration
+# strategy for profile_pref_keywords is ever needed.
+# if len(parsed_intent.food_pref_keywords) == 0 and len(user_profile.food_pref_tag) > 0:
+#     parsed_intent.food_pref_keywords = user_profile.food_pref_tag
 
 # 5. micro_keywords：为空时基于raw_keywords生成兜底词
 if len(parsed_intent.micro_keywords) == 0:
@@ -284,6 +288,10 @@ class PlannedWaypoint(BaseModel):
     placement: str = ""               # "before_destination" | "after_destination" | ""
     corridor_search: bool = False     # True if this task needs corridor search
     role: str = ""                    # "destination" | "corridor_task" | ""
+    route_phase: str = ""             # v28: phase tag e.g. "beihai"/"lunch_corridor"/"sanlihe"
+    # Set only for an explicit user action/category.  The planned resolver then
+    # requires semantic evidence instead of selecting by distance alone.
+    must_match_terms: bool = False
 
 
 # v21: Structured multi-turn conversation context
@@ -405,6 +413,27 @@ class ParsedIntent(BaseModel):
     theme_facets: list[dict[str, Any]] = Field(default_factory=list)
     theme_coverage_policy: str = ""  # "cover_all_explicit_facets" / "cover_best_effort" / ""
 
+    # ── v26: density targets (set by multi_facet_art and similar high-density themes) ──
+    density_min_visible_pois: int = 0       # minimum visible POIs the route MUST have
+    density_target_visible_pois: int = 0    # target visible POIs for optimal route density
+    candidate_target: int = 0               # target number of candidate_points
+
+    # ── v28: route quality contract (applies to all quality-route queries) ──
+    min_frontend_display_points: int = 0    # hard minimum display POIs for frontend
+    max_frontend_display_points: int = 8    # hard maximum display POIs for frontend
+    min_candidate_points: int = 0           # hard minimum candidate/backup points
+    max_candidate_points: int = 5           # hard maximum candidate/backup points
+    compact_route_required: bool = False    # route must be compact, no distant detours
+    max_in_route_segment_km: float = 5.0    # maximum single-segment distance for compact routes
+    explicit_timeline_required: bool = False  # enforce time-slot ordering (morning→lunch→afternoon)
+    nearby_strict_radius_m: int = 0          # v28: strict nearby radius for food stroll routes (3km)
+    nearby_max_radius_m: int = 0             # v28: max nearby radius fallback (5km)
+    max_first_leg_km: float = 0.0            # v28: max first route segment distance
+    post_meal_stroll_required: bool = False   # v28: add a nearby stroll point after the main meal
+    north_sea_lunch_jingshan_route: bool = False  # v28: 北海→烤鸭→景山 narrow route
+    north_sea_lunch_sanlihe_route: bool = False  # v28: 北海→烤鸭→三里河 narrow route
+    nearby_single_meal_request: bool = False     # v28: 是否为"附近 + 单一餐饮需求"，用于精准规划快速通道
+
     # ── 代码计算字段 ──
 
     time_budget: float = 0.0            # 活动slot总预算（天），= DURATION_TO_BUDGET[duration]
@@ -421,8 +450,23 @@ class ParsedIntent(BaseModel):
     # ── v5.2 r3: 规划性意图 ──
     plan_mode: str = "exploratory"      # "exploratory" | "planned" | "mixed"
     planned_waypoints: list[PlannedWaypoint] = []  # 规划性途经点有序列表（仅planned/mixed模式）
+    # Explicit action chains preserve waypoint order and required evidence
+    # through later optimization/enrichment stages.
+    execution_contract_required: bool = False
     # 通用行程段（v5.2 r3）：exploratory和planned统一为有序段列表
     plan_segments: list[PlanSegment] = []  # 按时间顺序排列的行程段
+
+    # ── Unified LLM routing decision ──
+    # These fields are consumed by the chat router before Step2/Step3.  Keeping
+    # them on ParsedIntent lets one Step1 call decide both routing and intent.
+    conversation_mode: str = "new_plan"
+    earliest_step: str = "step1"
+    dispatch_confidence: float = 0.0
+    dispatch_reason: str = ""
+    intent_patch: dict[str, Any] = Field(default_factory=dict)
+    include_constraints: dict[str, Any] = Field(default_factory=dict)
+    exclude_constraints: dict[str, Any] = Field(default_factory=dict)
+    point_operations: list[dict[str, Any]] = Field(default_factory=list)
 
     # ── v20: POI category query fields ──
     poi_query_type: str = ""                        # "theme_route" | "poi_category" | "named_poi" | ""
@@ -581,6 +625,8 @@ class AnchorPlan(ScoredPlace):
     origin_transit: Optional[str] = None  # "从出发点约XX分钟"
     fixed: bool = False                    # v20: 是否为用户明确指定的固定锚点
     primary_target: bool = False           # v20: 是否为主要目标（fixed anchor with explicit name）
+    time_slot: str = ""                    # v28: explicit timeline slot, e.g. morning/lunch/afternoon
+    timeline_rank: int = 0                 # v28: stable sort key for explicit timeline routes
 
 
 class DayPlan(BaseModel):

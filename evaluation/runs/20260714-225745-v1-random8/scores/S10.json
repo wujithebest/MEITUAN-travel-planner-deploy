@@ -1,0 +1,19 @@
+{
+  "case_id": "S10",
+  "profile": "P-BJ-FOOD",
+  "message": "周末想去颐和园逛逛，中午在附近吃饭，下午继续轻松走走。",
+  "expected": "simple park day with nearby meal and walk.",
+  "hard_constraints": "Yiheyuan is retained; meal is nearby; relaxed pace.",
+  "wall_clock_ms": 49273,
+  "terminal_event": "error",
+  "error": "未能满足以下明确行程需求：继续轻松。已保留其他行程要求，请调整该地点或目标类型后重试。",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "technical_invalid",
+    "verdict": "FAIL",
+    "checks": [
+      "未能满足以下明确行程需求：继续轻松。已保留其他行程要求，请调整该地点或目标类型后重试。"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "case_id": "S15",
+  "profile": "P-BJ-ART",
+  "message": "周末和朋友在北京轻松逛一天，想拍照、喝咖啡、不要太赶。",
+  "expected": "relaxed photo and coffee day.",
+  "hard_constraints": "Photo + coffee + relaxed pace; no forced fixed anchor.",
+  "wall_clock_ms": 185852,
+  "terminal_event": "error",
+  "error": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。",
+  "stage_stats": {},
+  "route_title": "",
+  "quality": {
+    "status": "technical_invalid",
+    "verdict": "FAIL",
+    "checks": [
+      "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。"
+    ]
+  }
+}

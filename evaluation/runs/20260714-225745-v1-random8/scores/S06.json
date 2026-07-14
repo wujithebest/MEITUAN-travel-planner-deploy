@@ -1,0 +1,34 @@
+{
+  "case_id": "S06",
+  "profile": "P-BJ-FOOD",
+  "message": "帮我规划一条路线，先去北海公园走走，中午吃顿烤鸭，下午去三里河公园。",
+  "expected": "planned route with Beihai, roast duck lunch, Sanlihe Park.",
+  "hard_constraints": "All fixed anchors and stated order retained.",
+  "wall_clock_ms": 48712,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {
+    "step1_intent": 24265,
+    "planned_route": 23329,
+    "photo_enrichment": 1051
+  },
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "PASS",
+    "checks": [
+      "可见 POI 3 个",
+      "路线段完整：3/2",
+      "固定锚点可见：北海、三里河"
+    ],
+    "visible_poi_count": 3,
+    "polyline_segment_count": 3,
+    "poi_names": [
+      "北海公园",
+      "原鄉本味景山西街烤鸭店",
+      "三里河公园"
+    ],
+    "missed_anchors": [],
+    "missing_feature_evidence": []
+  }
+}

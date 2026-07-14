@@ -1,0 +1,36 @@
+{
+  "case_id": "S10",
+  "profile": "P-BJ-FOOD",
+  "message": "周末想去颐和园逛逛，中午在附近吃饭，下午继续轻松走走。",
+  "expected": "simple park day with nearby meal and walk.",
+  "hard_constraints": "Yiheyuan is retained; meal is nearby; relaxed pace.",
+  "wall_clock_ms": 61809,
+  "terminal_event": "complete",
+  "error": "",
+  "stage_stats": {
+    "step1_intent": 18776,
+    "planned_route": 39643,
+    "photo_enrichment": 3320
+  },
+  "route_title": "",
+  "quality": {
+    "status": "complete",
+    "verdict": "REVIEW",
+    "checks": [
+      "可见 POI 3 个",
+      "路线段完整：3/2",
+      "固定锚点未见：颐和园"
+    ],
+    "visible_poi_count": 3,
+    "polyline_segment_count": 3,
+    "poi_names": [
+      "玉东郊野公园-玉峰塔影",
+      "洞庭楚湘(香山颐和店)",
+      "足轻松"
+    ],
+    "missed_anchors": [
+      "颐和园"
+    ],
+    "missing_feature_evidence": []
+  }
+}

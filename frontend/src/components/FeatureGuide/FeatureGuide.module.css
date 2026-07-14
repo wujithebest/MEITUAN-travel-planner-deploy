@@ -6,6 +6,8 @@
   z-index: 9999;
   background: rgba(42, 45, 50, 0.08);
   overflow: hidden;
+  /* 引导只做视觉提示，不能挡住聊天框、测试用例和地图的正常操作。 */
+  pointer-events: none;
 }
 
 .stepsContainer {
@@ -53,7 +55,7 @@
   max-width: 380px;
   z-index: 10002;
   animation: fadeIn 0.35s ease both;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 @keyframes fadeIn {
@@ -122,6 +124,7 @@
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
   transition: background 0.2s, transform 0.15s;
 }

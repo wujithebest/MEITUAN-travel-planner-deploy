@@ -1,0 +1,87 @@
+{
+  "case_id": "S12",
+  "input": "下班后想在附近买点水果，再找个地方简单吃晚饭",
+  "expected": {
+    "plan_mode": "planned",
+    "waypoint_categories": [
+      "purchase",
+      "meal"
+    ],
+    "path": "compact_llm"
+  },
+  "baseline": {
+    "duration_ms": 17941,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "水果",
+        "晚饭"
+      ],
+      "search_keywords": [
+        "水果店",
+        "生鲜超市",
+        "餐厅",
+        "小吃",
+        "面馆"
+      ],
+      "waypoints": [
+        {
+          "name": null,
+          "search_keyword": "水果店",
+          "category": "purchase"
+        },
+        {
+          "name": null,
+          "search_keyword": "餐厅",
+          "category": "meal"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "waypoint_categories": true
+      }
+    }
+  },
+  "sparse": {
+    "duration_ms": 3611,
+    "path": "compact_llm",
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "水果",
+        "晚饭"
+      ],
+      "search_keywords": [
+        "水果",
+        "晚饭"
+      ],
+      "waypoints": [
+        {
+          "name": null,
+          "search_keyword": "水果",
+          "category": "purchase"
+        },
+        {
+          "name": null,
+          "search_keyword": "简单晚饭",
+          "category": "meal"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "waypoint_categories": true,
+        "path": true
+      }
+    }
+  }
+}

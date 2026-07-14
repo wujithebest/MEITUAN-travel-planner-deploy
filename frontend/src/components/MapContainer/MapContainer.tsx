@@ -6,6 +6,7 @@ import { getPoiAlternatives, getPoiDetail, recordPoiPreference, type Alternative
 import { patchGuestFavoritePoiDetail } from '@/services/favoriteRoutes';
 import { useRouteStore } from '@/store/routeStore';
 import type { PanelPoi } from '@/utils/panelPoiReorder';
+import { getRoutePeriodColor } from '@/utils/routePeriod';
 
 // 扩展的 Marker 数据接口
 export interface MarkerData {
@@ -60,6 +61,8 @@ interface MapContainerProps {
     day_index: number;
     polyline: string;
     color?: string;
+    period?: string;
+    display_slot?: string;
     trafficStatus?: 'smooth' | 'slow' | 'congested';
   }>;
   markers?: MarkerData[];
@@ -604,10 +607,13 @@ export default function MapContainer({
   // v20: Composite evidence — gap is auxiliary, not a single veto.
   // A valid 24-point driving route with close path/distance ratio passes
   // even if one segment slightly exceeds the threshold.
-  function isSuspiciousPolyline(
+    function isSuspiciousPolyline(
     path: any[], distanceKm?: number, source?: string, degraded?: boolean,
   ): boolean {
     if (!path || path.length < 2) return true;
+    // Fixed demo snapshots contain precomputed Amap road geometry and are
+    // complete route segments, not degraded fallbacks.
+    if (source === 'fixed_snapshot' || source === 'gaode_fixed_snapshot') return false;
     if (['fallback_straight', 'route_api_failed', 'invalid_geometry',
       'discontinuous_polyline', 'sparse_polyline'].includes(source || '')) return true;
     if (degraded && path.length <= 3) return true;
@@ -732,9 +738,10 @@ export default function MapContainer({
       }
 
       // 优先使用路况颜色，其次使用自定义颜色，最后使用默认颜色
+      const periodColor = getRoutePeriodColor((day as any).display_slot, (day as any).period, (day as any).slot);
       const color = day.trafficStatus
         ? TRAFFIC_COLORS[day.trafficStatus]
-        : day.color || DAY_COLORS[idx % DAY_COLORS.length];
+        : periodColor || day.color || DAY_COLORS[idx % DAY_COLORS.length];
 
       try {
         const segId = `${day.day_index || 1}_${drawableCount}`;

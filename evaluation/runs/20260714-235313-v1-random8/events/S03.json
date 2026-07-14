@@ -1,0 +1,865 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 639,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 640,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 640,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 12283,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 13480,
+    "data": {
+      "type": "status",
+      "msg": "正在为您精准规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 13480,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索您的目标地点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 23327,
+    "data": {
+      "type": "status",
+      "msg": "正在规划路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 30014,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"poi_id\": \"start:121.352,31.281\", \"gaode_poi_id\": \"\", \"name\": \"起点·上海桃浦\", \"location\": {\"lat\": 31.281, \"lng\": 121.352}, \"kind\": \"start\", \"day\": 1, \"is_waypoint\": true, \"is_display_poi\": false, \"is_candidate\": false, \"is_start\": true, \"target_index\": -1, \"display_order\": 0, \"route_order\": 0, \"display_label\": \"起点\", \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0LG0R6NLO\", \"gaode_poi_id\": \"B0LG0R6NLO\", \"name\": \"绿杨路街角公园\", \"lat\": 31.284773, \"lng\": 121.353127, \"location\": {\"lat\": 31.284773, \"lng\": 121.353127}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110101\", \"category\": \"visit\", \"address\": \"绿杨路与雪松路交叉口西南20米\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 0, \"target_label\": \"公园\", \"display_slot\": \"\", \"display_order\": 1, \"route_order\": 1, \"stay_minutes\": 45, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0KAXRCGNI\", \"gaode_poi_id\": \"B0KAXRCGNI\", \"name\": \"全味捷菜(雪松路店)\", \"lat\": 31.284679, \"lng\": 121.353676, \"location\": {\"lat\": 31.284679, \"lng\": 121.353676}, \"kind\": \"meal\", \"day\": 1, \"typecode\": \"050100\", \"category\": \"meal\", \"address\": \"绿春苑西2门旁\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"\", \"display_order\": 2, \"route_order\": 2, \"stay_minutes\": 50, \"plan_mode\": \"planned\"}, {\"poi_id\": \"B0LG0R6NLO\", \"gaode_poi_id\": \"B0LG0R6NLO\", \"name\": \"绿杨路街角公园\", \"lat\": 31.284773, \"lng\": 121.353127, \"location\": {\"lat\": 31.284773, \"lng\": 121.353127}, \"kind\": \"visit\", \"day\": 1, \"typecode\": \"110101\", \"category\": \"visit\", \"address\": \"绿杨路与雪松路交叉口西南20米\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"recommend_reason\": \"匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。\", \"is_waypoint\": true, \"is_display_poi\": true, \"is_candidate\": false, \"target_index\": 2, \"target_label\": \"公园\", \"display_slot\": \"\", \"display_order\": 3, \"route_order\": 3, \"stay_minutes\": 45, \"plan_mode\": \"planned\"}], \"segments\": [{\"from_poi\": \"起点·上海桃浦\", \"to_poi\": \"绿杨路街角公园\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 8.9, \"distance_km\": 0.67, \"polyline\": [[31.281003, 121.351975], [31.281085, 121.351988], [31.281137, 121.351619], [31.281363, 121.351654], [31.281506, 121.350773], [31.282839, 121.350955], [31.28411, 121.350829], [31.284392, 121.351901], [31.284891, 121.353047]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"绿杨路街角公园\", \"to_poi\": \"全味捷菜(雪松路店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 1.0, \"distance_km\": 0.08, \"polyline\": [[31.284891, 121.353047], [31.284996, 121.35326], [31.284944, 121.353464], [31.284661, 121.353615]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"全味捷菜(雪松路店)\", \"to_poi\": \"绿杨路街角公园\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 1.0, \"distance_km\": 0.08, \"polyline\": [[31.284657, 121.353615], [31.284913, 121.353503], [31.284996, 121.353264], [31.284896, 121.353051]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}], \"candidate_points\": [{\"poi_id\": \"B0I1FXYAVV\", \"gaode_poi_id\": \"B0I1FXYAVV\", \"name\": \"一品名仕包子(桃浦店)\", \"lat\": 31.285011, \"lng\": 121.353661, \"location\": {\"lat\": 31.285011, \"lng\": 121.353661}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"雪松路368号联华超市(桃浦店)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 473}, {\"poi_id\": \"B0I23KV04D\", \"gaode_poi_id\": \"B0I23KV04D\", \"name\": \"嘉尚饭堂(上海世纪联华店)\", \"lat\": 31.285017, \"lng\": 121.353664, \"location\": {\"lat\": 31.285017, \"lng\": 121.353664}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"雪松路368号联华超市(桃浦店)\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 473}, {\"poi_id\": \"B0K0H9W5G6\", \"gaode_poi_id\": \"B0K0H9W5G6\", \"name\": \"马厂老火锅(桃浦店)\", \"lat\": 31.285041, \"lng\": 121.35373, \"location\": {\"lat\": 31.285041, \"lng\": 121.35373}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"050117\", \"category\": \"050117\", \"address\": \"绿杨路236号\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 1, \"target_label\": \"餐厅\", \"display_slot\": \"meal\", \"candidate_score\": 0.0, \"distance\": 478}, {\"poi_id\": \"B0IKJC7KOC\", \"gaode_poi_id\": \"B0IKJC7KOC\", \"name\": \"启动林公园\", \"lat\": 31.284134, \"lng\": 121.357036, \"location\": {\"lat\": 31.284134, \"lng\": 121.357036}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110101\", \"category\": \"110101\", \"address\": \"绿杨路与雪松路交叉口东380米\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"公园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 592}, {\"poi_id\": \"B0LB9DXRNA\", \"gaode_poi_id\": \"B0LB9DXRNA\", \"name\": \"上海市外环环城林带启动石\", \"lat\": 31.283647, \"lng\": 121.357163, \"location\": {\"lat\": 31.283647, \"lng\": 121.357163}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110200\", \"category\": \"110200\", \"address\": \"启动林公园内\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"公园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 572}, {\"poi_id\": \"B0KRFHQ7AZ\", \"gaode_poi_id\": \"B0KRFHQ7AZ\", \"name\": \"新杨.逐光花园\", \"lat\": 31.289076, \"lng\": 121.354234, \"location\": {\"lat\": 31.289076, \"lng\": 121.354234}, \"kind\": \"candidate\", \"is_waypoint\": false, \"is_display_poi\": false, \"day\": 1, \"typecode\": \"110101\", \"category\": \"110101\", \"address\": \"真南路与红柳路交叉口西北角\", \"rating\": \"\", \"gaode_rating\": \"\", \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"is_candidate\": true, \"source\": \"planned_candidate\", \"target_index\": 2, \"target_label\": \"公园\", \"display_slot\": \"\", \"candidate_score\": 0.0, \"distance\": 922}], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"起点·上海桃浦\", \"location\": \"121.352,31.281\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"绿杨路街角公园\", \"location\": \"121.353127,31.284773\", \"type\": \"waypoint\", \"display_order\": 1, \"kind\": \"visit\", \"day_index\": 1}, {\"name\": \"全味捷菜(雪松路店)\", \"location\": \"121.353676,31.284679\", \"type\": \"waypoint\", \"display_order\": 2, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"绿杨路街角公园\", \"location\": \"121.353127,31.284773\", \"type\": \"waypoint\", \"display_order\": 3, \"kind\": \"visit\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"121.351975,31.281003;121.351988,31.281085;121.351619,31.281137;121.351654,31.281363;121.350773,31.281506;121.350955,31.282839;121.350829,31.28411;121.351901,31.284392;121.353047,31.284891\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"121.353047,31.284891;121.35326,31.284996;121.353464,31.284944;121.353615,31.284661\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"121.353615,31.284657;121.353503,31.284913;121.353264,31.284996;121.353051,31.284896\", \"color\": \"#52c41a\"}], \"center\": [121.352, 31.281]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 33826,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 33826,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 33826,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了小半天的上海市之旅，从上海桃浦出发，以绿杨路街角公园为核心。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 33827,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 33827,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 33828,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [],
+        "full_plan": {
+          "summary": "为您规划了小半天的上海市之旅，从上海桃浦出发，以绿杨路街角公园为核心。",
+          "city": "上海市",
+          "duration": "a quarter day",
+          "time_budget": 0.5,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [],
+              "meal_slots": []
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "start:121.352,31.281",
+              "gaode_poi_id": "start:121.352,31.281",
+              "name": "起点·上海桃浦",
+              "location": {
+                "lat": 31.281,
+                "lng": 121.352
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0LG0R6NLO",
+              "gaode_poi_id": "B0LG0R6NLO",
+              "name": "绿杨路街角公园",
+              "location": {
+                "lat": 31.284773,
+                "lng": 121.353127
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110101",
+              "category": "visit",
+              "address": "绿杨路与雪松路交叉口西南20米",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/840907fea8043cd0de74e53d15b7ce4a",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0KAXRCGNI",
+              "gaode_poi_id": "B0KAXRCGNI",
+              "name": "全味捷菜(雪松路店)",
+              "location": {
+                "lat": 31.284679,
+                "lng": 121.353676
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050100",
+              "category": "meal",
+              "address": "绿春苑西2门旁",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://aos-comment.amap.com/B0KAXRCGNI/comment/4BA1C20F_8B46_49A3_8C36_94C0959448D3_L0_001_2000_150_1768054926478_34770534.jpg",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“餐厅”的用餐需求；通勤成本：按上一站附近递进搜索，减少绕路。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 3,
+              "display_order": 2,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0LG0R6NLO",
+              "gaode_poi_id": "B0LG0R6NLO",
+              "name": "绿杨路街角公园",
+              "location": {
+                "lat": 31.284773,
+                "lng": 121.353127
+              },
+              "kind": "visit",
+              "day": 1,
+              "typecode": "110101",
+              "category": "visit",
+              "address": "绿杨路与雪松路交叉口西南20米",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/840907fea8043cd0de74e53d15b7ce4a",
+              "photo_source": "gaode",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "匹配理由：符合“公园”的途经点需求；通勤成本：按路线顺序衔接。",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 4,
+              "display_order": 3,
+              "display_slot": "",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "起点·上海桃浦",
+              "to_poi": "绿杨路街角公园",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 8.9,
+              "distance_km": 0.67,
+              "polyline": [
+                [
+                  31.281003,
+                  121.351975
+                ],
+                [
+                  31.281085,
+                  121.351988
+                ],
+                [
+                  31.281137,
+                  121.351619
+                ],
+                [
+                  31.281363,
+                  121.351654
+                ],
+                [
+                  31.281506,
+                  121.350773
+                ],
+                [
+                  31.282839,
+                  121.350955
+                ],
+                [
+                  31.28411,
+                  121.350829
+                ],
+                [
+                  31.284392,
+                  121.351901
+                ],
+                [
+                  31.284891,
+                  121.353047
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": false,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 4,
+              "from_display_order": 0,
+              "to_display_order": 3,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "绿杨路街角公园",
+              "to_poi": "全味捷菜(雪松路店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 1.0,
+              "distance_km": 0.08,
+              "polyline": [
+                [
+                  31.284891,
+                  121.353047
+                ],
+                [
+                  31.284996,
+                  121.35326
+                ],
+                [
+                  31.284944,
+                  121.353464
+                ],
+                [
+                  31.284661,
+                  121.353615
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": false,
+              "segment_order": 2,
+              "from_order": 4,
+              "to_order": 3,
+              "from_display_order": 3,
+              "to_display_order": 2,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "全味捷菜(雪松路店)",
+              "to_poi": "绿杨路街角公园",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 1.0,
+              "distance_km": 0.08,
+              "polyline": [
+                [
+                  31.284657,
+                  121.353615
+                ],
+                [
+                  31.284913,
+                  121.353503
+                ],
+                [
+                  31.284996,
+                  121.353264
+                ],
+                [
+                  31.284896,
+                  121.353051
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": false,
+              "segment_order": 3,
+              "from_order": 3,
+              "to_order": 4,
+              "from_display_order": 2,
+              "to_display_order": 3,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            }
+          ],
+          "hints": {},
+          "waypoint_annotations": {
+            "起点·上海桃浦": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "绿杨路街角公园": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "全味捷菜(雪松路店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "d01b6d69-faa9-46f3-b20e-c113ebb774ff",
+          "candidate_points": [
+            {
+              "poi_id": "B0I1FXYAVV",
+              "gaode_poi_id": "B0I1FXYAVV",
+              "name": "一品名仕包子(桃浦店)",
+              "lat": 31.285011,
+              "lng": 121.353661,
+              "location": {
+                "lat": 31.285011,
+                "lng": 121.353661
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "雪松路368号联华超市(桃浦店)",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 1,
+              "target_label": "餐厅",
+              "display_slot": "meal",
+              "candidate_score": 0.0,
+              "distance": 473
+            },
+            {
+              "poi_id": "B0I23KV04D",
+              "gaode_poi_id": "B0I23KV04D",
+              "name": "嘉尚饭堂(上海世纪联华店)",
+              "lat": 31.285017,
+              "lng": 121.353664,
+              "location": {
+                "lat": 31.285017,
+                "lng": 121.353664
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "雪松路368号联华超市(桃浦店)",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 1,
+              "target_label": "餐厅",
+              "display_slot": "meal",
+              "candidate_score": 0.0,
+              "distance": 473
+            },
+            {
+              "poi_id": "B0K0H9W5G6",
+              "gaode_poi_id": "B0K0H9W5G6",
+              "name": "马厂老火锅(桃浦店)",
+              "lat": 31.285041,
+              "lng": 121.35373,
+              "location": {
+                "lat": 31.285041,
+                "lng": 121.35373
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "050117",
+              "category": "050117",
+              "address": "绿杨路236号",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 1,
+              "target_label": "餐厅",
+              "display_slot": "meal",
+              "candidate_score": 0.0,
+              "distance": 478
+            },
+            {
+              "poi_id": "B0IKJC7KOC",
+              "gaode_poi_id": "B0IKJC7KOC",
+              "name": "启动林公园",
+              "lat": 31.284134,
+              "lng": 121.357036,
+              "location": {
+                "lat": 31.284134,
+                "lng": 121.357036
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110101",
+              "category": "110101",
+              "address": "绿杨路与雪松路交叉口东380米",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 2,
+              "target_label": "公园",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 592
+            },
+            {
+              "poi_id": "B0LB9DXRNA",
+              "gaode_poi_id": "B0LB9DXRNA",
+              "name": "上海市外环环城林带启动石",
+              "lat": 31.283647,
+              "lng": 121.357163,
+              "location": {
+                "lat": 31.283647,
+                "lng": 121.357163
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110200",
+              "category": "110200",
+              "address": "启动林公园内",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 2,
+              "target_label": "公园",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 572
+            },
+            {
+              "poi_id": "B0KRFHQ7AZ",
+              "gaode_poi_id": "B0KRFHQ7AZ",
+              "name": "新杨.逐光花园",
+              "lat": 31.289076,
+              "lng": 121.354234,
+              "location": {
+                "lat": 31.289076,
+                "lng": 121.354234
+              },
+              "kind": "candidate",
+              "is_waypoint": false,
+              "is_display_poi": false,
+              "day": 1,
+              "typecode": "110101",
+              "category": "110101",
+              "address": "真南路与红柳路交叉口西北角",
+              "rating": "",
+              "gaode_rating": "",
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "is_candidate": true,
+              "source": "planned_candidate",
+              "target_index": 2,
+              "target_label": "公园",
+              "display_slot": "",
+              "candidate_score": 0.0,
+              "distance": 922
+            }
+          ],
+          "plan_mode": "planned",
+          "total_days": 1,
+          "display_granularity": "short",
+          "planning_state": {
+            "plan_mode": "planned",
+            "parsed_intent": {
+              "duration": "a quarter day",
+              "start_time": "2026-07-14T15:53:00+00:00",
+              "raw_keywords": [
+                "逛逛",
+                "好吃的",
+                "散散步",
+                "生活场景"
+              ],
+              "search_keywords": [
+                "上海 餐厅",
+                "上海 美食",
+                "上海 小吃",
+                "上海 咖啡",
+                "上海 甜品",
+                "上海 购物中心"
+              ],
+              "micro_keywords": [
+                "餐厅",
+                "小吃",
+                "咖啡",
+                "商场",
+                "公园"
+              ],
+              "fixed_pois": [],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "好吃的",
+                "餐厅",
+                "美食",
+                "小吃"
+              ],
+              "meal_search_keywords": [
+                "好吃的 餐厅",
+                "餐厅 餐厅"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": false,
+              "plan_mode": "planned",
+              "planned_waypoints": [
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "公园",
+                  "category": "visit",
+                  "stay_minutes": 45,
+                  "search_keywords": [
+                    "公园",
+                    "滨江步道",
+                    "步行街",
+                    "绿地"
+                  ]
+                },
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "餐厅",
+                  "category": "meal",
+                  "stay_minutes": 50,
+                  "search_keywords": [
+                    "餐厅",
+                    "饭馆",
+                    "饭店",
+                    "小馆"
+                  ]
+                },
+                {
+                  "type": "placeholder",
+                  "name": null,
+                  "search_keyword": "公园",
+                  "category": "visit",
+                  "stay_minutes": 45,
+                  "search_keywords": [
+                    "公园",
+                    "滨江步道",
+                    "步行街",
+                    "绿地"
+                  ]
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "a quarter day",
+            "start_time": "2026-07-14T15:53:00+00:00",
+            "raw_keywords": [
+              "逛逛",
+              "好吃的",
+              "散散步",
+              "生活场景"
+            ],
+            "search_keywords": [
+              "上海 餐厅",
+              "上海 美食",
+              "上海 小吃",
+              "上海 咖啡",
+              "上海 甜品",
+              "上海 购物中心"
+            ],
+            "micro_keywords": [
+              "餐厅",
+              "小吃",
+              "咖啡",
+              "商场",
+              "公园"
+            ],
+            "fixed_pois": [],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "好吃的",
+              "餐厅",
+              "美食",
+              "小吃"
+            ],
+            "meal_search_keywords": [
+              "好吃的 餐厅",
+              "餐厅 餐厅"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": false,
+            "plan_mode": "planned",
+            "planned_waypoints": [
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "公园",
+                "category": "visit",
+                "stay_minutes": 45,
+                "search_keywords": [
+                  "公园",
+                  "滨江步道",
+                  "步行街",
+                  "绿地"
+                ]
+              },
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "餐厅",
+                "category": "meal",
+                "stay_minutes": 50,
+                "search_keywords": [
+                  "餐厅",
+                  "饭馆",
+                  "饭店",
+                  "小馆"
+                ]
+              },
+              {
+                "type": "placeholder",
+                "name": null,
+                "search_keyword": "公园",
+                "category": "visit",
+                "stay_minutes": 45,
+                "search_keywords": [
+                  "公园",
+                  "滨江步道",
+                  "步行街",
+                  "绿地"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 33.3,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 2100,
+        "deepseek_completion_tokens": 503,
+        "total_tokens": 2603,
+        "gaode_calls": 20,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 12905,
+          "planned_route": 16534,
+          "photo_enrichment": 3808,
+          "output_assembly": 2
+        }
+      }
+    }
+  }
+]

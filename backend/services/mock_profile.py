@@ -138,7 +138,7 @@ async def get_mock_profile(user_id: str = None) -> UserProfile:
         gender="男",
         age=30,
         activity_pref_tag=["文艺", "历史"],         # 兴趣标签，不会在request中主动表达时自动注入搜索
-        food_pref_tag=["本帮菜", "咖啡"],           # 口味偏好，request未提餐饮偏好时注入餐饮搜索
+        food_pref_tag=[],                             # v28: empty by default
         permanent_city=perm_city,                    # 从环境变量读取，默认空
         permanent_city_coord={"lat": home_loc.get("lat", 31.2809), "lng": home_loc.get("lng", 121.5011)},
         current_device_location=None,                     # v18: 不再作为独立出发地
@@ -245,7 +245,7 @@ def build_profile_from_guest(guest: dict) -> UserProfile:
         return default
 
     activity_pref_tag = _coerce_str_list(guest.get("activity_pref_tag"), ["文艺", "历史"])
-    food_pref_tag = _coerce_str_list(guest.get("food_pref_tag"), ["本帮菜", "咖啡"])
+    food_pref_tag = _coerce_str_list(guest.get("food_pref_tag"), [])
 
     # Normalize budget — must be a positive number
     _raw_budget = guest.get("budget_per_capita")

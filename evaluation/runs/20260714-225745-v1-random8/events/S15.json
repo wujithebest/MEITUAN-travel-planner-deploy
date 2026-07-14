@@ -1,0 +1,148 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 142,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 144,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 145,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 43506,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 44760,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 44761,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 44762,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 85725,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 91346,
+    "data": {
+      "type": "status",
+      "msg": "正在评估和筛选目的地...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 91347,
+    "data": {
+      "type": "status",
+      "msg": "正在匹配最优组合...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 91347,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 91348,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 91348,
+    "data": {
+      "type": "status",
+      "msg": "正在分析目的地结构...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 112051,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索目的地内部景点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 114810,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索餐饮推荐...",
+      "progress": null
+    }
+  },
+  {
+    "event": "error",
+    "elapsed_ms": 185851,
+    "data": {
+      "type": "error",
+      "error": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。",
+      "content": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。",
+      "msg": "外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。",
+      "progress": null
+    }
+  }
+]

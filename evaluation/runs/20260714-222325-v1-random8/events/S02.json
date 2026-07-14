@@ -1,0 +1,1480 @@
+[
+  {
+    "event": "status",
+    "elapsed_ms": 139,
+    "data": {
+      "type": "status",
+      "msg": "正在加载用户信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 140,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 140,
+    "data": {
+      "type": "status",
+      "msg": "正在解析您的出行意图...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 42541,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 42541,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 46083,
+    "data": {
+      "type": "status",
+      "msg": "正在查询天气...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 46084,
+    "data": {
+      "type": "status",
+      "msg": "正在查询目的地信息...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 50622,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 58275,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 61653,
+    "data": {
+      "type": "status",
+      "msg": "正在评估和筛选目的地...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 61654,
+    "data": {
+      "type": "status",
+      "msg": "正在匹配最优组合...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 61655,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索周边好去处...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 61655,
+    "data": {
+      "type": "status",
+      "msg": "正在补充目的地详情...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 61655,
+    "data": {
+      "type": "status",
+      "msg": "正在分析目的地结构...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 85692,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索目的地内部景点...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 85693,
+    "data": {
+      "type": "status",
+      "msg": "正在搜索餐饮推荐...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 94913,
+    "data": {
+      "type": "status",
+      "msg": "正在规划详细路线...",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 113637,
+    "data": {
+      "type": "result",
+      "msg": "{\"type\": \"route_data\", \"stage\": \"route_ready\", \"partial\": true, \"data\": {\"points\": [{\"day\": 1, \"name\": \"北京饭店\", \"location\": {\"lat\": 39.9059, \"lng\": 116.4123, \"label\": \"北京饭店\", \"city\": \"北京市\", \"district\": \"东城区\"}, \"kind\": \"start\", \"route_order\": 1, \"display_order\": 0, \"day_index\": 1, \"is_waypoint\": true, \"walk_from_route_min\": 0}, {\"day\": 1, \"name\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"location\": {\"lat\": 39.895202, \"lng\": 116.393541}, \"kind\": \"anchor_internal\", \"poi_id\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"gaode_poi_id\": \"B0MAH1N70U\", \"typecode\": \"140500\", \"category\": \"\", \"address\": \"大栅栏西街与青竹巷交叉口东100米\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"travel_before\": 0, \"sub_anchor_name\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"parent_name\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"is_passthrough\": false, \"theme_anchor_fallback\": true, \"fallback_reason\": \"theme_anchor_degraded_from_free\", \"recommend_reason\": \"该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\", \"is_waypoint\": true, \"is_display_poi\": true, \"route_order\": 2, \"display_order\": 1, \"day_index\": 1, \"walk_from_route_min\": 0, \"route_nearest_dist_m\": 11.7, \"route_annotation\": \"沿途经过\"}, {\"day\": 1, \"name\": \"春风习习杂志图书馆(前门店)\", \"location\": {\"lat\": 39.895145, \"lng\": 116.403987}, \"kind\": \"anchor_internal\", \"poi_id\": \"春风习习杂志图书馆(前门店)\", \"gaode_poi_id\": \"B0FFIPRT6F\", \"typecode\": \"140500\", \"category\": \"\", \"address\": \"小江胡同1号前门大街\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"travel_before\": 0, \"sub_anchor_name\": \"春风习习杂志图书馆(前门店)\", \"parent_name\": \"春风习习杂志图书馆(前门店)\", \"is_passthrough\": false, \"theme_anchor_fallback\": true, \"fallback_reason\": \"theme_anchor_degraded_from_free\", \"recommend_reason\": \"该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\", \"is_waypoint\": true, \"is_display_poi\": true, \"route_order\": 3, \"display_order\": 2, \"day_index\": 1, \"walk_from_route_min\": 0, \"route_nearest_dist_m\": 10.8, \"route_annotation\": \"沿途经过\"}, {\"day\": 1, \"name\": \"峨嵋酒家(鲜鱼口老字号美食街店)\", \"location\": {\"lat\": 39.896081, \"lng\": 116.399764}, \"kind\": \"meal\", \"poi_id\": \"B0G0XSYORJ\", \"gaode_poi_id\": \"B0G0XSYORJ\", \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"鲜鱼口74号(前门地铁站I西南口步行450米)\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"parent_anchor\": \"午餐搜索点-亚朵竹居流动图书馆(北京前门大栅栏)\", \"visit_duration_min\": 60, \"display_slot\": \"lunch\", \"route_order\": 5, \"day_index\": 1, \"is_waypoint\": true, \"walk_from_route_min\": 0}, {\"day\": 1, \"name\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"location\": {\"lat\": 39.888571, \"lng\": 116.410041}, \"kind\": \"anchor_internal\", \"poi_id\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"gaode_poi_id\": \"B0MARS4I92\", \"typecode\": \"140500\", \"category\": \"\", \"address\": \"天坛路85号(桥湾地铁站C东南口步行490米)\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"travel_before\": 0, \"sub_anchor_name\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"parent_name\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"is_passthrough\": false, \"theme_anchor_fallback\": true, \"fallback_reason\": \"theme_anchor_degraded_from_free\", \"recommend_reason\": \"该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\", \"is_waypoint\": true, \"is_display_poi\": true, \"route_order\": 4, \"display_order\": 3, \"day_index\": 1, \"walk_from_route_min\": 0, \"route_nearest_dist_m\": 18.2, \"route_annotation\": \"沿途经过\"}, {\"day\": 1, \"name\": \"景山公园\", \"location\": {\"lat\": 39.925875, \"lng\": 116.396551}, \"kind\": \"anchor_internal\", \"poi_id\": \"景山公园\", \"gaode_poi_id\": \"景山公园\", \"typecode\": \"110101\", \"category\": \"\", \"address\": \"\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"travel_before\": 0, \"sub_anchor_name\": \"景山公园\", \"parent_name\": \"景山公园\", \"is_passthrough\": false, \"theme_anchor_fallback\": true, \"fallback_reason\": \"theme_anchor_degraded_from_free\", \"recommend_reason\": \"该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\", \"is_waypoint\": true, \"is_display_poi\": true, \"display_slot\": \"afternoon\", \"route_order\": 6, \"display_order\": 4, \"day_index\": 1, \"walk_from_route_min\": 0, \"route_nearest_dist_m\": 5.2, \"route_annotation\": \"沿途经过\"}, {\"day\": 1, \"name\": \"老曹菜馆(8号店)\", \"location\": {\"lat\": 39.925438, \"lng\": 116.402949}, \"kind\": \"meal\", \"poi_id\": \"B0I0PU2VA2\", \"gaode_poi_id\": \"B0I0PU2VA2\", \"typecode\": \"050100\", \"category\": \"050100\", \"address\": \"沙滩后街8-2号\", \"rating\": null, \"avg_cost\": null, \"photo_url\": \"\", \"photo_source\": \"\", \"parent_anchor\": \"晚餐搜索点-景山公园\", \"visit_duration_min\": 60, \"display_slot\": \"dinner\", \"route_order\": 7, \"day_index\": 1, \"is_waypoint\": true, \"walk_from_route_min\": 0}], \"segments\": [{\"from_poi\": \"北京饭店\", \"to_poi\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"day_index\": 1, \"transport\": \"地铁/公交\", \"duration_min\": 30.1, \"distance_km\": 3.59, \"polyline\": [[39.905735, 116.412308], [39.905708, 116.411598], [39.907829, 116.411499], [39.90807, 116.412148], [39.90807, 116.411415], [39.909401, 116.411346], [39.903575, 116.411628], [39.902049, 116.411107], [39.901152, 116.409368], [39.900835, 116.403505], [39.898449, 116.39798], [39.897552, 116.398018], [39.897259, 116.394409], [39.896339, 116.394547], [39.895607, 116.392052], [39.894897, 116.392509], [39.895287, 116.393478]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": [{\"mode\": \"transit\", \"label\": \"公共交通\", \"transport\": \"地铁/公交\", \"distance_km\": 3.59, \"duration_min\": 30.1}]}, {\"from_poi\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"to_poi\": \"春风习习杂志图书馆(前门店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 17.5, \"distance_km\": 1.31, \"polyline\": [[39.895286, 116.393477], [39.895399, 116.39375], [39.895204, 116.393872], [39.893694, 116.394028], [39.893737, 116.39457], [39.894002, 116.394592], [39.894049, 116.398251], [39.894944, 116.398194], [39.895048, 116.399323], [39.895035, 116.400065], [39.894857, 116.400981], [39.894384, 116.402057], [39.894188, 116.402318], [39.894444, 116.402626], [39.894596, 116.402582], [39.89474, 116.402643], [39.8948, 116.403181], [39.894744, 116.403346], [39.894831, 116.403711], [39.894948, 116.40378], [39.894965, 116.404089], [39.895143, 116.404084]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"春风习习杂志图书馆(前门店)\", \"to_poi\": \"峨嵋酒家(鲜鱼口老字号美食街店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 7.1, \"distance_km\": 0.53, \"polyline\": [[39.895143, 116.40408], [39.896267, 116.404049], [39.896324, 116.402995], [39.89651, 116.402639], [39.896853, 116.402326], [39.896476, 116.401115], [39.896337, 116.400898], [39.896141, 116.399757]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"峨嵋酒家(鲜鱼口老字号美食街店)\", \"to_poi\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"day_index\": 1, \"transport\": \"自驾\", \"duration_min\": 13.8, \"distance_km\": 2.75, \"polyline\": [[39.896139, 116.399755], [39.896029, 116.398553], [39.896088, 116.397866], [39.895777, 116.394669], [39.892913, 116.394567], [39.890493, 116.395323], [39.890718, 116.396219], [39.890831, 116.397093], [39.890847, 116.398], [39.890745, 116.398209], [39.890563, 116.39829], [39.888481, 116.398402], [39.886813, 116.398408], [39.886518, 116.39851], [39.886481, 116.398993], [39.886647, 116.40006], [39.887618, 116.40344], [39.887924, 116.404893], [39.88809, 116.406401], [39.888208, 116.410381], [39.888412, 116.410365], [39.888407, 116.410045]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"to_poi\": \"景山公园\", \"day_index\": 1, \"transport\": \"自驾\", \"duration_min\": 21.5, \"distance_km\": 6.72, \"polyline\": [[39.888407, 116.410045], [39.888412, 116.410365], [39.891019, 116.410226], [39.892633, 116.410226], [39.892633, 116.410462], [39.892741, 116.410617], [39.892768, 116.411883], [39.892907, 116.411878], [39.892623, 116.40477], [39.892478, 116.403466], [39.891995, 116.401101], [39.893781, 116.400913], [39.896475, 116.401111], [39.897773, 116.400806], [39.899698, 116.399749], [39.907756, 116.399352], [39.907509, 116.391783], [39.907874, 116.391885], [39.908432, 116.391885], [39.914789, 116.391402], [39.922047, 116.390978], [39.92253, 116.391048], [39.922969, 116.391482], [39.923114, 116.391922], [39.923184, 116.39381], [39.923302, 116.393993], [39.923398, 116.396756], [39.923747, 116.396766], [39.924005, 116.398301], [39.924133, 116.39874], [39.924305, 116.399009], [39.924885, 116.399164], [39.92526, 116.399003], [39.925217, 116.398617], [39.925287, 116.397952], [39.925528, 116.397394], [39.925673, 116.397308], [39.925845, 116.397002], [39.925831, 116.396566]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}, {\"from_poi\": \"景山公园\", \"to_poi\": \"老曹菜馆(8号店)\", \"day_index\": 1, \"transport\": \"步行\", \"duration_min\": 8.3, \"distance_km\": 0.62, \"polyline\": [[39.925829, 116.396563], [39.926085, 116.396662], [39.926085, 116.39707], [39.92582, 116.398633], [39.925816, 116.39954], [39.925304, 116.39957], [39.92549, 116.402943]], \"degraded\": false, \"polyline_source\": \"\", \"route_error\": \"\", \"transport_options\": []}], \"candidate_points\": [], \"partial\": true, \"enrichment_status\": \"pending\", \"map_route_data\": {\"markers\": [{\"name\": \"北京饭店\", \"location\": \"116.4123,39.9059\", \"type\": \"origin\", \"display_order\": 0, \"kind\": \"start\", \"day_index\": 1}, {\"name\": \"亚朵竹居流动图书馆(北京前门大栅栏)\", \"location\": \"116.393541,39.895202\", \"type\": \"destination\", \"display_order\": 1, \"kind\": \"anchor_internal\", \"day_index\": 1}, {\"name\": \"春风习习杂志图书馆(前门店)\", \"location\": \"116.403987,39.895145\", \"type\": \"destination\", \"display_order\": 2, \"kind\": \"anchor_internal\", \"day_index\": 1}, {\"name\": \"峨嵋酒家(鲜鱼口老字号美食街店)\", \"location\": \"116.399764,39.896081\", \"type\": \"waypoint\", \"display_order\": 0, \"kind\": \"meal\", \"day_index\": 1}, {\"name\": \"亚朵竹居流动图书馆(北京天坛祈年大街)\", \"location\": \"116.410041,39.888571\", \"type\": \"destination\", \"display_order\": 3, \"kind\": \"anchor_internal\", \"day_index\": 1}, {\"name\": \"景山公园\", \"location\": \"116.396551,39.925875\", \"type\": \"destination\", \"display_order\": 4, \"kind\": \"anchor_internal\", \"day_index\": 1}, {\"name\": \"老曹菜馆(8号店)\", \"location\": \"116.402949,39.925438\", \"type\": \"waypoint\", \"display_order\": 0, \"kind\": \"meal\", \"day_index\": 1}], \"polylines\": [{\"day_index\": 1, \"polyline\": \"116.412308,39.905735;116.411598,39.905708;116.411499,39.907829;116.412148,39.90807;116.411415,39.90807;116.411346,39.909401;116.411628,39.903575;116.411107,39.902049;116.409368,39.901152;116.403505,39.900835;116.39798,39.898449;116.398018,39.897552;116.394409,39.897259;116.394547,39.896339;116.392052,39.895607;116.392509,39.894897;116.393478,39.895287\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.393477,39.895286;116.39375,39.895399;116.393872,39.895204;116.394028,39.893694;116.39457,39.893737;116.394592,39.894002;116.398251,39.894049;116.398194,39.894944;116.399323,39.895048;116.400065,39.895035;116.400981,39.894857;116.402057,39.894384;116.402318,39.894188;116.402626,39.894444;116.402582,39.894596;116.402643,39.89474;116.403181,39.8948;116.403346,39.894744;116.403711,39.894831;116.40378,39.894948;116.404089,39.894965;116.404084,39.895143\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.40408,39.895143;116.404049,39.896267;116.402995,39.896324;116.402639,39.89651;116.402326,39.896853;116.401115,39.896476;116.400898,39.896337;116.399757,39.896141\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.399755,39.896139;116.398553,39.896029;116.397866,39.896088;116.394669,39.895777;116.394567,39.892913;116.395323,39.890493;116.396219,39.890718;116.397093,39.890831;116.398,39.890847;116.398209,39.890745;116.39829,39.890563;116.398402,39.888481;116.398408,39.886813;116.39851,39.886518;116.398993,39.886481;116.40006,39.886647;116.40344,39.887618;116.404893,39.887924;116.406401,39.88809;116.410381,39.888208;116.410365,39.888412;116.410045,39.888407\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.410045,39.888407;116.410365,39.888412;116.410226,39.891019;116.410226,39.892633;116.410462,39.892633;116.410617,39.892741;116.411883,39.892768;116.411878,39.892907;116.40477,39.892623;116.403466,39.892478;116.401101,39.891995;116.400913,39.893781;116.401111,39.896475;116.400806,39.897773;116.399749,39.899698;116.399352,39.907756;116.391783,39.907509;116.391885,39.907874;116.391885,39.908432;116.391402,39.914789;116.390978,39.922047;116.391048,39.92253;116.391482,39.922969;116.391922,39.923114;116.39381,39.923184;116.393993,39.923302;116.396756,39.923398;116.396766,39.923747;116.398301,39.924005;116.39874,39.924133;116.399009,39.924305;116.399164,39.924885;116.399003,39.92526;116.398617,39.925217;116.397952,39.925287;116.397394,39.925528;116.397308,39.925673;116.397002,39.925845;116.396566,39.925831\", \"color\": \"#52c41a\"}, {\"day_index\": 1, \"polyline\": \"116.396563,39.925829;116.396662,39.926085;116.39707,39.926085;116.398633,39.92582;116.39954,39.925816;116.39957,39.925304;116.402943,39.92549\", \"color\": \"#52c41a\"}], \"center\": [116.4123, 39.9059]}}}",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "status",
+      "msg": "正在生成行程方案...",
+      "progress": null
+    }
+  },
+  {
+    "event": "status",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "status",
+      "msg": "路线规划完成！",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "result",
+      "msg": "为您规划了周三半天的北京市之旅，从北京饭店出发，串联亚朵竹居流动图书馆(北京前门大栅栏)到老曹菜馆(8号店)，含餐饮推荐。",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "result",
+      "msg": "【Day1】\n半天：亚朵竹居流动图书馆(北京前门大栅栏)周边游览\n  北京饭店 - 地铁/公交(30min) - 亚朵竹居流动图书馆(北京前门大栅栏) - 步行(18min) - 春风习习杂志图书馆(前门店) - 路线缺失 - 亚朵竹居流动图书馆(北京天坛祈年大街) - 自驾(22min) - 景山公园\n  推荐理由：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟\n  推荐理由：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约6分钟\n  推荐理由：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟\n  推荐理由：核心看点：户外散步属性更强，适合附近短途放松和低强度转场；匹配理由：命中景山公园偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，通勤成本中等，建议作为半天核心点而不是临时加塞，从出发地约36分钟\n  该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\n  该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\n  该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\n  该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线\n中午（12:00-14:00）：餐饮推荐 - 峨嵋酒家(鲜鱼口老字号美食街店)（距上一站步行约0.93km）（正餐 POI）\n  步行约930米到达峨嵋酒家(鲜鱼口老字号美食街店)\n晚餐（18:00-20:00）：餐饮推荐 - 老曹菜馆(8号店)（距上一站步行约0.62km）（正餐 POI）\n  步行约620米到达老曹菜馆(8号店)",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "result",
+      "msg": "· 亚朵竹居流动图书馆(北京前门大栅栏)：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125491,
+    "data": {
+      "type": "result",
+      "msg": "· 春风习习杂志图书馆(前门店)：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约6分钟",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125492,
+    "data": {
+      "type": "result",
+      "msg": "· 亚朵竹居流动图书馆(北京天坛祈年大街)：核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125492,
+    "data": {
+      "type": "result",
+      "msg": "· 景山公园：核心看点：户外散步属性更强，适合附近短途放松和低强度转场；匹配理由：命中景山公园偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，通勤成本中等，建议作为半天核心点而不是临时加塞，从出发地约36分钟",
+      "progress": null
+    }
+  },
+  {
+    "event": "result",
+    "elapsed_ms": 125492,
+    "data": {
+      "type": "result",
+      "msg": "[ROUTE_PLANNER]: 完整路线地图已按天生成，点击查看：Day1: ./services/maps/route_20260714_142734_day1.html",
+      "progress": null
+    }
+  },
+  {
+    "event": "complete",
+    "elapsed_ms": 125493,
+    "data": {
+      "type": "complete",
+      "content": {
+        "map_paths": [
+          "Day1: ./services/maps/route_20260714_142734_day1.html"
+        ],
+        "full_plan": {
+          "summary": "为您规划了周三半天的北京市之旅，从北京饭店出发，串联亚朵竹居流动图书馆(北京前门大栅栏)到老曹菜馆(8号店)，含餐饮推荐。",
+          "city": "北京市",
+          "duration": "a half day",
+          "time_budget": 0.75,
+          "days": [
+            {
+              "day_index": 1,
+              "anchors": [
+                {
+                  "name": "亚朵竹居流动图书馆(北京前门大栅栏)",
+                  "recommend_reason": "核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟"
+                },
+                {
+                  "name": "春风习习杂志图书馆(前门店)",
+                  "recommend_reason": "核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约6分钟"
+                },
+                {
+                  "name": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+                  "recommend_reason": "核心看点：作为行程锚点可串联周边小点，适合展开成一段完整游览；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，离出发地很近，适合做当天开场，从出发地约8分钟"
+                },
+                {
+                  "name": "景山公园",
+                  "recommend_reason": "核心看点：户外散步属性更强，适合附近短途放松和低强度转场；匹配理由：命中景山公园偏好；玩法建议：控制总步行强度，公园、书店或商场只选两三个点就好，中途再顺手找咖啡休息；安排建议：建议预留45-90分钟，通勤成本中等，建议作为半天核心点而不是临时加塞，从出发地约36分钟"
+                }
+              ],
+              "meal_slots": [
+                {
+                  "meal": "dinner",
+                  "time_range": [
+                    17.5,
+                    19.5
+                  ],
+                  "poi_name": "老曹菜馆(8号店)",
+                  "previous_poi": "晚餐搜索点-景山公园",
+                  "meal_walk_distance_km": 0.62
+                },
+                {
+                  "meal": "lunch",
+                  "time_range": [
+                    11.5,
+                    13.5
+                  ],
+                  "poi_name": "峨嵋酒家(鲜鱼口老字号美食街店)",
+                  "previous_poi": "午餐搜索点-亚朵竹居流动图书馆(北京前门大栅栏)",
+                  "meal_walk_distance_km": 0.93
+                }
+              ]
+            }
+          ]
+        },
+        "route_data": {
+          "points": [
+            {
+              "poi_id": "北京饭店:116.4123,39.9059",
+              "gaode_poi_id": "",
+              "name": "北京饭店",
+              "location": {
+                "lat": 39.9059,
+                "lng": 116.4123
+              },
+              "kind": "start",
+              "day": 1,
+              "typecode": "",
+              "category": "",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "",
+              "photo_source": "",
+              "parent_anchor": "",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 1,
+              "display_order": 0,
+              "display_slot": "morning",
+              "is_display_poi": true,
+              "display_label": "起点",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "gaode_poi_id": "B0MAH1N70U",
+              "name": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "location": {
+                "lat": 39.895202,
+                "lng": 116.393541
+              },
+              "kind": "anchor_internal",
+              "day": 1,
+              "typecode": "140500",
+              "category": "140500",
+              "address": "大栅栏西街与青竹巷交叉口东100米",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/58349252447c6b18c247863d49671174",
+              "photo_source": "gaode",
+              "parent_anchor": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "sub_anchor_name": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "recommend_reason": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "沿途经过",
+              "route_order": 2,
+              "display_order": 1,
+              "display_slot": "morning",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "春风习习杂志图书馆(前门店)",
+              "gaode_poi_id": "B0FFIPRT6F",
+              "name": "春风习习杂志图书馆(前门店)",
+              "location": {
+                "lat": 39.895145,
+                "lng": 116.403987
+              },
+              "kind": "anchor_internal",
+              "day": 1,
+              "typecode": "140500",
+              "category": "140500",
+              "address": "小江胡同1号前门大街",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/7ba932b55fb309bb7bef86d0f7a79cb6",
+              "photo_source": "gaode",
+              "parent_anchor": "春风习习杂志图书馆(前门店)",
+              "sub_anchor_name": "春风习习杂志图书馆(前门店)",
+              "recommend_reason": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "沿途经过",
+              "route_order": 3,
+              "display_order": 2,
+              "display_slot": "morning",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0G0XSYORJ",
+              "gaode_poi_id": "B0G0XSYORJ",
+              "name": "峨嵋酒家(鲜鱼口老字号美食街店)",
+              "location": {
+                "lat": 39.896081,
+                "lng": 116.399764
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "鲜鱼口74号(前门地铁站I西南口步行450米)",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/query_pic?id=sta3d26f05-8118-42b7-a7c0-393a27aa4c98&user=search&operate=original",
+              "photo_source": "gaode",
+              "parent_anchor": "午餐搜索点-亚朵竹居流动图书馆(北京前门大栅栏)",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": 60,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 4,
+              "display_order": 3,
+              "display_slot": "lunch",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "gaode_poi_id": "B0MARS4I92",
+              "name": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "location": {
+                "lat": 39.888571,
+                "lng": 116.410041
+              },
+              "kind": "anchor_internal",
+              "day": 1,
+              "typecode": "140500",
+              "category": "140500",
+              "address": "天坛路85号(桥湾地铁站C东南口步行490米)",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/164295a526d16b9f9e348a363daa22bb",
+              "photo_source": "gaode",
+              "parent_anchor": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "sub_anchor_name": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "recommend_reason": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "沿途经过",
+              "route_order": 5,
+              "display_order": 4,
+              "display_slot": "afternoon",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "景山公园",
+              "gaode_poi_id": "景山公园",
+              "name": "景山公园",
+              "location": {
+                "lat": 39.925875,
+                "lng": 116.396551
+              },
+              "kind": "anchor_internal",
+              "day": 1,
+              "typecode": "110101",
+              "category": "110101",
+              "address": "",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "http://store.is.autonavi.com/showpic/10eb01af2fd301e54e50d42ea636ccef",
+              "photo_source": "gaode",
+              "parent_anchor": "景山公园",
+              "sub_anchor_name": "景山公园",
+              "recommend_reason": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": null,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "沿途经过",
+              "route_order": 6,
+              "display_order": 5,
+              "display_slot": "afternoon",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            },
+            {
+              "poi_id": "B0I0PU2VA2",
+              "gaode_poi_id": "B0I0PU2VA2",
+              "name": "老曹菜馆(8号店)",
+              "location": {
+                "lat": 39.925438,
+                "lng": 116.402949
+              },
+              "kind": "meal",
+              "day": 1,
+              "typecode": "050100",
+              "category": "050100",
+              "address": "沙滩后街8-2号",
+              "rating": null,
+              "gaode_rating": null,
+              "avg_cost": null,
+              "photo_url": "https://store.is.autonavi.com/showpic/d5b5de6431784323d7a4b99ce6152882",
+              "photo_source": "gaode",
+              "parent_anchor": "晚餐搜索点-景山公园",
+              "sub_anchor_name": "",
+              "recommend_reason": "",
+              "ugc_review_summary": "",
+              "ugc_source": "",
+              "ugc_source_type": "",
+              "ugc_source_url": "",
+              "ugc_evidence_count": 0,
+              "ugc_match_confidence": 0.0,
+              "ugc_status": "disabled",
+              "ugc_scope": "",
+              "ugc_source_name": "",
+              "ugc_label": "",
+              "visit_duration_min": 60,
+              "is_waypoint": true,
+              "is_passthrough": false,
+              "walk_from_route_min": 0,
+              "route_annotation": "",
+              "route_order": 7,
+              "display_order": 6,
+              "display_slot": "dinner",
+              "is_display_poi": true,
+              "display_label": "",
+              "matched_facets": [],
+              "matched_keywords": [],
+              "required_facet": false,
+              "primary_target": false,
+              "role": "",
+              "facet_source": "",
+              "facet_query": ""
+            }
+          ],
+          "segments": [
+            {
+              "from_poi": "北京饭店",
+              "to_poi": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "day_index": 1,
+              "transport": "地铁/公交",
+              "duration_min": 30.1,
+              "distance_km": 3.59,
+              "polyline": [
+                [
+                  39.905735,
+                  116.412308
+                ],
+                [
+                  39.905708,
+                  116.411598
+                ],
+                [
+                  39.907829,
+                  116.411499
+                ],
+                [
+                  39.90807,
+                  116.412148
+                ],
+                [
+                  39.90807,
+                  116.411415
+                ],
+                [
+                  39.909401,
+                  116.411346
+                ],
+                [
+                  39.903575,
+                  116.411628
+                ],
+                [
+                  39.902049,
+                  116.411107
+                ],
+                [
+                  39.901152,
+                  116.409368
+                ],
+                [
+                  39.900835,
+                  116.403505
+                ],
+                [
+                  39.898449,
+                  116.39798
+                ],
+                [
+                  39.897552,
+                  116.398018
+                ],
+                [
+                  39.897259,
+                  116.394409
+                ],
+                [
+                  39.896339,
+                  116.394547
+                ],
+                [
+                  39.895607,
+                  116.392052
+                ],
+                [
+                  39.894897,
+                  116.392509
+                ],
+                [
+                  39.895287,
+                  116.393478
+                ]
+              ],
+              "period": "morning",
+              "color": "#E67E22",
+              "is_dashed": true,
+              "segment_order": 1,
+              "from_order": 1,
+              "to_order": 2,
+              "from_display_order": 0,
+              "to_display_order": 1,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": [
+                {
+                  "mode": "transit",
+                  "label": "公共交通",
+                  "transport": "地铁/公交",
+                  "distance_km": 3.59,
+                  "duration_min": 30.1
+                }
+              ]
+            },
+            {
+              "from_poi": "亚朵竹居流动图书馆(北京前门大栅栏)",
+              "to_poi": "春风习习杂志图书馆(前门店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 17.5,
+              "distance_km": 1.31,
+              "polyline": [
+                [
+                  39.895286,
+                  116.393477
+                ],
+                [
+                  39.895399,
+                  116.39375
+                ],
+                [
+                  39.895204,
+                  116.393872
+                ],
+                [
+                  39.893694,
+                  116.394028
+                ],
+                [
+                  39.893737,
+                  116.39457
+                ],
+                [
+                  39.894002,
+                  116.394592
+                ],
+                [
+                  39.894049,
+                  116.398251
+                ],
+                [
+                  39.894944,
+                  116.398194
+                ],
+                [
+                  39.895048,
+                  116.399323
+                ],
+                [
+                  39.895035,
+                  116.400065
+                ],
+                [
+                  39.894857,
+                  116.400981
+                ],
+                [
+                  39.894384,
+                  116.402057
+                ],
+                [
+                  39.894188,
+                  116.402318
+                ],
+                [
+                  39.894444,
+                  116.402626
+                ],
+                [
+                  39.894596,
+                  116.402582
+                ],
+                [
+                  39.89474,
+                  116.402643
+                ],
+                [
+                  39.8948,
+                  116.403181
+                ],
+                [
+                  39.894744,
+                  116.403346
+                ],
+                [
+                  39.894831,
+                  116.403711
+                ],
+                [
+                  39.894948,
+                  116.40378
+                ],
+                [
+                  39.894965,
+                  116.404089
+                ],
+                [
+                  39.895143,
+                  116.404084
+                ]
+              ],
+              "period": "morning",
+              "color": "#E67E22",
+              "is_dashed": false,
+              "segment_order": 2,
+              "from_order": 2,
+              "to_order": 3,
+              "from_display_order": 1,
+              "to_display_order": 2,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "春风习习杂志图书馆(前门店)",
+              "to_poi": "峨嵋酒家(鲜鱼口老字号美食街店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 7.1,
+              "distance_km": 0.53,
+              "polyline": [
+                [
+                  39.895143,
+                  116.40408
+                ],
+                [
+                  39.896267,
+                  116.404049
+                ],
+                [
+                  39.896324,
+                  116.402995
+                ],
+                [
+                  39.89651,
+                  116.402639
+                ],
+                [
+                  39.896853,
+                  116.402326
+                ],
+                [
+                  39.896476,
+                  116.401115
+                ],
+                [
+                  39.896337,
+                  116.400898
+                ],
+                [
+                  39.896141,
+                  116.399757
+                ]
+              ],
+              "period": "lunch",
+              "color": "#D35400",
+              "is_dashed": false,
+              "segment_order": 3,
+              "from_order": 3,
+              "to_order": 4,
+              "from_display_order": 2,
+              "to_display_order": 3,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "峨嵋酒家(鲜鱼口老字号美食街店)",
+              "to_poi": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "day_index": 1,
+              "transport": "自驾",
+              "duration_min": 13.8,
+              "distance_km": 2.75,
+              "polyline": [
+                [
+                  39.896139,
+                  116.399755
+                ],
+                [
+                  39.896029,
+                  116.398553
+                ],
+                [
+                  39.896088,
+                  116.397866
+                ],
+                [
+                  39.895777,
+                  116.394669
+                ],
+                [
+                  39.892913,
+                  116.394567
+                ],
+                [
+                  39.890493,
+                  116.395323
+                ],
+                [
+                  39.890718,
+                  116.396219
+                ],
+                [
+                  39.890831,
+                  116.397093
+                ],
+                [
+                  39.890847,
+                  116.398
+                ],
+                [
+                  39.890745,
+                  116.398209
+                ],
+                [
+                  39.890563,
+                  116.39829
+                ],
+                [
+                  39.888481,
+                  116.398402
+                ],
+                [
+                  39.886813,
+                  116.398408
+                ],
+                [
+                  39.886518,
+                  116.39851
+                ],
+                [
+                  39.886481,
+                  116.398993
+                ],
+                [
+                  39.886647,
+                  116.40006
+                ],
+                [
+                  39.887618,
+                  116.40344
+                ],
+                [
+                  39.887924,
+                  116.404893
+                ],
+                [
+                  39.88809,
+                  116.406401
+                ],
+                [
+                  39.888208,
+                  116.410381
+                ],
+                [
+                  39.888412,
+                  116.410365
+                ],
+                [
+                  39.888407,
+                  116.410045
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": true,
+              "segment_order": 4,
+              "from_order": 4,
+              "to_order": 5,
+              "from_display_order": 3,
+              "to_display_order": 4,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "亚朵竹居流动图书馆(北京天坛祈年大街)",
+              "to_poi": "景山公园",
+              "day_index": 1,
+              "transport": "自驾",
+              "duration_min": 21.5,
+              "distance_km": 6.72,
+              "polyline": [
+                [
+                  39.888407,
+                  116.410045
+                ],
+                [
+                  39.888412,
+                  116.410365
+                ],
+                [
+                  39.891019,
+                  116.410226
+                ],
+                [
+                  39.892633,
+                  116.410226
+                ],
+                [
+                  39.892633,
+                  116.410462
+                ],
+                [
+                  39.892741,
+                  116.410617
+                ],
+                [
+                  39.892768,
+                  116.411883
+                ],
+                [
+                  39.892907,
+                  116.411878
+                ],
+                [
+                  39.892623,
+                  116.40477
+                ],
+                [
+                  39.892478,
+                  116.403466
+                ],
+                [
+                  39.891995,
+                  116.401101
+                ],
+                [
+                  39.893781,
+                  116.400913
+                ],
+                [
+                  39.896475,
+                  116.401111
+                ],
+                [
+                  39.897773,
+                  116.400806
+                ],
+                [
+                  39.899698,
+                  116.399749
+                ],
+                [
+                  39.907756,
+                  116.399352
+                ],
+                [
+                  39.907509,
+                  116.391783
+                ],
+                [
+                  39.907874,
+                  116.391885
+                ],
+                [
+                  39.908432,
+                  116.391885
+                ],
+                [
+                  39.914789,
+                  116.391402
+                ],
+                [
+                  39.922047,
+                  116.390978
+                ],
+                [
+                  39.92253,
+                  116.391048
+                ],
+                [
+                  39.922969,
+                  116.391482
+                ],
+                [
+                  39.923114,
+                  116.391922
+                ],
+                [
+                  39.923184,
+                  116.39381
+                ],
+                [
+                  39.923302,
+                  116.393993
+                ],
+                [
+                  39.923398,
+                  116.396756
+                ],
+                [
+                  39.923747,
+                  116.396766
+                ],
+                [
+                  39.924005,
+                  116.398301
+                ],
+                [
+                  39.924133,
+                  116.39874
+                ],
+                [
+                  39.924305,
+                  116.399009
+                ],
+                [
+                  39.924885,
+                  116.399164
+                ],
+                [
+                  39.92526,
+                  116.399003
+                ],
+                [
+                  39.925217,
+                  116.398617
+                ],
+                [
+                  39.925287,
+                  116.397952
+                ],
+                [
+                  39.925528,
+                  116.397394
+                ],
+                [
+                  39.925673,
+                  116.397308
+                ],
+                [
+                  39.925845,
+                  116.397002
+                ],
+                [
+                  39.925831,
+                  116.396566
+                ]
+              ],
+              "period": "afternoon",
+              "color": "#2980B9",
+              "is_dashed": true,
+              "segment_order": 5,
+              "from_order": 5,
+              "to_order": 6,
+              "from_display_order": 4,
+              "to_display_order": 5,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            },
+            {
+              "from_poi": "景山公园",
+              "to_poi": "老曹菜馆(8号店)",
+              "day_index": 1,
+              "transport": "步行",
+              "duration_min": 8.3,
+              "distance_km": 0.62,
+              "polyline": [
+                [
+                  39.925829,
+                  116.396563
+                ],
+                [
+                  39.926085,
+                  116.396662
+                ],
+                [
+                  39.926085,
+                  116.39707
+                ],
+                [
+                  39.92582,
+                  116.398633
+                ],
+                [
+                  39.925816,
+                  116.39954
+                ],
+                [
+                  39.925304,
+                  116.39957
+                ],
+                [
+                  39.92549,
+                  116.402943
+                ]
+              ],
+              "period": "dinner",
+              "color": "#C0392B",
+              "is_dashed": false,
+              "segment_order": 6,
+              "from_order": 6,
+              "to_order": 7,
+              "from_display_order": 5,
+              "to_display_order": 6,
+              "degraded": false,
+              "polyline_source": "",
+              "route_error": "",
+              "transport_options": []
+            }
+          ],
+          "hints": {
+            "亚朵竹居流动图书馆(北京前门大栅栏)": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+            "春风习习杂志图书馆(前门店)": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+            "亚朵竹居流动图书馆(北京天坛祈年大街)": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线",
+            "景山公园": "该区域符合当前主题的地点不足，已仅保留主题相关地点，不再使用普通景点补齐路线"
+          },
+          "waypoint_annotations": {
+            "北京饭店": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "亚朵竹居流动图书馆(北京前门大栅栏)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "春风习习杂志图书馆(前门店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "峨嵋酒家(鲜鱼口老字号美食街店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "亚朵竹居流动图书馆(北京天坛祈年大街)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "景山公园": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            },
+            "老曹菜馆(8号店)": {
+              "is_waypoint": true,
+              "walk_from_route_min": 0,
+              "day": 1
+            }
+          },
+          "route_id": "a7ee7511-06c3-48f8-95c7-f6a50802a5ed",
+          "candidate_points": [],
+          "plan_mode": "exploratory",
+          "total_days": 1,
+          "display_granularity": "day",
+          "planning_state": {
+            "plan_mode": "exploratory",
+            "parsed_intent": {
+              "duration": "a half day",
+              "start_time": "2026-07-15T14:00:00+00:00",
+              "raw_keywords": [
+                "天安门",
+                "故宫",
+                "地道北京菜",
+                "景山公园",
+                "日落"
+              ],
+              "search_keywords": [
+                "北京 图书馆",
+                "北京 阅读空间",
+                "北京 独立书店",
+                "北京 安静咖啡馆",
+                "北京 口袋公园",
+                "北京 小型城市公园",
+                "北京 安静花园",
+                "北京 景山公园 日落 观景"
+              ],
+              "micro_keywords": [
+                "图书馆 安静",
+                "书店 阅读",
+                "咖啡馆 安静",
+                "茶馆 品茶",
+                "公园 散步",
+                "美术馆 展览",
+                "天安门 故宫 周边 漫步",
+                "北京菜 老字号"
+              ],
+              "fixed_pois": [
+                {
+                  "name": "景山公园",
+                  "user_time_budget": "afternoon"
+                }
+              ],
+              "delete_list": [],
+              "food_pref_keywords": [
+                "地道北京菜"
+              ],
+              "meal_search_keywords": [
+                "北京菜 餐厅",
+                "京味菜",
+                "地道北京菜 餐厅"
+              ],
+              "budget_per_capita": null,
+              "transport_hint": "公共交通",
+              "evening_requested": false,
+              "plan_mode": "exploratory",
+              "planned_waypoints": [
+                {
+                  "type": "placeholder",
+                  "name": "天安门和故宫附近",
+                  "search_keyword": "天安门 故宫 附近 可逛 景点",
+                  "category": "area_stroll",
+                  "stay_minutes": 120,
+                  "search_keywords": []
+                },
+                {
+                  "type": "placeholder",
+                  "name": "地道北京菜",
+                  "search_keyword": "天安门 故宫 附近 地道北京菜 午餐",
+                  "category": "meal",
+                  "stay_minutes": 60,
+                  "search_keywords": []
+                },
+                {
+                  "type": "fixed",
+                  "name": "景山公园",
+                  "search_keyword": "景山公园 日落 万春亭",
+                  "category": "scenic",
+                  "stay_minutes": 120,
+                  "search_keywords": []
+                }
+              ]
+            }
+          },
+          "parsed_intent": {
+            "duration": "a half day",
+            "start_time": "2026-07-15T14:00:00+00:00",
+            "raw_keywords": [
+              "天安门",
+              "故宫",
+              "地道北京菜",
+              "景山公园",
+              "日落"
+            ],
+            "search_keywords": [
+              "北京 图书馆",
+              "北京 阅读空间",
+              "北京 独立书店",
+              "北京 安静咖啡馆",
+              "北京 口袋公园",
+              "北京 小型城市公园",
+              "北京 安静花园",
+              "北京 景山公园 日落 观景"
+            ],
+            "micro_keywords": [
+              "图书馆 安静",
+              "书店 阅读",
+              "咖啡馆 安静",
+              "茶馆 品茶",
+              "公园 散步",
+              "美术馆 展览",
+              "天安门 故宫 周边 漫步",
+              "北京菜 老字号"
+            ],
+            "fixed_pois": [
+              {
+                "name": "景山公园",
+                "user_time_budget": "afternoon"
+              }
+            ],
+            "delete_list": [],
+            "food_pref_keywords": [
+              "地道北京菜"
+            ],
+            "meal_search_keywords": [
+              "北京菜 餐厅",
+              "京味菜",
+              "地道北京菜 餐厅"
+            ],
+            "budget_per_capita": null,
+            "transport_hint": "公共交通",
+            "evening_requested": false,
+            "plan_mode": "exploratory",
+            "planned_waypoints": [
+              {
+                "type": "placeholder",
+                "name": "天安门和故宫附近",
+                "search_keyword": "天安门 故宫 附近 可逛 景点",
+                "category": "area_stroll",
+                "stay_minutes": 120,
+                "search_keywords": []
+              },
+              {
+                "type": "placeholder",
+                "name": "地道北京菜",
+                "search_keyword": "天安门 故宫 附近 地道北京菜 午餐",
+                "category": "meal",
+                "stay_minutes": 60,
+                "search_keywords": []
+              },
+              {
+                "type": "fixed",
+                "name": "景山公园",
+                "search_keyword": "景山公园 日落 万春亭",
+                "category": "scenic",
+                "stay_minutes": 120,
+                "search_keywords": []
+              }
+            ]
+          },
+          "route_recommend_reason": "路线围绕天安门、故宫安排，串联亚朵竹居流动图书馆(北京前门大栅栏)到春风习习杂志图书馆(前门店)等已选地点，按当前顺路顺序组织，并兼顾游览与停留节奏。"
+        }
+      },
+      "progress": 100,
+      "stats": {
+        "elapsed_seconds": 125.4,
+        "deepseek_calls": 1,
+        "deepseek_prompt_tokens": 31751,
+        "deepseek_completion_tokens": 4079,
+        "total_tokens": 35830,
+        "gaode_calls": 58,
+        "bocha_calls": 0,
+        "stage_durations_ms": {
+          "step1_intent": 46015,
+          "step2_macro": 15571,
+          "step3_micro": 51966,
+          "exploratory_route": 67537,
+          "reason_generation": 5002,
+          "photo_enrichment": 11862,
+          "output_assembly": 1
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,84 @@
+{
+  "case_id": "L02",
+  "input": "附近找一家餐厅，再找一家奶茶店",
+  "expected": {
+    "plan_mode": "planned",
+    "waypoint_categories": [
+      "meal",
+      "cafe"
+    ],
+    "path": "compact_llm"
+  },
+  "baseline": {
+    "duration_ms": 37197,
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "餐厅",
+        "奶茶"
+      ],
+      "search_keywords": [
+        "餐厅",
+        "奶茶店"
+      ],
+      "waypoints": [
+        {
+          "name": null,
+          "search_keyword": "餐厅",
+          "category": "meal"
+        },
+        {
+          "name": null,
+          "search_keyword": "奶茶店",
+          "category": "cafe"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "waypoint_categories": true
+      }
+    }
+  },
+  "sparse": {
+    "duration_ms": 5897,
+    "path": "compact_llm",
+    "result": {
+      "conversation_mode": "new_plan",
+      "plan_mode": "planned",
+      "duration": "a quarter day",
+      "raw_keywords": [
+        "餐厅",
+        "奶茶店"
+      ],
+      "search_keywords": [
+        "餐厅",
+        "奶茶店"
+      ],
+      "waypoints": [
+        {
+          "name": null,
+          "search_keyword": "餐厅",
+          "category": "meal"
+        },
+        {
+          "name": null,
+          "search_keyword": "奶茶店",
+          "category": "cafe"
+        }
+      ]
+    },
+    "score": {
+      "passed": true,
+      "matched": {
+        "plan_mode": true,
+        "waypoint_categories": true,
+        "path": true
+      }
+    }
+  }
+}

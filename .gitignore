@@ -11,6 +11,11 @@ release/
 dianping_spider-master/
 meituan_competition_backened_527/
 data/
+# The immutable demo-route snapshots are source data, not runtime cache.
+!backend/data/
+backend/data/*
+!backend/data/fixed_routes/
+!backend/data/fixed_routes/*.json
 logs/
 .tmp-*/
 session-*/

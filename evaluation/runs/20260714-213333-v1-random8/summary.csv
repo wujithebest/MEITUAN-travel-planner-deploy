@@ -1,0 +1,9 @@
+﻿case_id,profile,wall_clock_s,verdict,visible_pois,polyline_segments,error
+S03,P-SH-LOCAL,71.2s,REVIEW,1,1,
+S24,P-SH-LOCAL,70.5s,PASS,3,2,
+S10,P-BJ-FOOD,135.6s,FAIL,0,0,当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。
+S02,P-BJ-FOOD,135.8s,FAIL,0,0,当前条件下可组成完整路线的有效地点较少。请补充目的地、调整活动偏好或扩大出行范围后重试。
+S12,P-SH-LOCAL,48.8s,PASS,2,2,
+S06,P-BJ-FOOD,109.2s,PASS,9,9,
+S15,P-BJ-ART,48.3s,FAIL,0,0,外部地图服务暂时不稳定，我已按餐饮偏好冲突为你生成可执行的折中建议；具体店铺可稍后再刷新。
+S21,P-BJ-ART,95.7s,PASS,2,2,
