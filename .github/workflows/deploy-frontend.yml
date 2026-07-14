@@ -12,7 +12,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -54,7 +54,7 @@ jobs:
         run: tcb login --apiKeyId ${{ secrets.TCB_SECRET_ID }} --apiKey ${{ secrets.TCB_SECRET_KEY }}
 
       - name: Deploy to CloudBase Static Hosting
-        timeout-minutes: 15
+        timeout-minutes: 30
         env:
           COS_SDK_KEEPALIVE: false
         run: tcb hosting deploy ./frontend/dist / -e ${{ secrets.TCB_ENV_ID }} --concurrency 5 --retry-count 3 --retry-interval 2000
