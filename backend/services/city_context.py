@@ -72,9 +72,9 @@ async def resolve_departure_city(user_profile: Any, fallback: str = "上海市")
     v27 priority order:
     1. home_location.city / cityname (structured field)
     2. home_location.label → city_from_text extraction
-    3. home_location.lat/lng → gaode_reverse_geocode
-    4. home_location.lat/lng → infer_city_from_coord (coordinate range)
-    5. permanent_city[0] (only if consistent with coordinate inference)
+    3. home_location.lat/lng → infer_city_from_coord (coordinate range)
+    4. home_location.lat/lng → gaode_reverse_geocode when the range is unknown
+    5. permanent_city[0]
     6. safe fallback
 
     When home_location coordinates infer a city that differs from permanent_city,
@@ -100,7 +100,25 @@ async def resolve_departure_city(user_profile: Any, fallback: str = "上海市")
         if label_city:
             return label_city
 
-        # 3. Reverse geocode
+    # 3. Use an unambiguous coordinate range before making a network request.
+    # This avoids repeated reverse-geocoding for known city coordinates.
+    _coord_city = ""
+    if _home_lat is not None and _home_lng is not None:
+        _coord_city = infer_city_from_coord(float(_home_lat), float(_home_lng))
+
+    permanent_city = list(getattr(user_profile, "permanent_city", []) or [])
+    _perm_city = normalize_city_name(permanent_city[0] if permanent_city else "")
+    if _coord_city:
+        if _perm_city and _coord_city != _perm_city:
+            print(
+                f"[CityResolveAudit] source=home_coord_fast_path "
+                f"inferred_city={_coord_city} stale_permanent_city={_perm_city} action=override"
+            )
+        return _coord_city
+
+    # 4. Reverse geocode only when structured data and coordinate inference
+    # cannot determine the city.
+    if isinstance(home_location, dict):
         location = _location_param(home_location)
         if location:
             try:
@@ -118,28 +136,7 @@ async def resolve_departure_city(user_profile: Any, fallback: str = "上海市")
                 if resolved:
                     return resolved
 
-    # 4. Coordinate range inference (v27)
-    _coord_city = ""
-    if _home_lat is not None and _home_lng is not None:
-        _coord_city = infer_city_from_coord(float(_home_lat), float(_home_lng))
-
-    permanent_city = list(getattr(user_profile, "permanent_city", []) or [])
-    _perm_city = normalize_city_name(permanent_city[0] if permanent_city else "")
-
-    # 5. Coordinate inference vs permanent_city conflict resolution (v27)
-    if _coord_city:
-        if _perm_city and _coord_city != _perm_city:
-            print(
-                f"[CityResolveAudit] source=home_coord "
-                f"inferred_city={_coord_city} "
-                f"stale_permanent_city={_perm_city} "
-                f"action=override "
-                f"home_lat={_home_lat} home_lng={_home_lng}"
-            )
-            return _coord_city
-        return _coord_city
-
-    # 6. Permanent city fallback (only when no coordinate available)
+    # 5. Permanent city fallback (only when no coordinate is available)
     if _perm_city:
         return _perm_city
 

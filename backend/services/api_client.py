@@ -1,5 +1,7 @@
 from __future__ import annotations
 import asyncio
+from contextvars import ContextVar
+from copy import deepcopy
 import json
 import math
 import os
@@ -45,6 +47,73 @@ _gaode_rate_lock = None
 _gaode_last_request_at = 0.0
 _gaode_semaphore = None
 GAODE_MAX_CONCURRENCY = int(os.getenv("GAODE_MAX_CONCURRENCY", str(getattr(config, "GAODE_MAX_CONCURRENCY", 3))))
+
+
+# Request-scoped POI search cache.  It is intentionally not process-global:
+# results are only reused while one route request is being planned.
+_SEARCH_CACHE_MISS = object()
+_request_search_cache: ContextVar[dict[tuple, list[dict]] | None] = ContextVar(
+    "request_search_cache", default=None
+)
+
+
+def begin_request_search_cache():
+    """Start a request-local cache and return the reset token."""
+    return _request_search_cache.set({})
+
+
+def end_request_search_cache(token) -> None:
+    """Restore the cache state that existed before the request."""
+    _request_search_cache.reset(token)
+
+
+def _search_cache_text(value: Any) -> str:
+    text = " ".join(str(value or "").split())
+    return text.replace(" ,", ",").replace(", ", ",")
+
+
+def _around_search_cache_key(req: dict) -> tuple:
+    return (
+        "around",
+        _search_cache_text(req.get("location", "")),
+        _search_cache_text(req.get("keywords", "")),
+        int(req.get("radius", 20000) or 20000),
+        _search_cache_text(req.get("types", "")),
+        _search_cache_text(req.get("show_fields", "biz_ext")),
+        int(req.get("offset", 20) or 20),
+        _search_cache_text(req.get("sortrule", "")),
+        _search_cache_text(req.get("fallback_city", "")),
+        bool(req.get("strict_nearby_fallback", False)),
+    )
+
+
+def _text_search_cache_key(
+    keywords: str,
+    city: str = "",
+    show_fields: str = "",
+    city_limit: bool = False,
+) -> tuple:
+    return (
+        "text",
+        _search_cache_text(keywords),
+        _search_cache_text(city),
+        _search_cache_text(show_fields),
+        bool(city_limit),
+    )
+
+
+def _get_cached_search(key: tuple):
+    cache = _request_search_cache.get()
+    if cache is None or key not in cache:
+        return _SEARCH_CACHE_MISS
+    # Callers annotate normalized POIs, so never expose the cached objects.
+    return deepcopy(cache[key])
+
+
+def _set_cached_search(key: tuple, results: list[dict]) -> None:
+    cache = _request_search_cache.get()
+    if cache is not None:
+        cache[key] = deepcopy(results)
 
 
 def _get_gaode_semaphore() -> asyncio.Semaphore:
@@ -656,6 +725,47 @@ async def gaode_around_search(
     fallback_city: str = "",
     strict_nearby_fallback: bool = False,
 ) -> list[dict]:
+    cache_key = _around_search_cache_key({
+        "location": location,
+        "keywords": keywords,
+        "radius": radius,
+        "types": types,
+        "show_fields": show_fields,
+        "offset": offset,
+        "sortrule": sortrule,
+        "fallback_city": fallback_city,
+        "strict_nearby_fallback": strict_nearby_fallback,
+    })
+    cached = _get_cached_search(cache_key)
+    if cached is not _SEARCH_CACHE_MISS:
+        return cached
+
+    results = await _gaode_around_search_uncached(
+        location=location,
+        keywords=keywords,
+        radius=radius,
+        types=types,
+        show_fields=show_fields,
+        offset=offset,
+        sortrule=sortrule,
+        fallback_city=fallback_city,
+        strict_nearby_fallback=strict_nearby_fallback,
+    )
+    _set_cached_search(cache_key, results)
+    return results
+
+
+async def _gaode_around_search_uncached(
+    location: str,
+    keywords: str,
+    radius: int = 20000,
+    types: str = "",
+    show_fields: str = "biz_ext",
+    offset: int = 20,
+    sortrule: str = "",
+    fallback_city: str = "",
+    strict_nearby_fallback: bool = False,
+) -> list[dict]:
     _require_key("高德地图", "GAODE_API_KEY", config.GAODE_API_KEY)
     url = config.GAODE_BASE_URL + config.GAODE_ENDPOINTS["around_search"]
     params = {
@@ -721,6 +831,27 @@ async def gaode_around_search(
 
 
 async def gaode_text_search(
+    keywords: str,
+    city: str = "",
+    show_fields: str = "",
+    city_limit: bool = False,
+) -> list[dict]:
+    cache_key = _text_search_cache_key(keywords, city, show_fields, city_limit)
+    cached = _get_cached_search(cache_key)
+    if cached is not _SEARCH_CACHE_MISS:
+        return cached
+
+    results = await _gaode_text_search_uncached(
+        keywords=keywords,
+        city=city,
+        show_fields=show_fields,
+        city_limit=city_limit,
+    )
+    _set_cached_search(cache_key, results)
+    return results
+
+
+async def _gaode_text_search_uncached(
     keywords: str,
     city: str = "",
     show_fields: str = "",
@@ -1076,6 +1207,23 @@ async def bocha_image_search(query: str, count: int = 5) -> list[str]:
 
 
 async def gaode_around_search_batch(requests: list[dict]) -> list[list[dict]]:
+    if not requests:
+        return []
+
+    # Deduplicate before creating tasks.  This also covers duplicate requests
+    # that arrive concurrently, before the request-scoped cache is populated.
+    unique_requests: list[dict] = []
+    request_indexes: dict[tuple, int] = {}
+    result_indexes: list[int] = []
+    for req in requests:
+        key = _around_search_cache_key(req)
+        index = request_indexes.get(key)
+        if index is None:
+            index = len(unique_requests)
+            request_indexes[key] = index
+            unique_requests.append(req)
+        result_indexes.append(index)
+
     async def _one(req: dict) -> list[dict]:
         try:
             return await gaode_around_search(**req)
@@ -1083,7 +1231,13 @@ async def gaode_around_search_batch(requests: list[dict]) -> list[list[dict]]:
             print(f"[WARN gaode_batch] individual request failed (degraded): {str(exc)[:120]}")
             return []
 
-    return await asyncio.gather(*[_one(req) for req in requests])
+    unique_results = await asyncio.gather(*[_one(req) for req in unique_requests])
+    if len(unique_requests) != len(requests):
+        print(
+            f"[SearchCacheAudit] endpoint=around batch={len(requests)} "
+            f"unique={len(unique_requests)}"
+        )
+    return [deepcopy(unique_results[index]) for index in result_indexes]
 
 
 async def gaode_reverse_geocode(location: str) -> dict | None:

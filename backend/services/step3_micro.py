@@ -36,6 +36,7 @@ from .utils import DependencyMissingError, PipelineLogger, ZeroOutputError, coor
 # 候选 POI 池：由 _fill_segment 收集未选中的有序候选点
 # key: (day_index, sub_anchor_name), value: list[dict]
 _candidate_pool: dict[tuple[int, str], list[dict]] = {}
+MAX_INTERNAL_POIS_PER_ANCHOR = 10
 
 
 def _visit_duration(typecode: str, is_meal: bool = False) -> int:
@@ -502,6 +503,8 @@ async def _supplementary_search_for_sub_anchors(
         idx += n_reqs
         seen = {p.get("id") or p.get("name", "") for p in sub.internal_pois}
         for raw in (r for batch in sub_results for r in batch):
+            if len(sub.internal_pois) >= MAX_INTERNAL_POIS_PER_ANCHOR:
+                break
             pid = raw.get("id") or raw.get("name", "")
             if pid in seen:
                 continue
@@ -523,6 +526,7 @@ async def _supplementary_search_for_sub_anchors(
         # 游览路线里不再有任何餐饮，餐饮归独立搜索流程
 
         # 重新评估降级等级
+        sub.internal_pois = sub.internal_pois[:MAX_INTERNAL_POIS_PER_ANCHOR]
         level, hint = _determine_degradation(sub.internal_pois, sub.capacity)
         if level != sub.degradation_level:
             sub.degradation_level = level
@@ -644,6 +648,7 @@ async def _decompose_anchors(
                     except Exception:
                         pass
 
+                internal_pois = internal_pois[:MAX_INTERNAL_POIS_PER_ANCHOR]
                 level, hint = _determine_degradation(internal_pois, time_budget)
             else:
                 # 点级：直接创建空SubAnchor，由_search_anchor_internals做radius搜索
@@ -762,6 +767,8 @@ async def _decompose_anchors(
                     internal_pois.append(raw)
             except Exception:
                 pass
+
+        internal_pois = internal_pois[:MAX_INTERNAL_POIS_PER_ANCHOR]
 
         # 降级判断
         level, hint = _determine_degradation(internal_pois, "full_day")
@@ -1134,8 +1141,8 @@ async def _search_anchor_internals(
         # 数量不足时放行商场内子店铺作为补充
         if len(internal) < 3 and subordinate_buffer:
             internal.extend(subordinate_buffer)
-        sub.internal_pois = internal
-        level, hint = _determine_degradation(internal, sub.capacity)
+        sub.internal_pois = internal[:MAX_INTERNAL_POIS_PER_ANCHOR]
+        level, hint = _determine_degradation(sub.internal_pois, sub.capacity)
         if level != sub.degradation_level or not sub.degradation_hint:
             sub.degradation_level = level
             if hint and not sub.degradation_hint:
@@ -6955,7 +6962,7 @@ async def run_step3(
         if _is_multi_facet_density:
             _density_target = int(getattr(parsed_intent, "density_target_visible_pois", 0) or 6)
             _internal_limit = max(_internal_limit, _density_target)
-            _internal_limit = min(_internal_limit, 8)
+            _internal_limit = min(_internal_limit, MAX_INTERNAL_POIS_PER_ANCHOR)
             _area_min = max(locals().get("_area_min", 0), 6)
 
             print(
@@ -6967,6 +6974,7 @@ async def run_step3(
         print(f"[RouteDensityAudit] sub={sub.name} anchor_capacity={sub.capacity} "
               f"user_tb={_user_tb} effective_cap={_effective_cap} limit={_internal_limit} "
               f"multi_facet_density={_is_multi_facet_density}")
+        _internal_limit = min(_internal_limit, MAX_INTERNAL_POIS_PER_ANCHOR)
         if len(filtered) > _internal_limit:
             filtered = filtered[:_internal_limit]
             trim_hint = trim_hint or f"已保留最相关的{_internal_limit}个地点"

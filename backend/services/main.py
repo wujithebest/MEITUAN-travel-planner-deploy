@@ -5,6 +5,7 @@ import os
 import sys
 from collections.abc import AsyncGenerator
 
+from .api_client import begin_request_search_cache, end_request_search_cache
 from .data_schema import CompletePlan, MicroPOI, RouteSegment
 from .mock_profile import get_mock_profile
 from .step1_intent import run_step1
@@ -49,6 +50,7 @@ async def _run_pipeline(user_request: str, logger: PipelineLogger, plan_mode: st
     complete_plan: CompletePlan | None = None
     micro_pois: list[MicroPOI] = []
     route_segments: list[RouteSegment] = []
+    search_cache_token = begin_request_search_cache()
     try:
         await emit_status("正在加载用户信息...")
         user_profile = await get_mock_profile()
@@ -66,6 +68,9 @@ async def _run_pipeline(user_request: str, logger: PipelineLogger, plan_mode: st
     except Exception as exc:
         await logger.log_step("pipeline_error", status="error", details={"type": type(exc).__name__, "message": str(exc)})
         await push_output(f"[ROUTE_PLANNER]: 路线规划暂时失败：{exc}")
+
+    finally:
+        end_request_search_cache(search_cache_token)
 
     return {
         "anchors": sum(len(day.anchors) for day in complete_plan.day_plans) if complete_plan else 0,
@@ -101,6 +106,7 @@ async def run_pipeline_structured(
     from .mock_profile import get_mock_profile as _get_mock
 
     logger = PipelineLogger()
+    search_cache_token = begin_request_search_cache()
 
     try:
         user_profile = await _get_mock()
@@ -124,6 +130,8 @@ async def run_pipeline_structured(
         _log = logging.getLogger(__name__)
         _log.error(f"[run_pipeline_structured] 管道执行失败: {exc}")
         return None
+    finally:
+        end_request_search_cache(search_cache_token)
 
 
 async def plan_route(user_request: str, plan_mode: str = "exploratory") -> AsyncGenerator[str, None]:

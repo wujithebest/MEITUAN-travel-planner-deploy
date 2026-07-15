@@ -1703,7 +1703,16 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
     )
 
     # v6: 强餐饮意图时, meal_search_keywords 优先作为锚点搜索关键词
-    search_kws = list(parsed_intent.search_keywords[:keyword_limit])
+    _theme_meal_constraint_only = _is_theme_meal_constraint_only(parsed_intent)
+    if _theme_meal_constraint_only:
+        # Theme anchors must come from theme/activity keywords. Meal terms are
+        # retained on ParsedIntent for the later meal-slot search.
+        search_kws = [
+            keyword for keyword in parsed_intent.search_keywords
+            if not _is_meal_macro_keyword(keyword, parsed_intent)
+        ][:keyword_limit]
+    else:
+        search_kws = list(parsed_intent.search_keywords[:keyword_limit])
 
     # v25: Multi-facet art — force cafe/shop keywords into macro search
     _is_multi_facet_art = getattr(parsed_intent, "activity_facet", "") == "multi_facet_art_photo_cafe_shop"
@@ -1735,12 +1744,12 @@ async def _search_macro_places(parsed_intent: ParsedIntent, central_locations: l
         ]
         search_kws = _ensure_keywords(search_kws, _required_kws, limit=max(keyword_limit, 6))
         print(f"[MultiFacetMacroAudit] search_kws={search_kws} city_hint={_city_hint}")
-    if strong_meal:
+    if strong_meal and not _theme_meal_constraint_only:
         meal_kws = getattr(parsed_intent, "meal_search_keywords", []) or []
         for mk in meal_kws:
             if mk not in search_kws:
                 search_kws.insert(0, mk)  # 优先插入到最前面
-    elif len(search_kws) < 2:
+    elif len(search_kws) < 2 and not _theme_meal_constraint_only:
         meal_kws = getattr(parsed_intent, "meal_search_keywords", []) or []
         for mk in meal_kws:
             if mk not in search_kws:
@@ -2412,6 +2421,27 @@ def _timeline_rank_from_slot(slot: str) -> int:
     return 15
 
 
+_DENSE_THEME_PROFILE_IDS = {
+    "future_tech_ai",
+    "religion_prayer",
+    "urban_renewal_brand_consumption",
+    "family_child_friendly",
+    "film_location_media",
+    "outdoor_nature_sports",
+    "history_heritage",
+}
+
+
+def _is_supported_full_day_theme_route(parsed_intent: ParsedIntent) -> bool:
+    """Return whether the explicit-theme three-anchor policy should apply."""
+    return bool(
+        getattr(parsed_intent, "poi_query_type", "") == "theme_route"
+        and getattr(parsed_intent, "theme_profile", "") in _DENSE_THEME_PROFILE_IDS
+        and float(getattr(parsed_intent, "time_budget", 0.0) or 0.0) >= 1.0
+        and not getattr(parsed_intent, "fixed_pois", None)
+    )
+
+
 def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], parsed_intent: ParsedIntent) -> list[AnchorPlan]:
     # v28: 北海→烤鸭→三里河 — only allow 北海 and 三里河 as macro anchors
     if getattr(parsed_intent, "north_sea_lunch_sanlihe_route", False):
@@ -2426,6 +2456,54 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
     selected: list[AnchorPlan] = list(fixed)
     used = sum(capacity_budget(anchor.final_capacity or anchor.time_capacity) for anchor in fixed)
     target = max(parsed_intent.time_budget, 0.25)
+    _is_supported_theme_full_day = _is_supported_full_day_theme_route(parsed_intent)
+    _theme_anchor_limit = 3
+
+    # Keep the change local to explicit supported-theme full-day cases.
+    # Generic nearby POIs can otherwise outrank valid theme POIs and consume
+    # the whole budget before the route reaches three related waypoints.
+    if _is_supported_theme_full_day:
+        _theme_id = str(getattr(parsed_intent, "theme_profile", "") or "")
+        _theme_profile = OFFICIAL_THEME_PROFILES.get(_theme_id, {})
+        _theme_input_terms: set[str] = set()
+        _theme_input_stop = {"推荐", "一条", "旅游", "路线", "景点", "打卡", "体验", "城市"}
+        for _value in (
+            *(getattr(parsed_intent, "raw_keywords", []) or []),
+            *(getattr(parsed_intent, "search_keywords", []) or []),
+            *(getattr(parsed_intent, "micro_keywords", []) or []),
+            *(getattr(parsed_intent, "micro_poi_keywords", []) or []),
+        ):
+            for _token in re.split(r"[\s,，、/|]+", str(_value or "")):
+                _token = _token.strip()
+                if len(_token) >= 2 and _token not in _theme_input_stop:
+                    _theme_input_terms.add(_token.lower())
+        _themed_candidates: list[tuple[ScoredPlace, float]] = []
+        for _candidate in candidates:
+            _evidence = score_poi_against_theme(_candidate, _theme_profile)
+            _recall_source = getattr(_candidate, "recall_source", "") or ""
+            _recall_score = float(getattr(_candidate, "theme_recall_score", 0.0) or 0.0)
+            _candidate_text = " ".join(
+                str(getattr(_candidate, _field, "") or "")
+                for _field in ("name", "address", "type", "category", "enrichment_text")
+            ).lower()
+            _input_hits = sum(1 for _term in _theme_input_terms if _term in _candidate_text)
+            # Bocha theme recall is already an upstream theme-validation
+            # signal. Keep it usable even when legacy theme-library text has
+            # encoding damage; own-identity matching remains the fallback.
+            if _recall_source == "bocha_theme_recall" or _recall_score > 0 or _evidence.accepted or _input_hits:
+                _theme_score = max(
+                    float(_evidence.score),
+                    _recall_score,
+                    float(min(_input_hits, 3) * 4),
+                    1.0 if _recall_source == "bocha_theme_recall" else 0.0,
+                )
+                _themed_candidates.append((_candidate, _theme_score))
+        _themed_candidates.sort(key=lambda item: (-item[1], -item[0].final_score))
+        candidates = [candidate for candidate, _score in _themed_candidates]
+        print(
+            f"[ThemeAnchorAudit] profile={_theme_id} enabled=true themed_candidates={len(candidates)} "
+            f"names={[candidate.name for candidate in candidates[:6]]}"
+        )
 
     # v28: Multi-facet art density — ensure budget >= 1.0 + density defaults.
     _is_multi_facet_art_density_v28 = (
@@ -2468,6 +2546,8 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
     excluded_all = [n.lower() for n in parsed_intent.delete_list]
     excluded_all += [a.lower() for a in (getattr(parsed_intent, 'excluded_areas', []) or [])]
     for candidate in _diversify_anime_candidates(candidates, parsed_intent):
+        if _is_supported_theme_full_day and len(selected) - len(fixed) >= _theme_anchor_limit:
+            break
         if candidate.name in seen:
             continue
         # 排除列表过滤
@@ -2499,6 +2579,10 @@ def _select_anchors(fixed: list[AnchorPlan], candidates: list[ScoredPlace], pars
             parsed_intent,
             has_fixed_anchors=bool(fixed),
         )
+        if _is_supported_theme_full_day:
+            # Three theme-valid short stops fit the existing one-day activity
+            # budget; do not globally relax capacity rules for other routes.
+            selected_capacity = "quarter_day"
         budget = capacity_budget(selected_capacity)
         if used + budget > target + 0.001 and selected:
             print(
@@ -2999,6 +3083,37 @@ def _has_strong_meal_intent(parsed_intent: ParsedIntent) -> bool:
         "韩料", "泰餐", "本帮菜", "粤菜", "川菜", "湘菜", "快餐", "小吃",
     ]
     return any(token in lowered_text for token in strong_tokens)
+
+
+_MEAL_THEME_PROFILES = {
+    "food_cuisine",
+    "coffee_tea_bakery",
+    "nightlife_bar_music",
+}
+
+
+def _is_theme_meal_constraint_only(parsed_intent: ParsedIntent) -> bool:
+    """Return true when meal is subordinate to an already-resolved theme route."""
+    return bool(
+        getattr(parsed_intent, "poi_query_type", "") == "theme_route"
+        and getattr(parsed_intent, "theme_profile", "")
+        and getattr(parsed_intent, "theme_profile", "") not in _MEAL_THEME_PROFILES
+        and not getattr(parsed_intent, "primary_query", "")
+        and getattr(parsed_intent, "explicit_meal_intent", False)
+    )
+
+
+def _is_meal_macro_keyword(keyword: str, parsed_intent: ParsedIntent) -> bool:
+    tokens = {
+        "\u9910\u5385", "\u996d\u9986", "\u996d\u5e97", "\u7f8e\u98df", "\u5403\u996d",
+        "\u5348\u9910", "\u5348\u996d", "\u665a\u9910", "\u665a\u996d",
+        "\u5ddd\u83dc", "\u56db\u5ddd\u83dc", "\u706b\u9505", "\u70e7\u70e4",
+        "\u65e5\u6599", "\u5bff\u53f8", "\u7ca4\u83dc", "\u6e58\u83dc", "\u4e1c\u5317\u83dc",
+    }
+    tokens.update(str(item).strip() for item in (getattr(parsed_intent, "meal_search_keywords", []) or []))
+    tokens.update(str(item).strip() for item in (getattr(parsed_intent, "food_pref_keywords", []) or []))
+    body = str(keyword or "").lower()
+    return any(token and token.lower() in body for token in tokens)
 
 
 NON_MEAL_EXPLORATION_TERMS = [

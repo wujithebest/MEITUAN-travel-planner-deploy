@@ -5,7 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from services.data_schema import ParsedIntent, PlannedWaypoint
-from services.step1_intent import _apply_explicit_execution_contract, _ensure_explicit_visible_facet_coverage
+from services.step1_intent import (
+    _apply_explicit_execution_contract,
+    _ensure_explicit_visible_facet_coverage,
+    _normalize_explicit_contract_waypoint,
+)
 from services.step3_planned import _fixed_poi_name_matches, _planned_semantic_score
 
 
@@ -115,6 +119,34 @@ def test_explicit_contract_uses_a_real_restaurant_for_generic_dinner():
     meal = next(item for item in intent.planned_waypoints if item.category == "meal")
     assert meal.search_keyword == "餐厅"
     assert "餐厅" in meal.required_terms
+
+
+def test_meal_taste_preference_does_not_become_restaurant_name_requirement():
+    meal = _normalize_explicit_contract_waypoint(
+        _meal_waypoint("清淡"),
+        "先找一家清淡的餐厅，吃完去公园散步。",
+        ["清淡"],
+    )
+
+    assert meal.search_keyword == "餐厅"
+    assert "清淡" not in meal.required_terms
+    assert _planned_semantic_score(
+        meal,
+        {"name": "家常菜餐厅", "typecode": "050100", "location": {"lat": 39.9, "lng": 116.4}},
+        {"lat": 39.9, "lng": 116.4},
+    ) is not None
+
+
+def test_meal_preference_and_cuisine_keep_cuisine_as_search_constraint():
+    meal = _normalize_explicit_contract_waypoint(
+        _meal_waypoint("不吃辣"),
+        "先找一家不吃辣但想吃川菜的餐厅，吃完去公园散步。",
+        ["不吃辣", "川菜"],
+    )
+
+    assert meal.search_keyword == "川菜"
+    assert "川菜" in meal.required_terms
+    assert "不吃辣" not in meal.required_terms
 
 
 def test_explicit_contract_derives_photo_then_cafe_generically():

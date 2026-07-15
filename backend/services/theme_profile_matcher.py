@@ -57,6 +57,24 @@ class ThemeDecision:
     candidates: tuple[ThemeCandidate, ...]
 
 
+EXPLICIT_THEME_ALIASES: tuple[tuple[str, str], ...] = (
+    ("宗教风", "religion_prayer"),
+    ("工业风", "urban_renewal_brand_consumption"),
+    ("亲子风", "family_child_friendly"),
+    ("影视风", "film_location_media"),
+    ("自然风", "outdoor_nature_sports"),
+    ("历史风", "history_heritage"),
+)
+
+
+def _explicit_theme_profile(raw_text: str) -> str | None:
+    text = str(raw_text or "")
+    for phrase, profile_id in EXPLICIT_THEME_ALIASES:
+        if phrase in text:
+            return profile_id
+    return None
+
+
 @dataclass(frozen=True)
 class ThemePoiEvidence:
     score: float
@@ -484,6 +502,19 @@ def resolve_theme_profile(
     auxiliary_text: str = "",
 ) -> ThemeDecision:
     """完整主题决策：强词锁定 + 高分 + LLM辅助 + 无主题回退。"""
+    explicit_profile = _explicit_theme_profile(raw_text)
+    if explicit_profile and explicit_profile in get_all_theme_profiles():
+        profile = get_all_theme_profiles()[explicit_profile]
+        return ThemeDecision(
+            profile_id=explicit_profile,
+            label=profile.get("label", explicit_profile),
+            confidence=1.0,
+            source="deterministic_alias",
+            reason="explicit_style_phrase",
+            llm_profile=llm_profile,
+            candidates=(),
+        )
+
     candidates = rank_theme_profiles(raw_text, auxiliary_text)
     top1 = candidates[0] if candidates else None
     top2 = candidates[1] if len(candidates) > 1 else None

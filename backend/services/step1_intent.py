@@ -1558,6 +1558,63 @@ def _normalize_meal_search_keywords(parsed: ParsedIntent, user_request: str) -> 
     return _append_unique([], keywords, limit=6)
 
 
+_MEAL_THEME_PROFILES = {
+    "food_cuisine",
+    "coffee_tea_bakery",
+    "nightlife_bar_music",
+}
+
+
+def _normalize_mixed_theme_route_intent(
+    parsed: ParsedIntent,
+    user_request: str,
+) -> ParsedIntent:
+    """Keep an explicit route theme primary when meal is only a constraint."""
+    profile_id = str(getattr(parsed, "theme_profile", "") or "")
+    if not profile_id or profile_id in _MEAL_THEME_PROFILES:
+        return parsed
+
+    raw = _extract_latest_user_input(user_request) or user_request
+    route_signals = (
+        "\u8def\u7ebf",       # 路线
+        "\u4e00\u65e5\u6e38", # 一日游
+        "\u65c5\u6e38\u8def\u7ebf", # 旅游路线
+        "\u63a8\u8350\u4e00\u6761", # 推荐一条
+        "\u63a8\u8350\u4e00\u4e2a", # 推荐一个
+    )
+    if not any(signal in raw for signal in route_signals):
+        return parsed
+
+    if getattr(parsed, "poi_query_type", "") not in ("poi_category", "named_poi"):
+        return parsed
+    if not bool(getattr(parsed, "explicit_meal_intent", False)):
+        return parsed
+    primary_query = str(getattr(parsed, "primary_query", "") or "")
+    primary_is_meal = (
+        getattr(parsed, "category_id", "") == "restaurant"
+        or any(token in primary_query for token in STRONG_MEAL_TOKENS)
+    )
+    if not primary_is_meal:
+        return parsed
+    if not (getattr(parsed, "meal_constraints", None) or
+            getattr(parsed, "food_pref_keywords", None) or
+            getattr(parsed, "meal_search_keywords", None)):
+        return parsed
+
+    # A restaurant category is subordinate to the explicit theme route.
+    parsed.poi_query_type = "theme_route"
+    parsed.primary_query = ""
+    parsed.category_id = None
+    parsed.allowed_typecode_prefixes = []
+    parsed.must_recall_target = False
+    parsed.theme_required = True
+    print(
+        f"[MixedThemeMealAudit] theme={profile_id} promoted=true "
+        "primary_meal_demoted=true constraints_preserved=true"
+    )
+    return parsed
+
+
 def _budget_from_request(user_request: str) -> float | None:
     patterns = [
         r"(?:人均(?:消费|预算)?|每人|每位|餐厅人均).{0,12}?(\d+(?:\.\d+)?)\s*(?:元|块|rmb|RMB)?(?:以内|以下|左右)?",
@@ -4461,7 +4518,7 @@ def _detect_poi_category_query(user_request: str) -> dict | None:
                     f"[DEBUG step1] style preference '{primary_query}' + meal intent → restaurant, "
                     f"prefs={result.get('preference_terms')}"
                 )
-        else:
+        elif not best_cat_id:
             # v20: If target looks like a theme/style expression (ends with 路线, or is a style word),
             # return None so it falls through to theme_route.  Don't create a broken poi_category state.
             _is_theme_expr = (
@@ -5351,6 +5408,26 @@ _GENERIC_MEAL_TERMS = {
     "晚饭", "晚餐", "午饭", "午餐", "中饭", "中餐", "简餐", "用餐",
 }
 
+# These are dining preferences, not POI identities.  They should remain in
+# ParsedIntent.food_pref_keywords for ranking/compatibility, but must not be
+# put into PlannedWaypoint.required_terms because restaurant names rarely
+# contain words such as "清淡" or "不吃辣".
+_MEAL_PREFERENCE_TERMS = {
+    "清淡", "清淡点", "清淡一点", "少油", "少盐", "低油", "低盐", "低脂",
+    "不吃辣", "不吃辣椒", "不能吃辣", "不辣", "少辣", "微辣",
+    "素食", "素菜", "纯素", "清真",
+}
+
+
+def _is_meal_preference_term(value: str) -> bool:
+    normalized = re.sub(r"\s+", "", str(value or "").strip())
+    return normalized in _MEAL_PREFERENCE_TERMS
+
+
+def _has_meal_preference_request(text: str) -> bool:
+    normalized = re.sub(r"\s+", "", str(text or "").lower())
+    return any(term in normalized for term in _MEAL_PREFERENCE_TERMS)
+
 
 def _food_style_match_terms(food: str) -> list[str]:
     """Return user-visible cuisine aliases accepted as the same food style."""
@@ -5449,7 +5526,12 @@ def _derive_ordered_action_waypoints(
         + [str(item) for item in (getattr(parsed, "meal_search_keywords", []) or []) if str(item)]
     ))
     explicit_food = next(
-        (term for term in food_terms if term in text and term not in _GENERIC_MEAL_TERMS),
+        (
+            term for term in food_terms
+            if term in text
+            and term not in _GENERIC_MEAL_TERMS
+            and not _is_meal_preference_term(term)
+        ),
         "",
     )
     meal_tokens = ("吃", "饭馆", "饭店", "餐厅", "晚饭", "午饭", "晚餐", "午餐")
@@ -5564,6 +5646,7 @@ def _normalize_explicit_contract_waypoint(
                 term for term in food_terms
                 if term and term.lower() in request_lower
                 and term not in _GENERIC_MEAL_TERMS
+                and not _is_meal_preference_term(term)
             ),
             "",
         )
@@ -5577,7 +5660,11 @@ def _normalize_explicit_contract_waypoint(
             ]))
             wp.required_terms = aliases
             wp.must_match_terms = True
-        elif str(wp.name or wp.search_keyword or "").strip() in _GENERIC_MEAL_TERMS:
+        elif (
+            _has_meal_preference_request(user_request)
+            or _is_meal_preference_term(str(wp.name or wp.search_keyword or "").strip())
+            or str(wp.name or wp.search_keyword or "").strip() in _GENERIC_MEAL_TERMS
+        ):
             # Time labels such as "晚饭" describe when to eat, not what a POI
             # is called.  Search the restaurant category rather than requiring
             # a literal word that normal restaurant names rarely contain.
@@ -5699,7 +5786,13 @@ def _extract_afternoon_dinner_river_night_route(text: str):
     ]
 
 
-async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: UserProfile, current_time: dt.datetime) -> ParsedIntent:
+async def _postprocess(
+    parsed: ParsedIntent,
+    user_request: str,
+    user_profile: UserProfile,
+    current_time: dt.datetime,
+    resolved_city: str | None = None,
+) -> ParsedIntent:
     # v21: Strip structured hints from deterministic parsers — prevent context pollution.
     # Structured hints like <structured_hints>保持theme=夜景</structured_hints> are for LLM only.
     _clean_user_request = re.sub(
@@ -5731,7 +5824,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
             f"latest_user_input={_nl_post[:120]}"
         )
 
-    city = await resolve_departure_city(user_profile)
+    city = resolved_city or await resolve_departure_city(user_profile)
     apply_resolved_city(user_profile, city)
     parsed.resolved_city = city
     # v21: Resolve landmark aliases in fixed_pois
@@ -6773,7 +6866,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         print(f"[DEBUG casual_rest] detected: facet=casual_rest_stop keywords={parsed.search_keywords[:5]}")
 
     # v21: Cyberpunk / future-tech style detection
-    _cyberpunk_terms = ["赛博朋克", "未来感", "科技感", "霓虹夜景", "数字艺术",
+    _cyberpunk_terms = ["赛博朋克", "未来感", "科技感", "科技风", "霓虹夜景", "数字艺术",
                         "科幻感", "赛博", "工业风艺术", "沉浸式光影"]
     _is_cyberpunk = any(t in user_request for t in _cyberpunk_terms)
     if _is_cyberpunk:
@@ -7674,6 +7767,20 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
         getattr(parsed, "plan_mode", "exploratory") == "planned"
         and bool(getattr(parsed, "planned_waypoints", []))
     )
+    # Theme-route search keywords describe recall scenes, not explicit
+    # destinations.  When the user did not provide a named/fixed POI or an
+    # ordered waypoint, geocoding each macro keyword here only adds serial
+    # network latency and can manufacture false destinations.
+    if (
+        not parsed.fixed_pois
+        and not getattr(parsed, "planned_waypoints", [])
+        and getattr(parsed, "poi_query_type", "") == "theme_route"
+    ):
+        skip_destination_detection = True
+        print(
+            "[Step1DestinationDetectAudit] skipped=true "
+            "reason=theme_route_without_explicit_poi"
+        )
     if not parsed.fixed_pois and not skip_destination_detection:
         dest_pois = await _detect_destination_from_keywords(
             parsed.search_keywords, parsed.original_location, city
@@ -7845,6 +7952,7 @@ async def _postprocess(parsed: ParsedIntent, user_request: str, user_profile: Us
     parsed.meal_needs = _merge_meal_needs(parsed.meal_needs, explicit_meals)
     parsed.meal_needs = _merge_constraint_meals(parsed.meal_needs, parsed.meal_constraints)
     parsed.meal_search_keywords = _normalize_meal_search_keywords(parsed, user_request)
+    parsed = _normalize_mixed_theme_route_intent(parsed, user_request)
     if parsed.transport_hint is None:
         parsed.transport_hint = "公共交通"
     if not parsed.crowd_type:
@@ -8962,7 +9070,13 @@ async def run_step1(
     early_explicit_timeline = bool(early_timed_waypoints)
 
     logger.start_step("step_1_2_postprocess")
-    parsed = await _postprocess(parsed, user_request, user_profile, current_time)
+    parsed = await _postprocess(
+        parsed,
+        user_request,
+        user_profile,
+        current_time,
+        resolved_city=authoritative_city,
+    )
 
     # v28: Override parsed intent with explicit timeline after _postprocess.
     # Prevents NearbyFoodStroll / half_day / proximity from destroying the timeline.
