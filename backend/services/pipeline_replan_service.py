@@ -89,6 +89,41 @@ def _normalize_new_poi(new_poi: dict[str, Any], base: dict[str, Any] | None = No
     }
 
 
+def _is_curated_fixed_route_candidate(route_id: str | None, new_poi: dict[str, Any]) -> bool:
+    """Recognize restored candidates even when the frontend omits metadata."""
+    if route_id != "fixed-literary-photo-cafe-hengji-v1":
+        return False
+    if str(new_poi.get("candidate_source") or "") == "fixed_route_restored":
+        return True
+
+    candidate_id = str(
+        new_poi.get("poi_id") or new_poi.get("gaode_poi_id") or ""
+    ).strip()
+    candidate_name = str(new_poi.get("name") or "").strip()
+    if not candidate_id and not candidate_name:
+        return False
+
+    try:
+        from services.fixed_route_service import get_fixed_route
+
+        snapshot = get_fixed_route("literary-photo-cafe") or {}
+        candidates = (snapshot.get("route_data") or {}).get("candidate_points") or []
+    except Exception as exc:  # pragma: no cover - defensive fallback for mutations
+        print(f"[PipelineMutationAudit] fixed candidate lookup unavailable: {exc}")
+        return False
+
+    for candidate in candidates:
+        known_id = str(
+            candidate.get("poi_id") or candidate.get("gaode_poi_id") or ""
+        ).strip()
+        known_name = str(candidate.get("name") or "").strip()
+        if candidate_id and known_id and candidate_id == known_id:
+            return True
+        if candidate_name and known_name and candidate_name == known_name:
+            return True
+    return False
+
+
 def _normalize_polyline_order(
     raw: list[list[float]], loc_from: dict[str, float], loc_to: dict[str, float]
 ) -> list[list[float]]:
@@ -122,7 +157,13 @@ def _latlng_distance_m(point: list[float], location: dict[str, float]) -> float:
     return 6371000 * 2 * math.asin(math.sqrt(h))
 
 
-def _insert_add_point(points: list[dict[str, Any]], new_point: dict[str, Any], op: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def _insert_add_point(
+    points: list[dict[str, Any]],
+    new_point: dict[str, Any],
+    op: dict[str, Any] | None = None,
+    *,
+    allow_curated_candidate_overlap: bool = False,
+) -> list[dict[str, Any]]:
     if not points:
         return [new_point]
 
@@ -140,9 +181,24 @@ def _insert_add_point(points: list[dict[str, Any]], new_point: dict[str, Any], o
             return points
         if new_loc:
             existing_loc = _normalize_loc_safe(pt.get("location"))
-            if existing_loc and abs(new_loc["lat"] - existing_loc["lat"]) < 0.0001 and abs(new_loc["lng"] - existing_loc["lng"]) < 0.0001:
+            if (
+                existing_loc
+                and abs(new_loc["lat"] - existing_loc["lat"]) < 0.0001
+                and abs(new_loc["lng"] - existing_loc["lng"]) < 0.0001
+                and not allow_curated_candidate_overlap
+            ):
                 print(f"[PipelineMutationAudit] duplicate location ({new_loc['lng']},{new_loc['lat']}) — skipping add")
                 return points
+            if (
+                existing_loc
+                and abs(new_loc["lat"] - existing_loc["lat"]) < 0.0001
+                and abs(new_loc["lng"] - existing_loc["lng"]) < 0.0001
+                and allow_curated_candidate_overlap
+            ):
+                print(
+                    f"[PipelineMutationAudit] curated candidate overlap allowed "
+                    f"({new_loc['lng']},{new_loc['lat']})"
+                )
 
     target_day = int(new_point.get("day") or 1)
     insert_idx = len(points)
@@ -235,7 +291,13 @@ async def apply_pipeline_replan(
         elif action == "add":
             new_poi = op.get("poi") or {}
             prev_len = len(next_points)
-            next_points = _insert_add_point(next_points, _normalize_new_poi(new_poi), op)
+            allow_curated_candidate_overlap = _is_curated_fixed_route_candidate(route_id, new_poi)
+            next_points = _insert_add_point(
+                next_points,
+                _normalize_new_poi(new_poi),
+                op,
+                allow_curated_candidate_overlap=allow_curated_candidate_overlap,
+            )
             if len(next_points) > prev_len:
                 # Mark the inserted index
                 for i, p in enumerate(next_points):
