@@ -34,8 +34,8 @@ jobs:
         working-directory: frontend
         run: |
           cat > .env.production <<EOF
-          VITE_API_BASE_URL=https://meituan-travel-planner-281308-9-1320524552.sh.run.tcloudbase.com
-          VITE_API_ROUTE_PATH=/api/route/generate
+          VITE_API_BASE_URL=https://meituan-travel-planner-281308-9-1320524552.sh.run.tcloudbase.com/api
+          VITE_API_ROUTE_PATH=/route/generate
           VITE_USE_MOCK=false
           VITE_GAODE_JSAPI_KEY=${{ secrets.VITE_GAODE_JSAPI_KEY }}
           EOF
