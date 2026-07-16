@@ -791,7 +791,7 @@ const PlannerPage: React.FC = () => {
       const norm = normalizePoiPayload(cand);
       if (!norm) { message.error('地点坐标无效，无法替换'); return; }
       executePoiMutation({
-        action: 'replace', poiId: action.poiId,
+        action: 'replace', poiId: action.routePoiId || action.poiId,
         candidate: norm,
       }).catch((err: any) => message.error('替换失败: ' + err.message));
     } else if (action.type === 'delete') {
